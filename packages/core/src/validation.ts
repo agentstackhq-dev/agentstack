@@ -25,29 +25,27 @@ export function validateLocalProject(input: LocalValidationInput): Result<LocalV
 }
 
 function validateTelemetryPolicy(manifest: AgentstackManifest): Diagnostic[] {
+  const diagnostics: Diagnostic[] = [];
+
   if (!manifest.telemetry.enabled) {
-    return [
-      {
-        severity: "warn",
-        code: "telemetry.disabled",
-        message: "Telemetry is disabled, so journey inspection will not be available.",
-        fix: "Set telemetry.enabled to true in agentstack.config.ts."
-      }
-    ];
+    diagnostics.push({
+      severity: "warn",
+      code: "telemetry.disabled",
+      message: "Telemetry is disabled, so journey inspection will not be available.",
+      fix: "Set telemetry.enabled to true in agentstack.config.ts."
+    });
   }
 
   if (!manifest.telemetry.redaction.forbidRawSecrets) {
-    return [
-      {
-        severity: "fail",
-        code: "telemetry.redaction.disabled",
-        path: "telemetry.redaction.forbidRawSecrets",
-        message: "Telemetry redaction must forbid raw secrets.",
-        fix: "Set telemetry.redaction.forbidRawSecrets to true.",
-        blocks: ["validate", "validate --cloud", "deploy"]
-      }
-    ];
+    diagnostics.push({
+      severity: "fail",
+      code: "telemetry.redaction.disabled",
+      path: "telemetry.redaction.forbidRawSecrets",
+      message: "Telemetry redaction must forbid raw secrets.",
+      fix: "Set telemetry.redaction.forbidRawSecrets to true.",
+      blocks: ["validate", "validate --cloud", "deploy"]
+    });
   }
 
-  return [];
+  return diagnostics;
 }

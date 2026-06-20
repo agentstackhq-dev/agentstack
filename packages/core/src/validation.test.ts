@@ -26,4 +26,24 @@ describe("local validation", () => {
       })
     ]);
   });
+
+  it("reports telemetry disabled and redaction disabled diagnostics together", () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.telemetry.enabled = false;
+    manifest.telemetry.redaction.forbidRawSecrets = false;
+
+    const result = validateLocalProject({ manifest, envValues: {} });
+
+    expect(result.ok).toBe(false);
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({
+        severity: "warn",
+        code: "telemetry.disabled"
+      }),
+      expect.objectContaining({
+        severity: "fail",
+        code: "telemetry.redaction.disabled"
+      })
+    ]);
+  });
 });
