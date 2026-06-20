@@ -1,5 +1,6 @@
 import { mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { execFile } from "node:child_process";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -9,18 +10,14 @@ import { describe, expect, test } from "vitest";
 
 import { generateProject } from "./generate.js";
 
+const require = createRequire(import.meta.url);
 const sourceDir = dirname(fileURLToPath(import.meta.url));
 const packageRoot = resolve(sourceDir, "..");
 const repoRoot = resolve(packageRoot, "../..");
 const packageManifestPath = join(packageRoot, "package.json");
 const rootTemplateDir = join(repoRoot, "templates/b2b-saas");
 const packageTemplateDir = join(packageRoot, "templates/b2b-saas");
-const templateTokens = [
-  "__APP_SLUG__",
-  "__APP_NAME__",
-  "__AGENTSTACK_REPO_ROOT__",
-  "__AGENTSTACK_TSX_CLI__"
-];
+const templateTokens = ["__APP_SLUG__", "__APP_NAME__"];
 const execFileAsync = promisify(execFile);
 
 describe("generateProject", () => {
@@ -51,13 +48,13 @@ describe("generateProject", () => {
     try {
       await generateProject({ name: "acme-crm", targetDir });
 
-      await expect(runPackageScript(targetDir, "validate")).resolves.toContain(
+      await expect(runPackageScript(targetDir, "validate", sourceCliEnv())).resolves.toContain(
         "PASS validate"
       );
-      await expect(runPackageScript(targetDir, "validate:cloud")).rejects.toMatchObject({
+      await expect(runPackageScript(targetDir, "validate:cloud", sourceCliEnv())).rejects.toMatchObject({
         stdout: expect.stringContaining("FAIL cloud.service.missing")
       });
-      await expect(runPackageScript(targetDir, "init:cloud")).resolves.toContain(
+      await expect(runPackageScript(targetDir, "init:cloud", sourceCliEnv())).resolves.toContain(
         "APPLIED preview"
       );
       const cloudState = JSON.parse(
@@ -71,7 +68,7 @@ describe("generateProject", () => {
           expect.objectContaining({ environment: "preview", service: "eas", linked: true })
         ])
       );
-      await expect(runPackageScript(targetDir, "validate:cloud")).resolves.toBeDefined();
+      await expect(runPackageScript(targetDir, "validate:cloud", sourceCliEnv())).resolves.toBeDefined();
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }
@@ -89,9 +86,30 @@ describe("generateProject", () => {
       delete manifest.env.custom;
       await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 
-      await expect(runPackageScript(targetDir, "validate")).rejects.toMatchObject({
+      await expect(runPackageScript(targetDir, "validate", sourceCliEnv())).rejects.toMatchObject({
         stdout: expect.stringContaining("FAIL manifest.invalid")
       });
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  test("does not embed local source paths when generating outside the repo", async () => {
+    const tempRoot = await mkdtemp(join(tmpdir(), "agentstack-outside-"));
+    const targetDir = join(tempRoot, "acme-crm");
+
+    try {
+      await generateProject({ name: "acme-crm", targetDir });
+
+      const files = await listFiles(targetDir);
+      const generatedContent = await Promise.all(
+        files.map((file) => readFile(join(targetDir, file), "utf8"))
+      );
+
+      for (const content of generatedContent) {
+        expect(content).not.toContain("<user-home>/");
+        expect(content).not.toContain("__AGENTSTACK_");
+      }
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }
@@ -164,8 +182,20 @@ async function expectNoTemplateTokens(directory: string): Promise<void> {
   );
 }
 
-async function runPackageScript(cwd: string, script: string): Promise<string> {
-  const { stdout, stderr } = await execFileAsync("pnpm", ["run", script], { cwd });
+function sourceCliEnv(): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    AGENTSTACK_CLI_BIN: join(repoRoot, "packages/cli/src/bin.ts"),
+    AGENTSTACK_TSX_BIN: require.resolve("tsx/cli")
+  };
+}
+
+async function runPackageScript(
+  cwd: string,
+  script: string,
+  env: NodeJS.ProcessEnv = process.env
+): Promise<string> {
+  const { stdout, stderr } = await execFileAsync("pnpm", ["run", script], { cwd, env });
   return `${stdout}${stderr}`;
 }
 

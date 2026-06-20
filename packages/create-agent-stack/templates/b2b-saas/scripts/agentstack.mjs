@@ -1,24 +1,44 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { delimiter } from "node:path";
 
-const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const repoRoot = resolve(projectRoot, "__AGENTSTACK_REPO_ROOT__");
-const cliPath = resolve(repoRoot, "packages/cli/src/bin.ts");
-const tsxCli = resolve(projectRoot, "__AGENTSTACK_TSX_CLI__");
+const args = process.argv.slice(2);
+const cliBin = process.env.AGENTSTACK_CLI_BIN;
+const tsxBin = process.env.AGENTSTACK_TSX_BIN ?? "tsx";
+const localBinDir = new URL("../node_modules/.bin", import.meta.url).pathname;
+const env = {
+  ...process.env,
+  PATH: [localBinDir, process.env.PATH].filter(Boolean).join(delimiter)
+};
 
-const result = spawnSync(
-  process.execPath,
-  [tsxCli, cliPath, ...process.argv.slice(2)],
-  { cwd: projectRoot, stdio: "inherit" }
-);
-
-if (result.error) {
-  process.stderr.write(`${result.error.message}\n`);
-  process.exitCode = 1;
-} else if (result.signal) {
-  process.kill(process.pid, result.signal);
+if (!cliBin) {
+  run("agentstack", args, env);
+} else if (cliBin.endsWith(".ts")) {
+  run(tsxBin, [cliBin, ...args], env);
 } else {
-  process.exitCode = result.status ?? 1;
+  run(cliBin, args, env);
+}
+
+function run(command, commandArgs, commandEnv) {
+  const result = spawnSync(command, commandArgs, { env: commandEnv, stdio: "inherit" });
+
+  if (result.error) {
+    if (result.error.code === "ENOENT") {
+      process.stderr.write(
+        [
+          "FAIL cli.unavailable",
+          "No agentstack CLI is available for this generated project.",
+          "Install an agentstack CLI dependency or set AGENTSTACK_CLI_BIN to a local prototype CLI entrypoint.",
+          "For source smoke, run AGENTSTACK_CLI_BIN=../../packages/cli/src/bin.ts AGENTSTACK_TSX_BIN=../../node_modules/.bin/tsx pnpm run validate."
+        ].join("\n") + "\n"
+      );
+    } else {
+      process.stderr.write(`${result.error.message}\n`);
+    }
+    process.exitCode = 1;
+  } else if (result.signal) {
+    process.kill(process.pid, result.signal);
+  } else {
+    process.exitCode = result.status ?? 1;
+  }
 }

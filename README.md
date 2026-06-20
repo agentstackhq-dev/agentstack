@@ -20,6 +20,8 @@ mkdir -p tmp
 cd tmp
 ../node_modules/.bin/tsx ../packages/create-agent-stack/src/bin.ts acme-crm
 cd acme-crm
+export AGENTSTACK_CLI_BIN=../../packages/cli/src/bin.ts
+export AGENTSTACK_TSX_BIN=../../node_modules/.bin/tsx
 pnpm run validate
 pnpm run init:cloud
 pnpm run validate:cloud
@@ -37,6 +39,6 @@ APPLIED preview
 ## Prototype Commands
 
 - `create-agent-stack <app-name>` copies the B2B SaaS template into a new project directory.
-- `pnpm run validate` checks the local Agentstack manifest and command contract in a generated project.
-- `pnpm run init:cloud` applies development and preview state through the generated local-cloud prototype.
-- `pnpm run validate:cloud` compares the project manifest with the generated local-cloud state.
+- `pnpm run validate` checks the local Agentstack manifest and command contract through an installed `agentstack` CLI, or through `AGENTSTACK_CLI_BIN` for local source prototypes.
+- `pnpm run init:cloud` applies development and preview state through the same CLI delegation path.
+- `pnpm run validate:cloud` compares the project manifest with local-cloud state through the same CLI delegation path.

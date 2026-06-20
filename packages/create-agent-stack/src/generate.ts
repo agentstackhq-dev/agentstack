@@ -1,6 +1,6 @@
-import { readFile, readdir, realpath, stat, writeFile } from "node:fs/promises";
+import { readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { dirname, join, relative } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
@@ -21,17 +21,11 @@ export async function generateProject(input: GenerateProjectInput): Promise<void
 
   const appName = titleCaseSlug(appSlug);
   const templateDir = findTemplateDir();
-  const repoRoot = findRepoRoot();
 
   await fsExtra.copy(templateDir, input.targetDir);
-  const realTargetDir = await realpath(input.targetDir);
-  const realRepoRoot = await realpath(repoRoot);
-  const realTsxCli = await realpath(require.resolve("tsx/cli"));
   await replaceTokens(input.targetDir, {
     __APP_SLUG__: appSlug,
-    __APP_NAME__: appName,
-    __AGENTSTACK_REPO_ROOT__: toPortableRelativePath(realTargetDir, realRepoRoot),
-    __AGENTSTACK_TSX_CLI__: toPortableRelativePath(realTargetDir, realTsxCli)
+    __APP_NAME__: appName
   });
 }
 
@@ -39,18 +33,9 @@ function findTemplateDir(): string {
   return join(findPackageRoot(), "templates", "b2b-saas");
 }
 
-function findRepoRoot(): string {
-  return dirname(dirname(findPackageRoot()));
-}
-
 function findPackageRoot(): string {
   const sourceDir = dirname(fileURLToPath(import.meta.url));
   return dirname(sourceDir);
-}
-
-function toPortableRelativePath(from: string, to: string): string {
-  const path = relative(from, to).replaceAll("\\", "/");
-  return path || ".";
 }
 
 function slugify(name: string): string {
