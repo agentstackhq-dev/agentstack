@@ -56,6 +56,16 @@ describe("local validation", () => {
     );
   });
 
+  it("includes managed SaaS spine generated anchors in required anchors", () => {
+    expect(getRequiredGeneratedAnchors(createDefaultManifest("acme-crm"))).toEqual(
+      expect.arrayContaining([
+        "docs/agentstack/saas-spine.md",
+        "packages/domain/src/saas-spine.ts",
+        "convex/saasSpine.ts"
+      ])
+    );
+  });
+
   it("fails generated anchor validation for missing manifest-declared anchors", () => {
     const manifest = createDefaultManifest("acme-crm");
     manifest.generated.requiredAnchors = ["docs/agentstack/auth.md"];

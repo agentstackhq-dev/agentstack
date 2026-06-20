@@ -73,6 +73,8 @@
       "docs/agentstack/billing.md",
       "docs/agentstack/local-development.md",
       "docs/agentstack/mobile.md",
+      "docs/agentstack/saas-spine.md",
+      "packages/domain/src/saas-spine.ts",
       "packages/config/package.json",
       "packages/config/src/index.ts",
       "packages/telemetry/package.json",
@@ -90,7 +92,8 @@
       "apps/mobile/eas.json",
       "apps/web/src/index.ts",
       "apps/mobile/src/index.ts",
-      "convex/agentstack.ts"
+      "convex/agentstack.ts",
+      "convex/saasSpine.ts"
     ]
   }
 }

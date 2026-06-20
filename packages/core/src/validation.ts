@@ -1,6 +1,7 @@
 import { validateCustomEnvValues, type EnvValueState } from "./env-graph.js";
 import type { Diagnostic, Result } from "./diagnostics.js";
 import type { AgentstackManifest } from "./manifest.js";
+import { getSaasSpineGeneratedAnchors } from "./saas-spine.js";
 
 export type LocalValidationInput = {
   manifest: AgentstackManifest;
@@ -49,6 +50,7 @@ export function getRequiredGeneratedAnchors(manifest: AgentstackManifest): strin
   ];
 
   anchors.push(...manifest.generated.requiredAnchors);
+  anchors.push(...getSaasSpineGeneratedAnchors(manifest));
 
   if (manifest.surfaces.includes("web")) {
     anchors.push("apps/web/package.json");

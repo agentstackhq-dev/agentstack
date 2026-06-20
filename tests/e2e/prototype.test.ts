@@ -25,6 +25,33 @@ describe("Agentstack executable prototype workflow", () => {
     const write = (line: string) => output.push(line);
 
     await generateProject({ name: "acme-crm", targetDir: appDir });
+    const manifest = JSON.parse(await readFile(join(appDir, "agentstack.config.json"), "utf8"));
+
+    expect(manifest.generated.requiredAnchors).toEqual(
+      expect.arrayContaining([
+        "packages/domain/src/saas-spine.ts",
+        "convex/saasSpine.ts",
+        "docs/agentstack/saas-spine.md"
+      ])
+    );
+    await expect(readFile(join(appDir, "packages/domain/src/saas-spine.ts"), "utf8")).resolves.toContain(
+      "agentstackBillingPlans"
+    );
+    await expect(readFile(join(appDir, "packages/domain/src/saas-spine.ts"), "utf8")).resolves.toContain(
+      "planHasEntitlement"
+    );
+    await expect(readFile(join(appDir, "packages/domain/src/index.ts"), "utf8")).resolves.toContain(
+      './saas-spine.js'
+    );
+    await expect(readFile(join(appDir, "convex/saasSpine.ts"), "utf8")).resolves.toContain(
+      "agentstackSaasTables"
+    );
+    await expect(readFile(join(appDir, "convex/saasSpine.ts"), "utf8")).resolves.toContain(
+      "clerkWebhookTypes"
+    );
+    await expect(readFile(join(appDir, "docs/agentstack/saas-spine.md"), "utf8")).resolves.toContain(
+      "Core SaaS Spine"
+    );
 
     expect(await runAgentstack(["theme", "validate"], { cwd: appDir, write })).toBe(0);
     expect(
@@ -56,7 +83,6 @@ describe("Agentstack executable prototype workflow", () => {
       readFile(join(appDir, "packages/telemetry/src/events/billing-subscription-updated.ts"), "utf8")
     ).resolves.toContain("billing.subscription.updated");
     const manifestPath = join(appDir, "agentstack.config.json");
-    const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
     manifest.env.custom.STRIPE_MODE = {
       surfaces: ["convex"],
       environments: ["preview"],

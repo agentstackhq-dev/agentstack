@@ -26,6 +26,7 @@ const generatedAnchorFiles = [
   "docs/agentstack/local-development.md",
   "docs/agentstack/mobile.md",
   "docs/agentstack/preview.md",
+  "docs/agentstack/saas-spine.md",
   "packages/config/package.json",
   "packages/config/src/index.ts",
   "packages/telemetry/package.json",
@@ -43,7 +44,9 @@ const generatedAnchorFiles = [
   "apps/mobile/eas.json",
   "apps/web/src/index.ts",
   "apps/mobile/src/index.ts",
-  "convex/agentstack.ts"
+  "convex/agentstack.ts",
+  "convex/saasSpine.ts",
+  "packages/domain/src/saas-spine.ts"
 ];
 
 describe("generateProject", () => {
@@ -91,7 +94,10 @@ describe("generateProject", () => {
         expect.arrayContaining([
           "apps/mobile/app.config.ts",
           "apps/mobile/eas.json",
-          "docs/agentstack/mobile.md"
+          "docs/agentstack/mobile.md",
+          "packages/domain/src/saas-spine.ts",
+          "convex/saasSpine.ts",
+          "docs/agentstack/saas-spine.md"
         ])
       );
       const mobilePackageManifest = JSON.parse(
@@ -116,8 +122,26 @@ describe("generateProject", () => {
       await expect(readFile(join(targetDir, "docs/agentstack/mobile.md"), "utf8")).resolves.toContain(
         "local mobile build rehearsal"
       );
+      await expect(readFile(join(targetDir, "docs/agentstack/saas-spine.md"), "utf8")).resolves.toContain(
+        "Core SaaS Spine"
+      );
       await expect(readFile(join(targetDir, "docs/agentstack/preview.md"), "utf8")).resolves.toContain(
         "local preview deploy rehearsal"
+      );
+      await expect(readFile(join(targetDir, "packages/domain/src/saas-spine.ts"), "utf8")).resolves.toContain(
+        "agentstackBillingPlans"
+      );
+      await expect(readFile(join(targetDir, "packages/domain/src/saas-spine.ts"), "utf8")).resolves.toContain(
+        "planHasEntitlement"
+      );
+      await expect(readFile(join(targetDir, "packages/domain/src/index.ts"), "utf8")).resolves.toContain(
+        './saas-spine.js'
+      );
+      await expect(readFile(join(targetDir, "convex/saasSpine.ts"), "utf8")).resolves.toContain(
+        "agentstackSaasTables"
+      );
+      await expect(readFile(join(targetDir, "convex/saasSpine.ts"), "utf8")).resolves.toContain(
+        "clerkWebhookTypes"
       );
       await expect(readFile(join(targetDir, "packages/telemetry/package.json"), "utf8")).resolves.toContain(
         "@app/telemetry"
@@ -229,6 +253,45 @@ describe("generateProject", () => {
       await expect(runPackageScript(targetDir, "validate", sourceCliEnv())).rejects.toMatchObject({
         stdout: expect.stringContaining("FAIL manifest.invalid")
       });
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  test("generates SaaS spine files that typecheck in isolation", async () => {
+    const tempRoot = await mkdtemp(join(tmpdir(), "agentstack-create-"));
+    const targetDir = join(tempRoot, "acme-crm");
+
+    try {
+      await generateProject({ name: "acme-crm", targetDir });
+
+      const files = [
+        join(targetDir, "packages/domain/src/index.ts"),
+        join(targetDir, "packages/domain/src/saas-spine.ts"),
+        join(targetDir, "convex/saasSpine.ts"),
+        join(targetDir, "convex/schema.ts")
+      ];
+
+      await expect(
+        execFileAsync(
+          "pnpm",
+          [
+            "exec",
+            "tsc",
+            "--strict",
+            "--module",
+            "NodeNext",
+            "--moduleResolution",
+            "NodeNext",
+            "--target",
+            "ES2022",
+            "--skipLibCheck",
+            "--noEmit",
+            ...files
+          ],
+          { cwd: repoRoot }
+        )
+      ).resolves.toBeDefined();
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }

@@ -1,6 +1,7 @@
 import { createAppTelemetry, createRuntimeContext } from "../packages/agentstack-runtime/src/index.js";
 import { appConfig } from "../packages/config/src/index.js";
 import { billingSubscriptionUpdatedEvent } from "../packages/telemetry/src/index.js";
+import { agentstackSaasSpine } from "./saasSpine.js";
 
 export const convexRuntime = createRuntimeContext({
   appSlug: appConfig.slug,
@@ -17,5 +18,6 @@ export const convexBillingTelemetryAnchor = convexTelemetry.event(billingSubscri
 
 export const convexAnchor = {
   surface: "convex",
-  purpose: "Add Convex functions, auth membership checks, and schema modules here."
+  purpose: "Add Convex functions, auth membership checks, and schema modules here.",
+  saasSpine: agentstackSaasSpine
 };

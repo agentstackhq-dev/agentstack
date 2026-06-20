@@ -63,6 +63,7 @@
               <div class="card"><h3>App identity</h3><p><code>agentstack.config.json</code> contains app slug/name, environments, surfaces, enabled services, env declarations, and telemetry policy.</p></div>
               <div class="card"><h3>Surfaces</h3><p>Web, mobile, and Convex anchors exist so validation can detect accidental deletion or malformed project shape.</p></div>
               <div class="card"><h3>Shared packages</h3><p><code>domain</code>, <code>theme</code>, <code>config</code>, <code>ui</code>, <code>telemetry</code>, and runtime anchors establish where future type-safe shared code belongs.</p></div>
+              <div class="card"><h3>SaaS spine</h3><p><code>packages/domain/src/saas-spine.ts</code>, <code>convex/saasSpine.ts</code>, and <code>docs/agentstack/saas-spine.md</code> define roles, memberships, billing plans, entitlements, Clerk webhooks, and audit events.</p></div>
               <div class="card"><h3>Theme contract</h3><p><code>packages/theme/tokens.json</code> is the source of truth. <code>@app/theme</code> imports it, and <code>@app/ui</code> uses token roles instead of hardcoded colors.</p></div>
               <div class="card"><h3>Feature workflow</h3><p><code>agentstack add feature &lt;name&gt; --surfaces web,mobile --backend convex</code> creates coordinated product anchors before surface code diverges.</p></div>
               <div class="card"><h3>Event workflow</h3><p><code>agentstack add event billing.subscription.updated --journey billing --surfaces web,convex --state plan:string,seatCount:number</code> creates typed telemetry files and generated event docs.</p></div>
@@ -72,6 +73,19 @@
               <div class="card"><h3>Preview runbook</h3><p><code>docs/agentstack/preview.md</code> documents exact local rehearsal commands, expected output, files written, and non-goals. It states the workflow is not real provider deployment.</p></div>
               <div class="card"><h3>Mobile build profiles</h3><p><code>apps/mobile/eas.json</code> and <code>apps/mobile/app.config.ts</code> define generated EAS/Expo anchors. Root and mobile package scripts route through <code>agentstack build mobile</code>.</p></div>
             </div>
+          </section>
+
+          <section class="section">
+            <h2>Core SaaS Spine</h2>
+            <p class="lede">
+              The generated SaaS spine connects shared domain types, Convex authorization, local
+              agent docs, and validation anchors so agents can reason about identity, membership,
+              billing, entitlements, webhook intake, and audit history from one documented contract.
+            </p>
+            <pre><code>packages/domain/src/saas-spine.ts        typed roles, memberships, plans, entitlements, audit events
+convex/saasSpine.ts                     Convex org, membership, and role authorization anchors
+docs/agentstack/saas-spine.md           agent-readable SaaS contract and workflow notes
+pnpm run validate                       Clerk identity, Clerk webhooks, billing, entitlement, and audit anchors</code></pre>
           </section>
 
           <section class="section">
