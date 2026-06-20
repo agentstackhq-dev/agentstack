@@ -6,6 +6,7 @@ import {
   formatDiagnostic,
   getRequiredGeneratedAnchors,
   planTelemetryEventFiles,
+  planBillingPlanFiles,
   planFeatureFiles,
   validateCustomEnvValues,
   validateGeneratedAnchors,
@@ -94,6 +95,10 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
 
     if (command === "add" && subcommand === "event") {
       return await addEventCommand(rest, io);
+    }
+
+    if (command === "add" && subcommand === "billing-plan") {
+      return await addBillingPlanCommand(rest, io);
     }
 
     if (command === "init" && subcommand === "cloud") {
@@ -788,10 +793,109 @@ async function addEventCommand(argv: string[], io: RunIo): Promise<number> {
   return 0;
 }
 
+async function addBillingPlanCommand(argv: string[], io: RunIo): Promise<number> {
+  const [planName, ...rest] = argv;
+  const fix =
+    "Run agentstack add billing-plan pro --entitlements feature.auditLog,feature.advancedReports --seats 10.";
+  if (!planName || planName.startsWith("--")) {
+    throw new Error(["FAIL billing-plan.name.missing", "Billing plan name is required.", `Fix: ${fix}`].join("\n"));
+  }
+
+  const options = parseOptions(rest);
+  if (options.entitlements === true) {
+    throwMissingOption("entitlements", fix);
+  }
+  if (options.seats === true) {
+    throwMissingOption("seats", fix);
+  }
+
+  let plan: ReturnType<typeof planBillingPlanFiles>;
+  try {
+    plan = planBillingPlanFiles(planName, {
+      entitlements:
+        typeof options.entitlements === "string"
+          ? options.entitlements
+              .split(",")
+              .map((item) => item.trim())
+              .filter(Boolean)
+          : [],
+      seats: typeof options.seats === "string" ? Number(options.seats) : undefined
+    });
+  } catch (error) {
+    throw new Error(["FAIL billing-plan.invalid", (error as Error).message, `Fix: ${fix}`].join("\n"));
+  }
+
+  const existing = await findExistingFeatureFiles(io.cwd, plan.files);
+  if (existing.length > 0) {
+    throw new Error(
+      [
+        "FAIL billing-plan.file.exists",
+        "Billing-plan generation refuses to overwrite existing files.",
+        ...existing.map((path) => `Path: ${path}`),
+        "Fix: Choose a new billing plan name or update the existing billing-plan anchors intentionally."
+      ].join("\n")
+    );
+  }
+
+  for (const file of plan.files) {
+    const path = join(io.cwd, file.path);
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, file.content, "utf8");
+  }
+  const billingPlanBarrelPath = await updateBillingPlanBarrel(io.cwd, plan.name.slug);
+  const generatedPaths = [...plan.files.map((file) => file.path), billingPlanBarrelPath];
+  await registerGeneratedAnchors(io.cwd, generatedPaths);
+
+  io.write(`CREATED billing-plan ${plan.name.slug}`);
+  for (const path of generatedPaths) {
+    io.write(`- ${path}`);
+  }
+
+  await recordCommandEvent(io, {
+    name: "agentstack.billing-plan.added",
+    environment: "development",
+    journey: "billing",
+    command: ["add", "billing-plan", ...argv].join(" "),
+    status: "ok",
+    state: {
+      billingPlan: plan.name.slug,
+      entitlements: plan.entitlements,
+      includedSeats: plan.seats,
+      files: generatedPaths
+    }
+  });
+  return 0;
+}
+
 async function updateTelemetryEventBarrel(cwd: string, eventSlug: string): Promise<string> {
   const barrelPath = "packages/telemetry/src/events/index.ts";
   const absolutePath = join(cwd, barrelPath);
   const exportLine = `export * from "./${eventSlug}.js";`;
+  let existing = "";
+
+  try {
+    existing = await readFile(absolutePath, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw error;
+    }
+  }
+
+  const lines = existing
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const nextLines = lines.includes(exportLine) ? lines : [...lines, exportLine];
+
+  await mkdir(dirname(absolutePath), { recursive: true });
+  await writeFile(absolutePath, `${nextLines.join("\n")}\n`, "utf8");
+  return barrelPath;
+}
+
+async function updateBillingPlanBarrel(cwd: string, planSlug: string): Promise<string> {
+  const barrelPath = "packages/domain/src/billing-plans/index.ts";
+  const absolutePath = join(cwd, barrelPath);
+  const exportLine = `export * from "./${planSlug}.js";`;
   let existing = "";
 
   try {

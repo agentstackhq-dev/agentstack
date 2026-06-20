@@ -1,6 +1,7 @@
 export * from "./diagnostics.js";
 export * from "./env-graph.js";
 export * from "./features.js";
+export * from "./billing-plans.js";
 export * from "./manifest.js";
 export * from "./mobile-build.js";
 export * from "./saas-spine.js";

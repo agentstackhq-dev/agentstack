@@ -1171,6 +1171,116 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).not.toContain("sk_live");
   });
 
+  it("adds a typed billing plan across domain, Convex, web, mobile, telemetry, and docs", async () => {
+    const code = await runAgentstack(
+      ["add", "billing-plan", "Pro", "--entitlements", "feature.auditLog,feature.advancedReports", "--seats", "10"],
+      { cwd: dir, write: (line) => output.push(line) }
+    );
+
+    expect(code).toBe(0);
+    expect(output).toContain("CREATED billing-plan pro");
+    expect(output).toContain("- packages/domain/src/billing-plans/pro.ts");
+    expect(output).toContain("- packages/domain/src/billing-plans/index.ts");
+    expect(output).toContain("- convex/billing-plans/pro.ts");
+    expect(output).toContain("- apps/web/src/billing-plans/pro.ts");
+    expect(output).toContain("- apps/mobile/src/billing-plans/pro.ts");
+    expect(output).toContain("- packages/telemetry/src/billing-plans/pro.ts");
+    expect(output).toContain("- docs/agentstack/billing-plans/pro.md");
+    await expect(readFile(join(dir, "packages/domain/src/billing-plans/pro.ts"), "utf8")).resolves.toContain(
+      "proBillingPlan"
+    );
+    await expect(readFile(join(dir, "packages/domain/src/billing-plans/index.ts"), "utf8")).resolves.toContain(
+      'export * from "./pro.js";'
+    );
+    const manifest = JSON.parse(await readFile(join(dir, "agentstack.config.json"), "utf8")) as {
+      generated: { requiredAnchors: string[] };
+    };
+    expect(manifest.generated.requiredAnchors).toEqual(
+      expect.arrayContaining([
+        "packages/domain/src/billing-plans/pro.ts",
+        "packages/domain/src/billing-plans/index.ts",
+        "convex/billing-plans/pro.ts",
+        "apps/web/src/billing-plans/pro.ts",
+        "apps/mobile/src/billing-plans/pro.ts",
+        "packages/telemetry/src/billing-plans/pro.ts",
+        "docs/agentstack/billing-plans/pro.md"
+      ])
+    );
+  });
+
+  it("validates generated billing plan anchors after add billing-plan", async () => {
+    expect(
+      await runAgentstack(
+        ["add", "billing-plan", "Pro", "--entitlements", "feature.auditLog,feature.advancedReports", "--seats", "10"],
+        { cwd: dir, write: () => undefined }
+      )
+    ).toBe(0);
+    await rm(join(dir, "apps/web/src/billing-plans/pro.ts"));
+
+    const code = await runAgentstack(["validate"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL template.anchor.missing");
+    expect(output.join("\n")).toContain("Path: apps/web/src/billing-plans/pro.ts");
+  });
+
+  it("refuses to overwrite existing billing plan files", async () => {
+    const argv = [
+      "add",
+      "billing-plan",
+      "Pro",
+      "--entitlements",
+      "feature.auditLog,feature.advancedReports",
+      "--seats",
+      "10"
+    ];
+    expect(await runAgentstack(argv, { cwd: dir, write: () => undefined })).toBe(0);
+
+    const code = await runAgentstack(argv, {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL billing-plan.file.exists");
+    expect(output.join("\n")).toContain("Path: packages/domain/src/billing-plans/pro.ts");
+  });
+
+  it("reports invalid billing plan entitlements with actionable diagnostics", async () => {
+    const code = await runAgentstack(
+      ["add", "billing-plan", "Pro", "--entitlements", "Feature Audit", "--seats", "10"],
+      { cwd: dir, write: (line) => output.push(line) }
+    );
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL billing-plan.invalid");
+    expect(output.join("\n")).toContain('Invalid entitlement key "Feature Audit".');
+    expect(output.join("\n")).toContain(
+      "Fix: Run agentstack add billing-plan pro --entitlements feature.auditLog,feature.advancedReports --seats 10."
+    );
+  });
+
+  it("records command telemetry when adding a billing plan", async () => {
+    expect(
+      await runAgentstack(
+        ["add", "billing-plan", "Pro", "--entitlements", "feature.auditLog,feature.advancedReports", "--seats", "10"],
+        { cwd: dir, write: () => undefined }
+      )
+    ).toBe(0);
+
+    const code = await runAgentstack(
+      ["observe", "timeline", "--env", "development", "--journey", "billing"],
+      { cwd: dir, write: (line) => output.push(line) }
+    );
+
+    expect(code).toBe(0);
+    expect(output.join("\n")).toContain("agentstack.billing-plan.added");
+    expect(output.join("\n")).toContain('"billingPlan":"pro"');
+  });
+
   it("prints observed timelines in chronological order", async () => {
     const store = new JsonlTelemetryStore(join(dir, ".agentstack", "events.jsonl"));
     await store.append({

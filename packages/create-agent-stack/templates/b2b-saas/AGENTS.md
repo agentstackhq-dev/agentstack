@@ -7,6 +7,7 @@
 - Treat preview commands as local-cloud preview state only; real provider adapters are future work.
 - Use telemetry primitives for product events and operational traces.
 - Add typed product telemetry with `agentstack add event <name> --journey <journey> --surfaces web,mobile,convex --state key:type`.
+- Start billing plan work with `agentstack add billing-plan <name>` before adding surface-specific gating code.
 - Create app telemetry envelopes with `createAppTelemetry(runtime).event(definition, state)`; this does not export to a provider.
 - Use `packages/domain/src/saas-spine.ts` for roles, permissions, billing plans, entitlements, webhook types, and audit event types.
 - Keep Convex SaaS table and webhook anchors in `convex/saasSpine.ts` and `convex/schema.ts` metadata-only until real provider adapters are added.

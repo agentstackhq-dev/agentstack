@@ -76,6 +76,7 @@ cd acme-crm
 export AGENTSTACK_CLI_BIN=../../packages/cli/src/bin.ts
 export AGENTSTACK_TSX_BIN=../../node_modules/.bin/tsx
 node scripts/agentstack.mjs add feature invoices --surfaces web,mobile --backend convex
+node scripts/agentstack.mjs add billing-plan pro --entitlements feature.auditLog,feature.advancedReports --seats 10
 node scripts/agentstack.mjs add event billing.subscription.updated --journey billing --surfaces web,convex --state plan:string,seatCount:number
 node scripts/agentstack.mjs env set --env preview --surface convex --name STRIPE_MODE --value sandbox
 pnpm run validate
@@ -89,6 +90,7 @@ pnpm run mobile:build:preview
 pnpm run mobile:build:preview:apply
 node scripts/agentstack.mjs observe timeline --env preview --journey deployment
 node scripts/agentstack.mjs observe timeline --env preview --journey mobile-build
+node scripts/agentstack.mjs observe timeline --env development --journey billing
 node scripts/agentstack.mjs observe timeline --env development --journey telemetry-generation</code></pre>
               </div>
               <div class="card">
@@ -96,6 +98,7 @@ node scripts/agentstack.mjs observe timeline --env development --journey telemet
                 <ol>
                   <li><code>create-agent-stack</code> copies template anchors and replaces app tokens.</li>
                   <li><code>add feature</code> creates coordinated domain, Convex, surface, telemetry, and feature-doc anchors.</li>
+                  <li><code>add billing-plan</code> creates coordinated billing-plan anchors across domain, Convex, web, mobile, telemetry, and docs.</li>
                   <li><code>add event</code> creates typed telemetry definitions and generated event docs.</li>
                   <li><code>env set</code> writes scoped local env state without exposing values in output.</li>
                   <li><code>validate</code> checks manifest, env, telemetry policy, and generated files.</li>
@@ -106,6 +109,7 @@ node scripts/agentstack.mjs observe timeline --env development --journey telemet
                   <li><code>preview:deploy:apply</code> prints <code>APPLIED deploy preview</code>, writes <code>.agentstack/deployments/preview.json</code>, and records <code>agentstack.deploy.completed</code>.</li>
                   <li><code>mobile:build:preview</code> prints <code>PLAN mobile build preview</code> without writing a build artifact.</li>
                   <li><code>mobile:build:preview:apply</code> prints <code>APPLIED mobile build preview</code>, writes <code>.agentstack/builds/mobile-preview.json</code>, and records <code>agentstack.mobile.build.completed</code>.</li>
+                  <li><code>observe timeline --journey billing</code> confirms billing-plan generation telemetry, including <code>agentstack.billing-plan.added</code>.</li>
                 </ol>
               </div>
             </div>
@@ -157,6 +161,16 @@ node scripts/agentstack.mjs observe timeline --env development --journey telemet
                   <td>Event file already exists</td>
                   <td>Add-event refuses an unsafe overwrite.</td>
                   <td>Choose a new event name or update the existing generated event file intentionally.</td>
+                </tr>
+                <tr>
+                  <td>Billing-plan file already exists</td>
+                  <td>Add-billing-plan refuses an unsafe overwrite.</td>
+                  <td>Choose a new billing plan name or update the existing generated billing-plan anchors intentionally.</td>
+                </tr>
+                <tr>
+                  <td>Generated billing-plan anchor missing</td>
+                  <td><code>FAIL template.anchor.missing</code></td>
+                  <td>Restore the missing billing-plan file or rerun the generator in a clean project.</td>
                 </tr>
                 <tr>
                   <td>Generated file missing</td>

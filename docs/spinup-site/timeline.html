@@ -37,7 +37,7 @@
             <ul>
               <li><code>pnpm install --frozen-lockfile</code></li>
               <li><code>pnpm typecheck</code></li>
-              <li><code>pnpm test</code>: 146 tests</li>
+              <li><code>pnpm test</code></li>
               <li>Template mirror diff: no output</li>
               <li>Smoke path: create, add feature, add event, validate, env inspect, sync plan/apply, cloud validate, preview deploy plan/apply, mobile build plan/apply, observe timelines</li>
             </ul>
@@ -99,6 +99,10 @@
               <div class="event">
                 <h3>Mobile build profiles</h3>
                 <p>Added <code>agentstack build mobile</code>, development/preview/production profile normalization, local build artifacts, generated <code>eas.json</code>/<code>app.config.ts</code> anchors, and the <code>mobile-build</code> telemetry journey.</p>
+              </div>
+              <div class="event">
+                <h3>Billing plan generation</h3>
+                <p>Added <code>agentstack add billing-plan</code> so agents can create coordinated billing-plan anchors across domain, Convex, web, mobile, telemetry, docs, and the <code>billing</code> telemetry journey.</p>
               </div>
             </div>
           </section>

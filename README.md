@@ -23,6 +23,7 @@ cd acme-crm
 export AGENTSTACK_CLI_BIN=../../packages/cli/src/bin.ts
 export AGENTSTACK_TSX_BIN=../../node_modules/.bin/tsx
 node scripts/agentstack.mjs add feature invoices --surfaces web,mobile --backend convex
+node scripts/agentstack.mjs add billing-plan pro --entitlements feature.auditLog,feature.advancedReports --seats 10
 node scripts/agentstack.mjs add event billing.subscription.updated --journey billing --surfaces web,convex --state plan:string,seatCount:number
 node scripts/agentstack.mjs env set --env preview --surface convex --name STRIPE_MODE --value sandbox
 pnpm run validate
@@ -36,6 +37,7 @@ pnpm run mobile:build:preview
 pnpm run mobile:build:preview:apply
 node scripts/agentstack.mjs observe timeline --env preview --journey deployment
 node scripts/agentstack.mjs observe timeline --env preview --journey mobile-build
+node scripts/agentstack.mjs observe timeline --env development --journey billing
 node scripts/agentstack.mjs observe timeline --env development --journey telemetry-generation
 pnpm run observe:timeline
 ```
@@ -45,6 +47,7 @@ Expected smoke output includes:
 ```text
 Created acme-crm
 CREATED feature invoices
+CREATED billing-plan pro
 CREATED event billing.subscription.updated
 PASS env set preview convex.STRIPE_MODE
 PASS validate
@@ -58,6 +61,7 @@ PLAN mobile build preview
 APPLIED mobile build preview
 agentstack.deploy.completed
 agentstack.mobile.build.completed
+agentstack.billing-plan.added
 agentstack.event.added
 ```
 
@@ -65,6 +69,7 @@ agentstack.event.added
 
 - `create-agent-stack <app-name>` copies the B2B SaaS template into a new project directory.
 - Generated apps include a typed SaaS spine in `packages/domain/src/saas-spine.ts`, `convex/saasSpine.ts`, and `docs/agentstack/saas-spine.md` for roles, memberships, billing plans, entitlements, Clerk webhooks, and audit events.
+- `agentstack add billing-plan <name> --entitlements <keys> --seats <count>` creates coordinated billing-plan anchors across domain, Convex, web, mobile, telemetry, and docs.
 - `agentstack add event <name> --journey <journey> --surfaces web,mobile,convex --state key:type` creates typed app telemetry event definitions and local event docs.
 - `pnpm run validate` checks the local Agentstack manifest, generated anchors, env value shape, telemetry policy, and source-secret policy through an installed `agentstack` CLI, or through `AGENTSTACK_CLI_BIN` for local source prototypes.
 - `.agentstack/env-values.json` can satisfy required custom env declarations for `validate` and `validate:cloud` using the environment -> surface -> variable JSON shape.

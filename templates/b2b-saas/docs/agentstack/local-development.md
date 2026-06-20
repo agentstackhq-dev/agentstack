@@ -18,9 +18,11 @@ Useful root scripts:
 Useful feature workflow:
 
 - `agentstack add feature <name> --surfaces web,mobile --backend convex` creates coordinated domain, Convex, web, mobile, telemetry, and feature-doc anchors.
+- `agentstack add billing-plan pro --entitlements feature.auditLog,feature.advancedReports --seats 10` creates coordinated billing-plan anchors before surface-specific gating code is added.
 - Generated feature files are product code. Fill them in, then run `pnpm run validate`.
 - Set required local-cloud preview environment values through the CLI, for example `agentstack env set --env preview --surface convex --name STRIPE_MODE --value sandbox`; do not hand-edit `.agentstack/env-values.json`.
 - If the feature changes provider state or environment bindings, run `pnpm run env:inspect`, `pnpm run preview:plan`, and `pnpm run preview:apply` as needed before cloud validation.
 - Use `docs/agentstack/preview.md` for the full local preview deploy rehearsal. The generated preview deploy scripts do not deploy to real providers; real provider adapters are future work.
+- Inspect billing generation with `node scripts/agentstack.mjs observe timeline --env development --journey billing`.
 
 For source-prototype smoke runs, set `AGENTSTACK_CLI_BIN` and `AGENTSTACK_TSX_BIN` as described in `docs/agentstack/validation.md`.
