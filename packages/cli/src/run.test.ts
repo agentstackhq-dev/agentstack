@@ -45,6 +45,25 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("FAIL cloud.service.missing");
   });
 
+  it("stops cloud validation when local validation fails", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.telemetry.redaction.forbidRawSecrets = false;
+    await writeFile(
+      join(dir, "agentstack.config.json"),
+      `${JSON.stringify(manifest, null, 2)}\n`,
+      "utf8"
+    );
+
+    const code = await runAgentstack(["validate", "--cloud"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL telemetry.redaction.disabled");
+    expect(output.join("\n")).not.toContain("cloud.service.missing");
+  });
+
   it("applies preview cloud sync", async () => {
     const code = await runAgentstack(["sync", "--env", "preview", "--apply"], {
       cwd: dir,
@@ -87,5 +106,51 @@ describe("runAgentstack", () => {
     expect(code).toBe(0);
     expect(output.join("\n")).toContain("billing.subscription.updated");
     expect(output.join("\n")).toContain("[redacted]");
+  });
+
+  it("rejects invalid observe environment filters", async () => {
+    const code = await runAgentstack(["observe", "query", "--env", "nope"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL cli.option.invalid");
+    expect(output.join("\n")).toContain("Invalid --env value: nope");
+  });
+
+  it("rejects invalid observe surface filters", async () => {
+    const code = await runAgentstack(["observe", "query", "--surface", "nope"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL cli.option.invalid");
+    expect(output.join("\n")).toContain("Invalid --surface value: nope");
+  });
+
+  it("requires observe event filter values", async () => {
+    const code = await runAgentstack(["observe", "query", "--event"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL cli.option.missing");
+    expect(output.join("\n")).toContain("--event requires a value.");
+  });
+
+  it("requires sync environment values with an actionable diagnostic", async () => {
+    const code = await runAgentstack(["sync", "--apply"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL cli.option.missing");
+    expect(output.join("\n")).toContain("--env requires a value.");
+    expect(output.join("\n")).toContain("Expected one of: development, preview, production.");
+    expect(output.join("\n")).toContain("Fix: Run agentstack sync --env preview --apply.");
   });
 });
