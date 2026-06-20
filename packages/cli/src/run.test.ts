@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createDefaultManifest } from "@agentstack/core";
 import { createWideEvent, JsonlTelemetryStore } from "@agentstack/telemetry";
-import { runAgentstack } from "./run.js";
+import { runAgentstack } from "./index.js";
 
 let dir: string;
 let output: string[];
