@@ -1,10 +1,11 @@
-import { stat } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, stat, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { LocalCloudAdapter } from "@agentstack/adapters";
 import {
   buildEnvGraph,
   formatDiagnostic,
   getRequiredGeneratedAnchors,
+  planFeatureFiles,
   validateGeneratedAnchors,
   validateLocalProject,
   type AgentstackManifest,
@@ -62,6 +63,10 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
 
     if (command === "env" && subcommand === "inspect") {
       return await envInspectCommand(rest, io);
+    }
+
+    if (command === "add" && subcommand === "feature") {
+      return await addFeatureCommand(rest, io);
     }
 
     if (command === "init" && subcommand === "cloud") {
@@ -228,6 +233,85 @@ async function envInspectCommand(argv: string[], io: RunIo): Promise<number> {
       expectedServices: report.expected.map((resource) => resource.service),
       linkedServices: report.linked.map((resource) => resource.service),
       missingServices: report.missing.map((resource) => resource.service)
+    }
+  });
+  return 0;
+}
+
+async function addFeatureCommand(argv: string[], io: RunIo): Promise<number> {
+  const [featureName, ...rest] = argv;
+  if (!featureName || featureName.startsWith("--")) {
+    throw new Error(
+      [
+        "FAIL feature.name.missing",
+        "Feature name is required.",
+        "Fix: Run agentstack add feature invoices --surfaces web,mobile --backend convex."
+      ].join("\n")
+    );
+  }
+
+  const options = parseOptions(rest);
+  const surfacesValue = readRequiredStringOption(
+    options.surfaces,
+    "surfaces",
+    "Run agentstack add feature invoices --surfaces web,mobile --backend convex."
+  );
+  const backendValue = readRequiredStringOption(
+    options.backend,
+    "backend",
+    "Run agentstack add feature invoices --surfaces web,mobile --backend convex."
+  );
+  let plan: ReturnType<typeof planFeatureFiles>;
+  try {
+    plan = planFeatureFiles(featureName, {
+      surfaces: surfacesValue.split(",").map((surface) => surface.trim()).filter(Boolean),
+      backend: backendValue
+    });
+  } catch (error) {
+    throw new Error(
+      [
+        "FAIL feature.invalid",
+        (error as Error).message,
+        "Fix: Run agentstack add feature invoices --surfaces web,mobile --backend convex."
+      ].join("\n")
+    );
+  }
+
+  const existing = await findExistingFeatureFiles(io.cwd, plan.files);
+  if (existing.length > 0) {
+    throw new Error(
+      [
+        "FAIL feature.file.exists",
+        "Feature generation refuses to overwrite existing files.",
+        ...existing.map((path) => `Path: ${path}`),
+        "Fix: Choose a new feature name or update the existing feature anchors intentionally."
+      ].join("\n")
+    );
+  }
+
+  for (const file of plan.files) {
+    const path = join(io.cwd, file.path);
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, file.content, "utf8");
+  }
+  await registerGeneratedAnchors(io.cwd, plan.files.map((file) => file.path));
+
+  io.write(`CREATED feature ${plan.name.slug}`);
+  for (const file of plan.files) {
+    io.write(`- ${file.path}`);
+  }
+
+  await recordCommandEvent(io, {
+    name: "agentstack.feature.added",
+    environment: "development",
+    journey: "feature-generation",
+    command: ["add", "feature", ...argv].join(" "),
+    status: "ok",
+    state: {
+      feature: plan.name.slug,
+      surfaces: plan.surfaces,
+      backend: plan.backend,
+      files: plan.files.map((file) => file.path)
     }
   });
   return 0;
@@ -409,6 +493,61 @@ function readTelemetrySurfaceOption(value: string | boolean | undefined): Teleme
       `Invalid --surface value: ${value}. Expected one of: ${telemetrySurfaceValues.join(", ")}.`,
       "Fix: Run agentstack observe query --surface web."
     ].join("\n")
+  );
+}
+
+function readRequiredStringOption(
+  value: string | boolean | undefined,
+  flag: string,
+  fix: string
+): string {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  throwMissingOption(flag, fix);
+}
+
+async function findExistingFeatureFiles(
+  cwd: string,
+  files: Array<{ path: string }>
+): Promise<string[]> {
+  const checks = await Promise.all(
+    files.map(async (file) => {
+      try {
+        await stat(join(cwd, file.path));
+        return file.path;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+          return undefined;
+        }
+        throw error;
+      }
+    })
+  );
+
+  return checks.filter((path): path is string => Boolean(path));
+}
+
+async function registerGeneratedAnchors(cwd: string, paths: string[]): Promise<void> {
+  const context = await loadProjectContext(cwd);
+  const requiredAnchors = Array.from(
+    new Set([...context.manifest.generated.requiredAnchors, ...paths])
+  ).sort();
+  await writeFile(
+    join(cwd, "agentstack.config.json"),
+    `${JSON.stringify(
+      {
+        ...context.manifest,
+        generated: {
+          ...context.manifest.generated,
+          requiredAnchors
+        }
+      },
+      null,
+      2
+    )}\n`,
+    "utf8"
   );
 }
 

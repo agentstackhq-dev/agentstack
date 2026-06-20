@@ -27,7 +27,8 @@
             <h1>The generated app is a bounded playground.</h1>
             <p>
               It is not a full SaaS product yet. It is a minimal, typed, agent-readable shell that
-              proves the framework can own project shape, scripts, safety defaults, docs, and validation.
+              proves the framework can own project shape, feature anchors, scripts, safety defaults,
+              docs, and validation.
             </p>
           </div>
           <div class="diagram hero-art">
@@ -61,7 +62,8 @@
               <div class="card"><h3>App identity</h3><p><code>agentstack.config.json</code> contains app slug/name, environments, surfaces, enabled services, env declarations, and telemetry policy.</p></div>
               <div class="card"><h3>Surfaces</h3><p>Web, mobile, and Convex anchors exist so validation can detect accidental deletion or malformed project shape.</p></div>
               <div class="card"><h3>Shared packages</h3><p><code>domain</code>, <code>theme</code>, <code>config</code>, <code>ui</code>, <code>telemetry</code>, and runtime anchors establish where future type-safe shared code belongs.</p></div>
-              <div class="card"><h3>Agent docs</h3><p><code>AGENTS.md</code> and <code>docs/agentstack/</code> teach agents the local workflow and boundaries.</p></div>
+              <div class="card"><h3>Feature workflow</h3><p><code>agentstack add feature &lt;name&gt; --surfaces web,mobile --backend convex</code> creates coordinated product anchors before surface code diverges.</p></div>
+              <div class="card"><h3>Agent docs</h3><p><code>AGENTS.md</code> and <code>docs/agentstack/</code> teach agents the local workflow, feature-first generation, and boundaries.</p></div>
               <div class="card"><h3>Safety defaults</h3><p>Generated <code>.gitignore</code> protects <code>.agentstack/</code>, <code>.env</code>, and <code>.env.*</code>.</p></div>
               <div class="card"><h3>Scripts</h3><p><code>validate</code>, <code>env:inspect</code>, <code>sync:preview</code>, <code>validate:cloud</code>, and <code>observe:timeline</code> delegate to an installed CLI or explicit source-prototype env vars.</p></div>
             </div>

@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -25,6 +25,16 @@ describe("Agentstack executable prototype workflow", () => {
     const write = (line: string) => output.push(line);
 
     await generateProject({ name: "acme-crm", targetDir: appDir });
+
+    expect(
+      await runAgentstack(
+        ["add", "feature", "invoices", "--surfaces", "web,mobile", "--backend", "convex"],
+        { cwd: appDir, write }
+      )
+    ).toBe(0);
+    await expect(readFile(join(appDir, "apps/web/src/features/invoices.ts"), "utf8")).resolves.toContain(
+      "invoicesWebFeature"
+    );
 
     expect(await runAgentstack(["validate"], { cwd: appDir, write })).toBe(0);
     expect(await runAgentstack(["env", "inspect", "--env", "preview"], { cwd: appDir, write })).toBe(0);
@@ -61,6 +71,7 @@ describe("Agentstack executable prototype workflow", () => {
     ).toBe(0);
 
     const renderedOutput = output.join("\n");
+    expect(renderedOutput).toContain("CREATED feature invoices");
     expect(renderedOutput).toContain("PASS env inspect preview");
     expect(renderedOutput).toContain("PLAN preview");
     expect(renderedOutput).toContain("APPLIED preview");

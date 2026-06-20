@@ -361,6 +361,127 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("Fix: Run agentstack env inspect --env preview.");
   });
 
+  it("adds a typed feature across selected surfaces and backend", async () => {
+    const code = await runAgentstack(
+      ["add", "feature", "Customer Invoices", "--surfaces", "web,mobile", "--backend", "convex"],
+      {
+        cwd: dir,
+        write: (line) => output.push(line)
+      }
+    );
+
+    expect(code).toBe(0);
+    expect(output).toContain("CREATED feature customer-invoices");
+    expect(output).toContain("- packages/domain/src/features/customer-invoices.ts");
+    expect(output).toContain("- convex/features/customer-invoices.ts");
+    expect(output).toContain("- apps/web/src/features/customer-invoices.ts");
+    expect(output).toContain("- apps/mobile/src/features/customer-invoices.ts");
+    await expect(
+      readFile(join(dir, "packages/domain/src/features/customer-invoices.ts"), "utf8")
+    ).resolves.toContain("customerInvoicesFeature");
+    await expect(
+      readFile(join(dir, "apps/web/src/features/customer-invoices.ts"), "utf8")
+    ).resolves.toContain('surface: "web"');
+    await expect(
+      readFile(join(dir, "docs/agentstack/features/customer-invoices.md"), "utf8")
+    ).resolves.toContain("# Customer Invoices Feature");
+    const manifest = JSON.parse(await readFile(join(dir, "agentstack.config.json"), "utf8")) as {
+      generated: { requiredAnchors: string[] };
+    };
+    expect(manifest.generated.requiredAnchors).toEqual(
+      expect.arrayContaining([
+        "packages/domain/src/features/customer-invoices.ts",
+        "convex/features/customer-invoices.ts",
+        "apps/web/src/features/customer-invoices.ts",
+        "apps/mobile/src/features/customer-invoices.ts",
+        "packages/telemetry/src/features/customer-invoices.ts",
+        "docs/agentstack/features/customer-invoices.md"
+      ])
+    );
+  });
+
+  it("validates generated feature anchors after add feature", async () => {
+    expect(
+      await runAgentstack(
+        ["add", "feature", "Invoices", "--surfaces", "web,mobile", "--backend", "convex"],
+        { cwd: dir, write: () => undefined }
+      )
+    ).toBe(0);
+    await rm(join(dir, "apps/web/src/features/invoices.ts"));
+
+    const code = await runAgentstack(["validate"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL template.anchor.missing");
+    expect(output.join("\n")).toContain("Path: apps/web/src/features/invoices.ts");
+  });
+
+  it("records command telemetry when adding a feature", async () => {
+    expect(
+      await runAgentstack(
+        ["add", "feature", "Invoices", "--surfaces", "web", "--backend", "convex"],
+        { cwd: dir, write: () => undefined }
+      )
+    ).toBe(0);
+
+    const code = await runAgentstack(
+      ["observe", "timeline", "--env", "development", "--journey", "feature-generation"],
+      {
+        cwd: dir,
+        write: (line) => output.push(line)
+      }
+    );
+
+    expect(code).toBe(0);
+    expect(output.join("\n")).toContain("agentstack.feature.added");
+    expect(output.join("\n")).toContain('"feature":"invoices"');
+  });
+
+  it("refuses to overwrite existing feature files", async () => {
+    const argv = ["add", "feature", "Invoices", "--surfaces", "web,mobile", "--backend", "convex"];
+    expect(await runAgentstack(argv, { cwd: dir, write: () => undefined })).toBe(0);
+
+    const code = await runAgentstack(argv, {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL feature.file.exists");
+    expect(output.join("\n")).toContain("Path: packages/domain/src/features/invoices.ts");
+  });
+
+  it("reports unsupported feature options with actionable diagnostics", async () => {
+    const code = await runAgentstack(
+      ["add", "feature", "Invoices", "--surfaces", "web,desktop", "--backend", "convex"],
+      {
+        cwd: dir,
+        write: (line) => output.push(line)
+      }
+    );
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL feature.invalid");
+    expect(output.join("\n")).toContain('Unsupported feature surface "desktop"');
+    expect(output.join("\n")).toContain(
+      "Fix: Run agentstack add feature invoices --surfaces web,mobile --backend convex."
+    );
+  });
+
+  it("requires add feature option values with actionable diagnostics", async () => {
+    const code = await runAgentstack(["add", "feature", "Invoices", "--surfaces", "web"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL cli.option.missing");
+    expect(output.join("\n")).toContain("--backend requires a value.");
+  });
+
   it("prints observed timelines in chronological order", async () => {
     const store = new JsonlTelemetryStore(join(dir, ".agentstack", "events.jsonl"));
     await store.append({

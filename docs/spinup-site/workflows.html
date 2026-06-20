@@ -27,8 +27,8 @@
             <h1>Command journeys</h1>
             <p>
               The important outcome is not that individual functions exist. It is that an agent can
-              move through a coherent workflow: create a project, validate it, initialize cloud state,
-              repair drift, and inspect telemetry.
+              move through a coherent workflow: create a project, add a typed feature, validate it,
+              initialize cloud state, repair drift, and inspect telemetry.
             </p>
           </div>
           <div class="diagram hero-art">
@@ -74,6 +74,7 @@ pnpm tsx packages/create-agent-stack/src/bin.ts acme-crm
 cd acme-crm
 export AGENTSTACK_CLI_BIN=../../packages/cli/src/bin.ts
 export AGENTSTACK_TSX_BIN=../../node_modules/.bin/tsx
+node scripts/agentstack.mjs add feature invoices --surfaces web,mobile --backend convex
 pnpm run validate
 pnpm run env:inspect
 pnpm run sync:preview
@@ -84,6 +85,7 @@ pnpm run validate:cloud</code></pre>
                 <h3>What each command proves</h3>
                 <ol>
                   <li><code>create-agent-stack</code> copies template anchors and replaces app tokens.</li>
+                  <li><code>add feature</code> creates coordinated domain, Convex, surface, telemetry, and feature-doc anchors.</li>
                   <li><code>validate</code> checks manifest, env, telemetry policy, and generated files.</li>
                   <li><code>env:inspect</code> prints expected preview services and env bindings.</li>
                   <li><code>sync:preview</code> plans local-cloud repair before apply.</li>
@@ -130,6 +132,11 @@ pnpm run validate:cloud</code></pre>
                 <tr><th>Situation</th><th>Signal</th><th>Repair</th></tr>
               </thead>
               <tbody>
+                <tr>
+                  <td>Feature file already exists</td>
+                  <td>Add-feature refuses an unsafe overwrite.</td>
+                  <td>Choose a new feature name or update the existing feature anchors intentionally.</td>
+                </tr>
                 <tr>
                   <td>Generated file missing</td>
                   <td><code>FAIL template.anchor.missing</code></td>
