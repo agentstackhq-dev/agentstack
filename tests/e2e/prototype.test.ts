@@ -94,7 +94,7 @@ describe("Agentstack executable prototype workflow", () => {
     const manifestPath = join(appDir, "agentstack.config.json");
     manifest.env.custom.STRIPE_MODE = {
       surfaces: ["convex"],
-      environments: ["preview"],
+      environments: ["preview", "production"],
       required: true,
       secret: false,
       validate: "enum:sandbox,live"
@@ -108,12 +108,24 @@ describe("Agentstack executable prototype workflow", () => {
         { cwd: appDir, write }
       )
     ).toBe(0);
+    expect(
+      await runAgentstack(
+        ["env", "set", "--env", "production", "--surface", "convex", "--name", "STRIPE_MODE", "--value", "live"],
+        { cwd: appDir, write }
+      )
+    ).toBe(0);
     expect(await runAgentstack(["validate"], { cwd: appDir, write })).toBe(0);
     expect(await runAgentstack(["env", "inspect", "--env", "preview"], { cwd: appDir, write })).toBe(0);
     expect(await runAgentstack(["validate", "--cloud", "--env", "preview"], { cwd: appDir, write })).toBe(1);
+    expect(output.join("\n")).toContain("cloud.env.missing");
+    expect(output.join("\n")).toContain("preview.convex");
     expect(await runAgentstack(["sync", "--env", "preview"], { cwd: appDir, write })).toBe(0);
     expect(await runAgentstack(["sync", "--env", "preview", "--apply"], { cwd: appDir, write })).toBe(0);
+    const localCloudAfterPreviewSync = await readFile(join(appDir, ".agentstack/local-cloud.json"), "utf8");
+    expect(localCloudAfterPreviewSync).toContain("valueHash");
+    expect(localCloudAfterPreviewSync).not.toContain("sandbox");
     expect(await runAgentstack(["validate", "--cloud", "--env", "preview"], { cwd: appDir, write })).toBe(0);
+    expect(await runAgentstack(["env", "inspect", "--env", "preview"], { cwd: appDir, write })).toBe(0);
     expect(await runAgentstack(["inspect", "--env", "preview"], { cwd: appDir, write })).toBe(0);
     expect(await runAgentstack(["skills", "inspect"], { cwd: appDir, write })).toBe(0);
     expect(await runAgentstack(["doctor", "--env", "preview"], { cwd: appDir, write })).toBe(0);
@@ -131,6 +143,8 @@ describe("Agentstack executable prototype workflow", () => {
       '"environment": "preview"'
     );
     expect(await runAgentstack(["prod", "prepare"], { cwd: appDir, write })).toBe(0);
+    expect(await runAgentstack(["validate", "--release", "prod"], { cwd: appDir, write })).toBe(1);
+    expect(output.join("\n")).toContain("production.convex");
     expect(await runAgentstack(["prod", "provision"], { cwd: appDir, write })).toBe(0);
     expect(await runAgentstack(["prod", "provision", "--apply"], { cwd: appDir, write })).toBe(0);
     expect(await runAgentstack(["validate", "--release", "prod"], { cwd: appDir, write })).toBe(0);
@@ -244,7 +258,10 @@ describe("Agentstack executable prototype workflow", () => {
     expect(renderedOutput).toContain("CREATED event billing.subscription.updated");
     expect(renderedOutput).toContain("CREATED billing-plan pro");
     expect(renderedOutput).toContain("PASS env set preview convex.STRIPE_MODE");
+    expect(renderedOutput).toContain("PASS env set production convex.STRIPE_MODE");
     expect(renderedOutput).toContain("PASS env inspect preview");
+    expect(renderedOutput).toContain("set-env preview.convex.STRIPE_MODE");
+    expect(renderedOutput).toContain("provider-env convex.STRIPE_MODE synced=yes secret=no");
     expect(renderedOutput).toContain("PASS inspect acme-crm");
     expect(renderedOutput).toContain("PASS skills inspect");
     expect(renderedOutput).toContain("No MCP dependency");

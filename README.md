@@ -2,9 +2,9 @@
 
 Agentstack is an agent-first control framework for B2B SaaS teams building on Convex, Clerk, React, React Native, Vercel, Expo/EAS, and OpenTelemetry.
 
-This prototype proves the local command contract: generate a project, inspect lifecycle state, run doctor-style preflight checks, validate the framework manifest, inspect environment state, plan and apply local-cloud sync, validate a named environment, rehearse local preview and production deploy flows, inspect redacted command telemetry from the CLI, and write an `OTLP-shaped JSON` local export artifact for agent handoff. It does not provision real provider resources yet.
+This prototype proves the local command contract: generate a project, inspect lifecycle state, run doctor-style preflight checks, validate the framework manifest, inspect environment state, plan and apply local-cloud sync, validate a named environment, rehearse local provider env resources, rehearse local preview and production deploy flows, inspect redacted command telemetry from the CLI, and write an `OTLP-shaped JSON` local export artifact for agent handoff. It does not provision real provider resources yet.
 
-The current cloud implementation is a filesystem-backed local-cloud adapter. Real Convex, Clerk, Vercel, EAS, Stripe, and telemetry adapters will implement the same validation, sync, deploy, and inspection contracts.
+The current cloud implementation is a filesystem-backed local-cloud adapter. `agentstack env set` writes local validation values only. `agentstack sync --env <env>` refuses missing or invalid custom env values before planning or applying provider env resources. Applied sync reconciles local provider env resource rehearsal into `.agentstack/local-cloud.json` with redacted/hash-only metadata, never raw env values. Real Convex, Clerk, Vercel, EAS, Stripe, and telemetry adapters will implement the same validation, sync, deploy, and inspection contracts.
 
 ## Local Smoke
 
@@ -104,11 +104,11 @@ agentstack.event.added
 - `pnpm run doctor` runs local validation plus preview local-cloud checks and prints repair commands before provider, env, build, sync, or deploy work.
 - `pnpm run dev` is a local preflight only. It prints next commands such as validation, env inspection, sync, web dev, and mobile dev; this prototype does not start real web, mobile, Convex, Expo, or provider servers.
 - `pnpm run validate` checks the local Agentstack manifest, generated anchors, env value shape, telemetry policy, and source-secret policy through an installed `agentstack` CLI, or through `AGENTSTACK_CLI_BIN` for local source prototypes.
-- `.agentstack/env-values.json` can satisfy required custom env declarations for `validate` and `validate:cloud` using the environment -> surface -> variable JSON shape.
+- `.agentstack/env-values.json` can satisfy required custom env declarations for `validate` and `validate:cloud` using the environment -> surface -> variable JSON shape. It is local validation state, not provider state.
 - `pnpm run env:inspect` prints expected preview services and declared environment bindings.
 - `pnpm run sync:preview` plans preview local-cloud changes without writing state.
-- `pnpm run sync:preview:apply` applies preview local-cloud state through the same CLI delegation path.
-- `pnpm run validate:cloud` compares the project manifest with local-cloud state for the preview environment.
+- `pnpm run sync:preview:apply` applies preview local-cloud state, including local provider env resource rehearsal, through the same CLI delegation path.
+- `pnpm run validate:cloud` compares the project manifest with local-cloud state for the preview environment, including linked services and provider env resource presence or drift.
 - `pnpm run preview:deploy` plans the local preview deploy rehearsal without writing `.agentstack/deployments/preview.json`.
 - `pnpm run preview:deploy:apply` applies the local preview deploy rehearsal, writes `.agentstack/deployments/preview.json`, and records `agentstack.deploy.completed` telemetry.
 - `pnpm run prod:prepare` checks production release readiness and reports repair commands before provision or deploy work.

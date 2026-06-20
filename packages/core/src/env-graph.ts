@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import { fail, pass, type Diagnostic, type Result } from "./diagnostics.js";
 import {
@@ -27,6 +28,17 @@ export type EnvGraphBinding = {
 export type EnvGraph = {
   nodes: EnvGraphNode[];
   bindings: EnvGraphBinding[];
+};
+
+export type ProviderEnvResource = {
+  environment: EnvironmentName;
+  surface: SurfaceName;
+  service: ServiceName;
+  kind: "envVar";
+  name: string;
+  required: boolean;
+  secret: boolean;
+  valueHash?: string;
 };
 
 export type EnvValueState = Partial<
@@ -92,6 +104,48 @@ export function buildEnvGraph(manifest: AgentstackManifest): EnvGraph {
   return { nodes, bindings };
 }
 
+export function buildProviderEnvResources(
+  manifest: AgentstackManifest,
+  values: EnvValueState = {}
+): ProviderEnvResource[] {
+  const resources: ProviderEnvResource[] = [];
+
+  for (const [name, declaration] of Object.entries(manifest.env.custom)) {
+    const activeEnvironments = declaration.environments.filter((environment) =>
+      manifest.environments.includes(environment)
+    );
+    const activeSurfaces = declaration.surfaces.filter((surface) => manifest.surfaces.includes(surface));
+
+    for (const environment of activeEnvironments) {
+      for (const surface of activeSurfaces) {
+        const service = providerServiceForSurface(surface);
+        const serviceConfig = manifest.services[service];
+        if (!serviceConfig.enabled || !serviceConfig.requiredEnvironments.includes(environment)) {
+          continue;
+        }
+
+        const value = values[environment]?.[surface]?.[name];
+        if (!declaration.required && value === undefined) {
+          continue;
+        }
+
+        resources.push({
+          environment,
+          surface,
+          service,
+          kind: "envVar",
+          name,
+          required: declaration.required,
+          secret: declaration.secret,
+          ...(value !== undefined ? { valueHash: hashProviderEnvValue(environment, surface, name, value) } : {})
+        });
+      }
+    }
+  }
+
+  return resources;
+}
+
 export function validateCustomEnvValues(
   manifest: AgentstackManifest,
   values: EnvValueState
@@ -151,4 +205,24 @@ function parseEnumValidation(validate: string | undefined): string[] | undefined
     .split(",")
     .map((option) => option.trim())
     .filter(Boolean);
+}
+
+function providerServiceForSurface(surface: SurfaceName): ServiceName {
+  switch (surface) {
+    case "web":
+      return "vercel";
+    case "mobile":
+      return "eas";
+    case "convex":
+      return "convex";
+  }
+}
+
+function hashProviderEnvValue(
+  environment: EnvironmentName,
+  surface: SurfaceName,
+  name: string,
+  value: string
+): string {
+  return createHash("sha256").update(`${environment}:${surface}:${name}:${value}`).digest("hex");
 }

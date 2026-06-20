@@ -85,6 +85,10 @@
                 <p>Added <code>agentstack env set</code> so scoped custom env values are written through validated, redacted CLI state instead of manual JSON edits.</p>
               </div>
               <div class="event">
+                <h3>Provider env resource rehearsal</h3>
+                <p>Added local-cloud tracking for provider-targeted env resources so sync can write hash-only metadata and cloud validation can report missing or drifted local rehearsal resources without storing raw values.</p>
+              </div>
+              <div class="event">
                 <h3>Preview deploy rehearsal</h3>
                 <p>Added local-only <code>PLAN deploy preview</code> and <code>APPLIED deploy preview</code> flows, a secret-free <code>.agentstack/deployments/preview.json</code> artifact, and <code>agentstack.deploy.completed</code> telemetry.</p>
               </div>

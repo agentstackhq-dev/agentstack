@@ -24,8 +24,15 @@ const scenarios = {
     title: "Required custom env value",
     command: "pnpm run validate",
     result: "PASS validate",
-    detail: "A required env declaration is satisfiable by .agentstack/env-values.json when it uses the environment -> surface -> variable -> string shape. Invalid JSON or wrong leaf types fail explicitly.",
+    detail: "A required env declaration is satisfiable by .agentstack/env-values.json when it uses the environment -> surface -> variable -> string shape. agentstack env set writes local validation state only; invalid JSON or wrong leaf types fail explicitly.",
     files: ["packages/core/src/env-graph.ts", "packages/cli/src/context.ts", "templates/b2b-saas/.gitignore"]
+  },
+  providerEnvResources: {
+    title: "Provider env resource rehearsal",
+    command: "agentstack sync --env preview --apply && agentstack validate --cloud --env preview",
+    result: "set-env preview.convex.STRIPE_MODE / PASS validate --cloud",
+    detail: "Local-cloud sync rehearses provider env resources without calling real provider APIs. It refuses missing or invalid declared values before planning or applying, then stores redacted metadata and valueHash only so raw values such as sandbox are not copied into cloud state.",
+    files: ["packages/adapters/src/local-cloud.ts", "templates/b2b-saas/docs/agentstack/environments.md", "tests/e2e/prototype.test.ts"]
   },
   staleCloud: {
     title: "Stale linked service",

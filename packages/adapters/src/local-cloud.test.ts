@@ -292,6 +292,205 @@ describe("local-cloud adapter", () => {
     expect(diagnostics).toEqual([]);
   });
 
+  it("detects and syncs missing provider env resources without storing raw values", async () => {
+    const adapter = new LocalCloudAdapter(dir);
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.env.custom.STRIPE_MODE = {
+      surfaces: ["web", "convex"],
+      environments: ["preview"],
+      required: true,
+      secret: false,
+      validate: "enum:sandbox,live"
+    };
+    const envValues = {
+      preview: {
+        web: { STRIPE_MODE: "sandbox" },
+        convex: { STRIPE_MODE: "sandbox" }
+      }
+    };
+
+    const beforeSync = await adapter.validate(manifest, "preview", { envValues });
+
+    expect(beforeSync).toContainEqual(
+      expect.objectContaining({
+        severity: "fail",
+        code: "cloud.env.missing",
+        path: "preview.vercel.env.STRIPE_MODE",
+        fix: "Run agentstack sync --env preview --apply."
+      })
+    );
+    expect(beforeSync).toContainEqual(
+      expect.objectContaining({
+        severity: "fail",
+        code: "cloud.env.missing",
+        path: "preview.convex.env.STRIPE_MODE"
+      })
+    );
+
+    const syncPlan = await adapter.sync(manifest, "preview", { apply: true, envValues });
+    const stateText = await readFile(statePath(), "utf8");
+    const state = JSON.parse(stateText) as {
+      envResources?: Array<{ environment: string; service: string; name: string; valueHash?: string }>;
+    };
+    const afterSync = await adapter.validate(manifest, "preview", { envValues });
+
+    expect(syncPlan.changes).toContain("set-env preview.vercel.STRIPE_MODE");
+    expect(syncPlan.changes).toContain("set-env preview.convex.STRIPE_MODE");
+    expect(state.envResources).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          environment: "preview",
+          service: "vercel",
+          name: "STRIPE_MODE",
+          valueHash: expect.any(String)
+        })
+      ])
+    );
+    expect(stateText).not.toContain("sandbox");
+    expect(afterSync).toEqual([]);
+  });
+
+  it("does not plan provider env resource sets when required values are missing", async () => {
+    const adapter = new LocalCloudAdapter(dir);
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.env.custom.STRIPE_MODE = {
+      surfaces: ["web"],
+      environments: ["preview"],
+      required: true,
+      secret: false,
+      validate: "enum:sandbox,live"
+    };
+
+    const plan = await adapter.sync(manifest, "preview", { apply: false, envValues: {} });
+
+    expect(plan.changes).not.toContain("set-env preview.vercel.STRIPE_MODE");
+  });
+
+  it("does not persist provider env resources when required values are missing", async () => {
+    const adapter = new LocalCloudAdapter(dir);
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.env.custom.STRIPE_MODE = {
+      surfaces: ["web"],
+      environments: ["preview"],
+      required: true,
+      secret: false,
+      validate: "enum:sandbox,live"
+    };
+
+    await adapter.sync(manifest, "preview", { apply: true, envValues: {} });
+
+    const state = JSON.parse(await readFile(statePath(), "utf8")) as {
+      envResources?: Array<{ environment: string; service: string; name: string; valueHash?: string }>;
+    };
+    expect(state.envResources ?? []).not.toContainEqual(
+      expect.objectContaining({
+        environment: "preview",
+        service: "vercel",
+        name: "STRIPE_MODE"
+      })
+    );
+  });
+
+  it("detects stale provider env resources and plans remove-env", async () => {
+    const adapter = new LocalCloudAdapter(dir);
+    const manifest = createDefaultManifest("acme-crm");
+
+    await mkdir(join(dir, ".agentstack"), { recursive: true });
+    await writeFile(
+      statePath(),
+      `${JSON.stringify(
+        {
+          services: [],
+          envResources: [
+            {
+              environment: "preview",
+              surface: "web",
+              service: "vercel",
+              kind: "envVar",
+              name: "LEGACY_FLAG",
+              required: false,
+              secret: false,
+              valueHash: "legacy"
+            }
+          ]
+        },
+        null,
+        2
+      )}\n`,
+      "utf8"
+    );
+
+    const diagnostics = await adapter.validate(manifest, "preview");
+    const plan = await adapter.sync(manifest, "preview", { apply: false });
+
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({
+        severity: "fail",
+        code: "cloud.env.stale",
+        path: "preview.vercel.env.LEGACY_FLAG"
+      })
+    );
+    expect(plan.changes).toContain("remove-env preview.vercel.LEGACY_FLAG");
+  });
+
+  it("detects drifted provider env resource hashes until sync apply updates them", async () => {
+    const adapter = new LocalCloudAdapter(dir);
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.env.custom.STRIPE_MODE = {
+      surfaces: ["web"],
+      environments: ["preview"],
+      required: true,
+      secret: true,
+      validate: "enum:sandbox,live"
+    };
+    const firstValues = { preview: { web: { STRIPE_MODE: "sandbox" } } };
+    const secondValues = { preview: { web: { STRIPE_MODE: "live" } } };
+
+    await adapter.sync(manifest, "preview", { apply: true, envValues: firstValues });
+
+    const drifted = await adapter.validate(manifest, "preview", { envValues: secondValues });
+    const driftPlan = await adapter.sync(manifest, "preview", { apply: false, envValues: secondValues });
+
+    expect(drifted).toContainEqual(
+      expect.objectContaining({
+        severity: "fail",
+        code: "cloud.env.drift",
+        path: "preview.vercel.env.STRIPE_MODE"
+      })
+    );
+    expect(driftPlan.changes).toContain("set-env preview.vercel.STRIPE_MODE");
+
+    await adapter.sync(manifest, "preview", { apply: true, envValues: secondValues });
+
+    const stateText = await readFile(statePath(), "utf8");
+    expect(await adapter.validate(manifest, "preview", { envValues: secondValues })).toEqual([]);
+    expect(stateText).not.toContain("sandbox");
+    expect(stateText).not.toContain("live");
+  });
+
+  it("does not replan synced env resources during deploy when current values are unavailable", async () => {
+    const adapter = new LocalCloudAdapter(dir);
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.env.custom.STRIPE_MODE = {
+      surfaces: ["web"],
+      environments: ["preview"],
+      required: true,
+      secret: false,
+      validate: "enum:sandbox,live"
+    };
+
+    await adapter.sync(manifest, "preview", {
+      apply: true,
+      envValues: { preview: { web: { STRIPE_MODE: "sandbox" } } }
+    });
+
+    const plan = await adapter.deploy(manifest, "preview", { apply: false });
+
+    expect(plan.steps.map((step) => `${step.status} ${step.action} ${step.environment}.${step.service}`)).not.toContain(
+      "planned sync preview.vercel"
+    );
+  });
+
   it("detects stale linked services disabled in the manifest for the selected environment", async () => {
     const adapter = new LocalCloudAdapter(dir);
     const manifest = createDefaultManifest("acme-crm");

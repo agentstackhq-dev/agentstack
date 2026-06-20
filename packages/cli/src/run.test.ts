@@ -203,6 +203,23 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("agentstack sync --env preview --apply");
   });
 
+  it("reports provider env diagnostics and sync repair command in doctor", async () => {
+    await writeProviderEnvManifest();
+    await writeLocalEnvValues({
+      preview: { convex: { OPENAI_API_KEY: "sk-local-provider-value" } }
+    });
+
+    const code = await runAgentstack(["doctor", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL cloud.env.missing");
+    expect(output.join("\n")).toContain("agentstack sync --env preview --apply");
+    expect(output.join("\n")).not.toContain("sk-local-provider-value");
+  });
+
   it("prints dev preflight commands without starting servers", async () => {
     await runAgentstack(["sync", "--env", "preview", "--apply"], { cwd: dir, write: () => undefined });
 
@@ -383,6 +400,126 @@ describe("runAgentstack", () => {
     expect(output).toContain("PASS validate --cloud");
   });
 
+  it("fails cloud validation on missing provider env before sync even when local values exist", async () => {
+    await writeProviderEnvManifest();
+    await writeLocalEnvValues({
+      preview: { convex: { OPENAI_API_KEY: "sk-local-provider-value" } }
+    });
+
+    const code = await runAgentstack(["validate", "--cloud", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL cloud.env.missing");
+    expect(output.join("\n")).toContain("Path: preview.convex.env.OPENAI_API_KEY");
+    expect(output.join("\n")).not.toContain("sk-local-provider-value");
+  });
+
+  it("syncs provider env without printing or storing raw local values", async () => {
+    await writeProviderEnvManifest();
+    await writeLocalEnvValues({
+      preview: { convex: { OPENAI_API_KEY: "sk-local-provider-value" } }
+    });
+
+    const code = await runAgentstack(["sync", "--env", "preview", "--apply"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("- set-env preview.convex.OPENAI_API_KEY");
+    expect(output.join("\n")).not.toContain("sk-local-provider-value");
+    await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).resolves.not.toContain(
+      "sk-local-provider-value"
+    );
+  });
+
+  it("blocks preview provider env sync apply when a required local value is missing", async () => {
+    await writeProviderEnvManifest();
+
+    const code = await runAgentstack(["sync", "--env", "preview", "--apply"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL env.custom.missing");
+    expect(output.join("\n")).toContain("Path: preview.convex.OPENAI_API_KEY");
+    expect(output.join("\n")).not.toContain("replace-me");
+    expect(output.join("\n")).not.toContain("APPLIED preview");
+    await expect(stat(join(dir, ".agentstack", "local-cloud.json"))).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+  });
+
+  it("blocks preview provider env sync plan when a required local value is missing", async () => {
+    await writeProviderEnvManifest();
+
+    const code = await runAgentstack(["sync", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL env.custom.missing");
+    expect(output.join("\n")).toContain("Path: preview.convex.OPENAI_API_KEY");
+    expect(output.join("\n")).not.toContain("PLAN preview");
+    expect(output.join("\n")).not.toContain("set-env");
+  });
+
+  it("blocks preview provider env sync apply when a local enum value is invalid", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.environments = ["preview"];
+    manifest.surfaces = ["convex"];
+    manifest.env.custom.STRIPE_MODE = {
+      surfaces: ["convex"],
+      environments: ["preview"],
+      required: true,
+      secret: false,
+      validate: "enum:sandbox,live"
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    await writeLocalEnvValues({
+      preview: { convex: { STRIPE_MODE: "bogus-mode" } }
+    });
+
+    const code = await runAgentstack(["sync", "--env", "preview", "--apply"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL env.custom.invalid-enum");
+    expect(output.join("\n")).toContain("Path: preview.convex.STRIPE_MODE");
+    expect(output.join("\n")).not.toContain("bogus-mode");
+    expect(output.join("\n")).not.toContain("APPLIED preview");
+    await expect(stat(join(dir, ".agentstack", "local-cloud.json"))).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+  });
+
+  it("passes cloud validation after provider env sync", async () => {
+    await writeProviderEnvManifest();
+    await writeLocalEnvValues({
+      preview: { convex: { OPENAI_API_KEY: "sk-local-provider-value" } }
+    });
+    await runAgentstack(["sync", "--env", "preview", "--apply"], {
+      cwd: dir,
+      write: () => undefined
+    });
+
+    const code = await runAgentstack(["validate", "--cloud", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS validate --cloud");
+    expect(output.join("\n")).not.toContain("sk-local-provider-value");
+  });
+
   it("fails validation when local custom env values are invalid JSON", async () => {
     await mkdir(join(dir, ".agentstack"), { recursive: true });
     await writeFile(join(dir, ".agentstack", "env-values.json"), "{ nope", "utf8");
@@ -443,6 +580,34 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).not.toContain("PASS validate --release production");
   });
 
+  it("fails production release validation on missing production provider env before provision", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.env.custom.STRIPE_MODE = {
+      surfaces: ["web", "convex"],
+      environments: ["production"],
+      required: true,
+      secret: false,
+      validate: "enum:sandbox,live"
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    await writeLocalEnvValues({
+      production: {
+        web: { STRIPE_MODE: "live" },
+        convex: { STRIPE_MODE: "live" }
+      }
+    });
+
+    const code = await runAgentstack(["validate", "--release", "prod"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL cloud.env.missing");
+    expect(output.join("\n")).toContain("Path: production.vercel.env.STRIPE_MODE");
+    expect(output.join("\n")).not.toContain("live");
+  });
+
   it("plans production provision without writing state and applies production provision", async () => {
     const planCode = await runAgentstack(["prod", "provision"], {
       cwd: dir,
@@ -468,6 +633,53 @@ describe("runAgentstack", () => {
     await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).resolves.toContain(
       '"environment": "production"'
     );
+  });
+
+  it("blocks production provision apply when a required production provider env value is missing", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.env.custom.STRIPE_MODE = {
+      surfaces: ["web", "convex"],
+      environments: ["production"],
+      required: true,
+      secret: false,
+      validate: "enum:sandbox,live"
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+
+    const code = await runAgentstack(["prod", "provision", "--apply"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL env.custom.missing");
+    expect(output.join("\n")).toContain("Path: production.web.STRIPE_MODE");
+    expect(output.join("\n")).toContain("Path: production.convex.STRIPE_MODE");
+    expect(output.join("\n")).not.toContain("APPLIED prod provision production");
+    await expect(stat(join(dir, ".agentstack", "local-cloud.json"))).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+  });
+
+  it("blocks production provision plan when a required production provider env value is missing", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.env.custom.STRIPE_MODE = {
+      surfaces: ["web", "convex"],
+      environments: ["production"],
+      required: true,
+      secret: false,
+      validate: "enum:sandbox,live"
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+
+    const code = await runAgentstack(["prod", "provision"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL env.custom.missing");
+    expect(output.join("\n")).not.toContain("PLAN prod provision production");
   });
 
   it("passes production release validation after production provision apply", async () => {
@@ -798,6 +1010,24 @@ describe("runAgentstack", () => {
     });
   });
 
+  it("does not replan synced provider env resources during deploy", async () => {
+    await writeProviderEnvManifest();
+    await writeLocalEnvValues({
+      preview: { convex: { OPENAI_API_KEY: "sk-local-provider-value" } }
+    });
+    await runAgentstack(["sync", "--env", "preview", "--apply"], { cwd: dir, write: () => undefined });
+
+    const code = await runAgentstack(["deploy", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PLAN deploy preview");
+    expect(output.join("\n")).not.toContain("sync preview.convex");
+    expect(output.join("\n")).not.toContain("sk-local-provider-value");
+  });
+
   it("applies preview deploy and writes a deployment artifact", async () => {
     const code = await runAgentstack(["deploy", "--env", "preview", "--apply"], {
       cwd: dir,
@@ -875,6 +1105,38 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("FAIL cloud.service.missing");
     expect(output.join("\n")).toContain("Path: preview.eas");
     expect(output.join("\n")).toContain("Fix: Run agentstack sync --env preview --apply.");
+  });
+
+  it("requires synced EAS provider env resources before mobile builds", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.environments = ["preview"];
+    manifest.surfaces = ["mobile"];
+    manifest.env.custom.EXPO_PUBLIC_API_URL = {
+      surfaces: ["mobile"],
+      environments: ["preview"],
+      required: true,
+      secret: false
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    await writeLocalEnvValues({
+      preview: { mobile: { EXPO_PUBLIC_API_URL: "https://api.example.test" } }
+    });
+    await runAgentstack(["sync", "--env", "preview", "--apply"], { cwd: dir, write: () => undefined });
+    const state = JSON.parse(await readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")) as {
+      envResources?: Array<{ service: string; name: string }>;
+    };
+    state.envResources = state.envResources?.filter((resource) => resource.name !== "EXPO_PUBLIC_API_URL");
+    await writeFile(join(dir, ".agentstack", "local-cloud.json"), `${JSON.stringify(state, null, 2)}\n`);
+
+    const code = await runAgentstack(["build", "mobile", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL cloud.env.missing");
+    expect(output.join("\n")).toContain("Path: preview.eas.env.EXPO_PUBLIC_API_URL");
+    expect(output.join("\n")).not.toContain("https://api.example.test");
   });
 
   it("requires production confirmation before applying production mobile builds", async () => {
@@ -988,6 +1250,12 @@ describe("runAgentstack", () => {
       `${JSON.stringify(manifest, null, 2)}\n`,
       "utf8"
     );
+    await writeLocalEnvValues({
+      preview: {
+        web: { STRIPE_MODE: "sandbox" },
+        convex: { STRIPE_MODE: "sandbox" }
+      }
+    });
     await runAgentstack(["sync", "--env", "preview", "--apply"], {
       cwd: dir,
       write: () => undefined
@@ -1001,8 +1269,39 @@ describe("runAgentstack", () => {
     expect(code).toBe(0);
     expect(output).toContain("PASS env inspect preview");
     expect(output).toContain("- service clerk linked=yes");
-    expect(output).toContain("- env web.STRIPE_MODE required=yes secret=no present=no");
-    expect(output).toContain("- env convex.STRIPE_MODE required=yes secret=no present=no");
+    expect(output).toContain("- env web.STRIPE_MODE required=yes secret=no present=yes");
+    expect(output).toContain("- env convex.STRIPE_MODE required=yes secret=no present=yes");
+  });
+
+  it("inspects provider env sync state without raw values", async () => {
+    await writeProviderEnvManifest();
+    await writeLocalEnvValues({
+      preview: { convex: { OPENAI_API_KEY: "sk-local-provider-value" } }
+    });
+    await runAgentstack(["sync", "--env", "preview", "--apply"], {
+      cwd: dir,
+      write: () => undefined
+    });
+
+    const syncedCode = await runAgentstack(["env", "inspect", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(syncedCode).toBe(0);
+    expect(output).toContain("- provider-env convex.OPENAI_API_KEY synced=yes secret=yes");
+    expect(output.join("\n")).not.toContain("sk-local-provider-value");
+
+    await rm(join(dir, ".agentstack", "local-cloud.json"), { force: true });
+    output = [];
+    const missingCode = await runAgentstack(["env", "inspect", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(missingCode).toBe(0);
+    expect(output).toContain("- provider-env convex.OPENAI_API_KEY synced=no secret=yes");
+    expect(output.join("\n")).not.toContain("sk-local-provider-value");
   });
 
   it("sets a declared custom env value and lets validation pass", async () => {
@@ -1995,6 +2294,28 @@ async function writeGeneratedAnchors(): Promise<void> {
         "utf8"
       );
     })
+  );
+}
+
+async function writeProviderEnvManifest(): Promise<void> {
+  const manifest = createDefaultManifest("acme-crm");
+  manifest.environments = ["preview"];
+  manifest.surfaces = ["convex"];
+  manifest.env.custom.OPENAI_API_KEY = {
+    surfaces: ["convex"],
+    environments: ["preview"],
+    required: true,
+    secret: true
+  };
+  await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+}
+
+async function writeLocalEnvValues(values: unknown): Promise<void> {
+  await mkdir(join(dir, ".agentstack"), { recursive: true });
+  await writeFile(
+    join(dir, ".agentstack", "env-values.json"),
+    `${JSON.stringify(values, null, 2)}\n`,
+    "utf8"
   );
 }
 

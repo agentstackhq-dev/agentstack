@@ -1,6 +1,6 @@
 import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { LocalCloudAdapter } from "@agentstack/adapters";
+import { LocalCloudAdapter, type InspectEnvResource } from "@agentstack/adapters";
 import {
   buildEnvGraph,
   createLifecycleSummary,
@@ -47,6 +47,32 @@ export type RunIo = {
 };
 
 type ParsedOptions = Record<string, string | boolean>;
+
+type EnvAwareInspectReport = Awaited<ReturnType<LocalCloudAdapter["inspect"]>> & {
+  expectedEnv?: InspectEnvResource[];
+  syncedEnv?: InspectEnvResource[];
+  missingEnv?: InspectEnvResource[];
+  staleEnv?: InspectEnvResource[];
+  driftedEnv?: InspectEnvResource[];
+};
+
+type EnvAwareLocalCloudAdapter = LocalCloudAdapter & {
+  inspect(
+    manifest: AgentstackManifest,
+    environment: EnvironmentName,
+    options?: { envValues?: EnvValueState }
+  ): Promise<EnvAwareInspectReport>;
+  validate(
+    manifest: AgentstackManifest,
+    environment: EnvironmentName,
+    options?: { envValues?: EnvValueState }
+  ): Promise<Diagnostic[]>;
+  sync(
+    manifest: AgentstackManifest,
+    environment: EnvironmentName,
+    options: { apply: boolean; envValues?: EnvValueState }
+  ): Promise<{ environment: EnvironmentName; changes: string[]; applied: boolean }>;
+};
 
 const environmentValues = ["development", "preview", "production"] as const;
 const environmentOptionValues = ["development", "preview", "production", "prod"] as const;
@@ -196,7 +222,7 @@ async function validateCommand(argv: string[], io: RunIo): Promise<number> {
     return 0;
   }
 
-  const { context, diagnostics } = await runLocalValidationGate(io.cwd);
+  const { context, diagnostics, envValues } = await runLocalValidationGate(io.cwd);
   diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
 
   if (diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
@@ -219,8 +245,8 @@ async function validateCommand(argv: string[], io: RunIo): Promise<number> {
             flag: "env",
             fix: "Run agentstack validate --cloud --env preview."
           });
-    const adapter = new LocalCloudAdapter(io.cwd);
-    const diagnostics = await adapter.validate(context.manifest, environment);
+    const adapter = new LocalCloudAdapter(io.cwd) as EnvAwareLocalCloudAdapter;
+    const diagnostics = await adapter.validate(context.manifest, environment, { envValues });
     diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
     if (diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
       await recordCommandEvent(io, {
@@ -400,6 +426,7 @@ async function deployCommand(argv: string[], io: RunIo): Promise<number> {
   }
 
   let context: Awaited<ReturnType<typeof loadProjectContext>>;
+  let envValues: EnvValueState;
   if (environment === "production") {
     const result = await runReleaseValidationGate(io, argv, "production");
     result.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
@@ -408,6 +435,7 @@ async function deployCommand(argv: string[], io: RunIo): Promise<number> {
     }
     io.write("PASS validate --release production");
     context = result.context;
+    envValues = result.envValues;
 
     if (options.apply && !options["confirm-production"]) {
       io.write(
@@ -430,11 +458,13 @@ async function deployCommand(argv: string[], io: RunIo): Promise<number> {
       return 1;
     }
     context = validation.context;
+    envValues = validation.envValues;
   }
 
   const deployPlan = await new LocalCloudAdapter(io.cwd).deploy(context.manifest, environment, {
     apply: Boolean(options.apply),
-    confirmProduction: Boolean(options["confirm-production"])
+    confirmProduction: Boolean(options["confirm-production"]),
+    envValues
   });
   io.write(`${deployPlan.applied ? "APPLIED" : "PLAN"} deploy ${deployPlan.environment}`);
   deployPlan.steps.forEach((step) =>
@@ -495,8 +525,15 @@ async function prodPrepareCommand(argv: string[], io: RunIo): Promise<number> {
 async function prodProvisionCommand(argv: string[], io: RunIo): Promise<number> {
   const options = parseOptions(argv);
   const context = await loadProjectContext(io.cwd);
-  const adapter = new LocalCloudAdapter(io.cwd);
-  const plan = await adapter.sync(context.manifest, "production", { apply: Boolean(options.apply) });
+  const envValues = await loadLocalEnvValues(io.cwd);
+  if (writeCustomEnvSyncDiagnostics(io, context.manifest, envValues, ["production"])) {
+    return 1;
+  }
+  const adapter = new LocalCloudAdapter(io.cwd) as EnvAwareLocalCloudAdapter;
+  const plan = await adapter.sync(context.manifest, "production", {
+    apply: Boolean(options.apply),
+    envValues
+  });
 
   io.write(`${plan.applied ? "APPLIED" : "PLAN"} prod provision production`);
   plan.changes.forEach((change) => io.write(`- ${change}`));
@@ -517,16 +554,18 @@ async function buildMobileCommand(argv: string[], io: RunIo): Promise<number> {
     flag: "env",
     fix: "Run agentstack build mobile --env preview."
   });
-  const { context, diagnostics } = await runLocalValidationGate(io.cwd);
+  const { context, diagnostics, envValues } = await runLocalValidationGate(io.cwd);
   diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
 
   if (diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
     return 1;
   }
 
-  const adapter = new LocalCloudAdapter(io.cwd);
-  const easDiagnostics = (await adapter.validate(context.manifest, environment)).filter(
-    (diagnostic) => diagnostic.path === `${environment}.eas`
+  const adapter = new LocalCloudAdapter(io.cwd) as EnvAwareLocalCloudAdapter;
+  const easDiagnostics = (await adapter.validate(context.manifest, environment, { envValues })).filter(
+    (diagnostic) =>
+      diagnostic.path === `${environment}.eas` ||
+      diagnostic.path?.startsWith(`${environment}.eas.env.`)
   );
   easDiagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
   if (easDiagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
@@ -571,6 +610,7 @@ async function runLocalValidationGate(cwd: string): Promise<{
   sourcePolicyDiagnostics: Diagnostic[];
   missingAnchors: string[];
   diagnostics: Diagnostic[];
+  envValues: EnvValueState;
 }> {
   const context = await loadProjectContext(cwd);
   const envValues = await loadLocalEnvValues(cwd);
@@ -596,7 +636,8 @@ async function runLocalValidationGate(cwd: string): Promise<{
     themeDiagnostics,
     sourcePolicyDiagnostics,
     missingAnchors,
-    diagnostics
+    diagnostics,
+    envValues
   };
 }
 
@@ -606,17 +647,21 @@ async function runReleaseValidationGate(
   environment: ReleaseEnvironment
 ): Promise<{
   context: Awaited<ReturnType<typeof loadProjectContext>>;
+  envValues: EnvValueState;
   diagnostics: Diagnostic[];
   failed: boolean;
 }> {
   const localValidation = await runLocalValidationGate(io.cwd);
-  const adapter = new LocalCloudAdapter(io.cwd);
+  const adapter = new LocalCloudAdapter(io.cwd) as EnvAwareLocalCloudAdapter;
   const releaseDiagnostics = validateReleasePolicy(localValidation.context.manifest, environment);
-  const cloudDiagnostics = await adapter.validate(localValidation.context.manifest, environment);
+  const cloudDiagnostics = await adapter.validate(localValidation.context.manifest, environment, {
+    envValues: localValidation.envValues
+  });
   const diagnostics = [...localValidation.diagnostics, ...releaseDiagnostics, ...cloudDiagnostics];
 
   return {
     context: localValidation.context,
+    envValues: localValidation.envValues,
     diagnostics,
     failed: diagnostics.some((diagnostic) => diagnostic.severity === "fail")
   };
@@ -649,10 +694,12 @@ async function loadLifecycleSummary(
   cloudDiagnostics: Diagnostic[];
 }> {
   const validation = await runLocalValidationGate(cwd);
-  const adapter = new LocalCloudAdapter(cwd);
-  const cloudReport = await adapter.inspect(validation.context.manifest, environment);
+  const adapter = new LocalCloudAdapter(cwd) as EnvAwareLocalCloudAdapter;
+  const cloudReport = await adapter.inspect(validation.context.manifest, environment, {
+    envValues: validation.envValues
+  });
   const cloudDiagnostics = options.includeCloudDiagnostics
-    ? await adapter.validate(validation.context.manifest, environment)
+    ? await adapter.validate(validation.context.manifest, environment, { envValues: validation.envValues })
     : [];
   const localDiagnostics = validation.diagnostics;
   const diagnostics = [...localDiagnostics, ...cloudDiagnostics];
@@ -662,7 +709,12 @@ async function loadLifecycleSummary(
     expectedServices: cloudReport.expected.map((resource) => resource.service),
     linkedServices: cloudReport.linked.map((resource) => resource.service),
     missingServices: cloudReport.missing.map((resource) => resource.service),
-    staleServices: cloudReport.stale.map((resource) => resource.service)
+    staleServices: cloudReport.stale.map((resource) => resource.service),
+    expectedEnv: formatProviderEnvResources(cloudReport.expectedEnv ?? []),
+    syncedEnv: formatProviderEnvResources(cloudReport.syncedEnv ?? []),
+    missingEnv: formatProviderEnvResources(cloudReport.missingEnv ?? []),
+    staleEnv: formatProviderEnvResources(cloudReport.staleEnv ?? []),
+    driftedEnv: formatProviderEnvResources(cloudReport.driftedEnv ?? [])
   };
 
   return {
@@ -699,6 +751,13 @@ function writeLifecycleSummary(io: RunIo, summary: LifecycleSummary): void {
     io.write(`Cloud linked: ${formatList(summary.cloud.linkedServices)}`);
     io.write(`Cloud missing: ${formatList(summary.cloud.missingServices)}`);
     io.write(`Cloud stale: ${formatList(summary.cloud.staleServices)}`);
+    io.write(
+      `Cloud env expected: ${summary.cloud.expectedEnv.length} (${formatList(summary.cloud.expectedEnv)})`
+    );
+    io.write(`Cloud env synced: ${summary.cloud.syncedEnv.length} (${formatList(summary.cloud.syncedEnv)})`);
+    io.write(`Cloud env missing: ${summary.cloud.missingEnv.length} (${formatList(summary.cloud.missingEnv)})`);
+    io.write(`Cloud env stale: ${summary.cloud.staleEnv.length} (${formatList(summary.cloud.staleEnv)})`);
+    io.write(`Cloud env drifted: ${summary.cloud.driftedEnv.length} (${formatList(summary.cloud.driftedEnv)})`);
   }
   writeNextCommands(io, summary.nextCommands);
 }
@@ -728,6 +787,14 @@ function writeDevNextCommands(io: RunIo, environment: EnvironmentName, commands:
 
 function formatList(values: Array<string | number>): string {
   return values.length > 0 ? values.join(",") : "none";
+}
+
+function formatProviderEnvResources(resources: InspectEnvResource[]): string[] {
+  return resources.map(formatProviderEnvResource);
+}
+
+function formatProviderEnvResource(resource: InspectEnvResource): string {
+  return `${resource.environment}.${resource.service}.${resource.name}`;
 }
 
 async function themeValidateCommand(io: RunIo): Promise<number> {
@@ -936,8 +1003,15 @@ async function syncCommand(argv: string[], io: RunIo): Promise<number> {
     fix: "Run agentstack sync --env preview --apply."
   });
   const context = await loadProjectContext(io.cwd);
-  const adapter = new LocalCloudAdapter(io.cwd);
-  const plan = await adapter.sync(context.manifest, environment, { apply: Boolean(options.apply) });
+  const envValues = await loadLocalEnvValues(io.cwd);
+  if (writeCustomEnvSyncDiagnostics(io, context.manifest, envValues, [environment])) {
+    return 1;
+  }
+  const adapter = new LocalCloudAdapter(io.cwd) as EnvAwareLocalCloudAdapter;
+  const plan = await adapter.sync(context.manifest, environment, {
+    apply: Boolean(options.apply),
+    envValues
+  });
 
   io.write(`${plan.applied ? "APPLIED" : "PLAN"} ${plan.environment}`);
   plan.changes.forEach((change) => io.write(`- ${change}`));
@@ -961,9 +1035,10 @@ async function envInspectCommand(argv: string[], io: RunIo): Promise<number> {
   const context = await loadProjectContext(io.cwd);
   const envValues = await loadLocalEnvValues(io.cwd);
   const graph = buildEnvGraph(context.manifest);
-  const adapter = new LocalCloudAdapter(io.cwd);
-  const report = await adapter.inspect(context.manifest, environment);
+  const adapter = new LocalCloudAdapter(io.cwd) as EnvAwareLocalCloudAdapter;
+  const report = await adapter.inspect(context.manifest, environment, { envValues });
   const linked = new Set(report.linked.map((resource) => resource.service));
+  const syncedEnv = new Set((report.syncedEnv ?? []).map(formatProviderEnvResource));
 
   io.write(`PASS env inspect ${environment}`);
   for (const resource of report.expected) {
@@ -972,6 +1047,13 @@ async function envInspectCommand(argv: string[], io: RunIo): Promise<number> {
   for (const binding of graph.bindings.filter((candidate) => candidate.environment === environment)) {
     io.write(
       `- env ${binding.surface}.${binding.name} required=${binding.required ? "yes" : "no"} secret=${binding.secret ? "yes" : "no"} present=${envValues[environment]?.[binding.surface]?.[binding.name] ? "yes" : "no"}`
+    );
+  }
+  for (const resource of report.expectedEnv ?? []) {
+    io.write(
+      `- provider-env ${resource.service}.${resource.name} synced=${
+        syncedEnv.has(formatProviderEnvResource(resource)) ? "yes" : "no"
+      } secret=${resource.secret ? "yes" : "no"}`
     );
   }
 
@@ -984,7 +1066,9 @@ async function envInspectCommand(argv: string[], io: RunIo): Promise<number> {
     state: {
       expectedServices: report.expected.map((resource) => resource.service),
       linkedServices: report.linked.map((resource) => resource.service),
-      missingServices: report.missing.map((resource) => resource.service)
+      missingServices: report.missing.map((resource) => resource.service),
+      expectedEnv: formatProviderEnvResources(report.expectedEnv ?? []),
+      syncedEnv: formatProviderEnvResources(report.syncedEnv ?? [])
     }
   });
   return 0;
@@ -1340,15 +1424,37 @@ async function updateBillingPlanBarrel(cwd: string, planSlug: string): Promise<s
 
 async function initCloudCommand(io: RunIo): Promise<number> {
   const context = await loadProjectContext(io.cwd);
-  const adapter = new LocalCloudAdapter(io.cwd);
+  const envValues = await loadLocalEnvValues(io.cwd);
+  if (writeCustomEnvSyncDiagnostics(io, context.manifest, envValues, ["development", "preview"])) {
+    return 1;
+  }
+  const adapter = new LocalCloudAdapter(io.cwd) as EnvAwareLocalCloudAdapter;
 
   for (const environment of ["development", "preview"] as const) {
-    const plan = await adapter.sync(context.manifest, environment, { apply: true });
+    const plan = await adapter.sync(context.manifest, environment, { apply: true, envValues });
     io.write(`APPLIED ${plan.environment}`);
     plan.changes.forEach((change) => io.write(`- ${change}`));
   }
 
   return 0;
+}
+
+function writeCustomEnvSyncDiagnostics(
+  io: RunIo,
+  manifest: AgentstackManifest,
+  envValues: EnvValueState,
+  environments: readonly EnvironmentName[]
+): boolean {
+  const selected = new Set<EnvironmentName>(environments);
+  const diagnostics = validateCustomEnvValues(manifest, envValues).filter(
+    (diagnostic) =>
+      diagnostic.code.startsWith("env.custom.") &&
+      typeof diagnostic.path === "string" &&
+      Array.from(selected).some((environment) => diagnostic.path?.startsWith(`${environment}.`))
+  );
+
+  diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
+  return diagnostics.some((diagnostic) => diagnostic.severity === "fail");
 }
 
 async function observeCommand(argv: string[], io: RunIo): Promise<number> {

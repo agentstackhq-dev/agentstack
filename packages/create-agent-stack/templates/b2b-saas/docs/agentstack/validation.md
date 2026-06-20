@@ -10,11 +10,11 @@ Run `pnpm run dev` as a local preflight when you need the next commands for prod
 
 Run `pnpm run theme:validate` when editing `packages/theme/tokens.json` or `packages/theme/src/index.ts`. The normal local validation gate also includes theme diagnostics and blocks completion when required token paths are missing or invalid.
 
-Required custom env declarations are satisfied from `.agentstack/env-values.json` using the environment -> surface -> variable shape documented in `docs/agentstack/environments.md`.
+Required custom env declarations are satisfied from `.agentstack/env-values.json` using the environment -> surface -> variable shape documented in `docs/agentstack/environments.md`. `agentstack env set` writes that local validation state only; it does not create or update provider resources.
 
-Local validation also scans source, docs, and `.env` files for raw secret-like values. Use `agentstack env set` for local-cloud preview state. Real provider adapters and provider secret stores are future work.
+Local validation also scans source, docs, and `.env` files for raw secret-like values. Use `agentstack sync --env <env>` for local provider env resource rehearsal after values exist. Sync refuses missing or invalid declared values before planning or applying provider env resources. Applied sync records provider env resources in `.agentstack/local-cloud.json` with redacted/hash-only metadata such as `valueHash`, never raw env values. Real provider adapters and provider secret stores are future work.
 
-Run `pnpm run env:inspect` when provider state, environment sync, or deployment readiness needs deeper detail after `pnpm run doctor`. Use `pnpm run preview:plan` to plan local-cloud repair, `pnpm run preview:apply` to apply it, `pnpm run preview:validate` to compare expected preview state with configured services, and `pnpm run preview:deploy` to rehearse deploy planning locally.
+Run `pnpm run env:inspect` when provider state, environment sync, or deployment readiness needs deeper detail after `pnpm run doctor`. Use `pnpm run preview:plan` to plan local-cloud repair, `pnpm run preview:apply` to apply it, `pnpm run preview:validate` to compare expected preview state with configured services and provider env resources, and `pnpm run preview:deploy` to rehearse deploy planning locally. `validate --cloud` reports missing, stale, or drifted provider env resources through the same local-cloud contract that future Convex, Vercel, EAS, and Clerk adapters will implement.
 
 Use `pnpm run mobile:build:development`, `pnpm run mobile:build:preview`, and `pnpm run mobile:build:production` to validate generated mobile build profiles. The preview apply step writes `.agentstack/builds/mobile-preview.json` only; it does not call Expo or EAS.
 

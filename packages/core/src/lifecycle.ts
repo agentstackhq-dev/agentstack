@@ -9,6 +9,11 @@ export type LifecycleCloudSummary = {
   linkedServices: Array<ServiceName | string>;
   missingServices: Array<ServiceName | string>;
   staleServices: Array<ServiceName | string>;
+  expectedEnv: string[];
+  syncedEnv: string[];
+  missingEnv: string[];
+  staleEnv: string[];
+  driftedEnv: string[];
 };
 
 export type LifecycleSummary = {
@@ -47,7 +52,10 @@ export function createLifecycleSummary(input: CreateLifecycleSummaryInput): Life
     !failed &&
     (input.diagnostics.some((diagnostic) => diagnostic.severity === "warn") ||
       Boolean(input.cloud?.missingServices.length) ||
-      Boolean(input.cloud?.staleServices.length));
+      Boolean(input.cloud?.staleServices.length) ||
+      Boolean(input.cloud?.missingEnv.length) ||
+      Boolean(input.cloud?.staleEnv.length) ||
+      Boolean(input.cloud?.driftedEnv.length));
 
   return {
     status: failed ? "fail" : warned ? "warn" : "pass",
@@ -73,7 +81,12 @@ export function createLifecycleSummary(input: CreateLifecycleSummaryInput): Life
     nextCommands: recommendLifecycleCommands({
       environment: input.environment,
       diagnostics: input.diagnostics,
-      cloudMissing: input.cloud?.missingServices ?? []
+      cloudMissing: [...(input.cloud?.missingServices ?? []), ...(input.cloud?.missingEnv ?? [])],
+      cloudEnvNeedsSync: [
+        ...(input.cloud?.missingEnv ?? []),
+        ...(input.cloud?.staleEnv ?? []),
+        ...(input.cloud?.driftedEnv ?? [])
+      ]
     })
   };
 }
@@ -82,6 +95,7 @@ export type RecommendLifecycleCommandsInput = {
   environment: EnvironmentName;
   diagnostics: Diagnostic[];
   cloudMissing: Array<ServiceName | string>;
+  cloudEnvNeedsSync?: string[];
 };
 
 export function recommendLifecycleCommands(input: RecommendLifecycleCommandsInput): string[] {
@@ -94,7 +108,7 @@ export function recommendLifecycleCommands(input: RecommendLifecycleCommandsInpu
     commands.add(stripTrailingPeriod(diagnostic.fix.slice(4)));
   }
 
-  if (input.cloudMissing.length > 0) {
+  if (input.cloudMissing.length > 0 || (input.cloudEnvNeedsSync?.length ?? 0) > 0) {
     commands.add(`agentstack sync --env ${input.environment} --apply`);
     commands.add(`agentstack validate --cloud --env ${input.environment}`);
   }

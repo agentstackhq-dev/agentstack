@@ -14,7 +14,12 @@ describe("lifecycle summaries", () => {
       expectedServices: ["clerk", "convex"],
       linkedServices: ["clerk", "convex"],
       missingServices: [],
-      staleServices: []
+      staleServices: [],
+      expectedEnv: [],
+      syncedEnv: [],
+      missingEnv: [],
+      staleEnv: [],
+      driftedEnv: []
     };
 
     const summary = createLifecycleSummary({
@@ -68,7 +73,12 @@ describe("lifecycle summaries", () => {
         expectedServices: ["clerk", "convex"],
         linkedServices: ["clerk"],
         missingServices: ["convex"],
-        staleServices: []
+        staleServices: [],
+        expectedEnv: [],
+        syncedEnv: [],
+        missingEnv: [],
+        staleEnv: [],
+        driftedEnv: []
       }
     });
 

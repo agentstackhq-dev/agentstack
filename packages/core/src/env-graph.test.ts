@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { createDefaultManifest } from "./manifest.js";
-import { buildEnvGraph, parseEnvValueState, validateCustomEnvValues } from "./env-graph.js";
+import {
+  buildEnvGraph,
+  buildProviderEnvResources,
+  parseEnvValueState,
+  validateCustomEnvValues
+} from "./env-graph.js";
 
 describe("environment graph", () => {
   it("creates service nodes for each environment", () => {
@@ -259,6 +264,146 @@ describe("environment graph", () => {
         fix: "Run agentstack env set --env preview --surface convex --name OPENAI_API_KEY --value <value>.",
         blocks: ["validate", "validate --cloud"]
       }
+    ]);
+  });
+
+  it("maps active custom env bindings to provider env resources with redacted local value hashes", () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.env.custom.STRIPE_MODE = {
+      surfaces: ["web", "convex"],
+      environments: ["preview", "production"],
+      required: true,
+      secret: false,
+      validate: "enum:sandbox,live"
+    };
+    manifest.env.custom.OPENAI_API_KEY = {
+      surfaces: ["convex"],
+      environments: ["preview"],
+      required: true,
+      secret: true
+    };
+
+    const resources = buildProviderEnvResources(manifest, {
+      preview: {
+        web: { STRIPE_MODE: "sandbox" },
+        convex: { STRIPE_MODE: "sandbox", OPENAI_API_KEY: "sk-local-openai" }
+      },
+      production: {
+        web: { STRIPE_MODE: "live" },
+        convex: { STRIPE_MODE: "live" }
+      }
+    });
+
+    expect(resources.map((resource) => `${resource.environment}.${resource.service}.${resource.name}`)).toEqual([
+      "preview.vercel.STRIPE_MODE",
+      "preview.convex.STRIPE_MODE",
+      "production.vercel.STRIPE_MODE",
+      "production.convex.STRIPE_MODE",
+      "preview.convex.OPENAI_API_KEY"
+    ]);
+    expect(resources).toEqual([
+      expect.objectContaining({
+        environment: "preview",
+        surface: "web",
+        service: "vercel",
+        kind: "envVar",
+        name: "STRIPE_MODE",
+        required: true,
+        secret: false,
+        valueHash: expect.any(String)
+      }),
+      expect.objectContaining({
+        environment: "preview",
+        surface: "convex",
+        service: "convex",
+        kind: "envVar",
+        name: "STRIPE_MODE",
+        valueHash: expect.any(String)
+      }),
+      expect.objectContaining({
+        environment: "production",
+        surface: "web",
+        service: "vercel",
+        kind: "envVar",
+        name: "STRIPE_MODE",
+        valueHash: expect.any(String)
+      }),
+      expect.objectContaining({
+        environment: "production",
+        surface: "convex",
+        service: "convex",
+        kind: "envVar",
+        name: "STRIPE_MODE",
+        valueHash: expect.any(String)
+      }),
+      expect.objectContaining({
+        environment: "preview",
+        surface: "convex",
+        service: "convex",
+        kind: "envVar",
+        name: "OPENAI_API_KEY",
+        required: true,
+        secret: true,
+        valueHash: expect.any(String)
+      })
+    ]);
+    expect(JSON.stringify(resources)).not.toContain("sandbox");
+    expect(JSON.stringify(resources)).not.toContain("live");
+    expect(JSON.stringify(resources)).not.toContain("sk-local-openai");
+  });
+
+  it("excludes provider env resources for disabled services and inactive scopes", () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.environments = ["preview"];
+    manifest.surfaces = ["web", "convex"];
+    manifest.services.vercel.enabled = false;
+    manifest.services.convex.requiredEnvironments = ["production"];
+    manifest.env.custom.STRIPE_MODE = {
+      surfaces: ["web", "convex", "mobile"],
+      environments: ["development", "preview", "production"],
+      required: true,
+      secret: false
+    };
+
+    const resources = buildProviderEnvResources(manifest, {
+      preview: {
+        web: { STRIPE_MODE: "sandbox" },
+        convex: { STRIPE_MODE: "sandbox" },
+        mobile: { STRIPE_MODE: "sandbox" }
+      },
+      production: {
+        web: { STRIPE_MODE: "live" },
+        convex: { STRIPE_MODE: "live" }
+      }
+    });
+
+    expect(resources).toEqual([]);
+  });
+
+  it("does not require provider env resources for unset optional declarations", () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.env.custom.SENTRY_DSN = {
+      surfaces: ["web"],
+      environments: ["preview"],
+      required: false,
+      secret: true
+    };
+
+    expect(buildProviderEnvResources(manifest, {})).toEqual([]);
+    expect(
+      buildProviderEnvResources(manifest, {
+        preview: { web: { SENTRY_DSN: "https://example.invalid/123" } }
+      })
+    ).toEqual([
+      expect.objectContaining({
+        environment: "preview",
+        surface: "web",
+        service: "vercel",
+        name: "SENTRY_DSN",
+        required: false,
+        secret: true,
+        valueHash: expect.any(String)
+      })
     ]);
   });
 });
