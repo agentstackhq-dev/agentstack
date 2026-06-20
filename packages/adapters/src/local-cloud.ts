@@ -73,6 +73,11 @@ export class LocalCloudAdapter implements CloudAdapter {
             env: {}
           });
         }
+      } else if (!state.services[index]?.linked) {
+        changes.push(`link ${environment}.${node.service}`);
+        if (options.apply) {
+          state.services[index].linked = true;
+        }
       }
     }
 
