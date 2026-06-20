@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, readdir, rm, stat } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { execFile } from "node:child_process";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
@@ -15,7 +15,12 @@ const repoRoot = resolve(packageRoot, "../..");
 const packageManifestPath = join(packageRoot, "package.json");
 const rootTemplateDir = join(repoRoot, "templates/b2b-saas");
 const packageTemplateDir = join(packageRoot, "templates/b2b-saas");
-const templateTokens = ["__APP_SLUG__", "__APP_NAME__"];
+const templateTokens = [
+  "__APP_SLUG__",
+  "__APP_NAME__",
+  "__AGENTSTACK_REPO_ROOT__",
+  "__AGENTSTACK_TSX_CLI__"
+];
 const execFileAsync = promisify(execFile);
 
 describe("generateProject", () => {
@@ -49,10 +54,44 @@ describe("generateProject", () => {
       await expect(runPackageScript(targetDir, "validate")).resolves.toContain(
         "PASS validate"
       );
+      await expect(runPackageScript(targetDir, "validate:cloud")).rejects.toMatchObject({
+        stdout: expect.stringContaining("FAIL cloud.service.missing")
+      });
       await expect(runPackageScript(targetDir, "init:cloud")).resolves.toContain(
         "APPLIED preview"
       );
+      const cloudState = JSON.parse(
+        await readFile(join(targetDir, ".agentstack/local-cloud.json"), "utf8")
+      );
+      expect(cloudState.services).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ environment: "preview", service: "clerk", linked: true }),
+          expect.objectContaining({ environment: "preview", service: "convex", linked: true }),
+          expect.objectContaining({ environment: "preview", service: "vercel", linked: true }),
+          expect.objectContaining({ environment: "preview", service: "eas", linked: true })
+        ])
+      );
       await expect(runPackageScript(targetDir, "validate:cloud")).resolves.toBeDefined();
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  test("generated validate delegates to the real manifest schema", async () => {
+    const tempRoot = await mkdtemp(join(tmpdir(), "agentstack-create-"));
+    const targetDir = join(tempRoot, "acme-crm");
+
+    try {
+      await generateProject({ name: "acme-crm", targetDir });
+
+      const manifestPath = join(targetDir, "agentstack.config.json");
+      const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+      delete manifest.env.custom;
+      await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+      await expect(runPackageScript(targetDir, "validate")).rejects.toMatchObject({
+        stdout: expect.stringContaining("FAIL manifest.invalid")
+      });
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }
