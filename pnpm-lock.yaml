@@ -30,6 +30,12 @@ importers:
         specifier: ^3.24.1
         version: 3.25.76
 
+  packages/adapters:
+    dependencies:
+      '@agentstack/core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/core:
     dependencies:
       zod:
