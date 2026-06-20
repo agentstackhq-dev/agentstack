@@ -10,6 +10,7 @@ import { generateProject } from "./generate.js";
 const sourceDir = dirname(fileURLToPath(import.meta.url));
 const packageRoot = resolve(sourceDir, "..");
 const repoRoot = resolve(packageRoot, "../..");
+const packageManifestPath = join(packageRoot, "package.json");
 const rootTemplateDir = join(repoRoot, "templates/b2b-saas");
 const packageTemplateDir = join(packageRoot, "templates/b2b-saas");
 const templateTokens = ["__APP_SLUG__", "__APP_NAME__"];
@@ -75,6 +76,16 @@ describe("packaged template", () => {
         );
       })
     );
+  });
+});
+
+describe("package metadata", () => {
+  test("does not depend on unpublished workspace packages at runtime", async () => {
+    const packageManifest = JSON.parse(
+      await readFile(packageManifestPath, "utf8")
+    );
+
+    expect(packageManifest.dependencies).not.toHaveProperty("@agentstack/core");
   });
 });
 

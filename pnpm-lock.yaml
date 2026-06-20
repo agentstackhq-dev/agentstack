@@ -59,9 +59,6 @@ importers:
 
   packages/create-agent-stack:
     dependencies:
-      '@agentstack/core':
-        specifier: workspace:*
-        version: link:../core
       fs-extra:
         specifier: ^11.2.0
         version: 11.3.5
