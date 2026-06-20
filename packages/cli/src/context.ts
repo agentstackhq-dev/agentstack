@@ -4,7 +4,8 @@ import {
   createMissingGeneratedAnchorDiagnostic,
   formatDiagnostic,
   parseManifest,
-  type AgentstackManifest
+  type AgentstackManifest,
+  type EnvValueState
 } from "@agentstack/core";
 
 export type ProjectContext = {
@@ -38,6 +39,34 @@ export async function loadProjectContext(cwd: string): Promise<ProjectContext> {
   }
 
   return { cwd, manifest: parsed.value };
+}
+
+export async function loadLocalEnvValues(cwd: string): Promise<EnvValueState> {
+  const relativePath = ".agentstack/env-values.json";
+  const path = join(cwd, relativePath);
+  let raw: string;
+
+  try {
+    raw = await readFile(path, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return {};
+    }
+    throw error;
+  }
+
+  try {
+    return JSON.parse(raw) as EnvValueState;
+  } catch (error) {
+    throw new Error(
+      [
+        "FAIL env.values.invalid-json",
+        `Path: ${relativePath}`,
+        (error as Error).message,
+        "Fix: Update .agentstack/env-values.json so it contains valid JSON in EnvValueState shape."
+      ].join("\n")
+    );
+  }
 }
 
 function isMissingManifestAnchorError(error: unknown): boolean {

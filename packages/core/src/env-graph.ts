@@ -56,7 +56,7 @@ export function validateCustomEnvValues(
             code: "env.custom.missing",
             path: `${environment}.${surface}.${name}`,
             message: `${name} is required for ${surface} in ${environment}, but no value is present.`,
-            fix: `Run agentstack env set ${name} --env ${environment} --surface ${surface}.`,
+            fix: `Add ${environment}.${surface}.${name} to .agentstack/env-values.json.`,
             blocks: ["validate", "validate --cloud"]
           });
         }

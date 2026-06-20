@@ -15,7 +15,7 @@ import {
   type TelemetryQuery,
   type TelemetrySurface
 } from "@agentstack/telemetry";
-import { loadProjectContext } from "./context.js";
+import { loadLocalEnvValues, loadProjectContext } from "./context.js";
 
 export type RunIo = {
   cwd: string;
@@ -77,7 +77,8 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
 async function validateCommand(argv: string[], io: RunIo): Promise<number> {
   const options = parseOptions(argv);
   const context = await loadProjectContext(io.cwd);
-  const localResult = validateLocalProject({ manifest: context.manifest, envValues: {} });
+  const envValues = await loadLocalEnvValues(io.cwd);
+  const localResult = validateLocalProject({ manifest: context.manifest, envValues });
   const anchorResult = validateGeneratedAnchors({
     manifest: context.manifest,
     missingPaths: await findMissingGeneratedAnchors(context.cwd, context.manifest)

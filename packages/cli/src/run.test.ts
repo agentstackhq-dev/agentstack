@@ -41,6 +41,86 @@ describe("runAgentstack", () => {
     expect(output).toContain("PASS validate");
   });
 
+  it("loads local custom env values during validation", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.environments = ["preview"];
+    manifest.surfaces = ["convex"];
+    manifest.env.custom.OPENAI_API_KEY = {
+      surfaces: ["convex"],
+      environments: ["preview"],
+      required: true,
+      secret: true
+    };
+    await writeFile(
+      join(dir, "agentstack.config.json"),
+      `${JSON.stringify(manifest, null, 2)}\n`,
+      "utf8"
+    );
+    await mkdir(join(dir, ".agentstack"), { recursive: true });
+    await writeFile(
+      join(dir, ".agentstack", "env-values.json"),
+      `${JSON.stringify({ preview: { convex: { OPENAI_API_KEY: "sk-preview" } } }, null, 2)}\n`,
+      "utf8"
+    );
+
+    const code = await runAgentstack(["validate"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS validate");
+  });
+
+  it("loads local custom env values during cloud validation", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.environments = ["preview"];
+    manifest.surfaces = ["convex"];
+    manifest.env.custom.OPENAI_API_KEY = {
+      surfaces: ["convex"],
+      environments: ["preview"],
+      required: true,
+      secret: true
+    };
+    await writeFile(
+      join(dir, "agentstack.config.json"),
+      `${JSON.stringify(manifest, null, 2)}\n`,
+      "utf8"
+    );
+    await mkdir(join(dir, ".agentstack"), { recursive: true });
+    await writeFile(
+      join(dir, ".agentstack", "env-values.json"),
+      `${JSON.stringify({ preview: { convex: { OPENAI_API_KEY: "sk-preview" } } }, null, 2)}\n`,
+      "utf8"
+    );
+    await runAgentstack(["init", "cloud"], {
+      cwd: dir,
+      write: () => undefined
+    });
+
+    const code = await runAgentstack(["validate", "--cloud"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS validate --cloud");
+  });
+
+  it("fails validation when local custom env values are invalid JSON", async () => {
+    await mkdir(join(dir, ".agentstack"), { recursive: true });
+    await writeFile(join(dir, ".agentstack", "env-values.json"), "{ nope", "utf8");
+
+    const code = await runAgentstack(["validate"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL env.values.invalid-json");
+    expect(output.join("\n")).toContain("Path: .agentstack/env-values.json");
+  });
+
   it("fails local validation when a required generated anchor is missing", async () => {
     await rm(join(dir, "apps/web/package.json"));
 

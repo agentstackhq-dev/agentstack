@@ -137,7 +137,7 @@ describe("environment graph", () => {
         code: "env.custom.missing",
         path: "preview.convex.OPENAI_API_KEY",
         message: "OPENAI_API_KEY is required for convex in preview, but no value is present.",
-        fix: "Run agentstack env set OPENAI_API_KEY --env preview --surface convex.",
+        fix: "Add preview.convex.OPENAI_API_KEY to .agentstack/env-values.json.",
         blocks: ["validate", "validate --cloud"]
       }
     ]);

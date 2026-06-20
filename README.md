@@ -40,5 +40,6 @@ APPLIED preview
 
 - `create-agent-stack <app-name>` copies the B2B SaaS template into a new project directory.
 - `pnpm run validate` checks the local Agentstack manifest and command contract through an installed `agentstack` CLI, or through `AGENTSTACK_CLI_BIN` for local source prototypes.
+- `.agentstack/env-values.json` can satisfy required custom env declarations for `validate` and `validate:cloud` using the environment -> surface -> variable JSON shape.
 - `pnpm run init:cloud` applies development and preview state through the same CLI delegation path.
 - `pnpm run validate:cloud` compares the project manifest with local-cloud state through the same CLI delegation path.
