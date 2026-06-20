@@ -1,0 +1,9 @@
+{
+  "name": "@app/mobile",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "echo mobile dev",
+    "build": "echo mobile build"
+  }
+}

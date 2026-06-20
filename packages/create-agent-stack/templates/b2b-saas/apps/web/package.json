@@ -1,0 +1,9 @@
+{
+  "name": "@app/web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "echo web dev",
+    "build": "echo web build"
+  }
+}

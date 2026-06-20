@@ -65,6 +65,9 @@ importers:
       fs-extra:
         specifier: ^11.2.0
         version: 11.3.5
+      tsx:
+        specifier: ^4.19.2
+        version: 4.22.4
 
   packages/telemetry: {}
 

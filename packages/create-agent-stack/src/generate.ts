@@ -1,6 +1,6 @@
 import { readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
@@ -15,6 +15,10 @@ export type GenerateProjectInput = {
 
 export async function generateProject(input: GenerateProjectInput): Promise<void> {
   const appSlug = slugify(input.name);
+  if (!appSlug) {
+    throw new Error("Project name must contain at least one letter or number.");
+  }
+
   const appName = titleCaseSlug(appSlug);
   const templateDir = findTemplateDir();
 
@@ -27,7 +31,8 @@ export async function generateProject(input: GenerateProjectInput): Promise<void
 
 function findTemplateDir(): string {
   const sourceDir = dirname(fileURLToPath(import.meta.url));
-  return resolve(sourceDir, "../../../templates/b2b-saas");
+  const packageRoot = dirname(sourceDir);
+  return join(packageRoot, "templates", "b2b-saas");
 }
 
 function slugify(name: string): string {

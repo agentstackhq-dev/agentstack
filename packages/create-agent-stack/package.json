@@ -3,11 +3,16 @@
   "version": "0.0.0",
   "type": "module",
   "main": "src/index.ts",
+  "files": [
+    "src",
+    "templates"
+  ],
   "bin": {
     "create-agent-stack": "src/bin.ts"
   },
   "dependencies": {
     "@agentstack/core": "workspace:*",
-    "fs-extra": "^11.2.0"
+    "fs-extra": "^11.2.0",
+    "tsx": "^4.19.2"
   }
 }
