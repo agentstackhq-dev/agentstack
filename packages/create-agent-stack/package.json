@@ -1,0 +1,13 @@
+{
+  "name": "create-agent-stack",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "bin": {
+    "create-agent-stack": "src/bin.ts"
+  },
+  "dependencies": {
+    "@agentstack/core": "workspace:*",
+    "fs-extra": "^11.2.0"
+  }
+}

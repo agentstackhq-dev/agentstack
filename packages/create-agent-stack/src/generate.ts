@@ -1,0 +1,79 @@
+import { readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const require = createRequire(import.meta.url);
+const fsExtra = require("fs-extra") as {
+  copy(source: string, destination: string): Promise<void>;
+};
+
+export type GenerateProjectInput = {
+  name: string;
+  targetDir: string;
+};
+
+export async function generateProject(input: GenerateProjectInput): Promise<void> {
+  const appSlug = slugify(input.name);
+  const appName = titleCaseSlug(appSlug);
+  const templateDir = findTemplateDir();
+
+  await fsExtra.copy(templateDir, input.targetDir);
+  await replaceTokens(input.targetDir, {
+    __APP_SLUG__: appSlug,
+    __APP_NAME__: appName
+  });
+}
+
+function findTemplateDir(): string {
+  const sourceDir = dirname(fileURLToPath(import.meta.url));
+  return resolve(sourceDir, "../../../templates/b2b-saas");
+}
+
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function titleCaseSlug(slug: string): string {
+  return slug
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+async function replaceTokens(
+  directory: string,
+  replacements: Record<string, string>
+): Promise<void> {
+  const entries = await readdir(directory);
+
+  await Promise.all(
+    entries.map(async (entry) => {
+      const path = join(directory, entry);
+      const entryStat = await stat(path);
+
+      if (entryStat.isDirectory()) {
+        await replaceTokens(path, replacements);
+        return;
+      }
+
+      if (!entryStat.isFile()) {
+        return;
+      }
+
+      const content = await readFile(path, "utf8");
+      const replaced = Object.entries(replacements).reduce(
+        (current, [token, value]) => current.replaceAll(token, value),
+        content
+      );
+
+      if (replaced !== content) {
+        await writeFile(path, replaced);
+      }
+    })
+  );
+}

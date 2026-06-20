@@ -57,6 +57,15 @@ importers:
         specifier: ^3.24.1
         version: 3.25.76
 
+  packages/create-agent-stack:
+    dependencies:
+      '@agentstack/core':
+        specifier: workspace:*
+        version: link:../core
+      fs-extra:
+        specifier: ^11.2.0
+        version: 11.3.5
+
   packages/telemetry: {}
 
 packages:

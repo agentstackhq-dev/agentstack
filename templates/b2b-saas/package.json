@@ -1,0 +1,11 @@
+{
+  "name": "__APP_SLUG__",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "validate": "agentstack validate",
+    "validate:cloud": "agentstack validate --cloud",
+    "init:cloud": "agentstack init cloud"
+  },
+  "workspaces": ["apps/*", "packages/*"]
+}

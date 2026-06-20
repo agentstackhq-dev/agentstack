@@ -1,0 +1,35 @@
+{
+  "app": {
+    "name": "__APP_NAME__",
+    "slug": "__APP_SLUG__"
+  },
+  "environments": ["development", "preview", "production"],
+  "surfaces": {
+    "web": true,
+    "mobile": true,
+    "convex": true
+  },
+  "services": {
+    "clerk": {
+      "enabled": true
+    },
+    "convex": {
+      "enabled": true
+    },
+    "vercel": {
+      "enabled": true
+    },
+    "eas": {
+      "enabled": true
+    }
+  },
+  "env": {
+    "custom": {}
+  },
+  "telemetry": {
+    "enabled": true,
+    "mode": "local",
+    "strict": true,
+    "forbidRawSecrets": true
+  }
+}
