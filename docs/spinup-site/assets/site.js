@@ -27,6 +27,13 @@ const scenarios = {
     detail: "If a service was linked and later disabled in the manifest, validate --cloud reports cloud.service.stale. Sync reconciles by removing the stale selected-environment entry.",
     files: ["packages/adapters/src/local-cloud.ts", "packages/adapters/src/local-cloud.test.ts"]
   },
+  previewDeploy: {
+    title: "Preview deploy rehearsal",
+    command: "pnpm run preview:deploy && pnpm run preview:deploy:apply",
+    result: "PLAN deploy preview / APPLIED deploy preview",
+    detail: "The deploy rehearsal is local-only. Plan does not write a deployment artifact. Apply writes .agentstack/deployments/preview.json and records agentstack.deploy.completed telemetry without calling real provider APIs.",
+    files: ["templates/b2b-saas/docs/agentstack/preview.md", "packages/cli/src/run.ts", "tests/e2e/prototype.test.ts"]
+  },
   telemetry: {
     title: "Inspect a validation journey",
     command: "agentstack observe timeline --env preview --journey validation",

@@ -59,6 +59,11 @@ describe("Agentstack executable prototype workflow", () => {
     expect(await runAgentstack(["sync", "--env", "preview"], { cwd: appDir, write })).toBe(0);
     expect(await runAgentstack(["sync", "--env", "preview", "--apply"], { cwd: appDir, write })).toBe(0);
     expect(await runAgentstack(["validate", "--cloud", "--env", "preview"], { cwd: appDir, write })).toBe(0);
+    expect(await runAgentstack(["deploy", "--env", "preview"], { cwd: appDir, write })).toBe(0);
+    expect(await runAgentstack(["deploy", "--env", "preview", "--apply"], { cwd: appDir, write })).toBe(0);
+    await expect(readFile(join(appDir, ".agentstack/deployments/preview.json"), "utf8")).resolves.toContain(
+      '"environment": "preview"'
+    );
 
     const store = new JsonlTelemetryStore(join(appDir, ".agentstack", "events.jsonl"));
     await store.append(
@@ -86,6 +91,12 @@ describe("Agentstack executable prototype workflow", () => {
         { cwd: appDir, write }
       )
     ).toBe(0);
+    expect(
+      await runAgentstack(
+        ["observe", "timeline", "--env", "preview", "--journey", "deployment"],
+        { cwd: appDir, write }
+      )
+    ).toBe(0);
 
     const renderedOutput = output.join("\n");
     expect(renderedOutput).toContain("CREATED feature invoices");
@@ -93,9 +104,12 @@ describe("Agentstack executable prototype workflow", () => {
     expect(renderedOutput).toContain("PASS env inspect preview");
     expect(renderedOutput).toContain("PLAN preview");
     expect(renderedOutput).toContain("APPLIED preview");
+    expect(renderedOutput).toContain("PLAN deploy preview");
+    expect(renderedOutput).toContain("APPLIED deploy preview");
     expect(renderedOutput).toContain("Environment: preview");
     expect(renderedOutput).toContain("onboarding.step.completed");
     expect(renderedOutput).toContain("agentstack.validate.completed");
+    expect(renderedOutput).toContain("agentstack.deploy.completed");
     expect(renderedOutput).toContain("[redacted]");
   });
 });

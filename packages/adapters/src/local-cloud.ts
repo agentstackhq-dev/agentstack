@@ -11,6 +11,9 @@ import type {
   AppliedPlan,
   ApplyOptions,
   CloudAdapter,
+  DeployOptions,
+  DeployPlan,
+  DeployStep,
   InspectReport,
   InspectServiceResource,
   LifecycleSyncPlan,
@@ -159,8 +162,52 @@ export class LocalCloudAdapter implements CloudAdapter {
     return { environment, changes: plan.changes.map(formatChange), applied: options.apply };
   }
 
+  async deploy(
+    manifest: AgentstackManifest,
+    environment: EnvironmentName,
+    options: DeployOptions
+  ): Promise<DeployPlan> {
+    const report = await this.inspect(manifest, environment);
+    const lifecyclePlan = this.plan(report);
+    const status = options.apply ? "applied" : "planned";
+    const syncSteps = lifecyclePlan.changes.map<DeployStep>((change) => ({
+      action: "sync",
+      environment: change.environment,
+      service: change.service,
+      status
+    }));
+    const releaseSteps = report.expected.map<DeployStep>((resource) => ({
+      action: "release",
+      environment,
+      service: resource.service,
+      status
+    }));
+    const plan: DeployPlan = {
+      environment,
+      steps: [...syncSteps, ...releaseSteps],
+      applied: options.apply
+    };
+
+    if (!options.apply) {
+      return plan;
+    }
+
+    await this.apply(lifecyclePlan);
+    const artifactPath = join(".agentstack", "deployments", `${environment}.json`);
+    const appliedPlan: DeployPlan = { ...plan, artifactPath };
+    await this.writeDeploymentArtifact(artifactPath, appliedPlan);
+
+    return appliedPlan;
+  }
+
   private get statePath(): string {
     return join(this.projectRoot, ".agentstack", "local-cloud.json");
+  }
+
+  private async writeDeploymentArtifact(relativePath: string, plan: DeployPlan): Promise<void> {
+    const fullPath = join(this.projectRoot, relativePath);
+    await mkdir(join(this.projectRoot, ".agentstack", "deployments"), { recursive: true });
+    await writeFile(fullPath, `${JSON.stringify(plan, null, 2)}\n`, "utf8");
   }
 
   private async readState(): Promise<LocalCloudState> {

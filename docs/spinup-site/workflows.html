@@ -28,7 +28,7 @@
             <p>
               The important outcome is not that individual functions exist. It is that an agent can
               move through a coherent workflow: create a project, add a typed feature, validate it,
-              initialize cloud state, repair drift, and inspect telemetry.
+              initialize local-cloud state, repair drift, rehearse a preview deploy locally, and inspect telemetry.
             </p>
           </div>
           <div class="diagram hero-art">
@@ -80,7 +80,10 @@ pnpm run validate
 pnpm run env:inspect
 pnpm run sync:preview
 pnpm run sync:preview:apply
-pnpm run validate:cloud</code></pre>
+pnpm run validate:cloud
+pnpm run preview:deploy
+pnpm run preview:deploy:apply
+node scripts/agentstack.mjs observe timeline --env preview --journey deployment</code></pre>
               </div>
               <div class="card">
                 <h3>What each command proves</h3>
@@ -92,6 +95,8 @@ pnpm run validate:cloud</code></pre>
                   <li><code>env:inspect</code> prints expected preview services and env bindings.</li>
                   <li><code>sync:preview</code> plans local-cloud repair before apply.</li>
                   <li><code>validate:cloud</code> confirms named cloud state matches the manifest.</li>
+                  <li><code>preview:deploy</code> prints <code>PLAN deploy preview</code> without writing a deployment artifact.</li>
+                  <li><code>preview:deploy:apply</code> prints <code>APPLIED deploy preview</code>, writes <code>.agentstack/deployments/preview.json</code>, and records <code>agentstack.deploy.completed</code>.</li>
                 </ol>
               </div>
             </div>
@@ -152,12 +157,17 @@ pnpm run validate:cloud</code></pre>
                 <tr>
                   <td>Cloud not initialized</td>
                   <td><code>FAIL cloud.service.missing</code></td>
-                  <td>Run <code>pnpm run sync:preview</code>, then <code>pnpm run sync:preview:apply</code>.</td>
+                  <td>Run <code>pnpm run preview:plan</code>, then <code>pnpm run preview:apply</code>.</td>
                 </tr>
                 <tr>
                   <td>Manifest disables a linked service</td>
                   <td><code>FAIL cloud.service.stale</code></td>
                   <td>Run <code>agentstack sync --env preview --apply</code> to unlink stale state.</td>
+                </tr>
+                <tr>
+                  <td>Preview deploy rehearsal not applied</td>
+                  <td>No <code>.agentstack/deployments/preview.json</code></td>
+                  <td>Run <code>pnpm run preview:deploy:apply</code>; this writes local state only and does not call real providers.</td>
                 </tr>
               </tbody>
             </table>

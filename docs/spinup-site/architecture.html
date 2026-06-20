@@ -112,8 +112,8 @@
               <tbody>
                 <tr>
                   <td>Cloud providers</td>
-                  <td><code>.agentstack/local-cloud.json</code> simulates linked services per environment.</td>
-                  <td>Convex, Clerk, Vercel, and EAS adapters implement the same validate/sync interface.</td>
+                  <td><code>.agentstack/local-cloud.json</code> simulates linked services per environment, and <code>.agentstack/deployments/preview.json</code> records local preview deploy rehearsal output.</td>
+                  <td>Convex, Clerk, Vercel, and EAS adapters implement the same validate/sync/deploy interface.</td>
                 </tr>
                 <tr>
                   <td>Env values</td>
@@ -122,7 +122,7 @@
                 </tr>
                 <tr>
                   <td>Telemetry</td>
-                  <td><code>.agentstack/events.jsonl</code> stores redacted-queryable wide events.</td>
+                  <td><code>.agentstack/events.jsonl</code> stores redacted-queryable wide events, including <code>agentstack.deploy.completed</code> for preview rehearsals.</td>
                   <td>OTel exporter/provider can replace the local store without changing event shape.</td>
                 </tr>
               </tbody>

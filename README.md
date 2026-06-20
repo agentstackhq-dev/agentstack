@@ -2,9 +2,9 @@
 
 Agentstack is an agent-first control framework for B2B SaaS teams building on Convex, Clerk, React, React Native, Vercel, Expo/EAS, and OpenTelemetry.
 
-This prototype proves the local command contract: generate a project, validate the framework manifest, inspect environment state, plan and apply local-cloud sync, validate a named environment, and inspect redacted command telemetry from the CLI. It does not provision real provider resources yet.
+This prototype proves the local command contract: generate a project, validate the framework manifest, inspect environment state, plan and apply local-cloud sync, validate a named environment, rehearse a local preview deploy, and inspect redacted command telemetry from the CLI. It does not provision real provider resources yet.
 
-The current cloud implementation is a filesystem-backed local-cloud adapter. Real Convex, Clerk, Vercel, EAS, and telemetry adapters will implement the same validation, sync, and inspection contracts.
+The current cloud implementation is a filesystem-backed local-cloud adapter. Real Convex, Clerk, Vercel, EAS, Stripe, and telemetry adapters will implement the same validation, sync, deploy, and inspection contracts.
 
 ## Local Smoke
 
@@ -29,6 +29,9 @@ pnpm run env:inspect
 pnpm run sync:preview
 pnpm run sync:preview:apply
 pnpm run validate:cloud
+pnpm run preview:deploy
+pnpm run preview:deploy:apply
+node scripts/agentstack.mjs observe timeline --env preview --journey deployment
 pnpm run observe:timeline
 ```
 
@@ -43,6 +46,9 @@ PASS env inspect preview
 PLAN preview
 APPLIED preview
 PASS validate --cloud
+PLAN deploy preview
+APPLIED deploy preview
+agentstack.deploy.completed
 ```
 
 ## Prototype Commands
@@ -54,4 +60,8 @@ PASS validate --cloud
 - `pnpm run sync:preview` plans preview local-cloud changes without writing state.
 - `pnpm run sync:preview:apply` applies preview local-cloud state through the same CLI delegation path.
 - `pnpm run validate:cloud` compares the project manifest with local-cloud state for the preview environment.
+- `pnpm run preview:deploy` plans the local preview deploy rehearsal without writing `.agentstack/deployments/preview.json`.
+- `pnpm run preview:deploy:apply` applies the local preview deploy rehearsal, writes `.agentstack/deployments/preview.json`, and records `agentstack.deploy.completed` telemetry.
 - `pnpm run observe:timeline` queries redacted local command telemetry.
+
+Preview deploy commands are local rehearsals only. They do not deploy to real provider APIs.

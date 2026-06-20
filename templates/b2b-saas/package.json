@@ -7,6 +7,11 @@
     "validate:cloud": "node scripts/agentstack.mjs validate --cloud",
     "init:cloud": "node scripts/agentstack.mjs init cloud",
     "env:inspect": "node scripts/agentstack.mjs env inspect --env preview",
+    "preview:plan": "node scripts/agentstack.mjs sync --env preview",
+    "preview:apply": "node scripts/agentstack.mjs sync --env preview --apply",
+    "preview:validate": "node scripts/agentstack.mjs validate --cloud --env preview",
+    "preview:deploy": "node scripts/agentstack.mjs deploy --env preview",
+    "preview:deploy:apply": "node scripts/agentstack.mjs deploy --env preview --apply",
     "sync:preview": "node scripts/agentstack.mjs sync --env preview",
     "sync:preview:apply": "node scripts/agentstack.mjs sync --env preview --apply",
     "observe:timeline": "node scripts/agentstack.mjs observe timeline --journey smoke --env preview"

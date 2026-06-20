@@ -63,11 +63,11 @@
               </div>
               <div class="card">
                 <h3>Source secret policy</h3>
-                <p><code>agentstack validate</code> and the guarded <code>agentstack deploy --env</code> placeholder scan source, docs, and <code>.env</code> files for raw secret-like values while skipping local state, dependency, build, and cache directories.</p>
+                <p><code>agentstack validate</code> and the guarded <code>agentstack deploy --env</code> path scan source, docs, and <code>.env</code> files for raw secret-like values while skipping local state, dependency, build, and cache directories.</p>
               </div>
               <div class="card">
                 <h3>Cloud drift</h3>
-                <p>Local-cloud validation reports missing services and stale linked services. Sync links missing state and unlinks stale state for the selected environment.</p>
+                <p>Local-cloud validation reports missing services and stale linked services. Sync links missing state and unlinks stale state for the selected environment. Preview deploy apply writes a secret-free local artifact.</p>
               </div>
             </div>
           </section>
@@ -87,10 +87,13 @@ Potential raw secret found in apps/web/src/leak.ts.
 Fix: Move the value to a provider secret store or set local
 validation state with agentstack env set.
 Blocks: validate, validate --cloud, deploy</code></pre>
-              <pre><code>FAIL deploy.not-implemented
-Path: preview
-agentstack deploy is planned but does not perform provider deployment yet.
-Fix: Use provider CLIs directly after agentstack validate and sync pass.</code></pre>
+              <pre><code>PLAN deploy preview
+- planned release preview.vercel
+- planned release preview.eas
+
+APPLIED deploy preview
+- applied release preview.vercel
+- applied release preview.eas</code></pre>
               <div class="card">
                 <h3>Why this matters</h3>
                 <p>

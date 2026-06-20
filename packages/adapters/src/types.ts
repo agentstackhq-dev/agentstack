@@ -4,6 +4,10 @@ export type SyncOptions = {
   apply: boolean;
 };
 
+export type DeployOptions = {
+  apply: boolean;
+};
+
 export type InspectServiceResource = {
   environment: EnvironmentName;
   service: ServiceName | string;
@@ -30,6 +34,20 @@ export type LifecycleSyncPlan = {
   changes: SyncChange[];
 };
 
+export type DeployStep = {
+  action: "sync" | "release";
+  environment: EnvironmentName;
+  service: ServiceName | string;
+  status: "planned" | "applied";
+};
+
+export type DeployPlan = {
+  environment: EnvironmentName;
+  steps: DeployStep[];
+  applied: boolean;
+  artifactPath?: string;
+};
+
 export type ApplyOptions = {
   confirmProduction?: boolean;
 };
@@ -54,4 +72,9 @@ export interface CloudAdapter {
     environment: EnvironmentName,
     options: SyncOptions
   ): Promise<SyncPlan>;
+  deploy(
+    manifest: AgentstackManifest,
+    environment: EnvironmentName,
+    options: DeployOptions
+  ): Promise<DeployPlan>;
 }

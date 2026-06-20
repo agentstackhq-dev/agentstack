@@ -18,6 +18,89 @@ afterEach(async () => {
 });
 
 describe("local-cloud adapter", () => {
+  it("plans preview deploy release steps without writing a deployment artifact", async () => {
+    const adapter = new LocalCloudAdapter(dir);
+    const manifest = createDefaultManifest("acme-crm");
+
+    const plan = await adapter.deploy(manifest, "preview", { apply: false });
+
+    expect(plan.applied).toBe(false);
+    expect(plan.steps.map((step) => `${step.status} ${step.action} ${step.environment}.${step.service}`)).toContain(
+      "planned release preview.vercel"
+    );
+    await expect(stat(join(dir, ".agentstack", "deployments", "preview.json"))).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+  });
+
+  it("applies preview deploy by reconciling services and writing a deployment artifact", async () => {
+    const adapter = new LocalCloudAdapter(dir);
+    const manifest = createDefaultManifest("acme-crm");
+
+    const plan = await adapter.deploy(manifest, "preview", { apply: true });
+    const artifact = JSON.parse(
+      await readFile(join(dir, ".agentstack", "deployments", "preview.json"), "utf8")
+    ) as {
+      environment: string;
+      applied: boolean;
+      steps: Array<{ action: string; environment: string; service: string; status: string }>;
+    };
+    const state = JSON.parse(await readFile(statePath(), "utf8")) as {
+      services: Array<{ environment: string; service: string; linked: boolean }>;
+    };
+
+    expect(plan.applied).toBe(true);
+    expect(plan.artifactPath).toBe(".agentstack/deployments/preview.json");
+    expect(plan.steps.map((step) => `${step.status} ${step.action} ${step.environment}.${step.service}`)).toContain(
+      "applied release preview.vercel"
+    );
+    expect(artifact.environment).toBe("preview");
+    expect(artifact.applied).toBe(true);
+    expect(artifact.steps.map((step) => `${step.status} ${step.action} ${step.environment}.${step.service}`)).toContain(
+      "applied release preview.vercel"
+    );
+    expect(state.services.filter((service) => service.environment === "preview" && service.linked)).toHaveLength(4);
+  });
+
+  it("keeps deploy apply idempotent and reconciles stale local-cloud services", async () => {
+    const adapter = new LocalCloudAdapter(dir);
+    const manifest = createDefaultManifest("acme-crm");
+
+    await mkdir(join(dir, ".agentstack"), { recursive: true });
+    await writeFile(
+      statePath(),
+      `${JSON.stringify(
+        {
+          services: [
+            { environment: "preview", service: "legacy", linked: true, env: {} },
+            { environment: "preview", service: "clerk", linked: true, env: {} }
+          ]
+        },
+        null,
+        2
+      )}\n`,
+      "utf8"
+    );
+
+    const firstPlan = await adapter.deploy(manifest, "preview", { apply: true });
+    const secondPlan = await adapter.deploy(manifest, "preview", { apply: true });
+    const state = JSON.parse(await readFile(statePath(), "utf8")) as {
+      services: Array<{ environment: string; service: string; linked: boolean }>;
+    };
+
+    expect(firstPlan.steps.map((step) => `${step.status} ${step.action} ${step.environment}.${step.service}`)).toContain(
+      "applied sync preview.legacy"
+    );
+    expect(secondPlan.steps.map((step) => `${step.status} ${step.action} ${step.environment}.${step.service}`)).not.toContain(
+      "applied sync preview.legacy"
+    );
+    expect(state.services.filter((service) => service.environment === "preview")).toHaveLength(4);
+    expect(state.services.map((service) => service.service)).not.toContain("legacy");
+    expect(new Set(state.services.map((service) => `${service.environment}.${service.service}`)).size).toBe(
+      state.services.length
+    );
+  });
+
   it("inspects expected, linked, missing, and stale service resources for an environment", async () => {
     const adapter = new LocalCloudAdapter(dir);
     const manifest = createDefaultManifest("acme-crm");

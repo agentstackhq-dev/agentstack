@@ -169,7 +169,20 @@ async function deployCommand(argv: string[], io: RunIo): Promise<number> {
     flag: "env",
     fix: "Run agentstack deploy --env preview."
   });
-  const { localResult, anchorResult, sourcePolicyDiagnostics, diagnostics } =
+  if (environment !== "preview") {
+    io.write(
+      formatDiagnostic({
+        severity: "fail",
+        code: "deploy.environment.unsupported",
+        path: environment,
+        message: "Local deploy rehearsal currently supports the preview environment only.",
+        fix: "Run agentstack deploy --env preview.",
+        blocks: ["deploy"]
+      })
+    );
+    return 1;
+  }
+  const { context, localResult, anchorResult, sourcePolicyDiagnostics, diagnostics } =
     await runLocalValidationGate(io.cwd);
   diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
 
@@ -177,16 +190,27 @@ async function deployCommand(argv: string[], io: RunIo): Promise<number> {
     return 1;
   }
 
-  io.write(
-    formatDiagnostic({
-      severity: "fail",
-      code: "deploy.not-implemented",
-      path: environment,
-      message: "agentstack deploy is planned but does not perform provider deployment yet.",
-      fix: "Use provider CLIs directly after agentstack validate and sync pass."
-    })
+  const deployPlan = await new LocalCloudAdapter(io.cwd).deploy(context.manifest, environment, {
+    apply: Boolean(options.apply)
+  });
+  io.write(`${deployPlan.applied ? "APPLIED" : "PLAN"} deploy ${deployPlan.environment}`);
+  deployPlan.steps.forEach((step) =>
+    io.write(`- ${step.status} ${step.action} ${step.environment}.${step.service}`)
   );
-  return 1;
+
+  await recordCommandEvent(io, {
+    name: "agentstack.deploy.completed",
+    environment,
+    journey: "deployment",
+    command: ["deploy", ...argv].join(" "),
+    status: "ok",
+    state: {
+      applied: deployPlan.applied,
+      steps: deployPlan.steps.length,
+      services: Array.from(new Set(deployPlan.steps.map((step) => step.service)))
+    }
+  });
+  return 0;
 }
 
 async function runLocalValidationGate(cwd: string): Promise<{

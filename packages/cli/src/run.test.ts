@@ -344,16 +344,77 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).not.toContain("deploy.not-implemented");
   });
 
-  it("returns an explicit planned deploy diagnostic after local validation passes", async () => {
-    const code = await runAgentstack(["deploy", "--env", "preview"], {
+  it("rejects non-preview deploy environments with an actionable diagnostic", async () => {
+    const code = await runAgentstack(["deploy", "--env", "production"], {
       cwd: dir,
       write: (line) => output.push(line)
     });
 
     expect(code).toBe(1);
-    expect(output.join("\n")).toContain("FAIL deploy.not-implemented");
-    expect(output.join("\n")).toContain("Path: preview");
-    expect(output.join("\n")).toContain("agentstack deploy is planned but does not perform provider deployment yet.");
+    expect(output.join("\n")).toContain("FAIL deploy.environment.unsupported");
+    expect(output.join("\n")).toContain("Path: production");
+    expect(output.join("\n")).toContain("Fix: Run agentstack deploy --env preview.");
+    expect(output.join("\n")).not.toContain("PLAN deploy production");
+
+    output = [];
+    const applyCode = await runAgentstack(["deploy", "--env", "production", "--apply"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(applyCode).toBe(1);
+    expect(output.join("\n")).toContain("FAIL deploy.environment.unsupported");
+    expect(output.join("\n")).not.toContain("APPLIED deploy production");
+  });
+
+  it("plans preview deploy without writing a deployment artifact", async () => {
+    const code = await runAgentstack(["deploy", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PLAN deploy preview");
+    expect(output).toContain("- planned release preview.vercel");
+    await expect(stat(join(dir, ".agentstack", "deployments", "preview.json"))).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+  });
+
+  it("applies preview deploy and writes a deployment artifact", async () => {
+    const code = await runAgentstack(["deploy", "--env", "preview", "--apply"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("APPLIED deploy preview");
+    expect(output).toContain("- applied release preview.vercel");
+    await expect(readFile(join(dir, ".agentstack", "deployments", "preview.json"), "utf8")).resolves.toContain(
+      '"environment": "preview"'
+    );
+  });
+
+  it("records deployment telemetry when deploy completes", async () => {
+    expect(
+      await runAgentstack(["deploy", "--env", "preview", "--apply"], {
+        cwd: dir,
+        write: () => undefined
+      })
+    ).toBe(0);
+
+    const code = await runAgentstack(
+      ["observe", "timeline", "--env", "preview", "--journey", "deployment"],
+      {
+        cwd: dir,
+        write: (line) => output.push(line)
+      }
+    );
+
+    expect(code).toBe(0);
+    expect(output.join("\n")).toContain("agentstack.deploy.completed");
+    expect(output.join("\n")).toContain('"applied":true');
+    expect(output.join("\n")).toContain('"services":["clerk","convex","vercel","eas"]');
   });
 
   it("fails cloud validation when cloud state is missing", async () => {

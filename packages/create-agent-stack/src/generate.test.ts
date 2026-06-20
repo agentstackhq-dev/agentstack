@@ -24,6 +24,7 @@ const generatedAnchorFiles = [
   "docs/agentstack/auth.md",
   "docs/agentstack/billing.md",
   "docs/agentstack/local-development.md",
+  "docs/agentstack/preview.md",
   "packages/config/package.json",
   "packages/config/src/index.ts",
   "packages/ui/package.json",
@@ -59,10 +60,18 @@ describe("generateProject", () => {
       expect(gitignore).toContain("!.env.example");
       expect(packageManifest.scripts).toMatchObject({
         "env:inspect": "node scripts/agentstack.mjs env inspect --env preview",
+        "preview:plan": "node scripts/agentstack.mjs sync --env preview",
+        "preview:apply": "node scripts/agentstack.mjs sync --env preview --apply",
+        "preview:validate": "node scripts/agentstack.mjs validate --cloud --env preview",
+        "preview:deploy": "node scripts/agentstack.mjs deploy --env preview",
+        "preview:deploy:apply": "node scripts/agentstack.mjs deploy --env preview --apply",
         "sync:preview": "node scripts/agentstack.mjs sync --env preview",
         "sync:preview:apply": "node scripts/agentstack.mjs sync --env preview --apply",
         "observe:timeline": "node scripts/agentstack.mjs observe timeline --journey smoke --env preview"
       });
+      await expect(readFile(join(targetDir, "docs/agentstack/preview.md"), "utf8")).resolves.toContain(
+        "local preview deploy rehearsal"
+      );
       await expectGeneratedAnchors(targetDir);
       await expectNoTemplateTokens(targetDir);
     } finally {
@@ -86,6 +95,12 @@ describe("generateProject", () => {
       await expect(runPackageScript(targetDir, "init:cloud", sourceCliEnv())).resolves.toContain(
         "APPLIED preview"
       );
+      await expect(runPackageScript(targetDir, "preview:deploy", sourceCliEnv())).resolves.toContain(
+        "PLAN deploy preview"
+      );
+      await expect(runPackageScript(targetDir, "preview:deploy:apply", sourceCliEnv())).resolves.toContain(
+        "APPLIED deploy preview"
+      );
       const cloudState = JSON.parse(
         await readFile(join(targetDir, ".agentstack/local-cloud.json"), "utf8")
       );
@@ -96,6 +111,9 @@ describe("generateProject", () => {
           expect.objectContaining({ environment: "preview", service: "vercel", linked: true }),
           expect.objectContaining({ environment: "preview", service: "eas", linked: true })
         ])
+      );
+      await expect(readFile(join(targetDir, ".agentstack/deployments/preview.json"), "utf8")).resolves.toContain(
+        '"environment": "preview"'
       );
       await expect(runPackageScript(targetDir, "validate:cloud", sourceCliEnv())).resolves.toBeDefined();
     } finally {
