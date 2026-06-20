@@ -74,6 +74,21 @@ describe("runAgentstack", () => {
     expect(output).toContain("APPLIED preview");
   });
 
+  it("prints a success line when cloud validation passes", async () => {
+    await runAgentstack(["init", "cloud"], {
+      cwd: dir,
+      write: () => undefined
+    });
+
+    const code = await runAgentstack(["validate", "--cloud"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS validate --cloud");
+  });
+
   it("queries observed events with redacted sensitive telemetry", async () => {
     const store = new JsonlTelemetryStore(join(dir, ".agentstack", "events.jsonl"));
     await store.append(

@@ -84,7 +84,11 @@ async function validateCommand(argv: string[], io: RunIo): Promise<number> {
     const adapter = new LocalCloudAdapter(io.cwd);
     const diagnostics = await adapter.validate(context.manifest, "preview");
     diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
-    return diagnostics.some((diagnostic) => diagnostic.severity === "fail") ? 1 : 0;
+    if (diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
+      return 1;
+    }
+    io.write("PASS validate --cloud");
+    return 0;
   }
 
   io.write("PASS validate");

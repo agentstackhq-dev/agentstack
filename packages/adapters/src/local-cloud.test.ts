@@ -35,6 +35,29 @@ describe("local-cloud adapter", () => {
     expect(diagnostics).toEqual([]);
   });
 
+  it("detects stale linked services disabled in the manifest for the selected environment", async () => {
+    const adapter = new LocalCloudAdapter(dir);
+    const manifest = createDefaultManifest("acme-crm");
+
+    await adapter.sync(manifest, "preview", { apply: true });
+    manifest.services.clerk.enabled = false;
+
+    const previewDiagnostics = await adapter.validate(manifest, "preview");
+    const productionDiagnostics = await adapter.validate(manifest, "production");
+
+    expect(previewDiagnostics).toContainEqual(
+      expect.objectContaining({
+        severity: "fail",
+        code: "cloud.service.stale",
+        path: "preview.clerk"
+      })
+    );
+    expect(previewDiagnostics.find((diagnostic) => diagnostic.path === "preview.clerk")?.fix).toContain(
+      "agentstack sync --env preview --apply"
+    );
+    expect(productionDiagnostics.map((diagnostic) => diagnostic.path)).not.toContain("preview.clerk");
+  });
+
   it("reconciles existing unlinked service state", async () => {
     const adapter = new LocalCloudAdapter(dir);
     const manifest = createDefaultManifest("acme-crm");

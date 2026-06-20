@@ -26,8 +26,12 @@ export class LocalCloudAdapter implements CloudAdapter {
   async validate(manifest: AgentstackManifest, environment: EnvironmentName): Promise<Diagnostic[]> {
     const state = await this.readState();
     const required = buildEnvGraph(manifest).nodes.filter((node) => node.environment === environment);
+    const requiredServices = new Set(required.map((node) => node.service));
+    const stale = state.services.filter(
+      (service) => service.environment === environment && service.linked && !requiredServices.has(service.service)
+    );
 
-    return required.flatMap((node) => {
+    const missingDiagnostics = required.flatMap((node) => {
       const service = state.services.find(
         (candidate) => candidate.environment === environment && candidate.service === node.service
       );
@@ -47,6 +51,17 @@ export class LocalCloudAdapter implements CloudAdapter {
         }
       ];
     });
+
+    const staleDiagnostics = stale.map((service) => ({
+      severity: "fail" as const,
+      code: "cloud.service.stale",
+      path: `${environment}.${service.service}`,
+      message: `${service.service} is linked in ${environment} but is not enabled in the manifest.`,
+      fix: `Remove ${environment}.${service.service} from local cloud state or re-enable it, then run agentstack sync --env ${environment} --apply.`,
+      blocks: ["validate --cloud"]
+    }));
+
+    return [...missingDiagnostics, ...staleDiagnostics];
   }
 
   async sync(
