@@ -40,7 +40,8 @@ export type WideEventInput = {
   state?: Record<string, unknown>;
 };
 
-const sensitivePattern = /(secret|token|password|email|key)/i;
+const sensitivePattern =
+  /(secret|token|password|email|key|authorization|cookie|session|jwt|phone|ip)/i;
 
 export function createWideEvent(name: string, input: WideEventInput): WideEvent {
   return {

@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import {
   eventNameMatches,
@@ -23,8 +23,7 @@ export class JsonlTelemetryStore {
 
   async append(event: WideEvent): Promise<void> {
     await mkdir(dirname(this.path), { recursive: true });
-    const existing = await this.readRaw();
-    await writeFile(this.path, `${existing}${JSON.stringify(event)}\n`, "utf8");
+    await appendFile(this.path, `${JSON.stringify(event)}\n`, "utf8");
   }
 
   async query(query: TelemetryQuery): Promise<WideEvent[]> {
@@ -58,6 +57,14 @@ export class JsonlTelemetryStore {
     return raw
       .split("\n")
       .filter(Boolean)
-      .map((line) => JSON.parse(line) as WideEvent);
+      .map((line, index) => {
+        try {
+          return JSON.parse(line) as WideEvent;
+        } catch (error) {
+          throw new Error(
+            `Invalid telemetry JSONL at line ${index + 1}: ${(error as Error).message}`
+          );
+        }
+      });
   }
 }

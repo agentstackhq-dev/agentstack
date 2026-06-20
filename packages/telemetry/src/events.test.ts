@@ -1,8 +1,8 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createWideEvent, JsonlTelemetryStore, redactEvent } from "./index.js";
+import { createWideEvent, eventNameMatches, JsonlTelemetryStore, redactEvent } from "./index.js";
 
 let dir: string;
 
@@ -61,12 +61,62 @@ describe("wide telemetry events", () => {
         journey: "billing",
         actorId: "user_123",
         correlationId: "corr_123",
-        state: { plan: "pro" }
+        state: { plan: "pro", token: "secret-token" }
       })
     );
 
     const events = await store.query({ environment: "preview", event: "billing.*" });
     expect(events).toHaveLength(1);
     expect(events[0]?.name).toBe("billing.subscription.updated");
+    expect(events[0]?.actorId).toBe("[redacted]");
+    expect(events[0]?.state).toEqual({ plan: "pro", token: "[redacted]" });
+  });
+
+  it("preserves concurrent appends", async () => {
+    const store = new JsonlTelemetryStore(join(dir, "events.jsonl"));
+    const eventNames = Array.from(
+      { length: 25 },
+      (_, index) => `billing.subscription.updated.${index.toString().padStart(2, "0")}`
+    );
+
+    await Promise.all(
+      eventNames.map((name) =>
+        store.append(
+          createWideEvent(name, {
+            environment: "preview",
+            surface: "convex",
+            journey: "billing",
+            correlationId: `corr_${name}`,
+            state: { sequence: name }
+          })
+        )
+      )
+    );
+
+    const events = await store.query({ environment: "preview", event: "billing.*" });
+    expect(events.map((event) => event.name).sort()).toEqual(eventNames);
+  });
+
+  it("reports malformed JSONL with a line number", async () => {
+    const path = join(dir, "events.jsonl");
+    const validEvent = createWideEvent("billing.subscription.updated", {
+      environment: "preview",
+      surface: "convex",
+      correlationId: "corr_valid"
+    });
+    await writeFile(path, `${JSON.stringify(validEvent)}\n{not-json}\n`, "utf8");
+
+    const store = new JsonlTelemetryStore(path);
+    await expect(store.query({ environment: "preview" })).rejects.toThrow(
+      /Invalid telemetry JSONL at line 2:/
+    );
+  });
+
+  it("matches event names by exact value and wildcard prefix", () => {
+    expect(eventNameMatches("billing.subscription.updated", "billing.subscription.updated")).toBe(
+      true
+    );
+    expect(eventNameMatches("billing.subscription.updated", "billing.*")).toBe(true);
+    expect(eventNameMatches("auth.session.created", "billing.*")).toBe(false);
   });
 });
