@@ -15,7 +15,7 @@ export type EnvValueState = Partial<
   Record<EnvironmentName, Partial<Record<SurfaceName, Record<string, string | undefined>>>>
 >;
 
-export const serviceOrder: ServiceName[] = ["clerk", "convex", "vercel", "eas"];
+export const serviceOrder = ["clerk", "convex", "vercel", "eas"] as const satisfies readonly ServiceName[];
 
 export function buildEnvGraph(manifest: AgentstackManifest): EnvGraph {
   const nodes: EnvGraphNode[] = [];
@@ -42,8 +42,13 @@ export function validateCustomEnvValues(
       continue;
     }
 
-    for (const environment of declaration.environments) {
-      for (const surface of declaration.surfaces) {
+    const activeEnvironments = declaration.environments.filter((environment) =>
+      manifest.environments.includes(environment)
+    );
+    const activeSurfaces = declaration.surfaces.filter((surface) => manifest.surfaces.includes(surface));
+
+    for (const environment of activeEnvironments) {
+      for (const surface of activeSurfaces) {
         const value = values[environment]?.[surface]?.[name];
         if (!value) {
           diagnostics.push({

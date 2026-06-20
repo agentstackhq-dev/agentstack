@@ -23,6 +23,23 @@ describe("environment graph", () => {
     ]);
   });
 
+  it("excludes disabled services", () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.services.eas.enabled = false;
+    manifest.services.vercel.enabled = false;
+
+    const graph = buildEnvGraph(manifest);
+
+    expect(graph.nodes.map((node) => `${node.environment}:${node.service}`)).toEqual([
+      "development:clerk",
+      "development:convex",
+      "preview:clerk",
+      "preview:convex",
+      "production:clerk",
+      "production:convex"
+    ]);
+  });
+
   it("validates scoped custom env values", () => {
     const manifest = createDefaultManifest("acme-crm");
     manifest.env.custom.OPENAI_API_KEY = {
@@ -43,6 +60,86 @@ describe("environment graph", () => {
         code: "env.custom.missing",
         path: "preview.convex.OPENAI_API_KEY"
       })
+    ]);
+  });
+
+  it("ignores required custom env scopes outside active manifest scopes", () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.environments = ["production"];
+    manifest.surfaces = ["web"];
+    manifest.env.custom.OPENAI_API_KEY = {
+      surfaces: ["web", "convex"],
+      environments: ["preview", "production"],
+      required: true,
+      secret: true
+    };
+
+    const diagnostics = validateCustomEnvValues(manifest, {
+      production: { web: { OPENAI_API_KEY: "prod-key" } }
+    });
+
+    expect(diagnostics).toEqual([]);
+  });
+
+  it("reports required custom env values only for the active scoped surface and environment", () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.environments = ["preview", "production"];
+    manifest.surfaces = ["web", "convex"];
+    manifest.env.custom.STRIPE_SECRET_KEY = {
+      surfaces: ["convex"],
+      environments: ["production"],
+      required: true,
+      secret: true
+    };
+
+    const diagnostics = validateCustomEnvValues(manifest, {
+      preview: { convex: {} },
+      production: { web: {}, convex: {} }
+    });
+
+    expect(diagnostics.map((diagnostic) => diagnostic.path)).toEqual(["production.convex.STRIPE_SECRET_KEY"]);
+  });
+
+  it("does not report missing values for optional custom env declarations", () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.env.custom.SENTRY_DSN = {
+      surfaces: ["web"],
+      environments: ["production"],
+      required: false,
+      secret: true
+    };
+
+    const diagnostics = validateCustomEnvValues(manifest, {
+      production: { web: {} }
+    });
+
+    expect(diagnostics).toEqual([]);
+  });
+
+  it("includes the full diagnostic shape for missing custom env values", () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.environments = ["preview"];
+    manifest.surfaces = ["convex"];
+    manifest.env.custom.OPENAI_API_KEY = {
+      surfaces: ["convex"],
+      environments: ["preview"],
+      required: true,
+      secret: true
+    };
+
+    const diagnostics = validateCustomEnvValues(manifest, {
+      preview: { convex: {} }
+    });
+
+    expect(diagnostics).toEqual([
+      {
+        severity: "fail",
+        code: "env.custom.missing",
+        path: "preview.convex.OPENAI_API_KEY",
+        message: "OPENAI_API_KEY is required for convex in preview, but no value is present.",
+        fix: "Run agentstack env set OPENAI_API_KEY --env preview --surface convex.",
+        blocks: ["validate", "validate --cloud"]
+      }
     ]);
   });
 });
