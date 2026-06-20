@@ -1,5 +1,9 @@
 # Theming
 
-Use shared theme tokens for color, spacing, and radius.
+`packages/theme/tokens.json` is the structured source of truth for generated token validation.
+`packages/theme/src/index.ts` is the typed app-facing wrapper agents import from code; it must import `../tokens.json` rather than duplicating token values.
+Run `pnpm run theme:validate` after changing tokens.
 
-Build product UI from unstyled primitives and platform-native screens. Keep web and mobile aligned through tokens while respecting each platform's interaction patterns.
+UI should start from `@app/ui` primitive definitions. These primitives are unstyled: they encode required states, accessibility expectations, and token roles, while web and mobile choose platform-native rendering.
+
+Use token role names such as `colors.surface`, `colors.foreground`, and `colors.focusRing` in shared primitive metadata. Keep raw color values inside the theme package so product screens do not drift into one-off palettes.

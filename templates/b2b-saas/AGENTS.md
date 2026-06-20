@@ -1,6 +1,8 @@
 # Agent Rules
 
 - Run `pnpm run validate` before completion.
+- Validate theme changes with `pnpm run theme:validate`; normal `pnpm run validate` also checks token shape.
+- Style UI through `@app/theme` token roles and `@app/ui` primitives before adding surface-specific components.
 - Use framework package scripts and generated docs instead of provider dashboards.
 - Treat preview commands as local-cloud preview state only; real provider adapters are future work.
 - Use telemetry primitives for product events and operational traces.

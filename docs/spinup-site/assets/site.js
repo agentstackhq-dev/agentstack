@@ -27,6 +27,13 @@ const scenarios = {
     detail: "If a service was linked and later disabled in the manifest, validate --cloud reports cloud.service.stale. Sync reconciles by removing the stale selected-environment entry.",
     files: ["packages/adapters/src/local-cloud.ts", "packages/adapters/src/local-cloud.test.ts"]
   },
+  themeDrift: {
+    title: "Theme mirror drift",
+    command: "pnpm run theme:validate",
+    result: "FAIL theme.tokens.mirror-drift",
+    detail: "Theme tokens live in packages/theme/tokens.json. The typed wrapper must import that JSON source instead of copying token values, so web and mobile cannot silently read stale theme constants.",
+    files: ["packages/core/src/theme.ts", "packages/cli/src/run.ts", "templates/b2b-saas/packages/theme/src/index.ts"]
+  },
   previewDeploy: {
     title: "Preview deploy rehearsal",
     command: "pnpm run preview:deploy && pnpm run preview:deploy:apply",

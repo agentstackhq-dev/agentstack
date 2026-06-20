@@ -10,6 +10,7 @@ import {
   validateCustomEnvValues,
   validateGeneratedAnchors,
   validateLocalProject,
+  validateThemeTokens,
   type EnvValueState,
   type AgentstackManifest,
   type Diagnostic,
@@ -71,6 +72,10 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
       return await deployCommand(argv.slice(1), io);
     }
 
+    if (command === "theme" && subcommand === "validate") {
+      return await themeValidateCommand(io);
+    }
+
     if (command === "env" && subcommand === "inspect") {
       return await envInspectCommand(rest, io);
     }
@@ -105,11 +110,10 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
 
 async function validateCommand(argv: string[], io: RunIo): Promise<number> {
   const options = parseOptions(argv);
-  const { context, localResult, anchorResult, sourcePolicyDiagnostics, diagnostics } =
-    await runLocalValidationGate(io.cwd);
+  const { context, diagnostics } = await runLocalValidationGate(io.cwd);
   diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
 
-  if (!localResult.ok || !anchorResult.ok || sourcePolicyDiagnostics.length > 0) {
+  if (diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
     await recordCommandEvent(io, {
       name: "agentstack.validate.completed",
       environment: "development",
@@ -187,11 +191,10 @@ async function deployCommand(argv: string[], io: RunIo): Promise<number> {
     );
     return 1;
   }
-  const { context, localResult, anchorResult, sourcePolicyDiagnostics, diagnostics } =
-    await runLocalValidationGate(io.cwd);
+  const { context, diagnostics } = await runLocalValidationGate(io.cwd);
   diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
 
-  if (!localResult.ok || !anchorResult.ok || sourcePolicyDiagnostics.length > 0) {
+  if (diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
     return 1;
   }
 
@@ -222,6 +225,7 @@ async function runLocalValidationGate(cwd: string): Promise<{
   context: Awaited<ReturnType<typeof loadProjectContext>>;
   localResult: ReturnType<typeof validateLocalProject>;
   anchorResult: ReturnType<typeof validateGeneratedAnchors>;
+  themeDiagnostics: Diagnostic[];
   sourcePolicyDiagnostics: Diagnostic[];
   diagnostics: Diagnostic[];
 }> {
@@ -232,14 +236,118 @@ async function runLocalValidationGate(cwd: string): Promise<{
     manifest: context.manifest,
     missingPaths: await findMissingGeneratedAnchors(context.cwd, context.manifest)
   });
+  const themeDiagnostics = await findThemeDiagnostics(context.cwd);
   const sourcePolicyDiagnostics = await findSourcePolicyDiagnostics(context.cwd);
   const diagnostics = [
     ...localResult.diagnostics,
     ...anchorResult.diagnostics,
+    ...themeDiagnostics,
     ...sourcePolicyDiagnostics
   ];
 
-  return { context, localResult, anchorResult, sourcePolicyDiagnostics, diagnostics };
+  return { context, localResult, anchorResult, themeDiagnostics, sourcePolicyDiagnostics, diagnostics };
+}
+
+async function themeValidateCommand(io: RunIo): Promise<number> {
+  const diagnostics = await findThemeDiagnostics(io.cwd);
+  diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
+
+  if (diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
+    await recordCommandEvent(io, {
+      name: "agentstack.theme.validate.completed",
+      environment: "development",
+      journey: "theming",
+      command: "theme validate",
+      status: "fail",
+      state: { diagnostics: diagnostics.length }
+    });
+    return 1;
+  }
+
+  io.write("PASS theme validate");
+  await recordCommandEvent(io, {
+    name: "agentstack.theme.validate.completed",
+    environment: "development",
+    journey: "theming",
+    command: "theme validate",
+    status: "ok",
+    state: { diagnostics: diagnostics.length }
+  });
+  return 0;
+}
+
+async function findThemeDiagnostics(cwd: string): Promise<Diagnostic[]> {
+  const tokenPath = join(cwd, "packages/theme/tokens.json");
+
+  try {
+    const tokens = JSON.parse(await readFile(tokenPath, "utf8")) as unknown;
+    return [...validateThemeTokens(tokens), ...(await findThemeMirrorDiagnostics(cwd))];
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return [
+        {
+          severity: "fail",
+          code: "theme.tokens.missing",
+          path: "packages/theme/tokens.json",
+          message: "Theme token file is missing.",
+          fix: "Restore packages/theme/tokens.json or rerun agentstack init for this project.",
+          blocks: ["validate", "validate --cloud", "deploy"]
+        }
+      ];
+    }
+
+    if (error instanceof SyntaxError) {
+      return [
+        {
+          severity: "fail",
+          code: "theme.tokens.invalid-json",
+          path: "packages/theme/tokens.json",
+          message: `Theme token file must be valid JSON: ${error.message}`,
+          fix: "Fix packages/theme/tokens.json so it parses as JSON.",
+          blocks: ["validate", "validate --cloud", "deploy"]
+        }
+      ];
+    }
+
+    throw error;
+  }
+}
+
+async function findThemeMirrorDiagnostics(cwd: string): Promise<Diagnostic[]> {
+  const mirrorPath = "packages/theme/src/index.ts";
+
+  try {
+    const source = await readFile(join(cwd, mirrorPath), "utf8");
+    if (source.includes("../tokens.json") && source.includes("themeTokens")) {
+      return [];
+    }
+
+    return [
+      {
+        severity: "fail",
+        code: "theme.tokens.mirror-drift",
+        path: mirrorPath,
+        message: "The typed theme mirror must import packages/theme/tokens.json instead of duplicating token values.",
+        fix: "Update packages/theme/src/index.ts to import ../tokens.json and export themeTokens from that JSON source.",
+        blocks: ["validate", "validate --cloud", "deploy"]
+      }
+    ];
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return [
+        {
+          severity: "fail",
+          code: "theme.tokens.mirror-missing",
+          path: mirrorPath,
+          message: "Typed theme mirror is missing.",
+          fix: "Restore packages/theme/src/index.ts or rerun agentstack init for this project.",
+          blocks: ["validate", "validate --cloud", "deploy"]
+        }
+      ];
+    }
+
+    throw error;
+  }
 }
 
 async function findMissingGeneratedAnchors(
@@ -726,7 +834,10 @@ async function recordCommandEvent(
       command: input.command,
       status: input.status,
       journey: input.journey,
-      state: input.state
+      state: {
+        status: input.status,
+        ...input.state
+      }
     })
   );
 }

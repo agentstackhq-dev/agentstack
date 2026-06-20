@@ -2,6 +2,7 @@
   "name": "__APP_SLUG__",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@9.15.4",
   "scripts": {
     "validate": "node scripts/agentstack.mjs validate",
     "validate:cloud": "node scripts/agentstack.mjs validate --cloud",
@@ -12,6 +13,7 @@
     "preview:validate": "node scripts/agentstack.mjs validate --cloud --env preview",
     "preview:deploy": "node scripts/agentstack.mjs deploy --env preview",
     "preview:deploy:apply": "node scripts/agentstack.mjs deploy --env preview --apply",
+    "theme:validate": "node scripts/agentstack.mjs theme validate",
     "sync:preview": "node scripts/agentstack.mjs sync --env preview",
     "sync:preview:apply": "node scripts/agentstack.mjs sync --env preview --apply",
     "observe:timeline": "node scripts/agentstack.mjs observe timeline --journey smoke --env preview"

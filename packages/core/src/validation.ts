@@ -43,6 +43,8 @@ export function getRequiredGeneratedAnchors(manifest: AgentstackManifest): strin
     "docs/agentstack/release.md",
     "docs/agentstack/theming.md",
     "packages/domain/src/index.ts",
+    "packages/theme/package.json",
+    "packages/theme/tokens.json",
     "packages/theme/src/index.ts"
   ];
 

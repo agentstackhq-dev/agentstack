@@ -26,6 +26,7 @@ describe("Agentstack executable prototype workflow", () => {
 
     await generateProject({ name: "acme-crm", targetDir: appDir });
 
+    expect(await runAgentstack(["theme", "validate"], { cwd: appDir, write })).toBe(0);
     expect(
       await runAgentstack(
         ["add", "feature", "invoices", "--surfaces", "web,mobile", "--backend", "convex"],
@@ -124,6 +125,7 @@ describe("Agentstack executable prototype workflow", () => {
     ).toBe(0);
 
     const renderedOutput = output.join("\n");
+    expect(renderedOutput).toContain("PASS theme validate");
     expect(renderedOutput).toContain("CREATED feature invoices");
     expect(renderedOutput).toContain("CREATED event billing.subscription.updated");
     expect(renderedOutput).toContain("PASS env set preview convex.STRIPE_MODE");

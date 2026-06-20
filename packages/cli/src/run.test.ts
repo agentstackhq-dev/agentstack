@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createDefaultManifest } from "@agentstack/core";
+import { createDefaultManifest, defaultThemeTokens } from "@agentstack/core";
 import { createWideEvent, JsonlTelemetryStore } from "@agentstack/telemetry";
 import { runAgentstack } from "./index.js";
 
@@ -31,6 +31,140 @@ afterEach(async () => {
 });
 
 describe("runAgentstack", () => {
+  it("validates the generated theme token contract", async () => {
+    const code = await runAgentstack(["theme", "validate"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS theme validate");
+  });
+
+  it("fails theme validation when a required token is missing", async () => {
+    const tokens = JSON.parse(await readFile(join(dir, "packages/theme/tokens.json"), "utf8"));
+    delete tokens.colors.focusRing;
+    await writeFile(join(dir, "packages/theme/tokens.json"), `${JSON.stringify(tokens, null, 2)}\n`);
+
+    const code = await runAgentstack(["theme", "validate"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL theme.tokens.missing");
+    expect(output.join("\n")).toContain("Path: packages/theme/tokens.json:colors.focusRing");
+  });
+
+  it("reports malformed theme token JSON distinctly", async () => {
+    await writeFile(join(dir, "packages/theme/tokens.json"), "{ nope", "utf8");
+
+    const code = await runAgentstack(["theme", "validate"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL theme.tokens.invalid-json");
+    expect(output.join("\n")).toContain("Path: packages/theme/tokens.json");
+  });
+
+  it("fails theme validation when the typed mirror can drift from token JSON", async () => {
+    await writeFile(
+      join(dir, "packages/theme/src/index.ts"),
+      [
+        "export const themeTokens = {",
+        "  colors: { focusRing: \"#000000\" }",
+        "} as const;",
+        ""
+      ].join("\n"),
+      "utf8"
+    );
+
+    const code = await runAgentstack(["theme", "validate"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL theme.tokens.mirror-drift");
+    expect(output.join("\n")).toContain("Path: packages/theme/src/index.ts");
+  });
+
+  it("includes theme diagnostics in local validation", async () => {
+    const tokens = JSON.parse(await readFile(join(dir, "packages/theme/tokens.json"), "utf8"));
+    tokens.spacing.md = "16px";
+    await writeFile(join(dir, "packages/theme/tokens.json"), `${JSON.stringify(tokens, null, 2)}\n`);
+
+    const code = await runAgentstack(["validate"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL theme.tokens.invalid");
+  });
+
+  it("blocks deploy when theme diagnostics fail", async () => {
+    const tokens = JSON.parse(await readFile(join(dir, "packages/theme/tokens.json"), "utf8"));
+    tokens.radius.md = "8px";
+    await writeFile(join(dir, "packages/theme/tokens.json"), `${JSON.stringify(tokens, null, 2)}\n`);
+
+    const code = await runAgentstack(["deploy", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL theme.tokens.invalid");
+    expect(output.join("\n")).toContain("Path: packages/theme/tokens.json:radius.md");
+    expect(output.join("\n")).not.toContain("PLAN deploy preview");
+  });
+
+  it("records command telemetry for successful theme validation", async () => {
+    expect(
+      await runAgentstack(["theme", "validate"], {
+        cwd: dir,
+        write: () => undefined
+      })
+    ).toBe(0);
+
+    const code = await runAgentstack(
+      ["observe", "timeline", "--env", "development", "--journey", "theming"],
+      {
+        cwd: dir,
+        write: (line) => output.push(line)
+      }
+    );
+
+    expect(code).toBe(0);
+    expect(output.join("\n")).toContain("agentstack.theme.validate.completed");
+    expect(output.join("\n")).toContain('"diagnostics":0');
+  });
+
+  it("records command telemetry when theme validation fails", async () => {
+    await writeFile(join(dir, "packages/theme/tokens.json"), "{ nope", "utf8");
+
+    expect(
+      await runAgentstack(["theme", "validate"], {
+        cwd: dir,
+        write: () => undefined
+      })
+    ).toBe(1);
+
+    const code = await runAgentstack(
+      ["observe", "timeline", "--env", "development", "--journey", "theming"],
+      {
+        cwd: dir,
+        write: (line) => output.push(line)
+      }
+    );
+
+    expect(code).toBe(0);
+    expect(output.join("\n")).toContain("agentstack.theme.validate.completed");
+    expect(output.join("\n")).toContain('"status":"fail"');
+  });
+
   it("validates a local project", async () => {
     const code = await runAgentstack(["validate"], {
       cwd: dir,
@@ -1134,6 +1268,8 @@ async function writeGeneratedAnchors(): Promise<void> {
     "apps/mobile/package.json",
     "convex/schema.ts",
     "packages/domain/src/index.ts",
+    "packages/theme/package.json",
+    "packages/theme/tokens.json",
     "packages/theme/src/index.ts",
     "packages/telemetry/src/events.ts"
   ];
@@ -1141,7 +1277,28 @@ async function writeGeneratedAnchors(): Promise<void> {
   await Promise.all(
     anchors.map(async (anchor) => {
       await mkdir(dirname(join(dir, anchor)), { recursive: true });
-      await writeFile(join(dir, anchor), "{}\n", "utf8");
+      await writeFile(
+        join(dir, anchor),
+        readGeneratedAnchorFixture(anchor),
+        "utf8"
+      );
     })
   );
+}
+
+function readGeneratedAnchorFixture(anchor: string): string {
+  if (anchor === "packages/theme/tokens.json") {
+    return `${JSON.stringify(defaultThemeTokens, null, 2)}\n`;
+  }
+
+  if (anchor === "packages/theme/src/index.ts") {
+    return [
+      'import themeTokensJson from "../tokens.json";',
+      "",
+      "export const themeTokens = themeTokensJson;",
+      ""
+    ].join("\n");
+  }
+
+  return "{}\n";
 }

@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Agentstack Theme and UI</title>
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body data-page="theme">
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="brand"><strong>Agentstack Spin-Up</strong><span>Theme contract and UI primitives</span></div>
+        <nav class="nav" aria-label="Spin-up navigation">
+          <a data-page="home" href="index.html">Start Here</a>
+          <a data-page="architecture" href="architecture.html">System Map</a>
+          <a data-page="workflows" href="workflows.html">Command Journeys</a>
+          <a data-page="guardrails" href="guardrails.html">Validation & Guardrails</a>
+          <a data-page="generated" href="generated-app.html">Generated App</a>
+          <a data-page="theme" href="theme-ui.html">Theme & UI</a>
+          <a data-page="telemetry" href="telemetry.html">Telemetry</a>
+          <a data-page="timeline" href="timeline.html">Implementation Timeline</a>
+          <a data-page="lab" href="lab.html">Deep Dive Lab</a>
+        </nav>
+      </aside>
+
+      <main class="main">
+        <header class="hero">
+          <div>
+            <h1>Theme and UI are now an agent-readable contract.</h1>
+            <p>
+              This slice makes styling less ambiguous for coding agents. The generated app has a
+              structured token source of truth, a typed wrapper imported by application code, an
+              unstyled primitive registry, and validation that catches missing tokens, invalid token
+              types, malformed token JSON, and mirror drift.
+            </p>
+            <div class="pill-row">
+              <span class="pill">packages/theme/tokens.json</span>
+              <span class="pill">@app/theme</span>
+              <span class="pill">@app/ui</span>
+              <span class="pill">agentstack theme validate</span>
+            </div>
+          </div>
+          <div class="diagram hero-art">
+            <svg viewBox="0 0 660 390" role="img" aria-label="Theme and UI contract flow">
+              <defs>
+                <marker id="arrow-theme" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+                  <path class="svg-arrow" d="M0,0 L0,6 L9,3 z"></path>
+                </marker>
+              </defs>
+              <rect class="svg-box svg-blue" x="46" y="52" width="190" height="70" rx="8"></rect>
+              <text class="svg-label" x="76" y="84">tokens.json</text>
+              <text class="svg-small" x="76" y="106">structured source</text>
+
+              <rect class="svg-box svg-teal" x="306" y="52" width="210" height="70" rx="8"></rect>
+              <text class="svg-label" x="346" y="84">@app/theme</text>
+              <text class="svg-small" x="346" y="106">typed wrapper</text>
+
+              <rect class="svg-box svg-amber" x="306" y="184" width="210" height="70" rx="8"></rect>
+              <text class="svg-label" x="352" y="216">@app/ui</text>
+              <text class="svg-small" x="336" y="238">unstyled primitive roles</text>
+
+              <rect class="svg-box svg-rose" x="46" y="184" width="190" height="70" rx="8"></rect>
+              <text class="svg-label" x="84" y="216">validator</text>
+              <text class="svg-small" x="76" y="238">shape, type, mirror</text>
+
+              <rect class="svg-box" x="194" y="304" width="260" height="48" rx="8"></rect>
+              <text class="svg-label" x="234" y="334">web + mobile renderers</text>
+
+              <path class="svg-line" marker-end="url(#arrow-theme)" d="M238 87 H296"></path>
+              <path class="svg-line" marker-end="url(#arrow-theme)" d="M411 124 V176"></path>
+              <path class="svg-line" marker-end="url(#arrow-theme)" d="M306 219 H246"></path>
+              <path class="svg-line" marker-end="url(#arrow-theme)" d="M141 184 V132"></path>
+              <path class="svg-line" marker-end="url(#arrow-theme)" d="M410 254 C410 286 380 302 350 304"></path>
+            </svg>
+          </div>
+        </header>
+
+        <section class="content">
+          <section class="section">
+            <h2>What changed</h2>
+            <div class="grid three">
+              <div class="card">
+                <h3>Theme tokens are structured</h3>
+                <p>
+                  <code>packages/theme/tokens.json</code> carries colors, typography, spacing, radius,
+                  shadow, motion, and density. Core validates required paths and value types.
+                </p>
+              </div>
+              <div class="card">
+                <h3>The typed wrapper cannot drift</h3>
+                <p>
+                  <code>packages/theme/src/index.ts</code> imports <code>../tokens.json</code> and
+                  exports <code>themeTokens</code>, <code>ThemeTokens</code>, and token role helpers.
+                </p>
+              </div>
+              <div class="card">
+                <h3>UI primitives are unstyled</h3>
+                <p>
+                  <code>@app/ui</code> exposes primitives for auth, org switching, plans, settings,
+                  tables, forms, modals, states, command search, lists, and navigation shells.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
+            <h2>Validation surface</h2>
+            <div class="grid two">
+              <pre><code>pnpm run theme:validate
+PASS theme validate
+
+pnpm run validate
+PASS validate</code></pre>
+              <pre><code>FAIL theme.tokens.mirror-drift
+Path: packages/theme/src/index.ts
+The typed theme mirror must import packages/theme/tokens.json
+instead of duplicating token values.
+Fix: Update packages/theme/src/index.ts to import ../tokens.json
+and export themeTokens from that JSON source.
+Blocks: validate, validate --cloud, deploy</code></pre>
+            </div>
+            <p class="lede">
+              Theme diagnostics run both through the focused <code>theme validate</code> command and
+              the broader local gate used before cloud validation and preview deploy rehearsal.
+            </p>
+          </section>
+
+          <section class="section">
+            <h2>Primitive model</h2>
+            <table class="table">
+              <thead><tr><th>Primitive</th><th>Why it exists</th><th>Agent constraint</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><code>authGate</code>, <code>orgSwitcher</code>, <code>userMenu</code></td>
+                  <td>Common Clerk-auth surfaces should behave consistently across web and mobile.</td>
+                  <td>Use required states and token roles before adding surface-specific components.</td>
+                </tr>
+                <tr>
+                  <td><code>planGate</code>, <code>settingsSection</code>, <code>dataTable</code>, <code>form</code></td>
+                  <td>B2B SaaS workflows need predictable loading, error, empty, selected, and disabled behavior.</td>
+                  <td>Render platform-native UI, but keep behavior and state names shared.</td>
+                </tr>
+                <tr>
+                  <td><code>modal</code>, <code>commandSearch</code>, <code>mobileList</code>, <code>navigationShell</code></td>
+                  <td>Navigation and command surfaces are frequent sources of divergent ad hoc styling.</td>
+                  <td>Use <code>colors.surface</code>, <code>colors.foreground</code>, and <code>colors.focusRing</code> roles.</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="section">
+            <h2>Why this matters for agents</h2>
+            <div class="grid two">
+              <div class="card">
+                <h3>Less guessing</h3>
+                <p>
+                  Agents no longer need to infer which color, radius, or state names should be shared.
+                  The generated packages define stable vocabulary for product UI work.
+                </p>
+              </div>
+              <div class="card">
+                <h3>More mechanical enforcement</h3>
+                <p>
+                  A missing <code>focusRing</code>, string spacing value, malformed token JSON, or
+                  duplicated typed mirror produces a concrete diagnostic before deployment rehearsal.
+                </p>
+              </div>
+            </div>
+          </section>
+        </section>
+        <footer class="footer">Evidence: <code>packages/core/src/theme.ts</code>, <code>packages/cli/src/run.ts</code>, <code>templates/b2b-saas/packages/theme</code>, <code>templates/b2b-saas/packages/ui</code>.</footer>
+      </main>
+    </div>
+    <script src="assets/site.js"></script>
+  </body>
+</html>

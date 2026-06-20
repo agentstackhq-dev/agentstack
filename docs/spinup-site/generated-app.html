@@ -16,6 +16,7 @@
           <a data-page="workflows" href="workflows.html">Command Journeys</a>
           <a data-page="guardrails" href="guardrails.html">Validation & Guardrails</a>
           <a data-page="generated" href="generated-app.html">Generated App</a>
+          <a data-page="theme" href="theme-ui.html">Theme & UI</a>
           <a data-page="telemetry" href="telemetry.html">Telemetry</a>
           <a data-page="timeline" href="timeline.html">Implementation Timeline</a>
           <a data-page="lab" href="lab.html">Deep Dive Lab</a>
@@ -62,6 +63,7 @@
               <div class="card"><h3>App identity</h3><p><code>agentstack.config.json</code> contains app slug/name, environments, surfaces, enabled services, env declarations, and telemetry policy.</p></div>
               <div class="card"><h3>Surfaces</h3><p>Web, mobile, and Convex anchors exist so validation can detect accidental deletion or malformed project shape.</p></div>
               <div class="card"><h3>Shared packages</h3><p><code>domain</code>, <code>theme</code>, <code>config</code>, <code>ui</code>, <code>telemetry</code>, and runtime anchors establish where future type-safe shared code belongs.</p></div>
+              <div class="card"><h3>Theme contract</h3><p><code>packages/theme/tokens.json</code> is the source of truth. <code>@app/theme</code> imports it, and <code>@app/ui</code> uses token roles instead of hardcoded colors.</p></div>
               <div class="card"><h3>Feature workflow</h3><p><code>agentstack add feature &lt;name&gt; --surfaces web,mobile --backend convex</code> creates coordinated product anchors before surface code diverges.</p></div>
               <div class="card"><h3>Event workflow</h3><p><code>agentstack add event billing.subscription.updated --journey billing --surfaces web,convex --state plan:string,seatCount:number</code> creates typed telemetry files and generated event docs.</p></div>
               <div class="card"><h3>Agent docs</h3><p><code>AGENTS.md</code> and <code>docs/agentstack/</code> teach agents the local workflow, feature-first generation, and boundaries.</p></div>

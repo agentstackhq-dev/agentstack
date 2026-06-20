@@ -16,5 +16,10 @@
     "types": ["node", "vitest/globals"]
   },
   "include": ["packages/**/*.ts", "tests/**/*.ts", "vitest.config.ts"],
-  "exclude": ["**/dist/**", "**/node_modules/**", "**/.agentstack/**"]
+  "exclude": [
+    "**/dist/**",
+    "**/node_modules/**",
+    "**/.agentstack/**",
+    "packages/create-agent-stack/templates/**"
+  ]
 }

@@ -31,6 +31,9 @@ const generatedAnchorFiles = [
   "packages/telemetry/src/events.ts",
   "packages/telemetry/src/events/index.ts",
   "packages/telemetry/src/index.ts",
+  "packages/theme/package.json",
+  "packages/theme/tokens.json",
+  "packages/theme/src/index.ts",
   "packages/ui/package.json",
   "packages/ui/src/index.ts",
   "packages/agentstack-runtime/package.json",
@@ -58,6 +61,7 @@ describe("generateProject", () => {
       );
 
       expect(manifest.app.slug).toBe("acme-crm");
+      expect(packageManifest.packageManager).toBe("pnpm@9.15.4");
       expect(agents).toContain("Run `pnpm run validate` before completion.");
       expect(gitignore).toContain(".agentstack/");
       expect(gitignore).toContain(".env.*");
@@ -69,6 +73,7 @@ describe("generateProject", () => {
         "preview:validate": "node scripts/agentstack.mjs validate --cloud --env preview",
         "preview:deploy": "node scripts/agentstack.mjs deploy --env preview",
         "preview:deploy:apply": "node scripts/agentstack.mjs deploy --env preview --apply",
+        "theme:validate": "node scripts/agentstack.mjs theme validate",
         "sync:preview": "node scripts/agentstack.mjs sync --env preview",
         "sync:preview:apply": "node scripts/agentstack.mjs sync --env preview --apply",
         "observe:timeline": "node scripts/agentstack.mjs observe timeline --journey smoke --env preview"
@@ -94,12 +99,26 @@ describe("generateProject", () => {
       await expect(readFile(join(targetDir, "packages/telemetry/src/events/index.ts"), "utf8")).resolves.toContain(
         "../events.js"
       );
+      await expect(readFile(join(targetDir, "packages/theme/tokens.json"), "utf8")).resolves.toContain(
+        '"focusRing"'
+      );
+      await expect(readFile(join(targetDir, "packages/theme/package.json"), "utf8")).resolves.toContain(
+        "@app/theme"
+      );
+      await expect(readFile(join(targetDir, "packages/theme/src/index.ts"), "utf8")).resolves.toContain(
+        "../tokens.json"
+      );
+      await expect(readFile(join(targetDir, "packages/ui/src/index.ts"), "utf8")).resolves.toContain(
+        "uiPrimitives"
+      );
       expect(manifest.generated.requiredAnchors).toEqual(
         expect.arrayContaining([
           "packages/telemetry/package.json",
           "packages/telemetry/src/events.ts",
           "packages/telemetry/src/events/index.ts",
-          "packages/telemetry/src/index.ts"
+          "packages/telemetry/src/index.ts",
+          "packages/theme/package.json",
+          "packages/theme/tokens.json"
         ])
       );
       await expect(readFile(join(targetDir, "apps/web/src/index.ts"), "utf8")).resolves.toContain(

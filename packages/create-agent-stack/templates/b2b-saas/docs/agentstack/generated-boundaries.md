@@ -2,6 +2,8 @@
 
 Product code in `apps`, `packages`, and `convex` is safe to edit.
 
+Generated anchors in `agentstack.config.json` must remain present. Theme anchors include `packages/theme/package.json`, `packages/theme/tokens.json`, and `packages/theme/src/index.ts`; removing or renaming them breaks validation and generated app assumptions.
+
 For a new capability, generate the first set of product anchors instead of hand-creating parallel files:
 
 ```bash

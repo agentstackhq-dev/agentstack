@@ -2,6 +2,9 @@
   "name": "@app/ui",
   "private": true,
   "type": "module",
+  "dependencies": {
+    "@app/theme": "workspace:*"
+  },
   "exports": {
     ".": "./src/index.ts"
   }

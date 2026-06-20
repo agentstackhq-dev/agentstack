@@ -16,6 +16,7 @@
           <a data-page="workflows" href="workflows.html">Command Journeys</a>
           <a data-page="guardrails" href="guardrails.html">Validation & Guardrails</a>
           <a data-page="generated" href="generated-app.html">Generated App</a>
+          <a data-page="theme" href="theme-ui.html">Theme & UI</a>
           <a data-page="telemetry" href="telemetry.html">Telemetry</a>
           <a data-page="timeline" href="timeline.html">Implementation Timeline</a>
           <a data-page="lab" href="lab.html">Deep Dive Lab</a>
@@ -36,7 +37,7 @@
             <ul>
               <li><code>pnpm install --frozen-lockfile</code></li>
               <li><code>pnpm typecheck</code></li>
-              <li><code>pnpm test</code>: 119 tests</li>
+              <li><code>pnpm test</code>: 132 tests</li>
               <li>Template mirror diff: no output</li>
               <li>Smoke path: create, add feature, add event, validate, env inspect, sync plan/apply, cloud validate, preview deploy plan/apply, observe timelines</li>
             </ul>
@@ -90,6 +91,10 @@
               <div class="event">
                 <h3>Typed app telemetry</h3>
                 <p>Added generated <code>@app/telemetry</code> metadata, typed event definitions, <code>createAppTelemetry</code> envelopes, <code>agentstack add event</code> docs, and the <code>telemetry-generation</code> observe timeline.</p>
+              </div>
+              <div class="event">
+                <h3>Theme and UI foundations</h3>
+                <p>Added <code>agentstack theme validate</code>, structured theme tokens, a JSON-backed typed theme wrapper, unstyled <code>@app/ui</code> primitives, pnpm package-manager pinning, and generated docs for token-role styling.</p>
               </div>
             </div>
           </section>
