@@ -2,7 +2,7 @@
 
 Agentstack is an agent-first control framework for B2B SaaS teams building on Convex, Clerk, React, React Native, Vercel, Expo/EAS, and OpenTelemetry.
 
-This prototype proves the local command contract: generate a project, validate the framework manifest, inspect environment state, plan and apply local-cloud sync, validate a named environment, rehearse a local preview deploy, and inspect redacted command telemetry from the CLI. It does not provision real provider resources yet.
+This prototype proves the local command contract: generate a project, inspect lifecycle state, run doctor-style preflight checks, validate the framework manifest, inspect environment state, plan and apply local-cloud sync, validate a named environment, rehearse a local preview deploy, and inspect redacted command telemetry from the CLI. It does not provision real provider resources yet.
 
 The current cloud implementation is a filesystem-backed local-cloud adapter. Real Convex, Clerk, Vercel, EAS, Stripe, and telemetry adapters will implement the same validation, sync, deploy, and inspection contracts.
 
@@ -26,11 +26,14 @@ node scripts/agentstack.mjs add feature invoices --surfaces web,mobile --backend
 node scripts/agentstack.mjs add billing-plan pro --entitlements feature.auditLog,feature.advancedReports --seats 10
 node scripts/agentstack.mjs add event billing.subscription.updated --journey billing --surfaces web,convex --state plan:string,seatCount:number
 node scripts/agentstack.mjs env set --env preview --surface convex --name STRIPE_MODE --value sandbox
+pnpm run inspect
 pnpm run validate
 pnpm run env:inspect
 pnpm run sync:preview
 pnpm run sync:preview:apply
 pnpm run validate:cloud
+pnpm run doctor
+pnpm run dev
 pnpm run preview:deploy
 pnpm run preview:deploy:apply
 pnpm run mobile:build:preview
@@ -50,11 +53,14 @@ CREATED feature invoices
 CREATED billing-plan pro
 CREATED event billing.subscription.updated
 PASS env set preview convex.STRIPE_MODE
+PASS inspect acme-crm
 PASS validate
 PASS env inspect preview
 PLAN preview
 APPLIED preview
 PASS validate --cloud
+PASS doctor preview
+PASS dev preflight preview
 PLAN deploy preview
 APPLIED deploy preview
 PLAN mobile build preview
@@ -71,6 +77,9 @@ agentstack.event.added
 - Generated apps include a typed SaaS spine in `packages/domain/src/saas-spine.ts`, `convex/saasSpine.ts`, and `docs/agentstack/saas-spine.md` for roles, memberships, billing plans, entitlements, Clerk webhooks, and audit events.
 - `agentstack add billing-plan <name> --entitlements <keys> --seats <count>` creates coordinated billing-plan anchors across domain, Convex, web, mobile, telemetry, and docs.
 - `agentstack add event <name> --journey <journey> --surfaces web,mobile,convex --state key:type` creates typed app telemetry event definitions and local event docs.
+- `pnpm run inspect` summarizes app identity, framework and guidance versions, generated anchor counts, enabled services, and preview local-cloud state.
+- `pnpm run doctor` runs local validation plus preview local-cloud checks and prints repair commands before provider, env, build, sync, or deploy work.
+- `pnpm run dev` is a local preflight only. It prints next commands such as validation, env inspection, sync, web dev, and mobile dev; this prototype does not start real web, mobile, Convex, Expo, or provider servers.
 - `pnpm run validate` checks the local Agentstack manifest, generated anchors, env value shape, telemetry policy, and source-secret policy through an installed `agentstack` CLI, or through `AGENTSTACK_CLI_BIN` for local source prototypes.
 - `.agentstack/env-values.json` can satisfy required custom env declarations for `validate` and `validate:cloud` using the environment -> surface -> variable JSON shape.
 - `pnpm run env:inspect` prints expected preview services and declared environment bindings.

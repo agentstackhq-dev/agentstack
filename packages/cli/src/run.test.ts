@@ -175,6 +175,97 @@ describe("runAgentstack", () => {
     expect(output).toContain("PASS validate");
   });
 
+  it("inspects project lifecycle state", async () => {
+    await runAgentstack(["sync", "--env", "preview", "--apply"], { cwd: dir, write: () => undefined });
+
+    const code = await runAgentstack(["inspect", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS inspect acme-crm");
+    expect(output.join("\n")).toContain("Environment: preview");
+    expect(output.join("\n")).toContain("Generated anchors:");
+    expect(output.join("\n")).toContain("Cloud missing: none");
+  });
+
+  it("reports doctor failures with next commands", async () => {
+    const code = await runAgentstack(["doctor", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL doctor preview");
+    expect(output.join("\n")).toContain("FAIL cloud.service.missing");
+    expect(output.join("\n")).toContain("Next commands:");
+    expect(output.join("\n")).toContain("agentstack sync --env preview --apply");
+  });
+
+  it("prints dev preflight commands without starting servers", async () => {
+    await runAgentstack(["sync", "--env", "preview", "--apply"], { cwd: dir, write: () => undefined });
+
+    const code = await runAgentstack(["dev", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS dev preflight preview");
+    expect(output.join("\n")).toContain("pnpm --filter @app/web dev");
+    expect(output.join("\n")).toContain("pnpm --filter @app/mobile dev");
+  });
+
+  it("prints development dev preflight without preview-only script names", async () => {
+    await runAgentstack(["sync", "--env", "development", "--apply"], {
+      cwd: dir,
+      write: () => undefined
+    });
+
+    const code = await runAgentstack(["dev", "--env", "development"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS dev preflight development");
+    expect(output.join("\n")).toContain("node scripts/agentstack.mjs sync --env development --apply");
+    expect(output.join("\n")).not.toContain("sync:development:apply");
+  });
+
+  it("records lifecycle command telemetry", async () => {
+    await runAgentstack(["sync", "--env", "preview", "--apply"], { cwd: dir, write: () => undefined });
+
+    expect(await runAgentstack(["inspect", "--env", "preview"], { cwd: dir, write: () => undefined })).toBe(0);
+    expect(await runAgentstack(["doctor", "--env", "preview"], { cwd: dir, write: () => undefined })).toBe(0);
+    expect(await runAgentstack(["dev", "--env", "preview"], { cwd: dir, write: () => undefined })).toBe(0);
+
+    const code = await runAgentstack(
+      ["observe", "timeline", "--env", "preview", "--journey", "agent-command"],
+      {
+        cwd: dir,
+        write: (line) => output.push(line)
+      }
+    );
+
+    expect(code).toBe(0);
+    expect(output.join("\n")).toContain("agentstack.inspect.completed");
+    expect(output.join("\n")).toContain("agentstack.dev.preflight.completed");
+
+    output = [];
+    expect(
+      await runAgentstack(
+        ["observe", "timeline", "--env", "preview", "--journey", "validation"],
+        {
+          cwd: dir,
+          write: (line) => output.push(line)
+        }
+      )
+    ).toBe(0);
+    expect(output.join("\n")).toContain("agentstack.doctor.completed");
+  });
+
   it("loads local custom env values during validation", async () => {
     const manifest = createDefaultManifest("acme-crm");
     manifest.environments = ["preview"];

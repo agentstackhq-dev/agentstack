@@ -1,5 +1,8 @@
 # Agent Rules
 
+- Start by running `pnpm run inspect` to read the generated app shape, anchors, services, and preview local-cloud state before editing.
+- Run `pnpm run doctor` before provider, environment, build, sync, or deploy work; it prints repair commands when local validation or preview local-cloud checks fail.
+- Use `pnpm run dev` as a local preflight only. In this prototype it prints the next web, mobile, validation, env, and sync commands but does not start real servers or mutate provider state.
 - Run `pnpm run validate` before completion.
 - Validate theme changes with `pnpm run theme:validate`; normal `pnpm run validate` also checks token shape.
 - Style UI through `@app/theme` token roles and `@app/ui` primitives before adding surface-specific components.

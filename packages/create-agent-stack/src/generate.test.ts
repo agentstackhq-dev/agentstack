@@ -73,6 +73,9 @@ describe("generateProject", () => {
       expect(gitignore).toContain(".env.*");
       expect(gitignore).toContain("!.env.example");
       expect(packageManifest.scripts).toMatchObject({
+        inspect: "node scripts/agentstack.mjs inspect --env preview",
+        doctor: "node scripts/agentstack.mjs doctor --env preview",
+        dev: "node scripts/agentstack.mjs dev --env preview",
         "env:inspect": "node scripts/agentstack.mjs env inspect --env preview",
         "preview:plan": "node scripts/agentstack.mjs sync --env preview",
         "preview:apply": "node scripts/agentstack.mjs sync --env preview --apply",

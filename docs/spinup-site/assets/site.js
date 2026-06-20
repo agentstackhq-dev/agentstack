@@ -6,6 +6,13 @@ for (const link of document.querySelectorAll(".nav a")) {
 }
 
 const scenarios = {
+  lifecycleInspector: {
+    title: "Lifecycle preflight",
+    command: "pnpm run inspect && pnpm run sync:preview:apply && pnpm run doctor && pnpm run dev",
+    result: "PASS inspect acme-crm / PASS doctor preview / PASS dev preflight preview",
+    detail: "Inspect summarizes generated anchors, services, and preview local-cloud state. Doctor runs validation plus selected-environment local-cloud checks. Dev is a preflight only: it prints next validation, env, sync, web, and mobile commands without starting real servers.",
+    files: ["packages/core/src/lifecycle.ts", "packages/cli/src/run.ts", "templates/b2b-saas/docs/agentstack/local-development.md"]
+  },
   missingAnchor: {
     title: "Generated anchor removed",
     command: "pnpm run validate",

@@ -4,6 +4,9 @@
   "type": "module",
   "packageManager": "pnpm@9.15.4",
   "scripts": {
+    "inspect": "node scripts/agentstack.mjs inspect --env preview",
+    "doctor": "node scripts/agentstack.mjs doctor --env preview",
+    "dev": "node scripts/agentstack.mjs dev --env preview",
     "validate": "node scripts/agentstack.mjs validate",
     "validate:cloud": "node scripts/agentstack.mjs validate --cloud",
     "init:cloud": "node scripts/agentstack.mjs init cloud",

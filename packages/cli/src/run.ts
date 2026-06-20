@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { LocalCloudAdapter } from "@agentstack/adapters";
 import {
   buildEnvGraph,
+  createLifecycleSummary,
   formatDiagnostic,
   getRequiredGeneratedAnchors,
   planTelemetryEventFiles,
@@ -16,6 +17,8 @@ import {
   type AgentstackManifest,
   type Diagnostic,
   type EnvironmentName,
+  type LifecycleCloudSummary,
+  type LifecycleSummary,
   type SurfaceName
 } from "@agentstack/core";
 import {
@@ -78,6 +81,18 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
 
     if (command === "validate") {
       return await validateCommand(argv.slice(1), io);
+    }
+
+    if (command === "inspect") {
+      return await inspectCommand(argv.slice(1), io);
+    }
+
+    if (command === "doctor") {
+      return await doctorCommand(argv.slice(1), io);
+    }
+
+    if (command === "dev") {
+      return await devCommand(argv.slice(1), io);
     }
 
     if (command === "sync") {
@@ -196,6 +211,91 @@ async function validateCommand(argv: string[], io: RunIo): Promise<number> {
   return 0;
 }
 
+async function inspectCommand(argv: string[], io: RunIo): Promise<number> {
+  const environment = readLifecycleEnvironmentOption(parseOptions(argv).env, {
+    flag: "env",
+    fix: "Run agentstack inspect --env preview."
+  });
+  const { summary } = await loadLifecycleSummary(io.cwd, environment, { includeCloudDiagnostics: false });
+
+  io.write(`PASS inspect ${summary.app.slug}`);
+  writeLifecycleSummary(io, summary);
+  await recordCommandEvent(io, {
+    name: "agentstack.inspect.completed",
+    environment,
+    journey: "agent-command",
+    command: ["inspect", ...argv].join(" "),
+    status: summary.status === "fail" ? "fail" : "ok",
+    state: {
+      status: summary.status,
+      generatedMissing: summary.generated.missing.length,
+      cloudMissing: summary.cloud?.missingServices.length ?? 0
+    }
+  });
+  return 0;
+}
+
+async function doctorCommand(argv: string[], io: RunIo): Promise<number> {
+  const environment = readLifecycleEnvironmentOption(parseOptions(argv).env, {
+    flag: "env",
+    fix: "Run agentstack doctor --env preview."
+  });
+  const { summary, diagnostics } = await loadLifecycleSummary(io.cwd, environment, {
+    includeCloudDiagnostics: true
+  });
+  const failed = diagnostics.some((diagnostic) => diagnostic.severity === "fail");
+
+  io.write(`${failed ? "FAIL" : "PASS"} doctor ${environment}`);
+  diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
+  writeNextCommands(io, summary.nextCommands);
+  await recordCommandEvent(io, {
+    name: "agentstack.doctor.completed",
+    environment,
+    journey: "validation",
+    command: ["doctor", ...argv].join(" "),
+    status: failed ? "fail" : "ok",
+    state: {
+      diagnostics: diagnostics.length,
+      cloudMissing: summary.cloud?.missingServices.length ?? 0
+    }
+  });
+  return failed ? 1 : 0;
+}
+
+async function devCommand(argv: string[], io: RunIo): Promise<number> {
+  const environment = readDevEnvironmentOption(parseOptions(argv).env);
+  const { summary, localDiagnostics, cloudDiagnostics } = await loadLifecycleSummary(io.cwd, environment, {
+    includeCloudDiagnostics: true
+  });
+  const localFailed = localDiagnostics.some((diagnostic) => diagnostic.severity === "fail");
+
+  if (localFailed) {
+    io.write(`FAIL dev preflight ${environment}`);
+    localDiagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
+  } else {
+    io.write(`PASS dev preflight ${environment}`);
+    if (cloudDiagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
+      io.write(`WARN dev cloud ${environment}`);
+      cloudDiagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
+    }
+    writeDevNextCommands(io, environment, summary.nextCommands);
+  }
+
+  await recordCommandEvent(io, {
+    name: "agentstack.dev.preflight.completed",
+    environment,
+    journey: "agent-command",
+    command: ["dev", ...argv].join(" "),
+    status: localFailed ? "fail" : "ok",
+    state: {
+      localDiagnostics: localDiagnostics.length,
+      cloudDiagnostics: cloudDiagnostics.length,
+      cloudMissing: summary.cloud?.missingServices.length ?? 0
+    }
+  });
+  return localFailed ? 1 : 0;
+}
+
 async function deployCommand(argv: string[], io: RunIo): Promise<number> {
   const options = parseOptions(argv);
   const environment = readEnvironmentOption(options.env, {
@@ -303,14 +403,16 @@ async function runLocalValidationGate(cwd: string): Promise<{
   anchorResult: ReturnType<typeof validateGeneratedAnchors>;
   themeDiagnostics: Diagnostic[];
   sourcePolicyDiagnostics: Diagnostic[];
+  missingAnchors: string[];
   diagnostics: Diagnostic[];
 }> {
   const context = await loadProjectContext(cwd);
   const envValues = await loadLocalEnvValues(cwd);
   const localResult = validateLocalProject({ manifest: context.manifest, envValues });
+  const missingAnchors = await findMissingGeneratedAnchors(context.cwd, context.manifest);
   const anchorResult = validateGeneratedAnchors({
     manifest: context.manifest,
-    missingPaths: await findMissingGeneratedAnchors(context.cwd, context.manifest)
+    missingPaths: missingAnchors
   });
   const themeDiagnostics = await findThemeDiagnostics(context.cwd);
   const sourcePolicyDiagnostics = await findSourcePolicyDiagnostics(context.cwd);
@@ -321,7 +423,107 @@ async function runLocalValidationGate(cwd: string): Promise<{
     ...sourcePolicyDiagnostics
   ];
 
-  return { context, localResult, anchorResult, themeDiagnostics, sourcePolicyDiagnostics, diagnostics };
+  return {
+    context,
+    localResult,
+    anchorResult,
+    themeDiagnostics,
+    sourcePolicyDiagnostics,
+    missingAnchors,
+    diagnostics
+  };
+}
+
+async function loadLifecycleSummary(
+  cwd: string,
+  environment: EnvironmentName,
+  options: { includeCloudDiagnostics: boolean }
+): Promise<{
+  summary: LifecycleSummary;
+  diagnostics: Diagnostic[];
+  localDiagnostics: Diagnostic[];
+  cloudDiagnostics: Diagnostic[];
+}> {
+  const validation = await runLocalValidationGate(cwd);
+  const adapter = new LocalCloudAdapter(cwd);
+  const cloudReport = await adapter.inspect(validation.context.manifest, environment);
+  const cloudDiagnostics = options.includeCloudDiagnostics
+    ? await adapter.validate(validation.context.manifest, environment)
+    : [];
+  const localDiagnostics = validation.diagnostics;
+  const diagnostics = [...localDiagnostics, ...cloudDiagnostics];
+  const requiredAnchors = getRequiredGeneratedAnchors(validation.context.manifest);
+  const cloud: LifecycleCloudSummary = {
+    environment,
+    expectedServices: cloudReport.expected.map((resource) => resource.service),
+    linkedServices: cloudReport.linked.map((resource) => resource.service),
+    missingServices: cloudReport.missing.map((resource) => resource.service),
+    staleServices: cloudReport.stale.map((resource) => resource.service)
+  };
+
+  return {
+    summary: createLifecycleSummary({
+      manifest: validation.context.manifest,
+      environment,
+      requiredAnchors,
+      missingAnchors: validation.missingAnchors,
+      diagnostics,
+      cloud
+    }),
+    diagnostics,
+    localDiagnostics,
+    cloudDiagnostics
+  };
+}
+
+function writeLifecycleSummary(io: RunIo, summary: LifecycleSummary): void {
+  io.write(`Environment: ${summary.environment}`);
+  io.write(`App: ${summary.app.name}`);
+  io.write(`Framework: ${summary.app.frameworkVersion}`);
+  io.write(`Guidance: ${summary.app.guidanceVersion}`);
+  io.write(`Environments: ${formatList(summary.environments)}`);
+  io.write(`Surfaces: ${formatList(summary.surfaces)}`);
+  io.write(`Services: ${formatList(summary.enabledServices)}`);
+  io.write(
+    `Generated anchors: ${summary.generated.required} required, ${summary.generated.missing.length} missing`
+  );
+  if (summary.generated.missing.length > 0) {
+    io.write(`Generated missing: ${formatList(summary.generated.missing)}`);
+  }
+  if (summary.cloud) {
+    io.write(`Cloud expected: ${formatList(summary.cloud.expectedServices)}`);
+    io.write(`Cloud linked: ${formatList(summary.cloud.linkedServices)}`);
+    io.write(`Cloud missing: ${formatList(summary.cloud.missingServices)}`);
+    io.write(`Cloud stale: ${formatList(summary.cloud.staleServices)}`);
+  }
+  writeNextCommands(io, summary.nextCommands);
+}
+
+function writeNextCommands(io: RunIo, commands: string[]): void {
+  io.write("Next commands:");
+  for (const command of commands) {
+    io.write(`- ${command}`);
+  }
+}
+
+function writeDevNextCommands(io: RunIo, environment: EnvironmentName, commands: string[]): void {
+  const syncCommand =
+    environment === "preview"
+      ? "pnpm run sync:preview:apply"
+      : `node scripts/agentstack.mjs sync --env ${environment} --apply`;
+  const devCommands = new Set([
+    "pnpm run validate",
+    "pnpm run env:inspect",
+    syncCommand,
+    ...commands,
+    "pnpm --filter @app/web dev",
+    "pnpm --filter @app/mobile dev"
+  ]);
+  writeNextCommands(io, Array.from(devCommands));
+}
+
+function formatList(values: Array<string | number>): string {
+  return values.length > 0 ? values.join(",") : "none";
 }
 
 async function themeValidateCommand(io: RunIo): Promise<number> {
@@ -1297,6 +1499,36 @@ function readEnvironmentOption(
       "FAIL cli.option.invalid",
       `Invalid --${options.flag} value: ${value}. Expected one of: ${environmentValues.join(", ")}.`,
       `Fix: ${options.fix}`
+    ].join("\n")
+  );
+}
+
+function readLifecycleEnvironmentOption(
+  value: string | boolean | undefined,
+  options: { flag: string; fix: string }
+): EnvironmentName {
+  if (value === undefined) {
+    return "preview";
+  }
+
+  return readEnvironmentOption(value, options);
+}
+
+function readDevEnvironmentOption(value: string | boolean | undefined): EnvironmentName {
+  const environment = readLifecycleEnvironmentOption(value, {
+    flag: "env",
+    fix: "Run agentstack dev --env preview."
+  });
+
+  if (environment === "development" || environment === "preview") {
+    return environment;
+  }
+
+  throw new Error(
+    [
+      "FAIL cli.option.invalid",
+      "Invalid --env value: production. Expected one of: development, preview.",
+      "Fix: Run agentstack dev --env preview."
     ].join("\n")
   );
 }

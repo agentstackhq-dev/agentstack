@@ -114,6 +114,9 @@ describe("Agentstack executable prototype workflow", () => {
     expect(await runAgentstack(["sync", "--env", "preview"], { cwd: appDir, write })).toBe(0);
     expect(await runAgentstack(["sync", "--env", "preview", "--apply"], { cwd: appDir, write })).toBe(0);
     expect(await runAgentstack(["validate", "--cloud", "--env", "preview"], { cwd: appDir, write })).toBe(0);
+    expect(await runAgentstack(["inspect", "--env", "preview"], { cwd: appDir, write })).toBe(0);
+    expect(await runAgentstack(["doctor", "--env", "preview"], { cwd: appDir, write })).toBe(0);
+    expect(await runAgentstack(["dev", "--env", "preview"], { cwd: appDir, write })).toBe(0);
     expect(await runAgentstack(["deploy", "--env", "preview"], { cwd: appDir, write })).toBe(0);
     expect(await runAgentstack(["deploy", "--env", "preview", "--apply"], { cwd: appDir, write })).toBe(0);
     await expect(readFile(join(appDir, ".agentstack/deployments/preview.json"), "utf8")).resolves.toContain(
@@ -194,6 +197,9 @@ describe("Agentstack executable prototype workflow", () => {
     expect(renderedOutput).toContain("CREATED billing-plan pro");
     expect(renderedOutput).toContain("PASS env set preview convex.STRIPE_MODE");
     expect(renderedOutput).toContain("PASS env inspect preview");
+    expect(renderedOutput).toContain("PASS inspect acme-crm");
+    expect(renderedOutput).toContain("PASS doctor preview");
+    expect(renderedOutput).toContain("PASS dev preflight preview");
     expect(renderedOutput).toContain("PLAN preview");
     expect(renderedOutput).toContain("APPLIED preview");
     expect(renderedOutput).toContain("PLAN deploy preview");

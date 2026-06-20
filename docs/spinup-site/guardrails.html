@@ -67,6 +67,14 @@
                 <p><code>agentstack validate</code> and the guarded <code>agentstack deploy --env</code> path scan source, docs, and <code>.env</code> files for raw secret-like values while skipping local state, dependency, build, and cache directories.</p>
               </div>
               <div class="card">
+                <h3>Lifecycle inspector</h3>
+                <p><code>agentstack inspect</code> gives agents a zero-mutation project summary. <code>agentstack doctor</code> runs local validation plus selected-environment local-cloud checks and returns repair commands before provider-facing work.</p>
+              </div>
+              <div class="card">
+                <h3>Dev preflight</h3>
+                <p><code>agentstack dev --env preview</code> is a preflight only. When local validation passes, it prints next validation, env, sync, web, and mobile commands; real servers and provider adapters are future work.</p>
+              </div>
+              <div class="card">
                 <h3>Theme token contract</h3>
                 <p><code>agentstack theme validate</code> and the local validation gate check token JSON shape, token value types, malformed JSON, and typed-wrapper drift.</p>
               </div>

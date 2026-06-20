@@ -28,7 +28,7 @@
             <h1>Command journeys</h1>
             <p>
               The important outcome is not that individual functions exist. It is that an agent can
-              move through a coherent workflow: create a project, add a typed feature, validate it,
+              move through a coherent workflow: create a project, inspect lifecycle state, add a typed feature, validate it,
               initialize local-cloud state, repair drift, rehearse a preview deploy locally, and inspect telemetry.
             </p>
           </div>
@@ -79,11 +79,14 @@ node scripts/agentstack.mjs add feature invoices --surfaces web,mobile --backend
 node scripts/agentstack.mjs add billing-plan pro --entitlements feature.auditLog,feature.advancedReports --seats 10
 node scripts/agentstack.mjs add event billing.subscription.updated --journey billing --surfaces web,convex --state plan:string,seatCount:number
 node scripts/agentstack.mjs env set --env preview --surface convex --name STRIPE_MODE --value sandbox
+pnpm run inspect
 pnpm run validate
 pnpm run env:inspect
 pnpm run sync:preview
 pnpm run sync:preview:apply
 pnpm run validate:cloud
+pnpm run doctor
+pnpm run dev
 pnpm run preview:deploy
 pnpm run preview:deploy:apply
 pnpm run mobile:build:preview
@@ -101,10 +104,13 @@ node scripts/agentstack.mjs observe timeline --env development --journey telemet
                   <li><code>add billing-plan</code> creates coordinated billing-plan anchors across domain, Convex, web, mobile, telemetry, and docs.</li>
                   <li><code>add event</code> creates typed telemetry definitions and generated event docs.</li>
                   <li><code>env set</code> writes scoped local env state without exposing values in output.</li>
+                  <li><code>inspect</code> summarizes app identity, generated anchors, enabled services, and preview local-cloud state.</li>
                   <li><code>validate</code> checks manifest, env, telemetry policy, and generated files.</li>
                   <li><code>env:inspect</code> prints expected preview services and env bindings.</li>
                   <li><code>sync:preview</code> plans local-cloud repair before apply.</li>
                   <li><code>validate:cloud</code> confirms named cloud state matches the manifest.</li>
+                  <li><code>doctor</code> runs local validation plus preview local-cloud checks before provider, env, build, sync, or deploy work.</li>
+                  <li><code>dev</code> is a preflight only; it prints next web, mobile, validation, env, and sync commands without starting real servers.</li>
                   <li><code>preview:deploy</code> prints <code>PLAN deploy preview</code> without writing a deployment artifact.</li>
                   <li><code>preview:deploy:apply</code> prints <code>APPLIED deploy preview</code>, writes <code>.agentstack/deployments/preview.json</code>, and records <code>agentstack.deploy.completed</code>.</li>
                   <li><code>mobile:build:preview</code> prints <code>PLAN mobile build preview</code> without writing a build artifact.</li>

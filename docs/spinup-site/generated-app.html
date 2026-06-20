@@ -69,6 +69,7 @@
               <div class="card"><h3>Event workflow</h3><p><code>agentstack add event billing.subscription.updated --journey billing --surfaces web,convex --state plan:string,seatCount:number</code> creates typed telemetry files and generated event docs.</p></div>
               <div class="card"><h3>Agent docs</h3><p><code>AGENTS.md</code> and <code>docs/agentstack/</code> teach agents the local workflow, feature-first generation, and boundaries.</p></div>
               <div class="card"><h3>Safety defaults</h3><p>Generated <code>.gitignore</code> protects <code>.agentstack/</code>, <code>.env</code>, and <code>.env.*</code>.</p></div>
+              <div class="card"><h3>Lifecycle scripts</h3><p><code>inspect</code>, <code>doctor</code>, and <code>dev</code> help agents read project state, run preflight checks, and list next commands before editing. <code>dev</code> does not start real servers in this prototype.</p></div>
               <div class="card"><h3>Scripts</h3><p><code>validate</code>, <code>env:inspect</code>, <code>sync:preview</code>, <code>validate:cloud</code>, <code>preview:deploy</code>, <code>preview:deploy:apply</code>, and <code>observe:timeline</code> delegate to an installed CLI or explicit source-prototype env vars.</p></div>
               <div class="card"><h3>Observability inspection</h3><p><code>docs/agentstack/observability.md</code> teaches <code>trace</code>, <code>journey</code>, <code>errors</code>, <code>webhook</code>, <code>component</code>, and <code>compare</code> workflows over redacted local JSONL.</p></div>
               <div class="card"><h3>Preview runbook</h3><p><code>docs/agentstack/preview.md</code> documents exact local rehearsal commands, expected output, files written, and non-goals. It states the workflow is not real provider deployment.</p></div>
@@ -113,6 +114,11 @@ pnpm run validate                       Clerk identity, Clerk webhooks, billing,
                   <td>Source prototype</td>
                   <td>Set <code>AGENTSTACK_CLI_BIN</code> and <code>AGENTSTACK_TSX_BIN</code>.</td>
                   <td>Lets this local repo prove real CLI behavior before publishing packages.</td>
+                </tr>
+                <tr>
+                  <td>Lifecycle preflight</td>
+                  <td>Run <code>inspect</code>, <code>doctor</code>, then <code>dev</code> before provider-facing work.</td>
+                  <td><code>dev</code> prints next commands only; real web, mobile, Convex, Expo, and provider servers are future work.</td>
                 </tr>
                 <tr>
                   <td>Local preview deploy rehearsal</td>
