@@ -15,7 +15,7 @@ export type EnvValueState = Partial<
   Record<EnvironmentName, Partial<Record<SurfaceName, Record<string, string | undefined>>>>
 >;
 
-const serviceOrder: ServiceName[] = ["clerk", "convex", "vercel", "eas"];
+export const serviceOrder: ServiceName[] = ["clerk", "convex", "vercel", "eas"];
 
 export function buildEnvGraph(manifest: AgentstackManifest): EnvGraph {
   const nodes: EnvGraphNode[] = [];

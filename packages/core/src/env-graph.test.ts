@@ -7,8 +7,20 @@ describe("environment graph", () => {
     const manifest = createDefaultManifest("acme-crm");
     const graph = buildEnvGraph(manifest);
 
-    expect(graph.nodes.map((node) => `${node.environment}:${node.service}`)).toContain("preview:clerk");
-    expect(graph.nodes.map((node) => `${node.environment}:${node.service}`)).toContain("production:eas");
+    expect(graph.nodes.map((node) => `${node.environment}:${node.service}`)).toEqual([
+      "development:clerk",
+      "development:convex",
+      "development:vercel",
+      "development:eas",
+      "preview:clerk",
+      "preview:convex",
+      "preview:vercel",
+      "preview:eas",
+      "production:clerk",
+      "production:convex",
+      "production:vercel",
+      "production:eas"
+    ]);
   });
 
   it("validates scoped custom env values", () => {
