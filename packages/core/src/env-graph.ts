@@ -1,5 +1,13 @@
-import type { Diagnostic } from "./diagnostics.js";
-import type { AgentstackManifest, EnvironmentName, ServiceName, SurfaceName } from "./manifest.js";
+import { z } from "zod";
+import { fail, pass, type Diagnostic, type Result } from "./diagnostics.js";
+import {
+  environmentSchema,
+  surfaceSchema,
+  type AgentstackManifest,
+  type EnvironmentName,
+  type ServiceName,
+  type SurfaceName
+} from "./manifest.js";
 
 export type EnvGraphNode = {
   environment: EnvironmentName;
@@ -15,7 +23,28 @@ export type EnvValueState = Partial<
   Record<EnvironmentName, Partial<Record<SurfaceName, Record<string, string | undefined>>>>
 >;
 
+const envValueStateSchema = z.record(environmentSchema, z.record(surfaceSchema, z.record(z.string())));
+
 export const serviceOrder = ["clerk", "convex", "vercel", "eas"] as const satisfies readonly ServiceName[];
+
+export function parseEnvValueState(input: unknown): Result<EnvValueState> {
+  const parsed = envValueStateSchema.safeParse(input);
+
+  if (parsed.success) {
+    return pass(parsed.data);
+  }
+
+  const diagnostics: Diagnostic[] = parsed.error.issues.map((issue) => ({
+    severity: "fail",
+    code: "env.values.invalid-shape",
+    path: issue.path.length ? issue.path.join(".") : undefined,
+    message: issue.message,
+    fix: "Update .agentstack/env-values.json so it uses environment -> surface -> variable -> string values.",
+    blocks: ["validate", "validate --cloud"]
+  }));
+
+  return fail(diagnostics);
+}
 
 export function buildEnvGraph(manifest: AgentstackManifest): EnvGraph {
   const nodes: EnvGraphNode[] = [];

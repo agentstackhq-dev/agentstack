@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createDefaultManifest } from "./manifest.js";
-import { buildEnvGraph, validateCustomEnvValues } from "./env-graph.js";
+import { buildEnvGraph, parseEnvValueState, validateCustomEnvValues } from "./env-graph.js";
 
 describe("environment graph", () => {
   it("creates service nodes for each environment", () => {
@@ -61,6 +61,34 @@ describe("environment graph", () => {
         path: "preview.convex.OPENAI_API_KEY"
       })
     ]);
+  });
+
+  it("parses local env value state with string leaves", () => {
+    const result = parseEnvValueState({
+      preview: { convex: { OPENAI_API_KEY: "replace-me" } }
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      value: { preview: { convex: { OPENAI_API_KEY: "replace-me" } } },
+      diagnostics: []
+    });
+  });
+
+  it("rejects local env value state with non-string leaves", () => {
+    const result = parseEnvValueState({
+      preview: { convex: { OPENAI_API_KEY: true } }
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      diagnostics: [
+        expect.objectContaining({
+          code: "env.values.invalid-shape",
+          path: "preview.convex.OPENAI_API_KEY"
+        })
+      ]
+    });
   });
 
   it("ignores required custom env scopes outside active manifest scopes", () => {

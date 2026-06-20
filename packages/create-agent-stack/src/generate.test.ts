@@ -32,9 +32,13 @@ describe("generateProject", () => {
         await readFile(join(targetDir, "agentstack.config.json"), "utf8")
       );
       const agents = await readFile(join(targetDir, "AGENTS.md"), "utf8");
+      const gitignore = await readFile(join(targetDir, ".gitignore"), "utf8");
 
       expect(manifest.app.slug).toBe("acme-crm");
       expect(agents).toContain("Run `pnpm run validate` before completion.");
+      expect(gitignore).toContain(".agentstack/");
+      expect(gitignore).toContain(".env.*");
+      expect(gitignore).toContain("!.env.example");
       await expectNoTemplateTokens(targetDir);
     } finally {
       await rm(tempRoot, { recursive: true, force: true });

@@ -11,10 +11,10 @@ The file uses the same environment -> surface -> variable shape that validation 
 {
   "preview": {
     "convex": {
-      "OPENAI_API_KEY": "sk-preview"
+      "OPENAI_API_KEY": "replace-me"
     }
   }
 }
 ```
 
-Missing `.agentstack/env-values.json` is treated as an empty value set. Invalid JSON fails `validate` and `validate:cloud`.
+Missing `.agentstack/env-values.json` is treated as an empty value set. Invalid JSON or non-string values fail `validate` and `validate:cloud`.

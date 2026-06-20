@@ -1,0 +1,7 @@
+node_modules/
+
+.agentstack/
+
+.env
+.env.*
+!.env.example

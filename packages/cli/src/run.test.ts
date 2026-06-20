@@ -59,7 +59,7 @@ describe("runAgentstack", () => {
     await mkdir(join(dir, ".agentstack"), { recursive: true });
     await writeFile(
       join(dir, ".agentstack", "env-values.json"),
-      `${JSON.stringify({ preview: { convex: { OPENAI_API_KEY: "sk-preview" } } }, null, 2)}\n`,
+      `${JSON.stringify({ preview: { convex: { OPENAI_API_KEY: "replace-me" } } }, null, 2)}\n`,
       "utf8"
     );
 
@@ -90,7 +90,7 @@ describe("runAgentstack", () => {
     await mkdir(join(dir, ".agentstack"), { recursive: true });
     await writeFile(
       join(dir, ".agentstack", "env-values.json"),
-      `${JSON.stringify({ preview: { convex: { OPENAI_API_KEY: "sk-preview" } } }, null, 2)}\n`,
+      `${JSON.stringify({ preview: { convex: { OPENAI_API_KEY: "replace-me" } } }, null, 2)}\n`,
       "utf8"
     );
     await runAgentstack(["init", "cloud"], {
@@ -119,6 +119,40 @@ describe("runAgentstack", () => {
     expect(code).toBe(1);
     expect(output.join("\n")).toContain("FAIL env.values.invalid-json");
     expect(output.join("\n")).toContain("Path: .agentstack/env-values.json");
+  });
+
+  it("fails validation when local custom env values have an invalid shape", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.environments = ["preview"];
+    manifest.surfaces = ["convex"];
+    manifest.env.custom.OPENAI_API_KEY = {
+      surfaces: ["convex"],
+      environments: ["preview"],
+      required: true,
+      secret: true
+    };
+    await writeFile(
+      join(dir, "agentstack.config.json"),
+      `${JSON.stringify(manifest, null, 2)}\n`,
+      "utf8"
+    );
+    await mkdir(join(dir, ".agentstack"), { recursive: true });
+    await writeFile(
+      join(dir, ".agentstack", "env-values.json"),
+      `${JSON.stringify({ preview: { convex: { OPENAI_API_KEY: true } } }, null, 2)}\n`,
+      "utf8"
+    );
+
+    const code = await runAgentstack(["validate"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL env.values.invalid-shape");
+    expect(output.join("\n")).toContain("Path: .agentstack/env-values.json");
+    expect(output.join("\n")).toContain("preview.convex.OPENAI_API_KEY");
+    expect(output.join("\n")).not.toContain("PASS validate");
   });
 
   it("fails local validation when a required generated anchor is missing", async () => {

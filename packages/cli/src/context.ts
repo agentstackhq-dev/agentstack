@@ -3,6 +3,7 @@ import { join } from "node:path";
 import {
   createMissingGeneratedAnchorDiagnostic,
   formatDiagnostic,
+  parseEnvValueState,
   parseManifest,
   type AgentstackManifest,
   type EnvValueState
@@ -56,8 +57,23 @@ export async function loadLocalEnvValues(cwd: string): Promise<EnvValueState> {
   }
 
   try {
-    return JSON.parse(raw) as EnvValueState;
+    const parsedJson = JSON.parse(raw);
+    const parsed = parseEnvValueState(parsedJson);
+    if (!parsed.ok) {
+      throw new Error(
+        [
+          "FAIL env.values.invalid-shape",
+          `Path: ${relativePath}`,
+          parsed.diagnostics.map(formatDiagnostic).join("\n")
+        ].join("\n")
+      );
+    }
+
+    return parsed.value;
   } catch (error) {
+    if ((error as Error).message.startsWith("FAIL env.values.invalid-shape")) {
+      throw error;
+    }
     throw new Error(
       [
         "FAIL env.values.invalid-json",
