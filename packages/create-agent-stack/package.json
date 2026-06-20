@@ -8,7 +8,7 @@
     "templates"
   ],
   "bin": {
-    "create-agent-stack": "src/bin.ts"
+    "create-agent-stack": "src/bin.js"
   },
   "dependencies": {
     "fs-extra": "^11.2.0",

@@ -86,6 +86,7 @@ describe("package metadata", () => {
     );
 
     expect(packageManifest.dependencies).not.toHaveProperty("@agentstack/core");
+    expect(packageManifest.bin["create-agent-stack"]).toBe("src/bin.js");
   });
 });
 
