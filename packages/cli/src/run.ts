@@ -1,4 +1,4 @@
-import { access } from "node:fs/promises";
+import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import { LocalCloudAdapter } from "@agentstack/adapters";
 import {
@@ -112,8 +112,8 @@ async function findMissingGeneratedAnchors(
   const checks = await Promise.all(
     anchors.map(async (anchor) => {
       try {
-        await access(join(cwd, anchor));
-        return undefined;
+        const anchorStat = await stat(join(cwd, anchor));
+        return anchorStat.isFile() ? undefined : anchor;
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === "ENOENT") {
           return anchor;

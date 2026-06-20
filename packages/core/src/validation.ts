@@ -32,6 +32,7 @@ export function validateLocalProject(input: LocalValidationInput): Result<LocalV
 export function getRequiredGeneratedAnchors(manifest: AgentstackManifest): string[] {
   const anchors = [
     "AGENTS.md",
+    "package.json",
     "agentstack.config.json",
     "docs/agentstack/workflows.md",
     "docs/agentstack/validation.md",

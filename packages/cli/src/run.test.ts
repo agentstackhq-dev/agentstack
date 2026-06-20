@@ -49,6 +49,33 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("Path: apps/web/package.json");
   });
 
+  it("fails local validation when a required generated anchor is a directory", async () => {
+    await rm(join(dir, "apps/web/package.json"));
+    await mkdir(join(dir, "apps/web/package.json"));
+
+    const code = await runAgentstack(["validate"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL template.anchor.missing");
+    expect(output.join("\n")).toContain("Path: apps/web/package.json");
+  });
+
+  it("fails local validation when the root package anchor is missing", async () => {
+    await rm(join(dir, "package.json"));
+
+    const code = await runAgentstack(["validate"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL template.anchor.missing");
+    expect(output.join("\n")).toContain("Path: package.json");
+  });
+
   it("reports a missing manifest config as a required generated anchor", async () => {
     await rm(join(dir, "agentstack.config.json"));
 
@@ -213,6 +240,7 @@ describe("runAgentstack", () => {
 async function writeGeneratedAnchors(): Promise<void> {
   const anchors = [
     "AGENTS.md",
+    "package.json",
     "docs/agentstack/workflows.md",
     "docs/agentstack/validation.md",
     "docs/agentstack/observability.md",
