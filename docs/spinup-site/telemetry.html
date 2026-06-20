@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Agentstack Telemetry</title>
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body data-page="telemetry">
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="brand"><strong>Agentstack Spin-Up</strong><span>Wide-event observability</span></div>
+        <nav class="nav" aria-label="Spin-up navigation">
+          <a data-page="home" href="index.html">Start Here</a>
+          <a data-page="architecture" href="architecture.html">System Map</a>
+          <a data-page="workflows" href="workflows.html">Command Journeys</a>
+          <a data-page="guardrails" href="guardrails.html">Validation & Guardrails</a>
+          <a data-page="generated" href="generated-app.html">Generated App</a>
+          <a data-page="telemetry" href="telemetry.html">Telemetry</a>
+          <a data-page="timeline" href="timeline.html">Implementation Timeline</a>
+          <a data-page="lab" href="lab.html">Deep Dive Lab</a>
+        </nav>
+      </aside>
+      <main class="main">
+        <header class="hero">
+          <div>
+            <h1>Wide events make debugging explainable.</h1>
+            <p>
+              The telemetry package models events as high-resolution snapshots of state. The local
+              implementation uses JSONL so agents can inspect journeys without a hosted control plane.
+            </p>
+          </div>
+          <div class="diagram hero-art">
+            <svg viewBox="0 0 620 340" role="img" aria-label="Telemetry pipeline">
+              <defs>
+                <marker id="arrow-tel" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+                  <path class="svg-arrow" d="M0,0 L0,6 L9,3 z"></path>
+                </marker>
+              </defs>
+              <rect class="svg-box svg-teal" x="38" y="80" width="150" height="60" rx="8"></rect>
+              <text class="svg-label" x="74" y="114">wide event</text>
+              <rect class="svg-box svg-blue" x="240" y="80" width="150" height="60" rx="8"></rect>
+              <text class="svg-label" x="286" y="114">JSONL</text>
+              <rect class="svg-box svg-amber" x="432" y="80" width="150" height="60" rx="8"></rect>
+              <text class="svg-label" x="468" y="114">query</text>
+              <path class="svg-line" marker-end="url(#arrow-tel)" d="M188 110 H234"></path>
+              <path class="svg-line" marker-end="url(#arrow-tel)" d="M390 110 H426"></path>
+              <rect class="svg-box svg-rose" x="148" y="220" width="320" height="58" rx="8"></rect>
+              <text class="svg-label" x="218" y="250">redacted output for agents</text>
+              <path class="svg-line" marker-end="url(#arrow-tel)" d="M506 142 C506 198 308 190 308 214"></path>
+            </svg>
+          </div>
+        </header>
+
+        <section class="content">
+          <section class="section">
+            <h2>Event shape</h2>
+            <div class="grid two">
+              <pre><code>createWideEvent("onboarding.step.completed", {
+  environment: "preview",
+  surface: "web",
+  journey: "onboarding",
+  correlationId: "corr_onboarding",
+  state: {
+    step: "workspace",
+    email: "person@example.com"
+  }
+});</code></pre>
+              <div class="card">
+                <h3>What makes it wide</h3>
+                <p>
+                  The event includes operational context plus a structured state snapshot. That lets
+                  a future timeline view reconstruct what happened without forcing agents to correlate
+                  ten narrow log lines by hand.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
+            <h2>Query filters</h2>
+            <div class="grid three">
+              <div class="card"><h3>Environment</h3><p><code>--env preview</code> scopes incidents to the deployed context.</p></div>
+              <div class="card"><h3>Surface</h3><p><code>--surface web</code> separates web, mobile, convex, cli, and provider surfaces.</p></div>
+              <div class="card"><h3>Event family</h3><p><code>--event billing.*</code> uses wildcard matching for families of events.</p></div>
+              <div class="card"><h3>Journey</h3><p><code>--journey onboarding</code> reconstructs user journeys.</p></div>
+              <div class="card"><h3>Trace</h3><p><code>--trace trace_123</code> can follow request-level context.</p></div>
+              <div class="card"><h3>Correlation</h3><p><code>--correlation corr_123</code> groups related actions across surfaces.</p></div>
+            </div>
+          </section>
+
+          <section class="section">
+            <h2>Redaction proof</h2>
+            <div class="grid two">
+              <pre><code>PASS observe query 1
+2026-06-20T11:09:49.423Z preview web onboarding.step.completed
+{"email":"[redacted]","step":"workspace"}</code></pre>
+              <div class="card">
+                <h3>Why it matters</h3>
+                <p>
+                  Agents need production-debugging visibility, but not raw secrets. The telemetry store
+                  redacts sensitive fields before query output, including email/token/key-like fields.
+                </p>
+              </div>
+            </div>
+          </section>
+        </section>
+        <footer class="footer">Evidence: <code>packages/telemetry/src/events.ts</code>, <code>packages/telemetry/src/store.ts</code>, <code>packages/cli/src/run.ts</code>.</footer>
+      </main>
+    </div>
+    <script src="assets/site.js"></script>
+  </body>
+</html>

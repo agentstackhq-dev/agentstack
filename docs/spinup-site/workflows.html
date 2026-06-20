@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Agentstack Command Journeys</title>
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body data-page="workflows">
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="brand"><strong>Agentstack Spin-Up</strong><span>Command flow and state changes</span></div>
+        <nav class="nav" aria-label="Spin-up navigation">
+          <a data-page="home" href="index.html">Start Here</a>
+          <a data-page="architecture" href="architecture.html">System Map</a>
+          <a data-page="workflows" href="workflows.html">Command Journeys</a>
+          <a data-page="guardrails" href="guardrails.html">Validation & Guardrails</a>
+          <a data-page="generated" href="generated-app.html">Generated App</a>
+          <a data-page="telemetry" href="telemetry.html">Telemetry</a>
+          <a data-page="timeline" href="timeline.html">Implementation Timeline</a>
+          <a data-page="lab" href="lab.html">Deep Dive Lab</a>
+        </nav>
+      </aside>
+      <main class="main">
+        <header class="hero">
+          <div>
+            <h1>Command journeys</h1>
+            <p>
+              The important outcome is not that individual functions exist. It is that an agent can
+              move through a coherent workflow: create a project, validate it, initialize cloud state,
+              repair drift, and inspect telemetry.
+            </p>
+          </div>
+          <div class="diagram hero-art">
+            <svg viewBox="0 0 640 360" role="img" aria-label="Command journey sequence">
+              <defs>
+                <marker id="arrow-flow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+                  <path class="svg-arrow" d="M0,0 L0,6 L9,3 z"></path>
+                </marker>
+              </defs>
+              <rect class="svg-box svg-teal" x="32" y="52" width="118" height="54" rx="8"></rect>
+              <text class="svg-label" x="56" y="84">create</text>
+              <rect class="svg-box svg-blue" x="190" y="52" width="118" height="54" rx="8"></rect>
+              <text class="svg-label" x="224" y="84">validate</text>
+              <rect class="svg-box svg-rose" x="348" y="52" width="118" height="54" rx="8"></rect>
+              <text class="svg-label" x="372" y="84">cloud?</text>
+              <rect class="svg-box svg-amber" x="490" y="52" width="118" height="54" rx="8"></rect>
+              <text class="svg-label" x="520" y="84">init</text>
+              <path class="svg-line" marker-end="url(#arrow-flow)" d="M150 79 H184"></path>
+              <path class="svg-line" marker-end="url(#arrow-flow)" d="M308 79 H342"></path>
+              <path class="svg-line" marker-end="url(#arrow-flow)" d="M466 79 H484"></path>
+              <rect class="svg-box svg-blue" x="74" y="210" width="140" height="58" rx="8"></rect>
+              <text class="svg-label" x="106" y="244">sync drift</text>
+              <rect class="svg-box svg-teal" x="268" y="210" width="140" height="58" rx="8"></rect>
+              <text class="svg-label" x="303" y="244">observe</text>
+              <rect class="svg-box svg-amber" x="462" y="210" width="140" height="58" rx="8"></rect>
+              <text class="svg-label" x="492" y="244">iterate</text>
+              <path class="svg-line" marker-end="url(#arrow-flow)" d="M550 108 C550 164 144 156 144 204"></path>
+              <path class="svg-line" marker-end="url(#arrow-flow)" d="M214 239 H262"></path>
+              <path class="svg-line" marker-end="url(#arrow-flow)" d="M408 239 H456"></path>
+            </svg>
+          </div>
+        </header>
+
+        <section class="content">
+          <section class="section">
+            <h2>Happy path</h2>
+            <div class="grid two">
+              <div class="card">
+                <h3>Source prototype smoke</h3>
+                <pre><code>pnpm install
+pnpm test
+pnpm tsx packages/create-agent-stack/src/bin.ts acme-crm
+cd acme-crm
+export AGENTSTACK_CLI_BIN=../../packages/cli/src/bin.ts
+export AGENTSTACK_TSX_BIN=../../node_modules/.bin/tsx
+pnpm run validate
+pnpm run init:cloud
+pnpm run validate:cloud</code></pre>
+              </div>
+              <div class="card">
+                <h3>What each command proves</h3>
+                <ol>
+                  <li><code>create-agent-stack</code> copies template anchors and replaces app tokens.</li>
+                  <li><code>validate</code> checks manifest, env, telemetry policy, and generated files.</li>
+                  <li><code>init:cloud</code> writes development and preview local-cloud links.</li>
+                  <li><code>validate:cloud</code> confirms preview cloud state matches the manifest.</li>
+                </ol>
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
+            <h2>Validation pipeline</h2>
+            <div class="diagram">
+              <svg viewBox="0 0 920 260" role="img" aria-label="Validation pipeline">
+                <defs>
+                  <marker id="arrow-pipe" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+                    <path class="svg-arrow" d="M0,0 L0,6 L9,3 z"></path>
+                  </marker>
+                </defs>
+                <rect class="svg-box svg-teal" x="24" y="92" width="130" height="62" rx="8"></rect>
+                <text class="svg-label" x="56" y="126">load config</text>
+                <rect class="svg-box svg-blue" x="188" y="92" width="136" height="62" rx="8"></rect>
+                <text class="svg-label" x="216" y="126">parse manifest</text>
+                <rect class="svg-box svg-amber" x="358" y="92" width="146" height="62" rx="8"></rect>
+                <text class="svg-label" x="386" y="118">load env</text>
+                <text class="svg-small" x="386" y="139">values JSON</text>
+                <rect class="svg-box svg-blue" x="538" y="92" width="142" height="62" rx="8"></rect>
+                <text class="svg-label" x="566" y="118">check anchors</text>
+                <text class="svg-small" x="566" y="139">files, not dirs</text>
+                <rect class="svg-box svg-rose" x="714" y="92" width="150" height="62" rx="8"></rect>
+                <text class="svg-label" x="746" y="118">cloud checks</text>
+                <text class="svg-small" x="746" y="139">only if local passes</text>
+                <path class="svg-line" marker-end="url(#arrow-pipe)" d="M154 123 H182"></path>
+                <path class="svg-line" marker-end="url(#arrow-pipe)" d="M324 123 H352"></path>
+                <path class="svg-line" marker-end="url(#arrow-pipe)" d="M504 123 H532"></path>
+                <path class="svg-line" marker-end="url(#arrow-pipe)" d="M680 123 H708"></path>
+              </svg>
+            </div>
+          </section>
+
+          <section class="section">
+            <h2>Failure and repair signals</h2>
+            <table class="table">
+              <thead>
+                <tr><th>Situation</th><th>Signal</th><th>Repair</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Generated file missing</td>
+                  <td><code>FAIL template.anchor.missing</code></td>
+                  <td>Restore generated anchor or regenerate the project.</td>
+                </tr>
+                <tr>
+                  <td>Required env value missing</td>
+                  <td><code>FAIL env.custom.missing</code></td>
+                  <td>Add the value to <code>.agentstack/env-values.json</code>.</td>
+                </tr>
+                <tr>
+                  <td>Cloud not initialized</td>
+                  <td><code>FAIL cloud.service.missing</code></td>
+                  <td>Run <code>pnpm run init:cloud</code> or <code>agentstack sync --env preview --apply</code>.</td>
+                </tr>
+                <tr>
+                  <td>Manifest disables a linked service</td>
+                  <td><code>FAIL cloud.service.stale</code></td>
+                  <td>Run <code>agentstack sync --env preview --apply</code> to unlink stale state.</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+        </section>
+        <footer class="footer">Evidence: <code>packages/cli/src/run.ts</code>, <code>packages/cli/src/context.ts</code>, <code>tests/e2e/prototype.test.ts</code>.</footer>
+      </main>
+    </div>
+    <script src="assets/site.js"></script>
+  </body>
+</html>

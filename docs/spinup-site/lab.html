@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Agentstack Agent Lab</title>
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body data-page="lab">
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="brand"><strong>Agentstack Spin-Up</strong><span>Scenario-driven understanding</span></div>
+        <nav class="nav" aria-label="Spin-up navigation">
+          <a data-page="home" href="index.html">Start Here</a>
+          <a data-page="architecture" href="architecture.html">System Map</a>
+          <a data-page="workflows" href="workflows.html">Command Journeys</a>
+          <a data-page="guardrails" href="guardrails.html">Validation & Guardrails</a>
+          <a data-page="generated" href="generated-app.html">Generated App</a>
+          <a data-page="telemetry" href="telemetry.html">Telemetry</a>
+          <a data-page="timeline" href="timeline.html">Implementation Timeline</a>
+          <a data-page="lab" href="lab.html">Deep Dive Lab</a>
+        </nav>
+      </aside>
+
+      <main class="main">
+        <header class="hero">
+          <div>
+            <h1>Agent lab</h1>
+            <p>
+              These scenarios compress the framework's most important feedback loops into small
+              cause-and-effect exercises. Pick a change, then read the expected failure, repair
+              command, and agent lesson.
+            </p>
+          </div>
+          <div class="diagram hero-art">
+            <svg viewBox="0 0 760 500" role="img" aria-label="Scenario-to-repair loop">
+              <defs>
+                <marker id="arrow-lab" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+                  <path class="svg-arrow" d="M0,0 L0,6 L8,3 z"></path>
+                </marker>
+              </defs>
+              <rect class="svg-box svg-blue" x="70" y="70" width="170" height="78" rx="8"></rect>
+              <text class="svg-label" x="125" y="104">Change</text>
+              <text class="svg-small" x="101" y="130">file, env, service</text>
+
+              <rect class="svg-box svg-teal" x="310" y="70" width="170" height="78" rx="8"></rect>
+              <text class="svg-label" x="363" y="104">Validate</text>
+              <text class="svg-small" x="348" y="130">same local gate</text>
+
+              <rect class="svg-box svg-rose" x="550" y="70" width="170" height="78" rx="8"></rect>
+              <text class="svg-label" x="603" y="104">Diagnostic</text>
+              <text class="svg-small" x="590" y="130">actionable context</text>
+
+              <rect class="svg-box svg-teal" x="430" y="275" width="170" height="78" rx="8"></rect>
+              <text class="svg-label" x="486" y="309">Repair</text>
+              <text class="svg-small" x="478" y="335">sync, edit, init</text>
+
+              <rect class="svg-box svg-amber" x="190" y="275" width="170" height="78" rx="8"></rect>
+              <text class="svg-label" x="246" y="309">Confidence</text>
+              <text class="svg-small" x="229" y="335">typed and tested</text>
+
+              <path class="svg-line" d="M240 109 H300" marker-end="url(#arrow-lab)"></path>
+              <path class="svg-line" d="M480 109 H540" marker-end="url(#arrow-lab)"></path>
+              <path class="svg-line" d="M635 148 C635 230 590 252 540 275" marker-end="url(#arrow-lab)"></path>
+              <path class="svg-line" d="M430 314 H370" marker-end="url(#arrow-lab)"></path>
+              <path class="svg-line" d="M275 275 C180 230 165 190 155 148" marker-end="url(#arrow-lab)"></path>
+            </svg>
+          </div>
+        </header>
+
+        <div class="content">
+          <section class="section">
+            <h2>What breaks, what explains it, what repairs it</h2>
+            <p class="lede">
+              The lab is meant to make the framework's mechanics memorable. It shows how a coding
+              agent should interpret validation output instead of guessing at the underlying Convex,
+              Clerk, Vercel, EAS, or telemetry state.
+            </p>
+
+            <div class="tabs" role="list" aria-label="Agentstack scenarios">
+              <button class="tab-button" type="button" data-scenario="missingAnchor">Generated anchor removed</button>
+              <button class="tab-button" type="button" data-scenario="envValues">Required env value</button>
+              <button class="tab-button" type="button" data-scenario="staleCloud">Stale cloud service</button>
+              <button class="tab-button" type="button" data-scenario="telemetry">Telemetry journey</button>
+            </div>
+
+            <div class="card scenario-output" data-scenario-output></div>
+          </section>
+
+          <section class="section">
+            <div class="grid two">
+              <div class="card">
+                <h2>The framework wants agents to ask better next questions.</h2>
+                <p>
+                  A useful diagnostic is not just a red mark. It names the violated contract, points
+                  at the file or service surface, and tells the agent which command or edit moves the
+                  system back toward a coherent state.
+                </p>
+                <div class="callout">
+                  The local provider is intentionally explicit: every failure is a rehearsal for
+                  future Convex, Clerk, Vercel, and EAS adapters.
+                </div>
+              </div>
+
+              <div class="card">
+                <h2>How to use this page</h2>
+                <p>
+                  During design review, ask which contract should become mechanically checkable
+                  instead of relying on an agent remembering the convention.
+                </p>
+                <ul>
+                  <li>Feature work should define the new invariant and the command that checks it.</li>
+                  <li>Provider work should map to initialize, sync, inspect, validate, repair, and observe.</li>
+                  <li>Production debugging should begin from correlated telemetry and narrow by journey.</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
+            <h2>Design review prompts</h2>
+            <div class="grid three">
+              <div class="card">
+                <h3>When adding a feature</h3>
+                <p>What file, manifest entry, generated anchor, env value, or test should prove the feature is wired correctly?</p>
+              </div>
+              <div class="card">
+                <h3>When adding a provider</h3>
+                <p>Which provider state can be represented locally first, and which remote operation needs a bounded wrapper?</p>
+              </div>
+              <div class="card">
+                <h3>When debugging production</h3>
+                <p>Which event, trace, correlation id, user journey, or service span should an agent inspect before editing code?</p>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <script src="assets/site.js"></script>
+  </body>
+</html>

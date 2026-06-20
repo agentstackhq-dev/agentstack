@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Agentstack Guardrails</title>
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body data-page="guardrails">
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="brand"><strong>Agentstack Spin-Up</strong><span>Validation and repair loops</span></div>
+        <nav class="nav" aria-label="Spin-up navigation">
+          <a data-page="home" href="index.html">Start Here</a>
+          <a data-page="architecture" href="architecture.html">System Map</a>
+          <a data-page="workflows" href="workflows.html">Command Journeys</a>
+          <a data-page="guardrails" href="guardrails.html">Validation & Guardrails</a>
+          <a data-page="generated" href="generated-app.html">Generated App</a>
+          <a data-page="telemetry" href="telemetry.html">Telemetry</a>
+          <a data-page="timeline" href="timeline.html">Implementation Timeline</a>
+          <a data-page="lab" href="lab.html">Deep Dive Lab</a>
+        </nav>
+      </aside>
+      <main class="main">
+        <header class="hero">
+          <div>
+            <h1>Validation is the agent contract.</h1>
+            <p>
+              The prototype is designed around concrete, normalized diagnostics. A coding agent should
+              learn what is wrong, where it is wrong, why it blocks work, and what command or file repairs it.
+            </p>
+          </div>
+          <div class="diagram hero-art">
+            <svg viewBox="0 0 560 330" role="img" aria-label="Guardrail stack">
+              <rect class="svg-box svg-blue" x="78" y="38" width="400" height="48" rx="8"></rect>
+              <text class="svg-label" x="214" y="68">Manifest schema</text>
+              <rect class="svg-box svg-teal" x="78" y="96" width="400" height="48" rx="8"></rect>
+              <text class="svg-label" x="206" y="126">Generated anchors</text>
+              <rect class="svg-box svg-amber" x="78" y="154" width="400" height="48" rx="8"></rect>
+              <text class="svg-label" x="198" y="184">Custom env values</text>
+              <rect class="svg-box svg-rose" x="78" y="212" width="400" height="48" rx="8"></rect>
+              <text class="svg-label" x="214" y="242">Cloud drift state</text>
+              <rect class="svg-box" x="78" y="270" width="400" height="36" rx="8"></rect>
+              <text class="svg-small" x="172" y="293">Every failure becomes a formatted diagnostic</text>
+            </svg>
+          </div>
+        </header>
+        <section class="content">
+          <section class="section">
+            <h2>The checks</h2>
+            <div class="grid two">
+              <div class="card">
+                <h3>Manifest schema</h3>
+                <p><code>parseManifest</code> uses a strict Zod schema. Unknown keys and wrong shapes fail as <code>manifest.invalid</code>.</p>
+              </div>
+              <div class="card">
+                <h3>Generated anchors</h3>
+                <p>Required files include root package/workspace files, docs, web/mobile packages, Convex schema, domain/theme, and telemetry anchors. Directories do not count as files.</p>
+              </div>
+              <div class="card">
+                <h3>Custom env values</h3>
+                <p><code>.agentstack/env-values.json</code> is validated as environment -> surface -> variable -> string. It is ignored by generated <code>.gitignore</code>.</p>
+              </div>
+              <div class="card">
+                <h3>Cloud drift</h3>
+                <p>Local-cloud validation reports missing services and stale linked services. Sync links missing state and unlinks stale state for the selected environment.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
+            <h2>Diagnostic anatomy</h2>
+            <div class="grid two">
+              <pre><code>FAIL cloud.service.stale
+Path: preview.clerk
+clerk is linked in preview but is not enabled in the manifest.
+Fix: Remove preview.clerk from local cloud state or re-enable it,
+then run agentstack sync --env preview --apply.
+Blocks: validate --cloud</code></pre>
+              <div class="card">
+                <h3>Why this matters</h3>
+                <p>
+                  Agents waste time when failures are vague. The diagnostic format gives a stable code,
+                  a path, a plain-English message, an actionable fix, and the commands it blocks.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
+            <h2>Local-cloud state machine</h2>
+            <div class="diagram">
+              <svg viewBox="0 0 760 270" role="img" aria-label="Local cloud state machine">
+                <defs>
+                  <marker id="arrow-state" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+                    <path class="svg-arrow" d="M0,0 L0,6 L9,3 z"></path>
+                  </marker>
+                </defs>
+                <rect class="svg-box svg-rose" x="36" y="92" width="138" height="64" rx="8"></rect>
+                <text class="svg-label" x="70" y="128">missing</text>
+                <rect class="svg-box svg-amber" x="232" y="92" width="138" height="64" rx="8"></rect>
+                <text class="svg-label" x="268" y="128">linked</text>
+                <rect class="svg-box svg-rose" x="428" y="92" width="138" height="64" rx="8"></rect>
+                <text class="svg-label" x="466" y="128">stale</text>
+                <rect class="svg-box svg-teal" x="596" y="92" width="126" height="64" rx="8"></rect>
+                <text class="svg-label" x="628" y="128">clean</text>
+                <path class="svg-line" marker-end="url(#arrow-state)" d="M174 124 H226"></path>
+                <text class="svg-small" x="178" y="112">sync link</text>
+                <path class="svg-line" marker-end="url(#arrow-state)" d="M370 124 H422"></path>
+                <text class="svg-small" x="372" y="112">manifest disables</text>
+                <path class="svg-line" marker-end="url(#arrow-state)" d="M566 124 H590"></path>
+                <text class="svg-small" x="552" y="112">sync unlink</text>
+              </svg>
+            </div>
+          </section>
+        </section>
+        <footer class="footer">Evidence: <code>packages/core/src/validation.ts</code>, <code>packages/core/src/env-graph.ts</code>, <code>packages/adapters/src/local-cloud.ts</code>.</footer>
+      </main>
+    </div>
+    <script src="assets/site.js"></script>
+  </body>
+</html>

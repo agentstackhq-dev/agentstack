@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Agentstack Implementation Timeline</title>
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body data-page="timeline">
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="brand"><strong>Agentstack Spin-Up</strong><span>How the slice came together</span></div>
+        <nav class="nav" aria-label="Spin-up navigation">
+          <a data-page="home" href="index.html">Start Here</a>
+          <a data-page="architecture" href="architecture.html">System Map</a>
+          <a data-page="workflows" href="workflows.html">Command Journeys</a>
+          <a data-page="guardrails" href="guardrails.html">Validation & Guardrails</a>
+          <a data-page="generated" href="generated-app.html">Generated App</a>
+          <a data-page="telemetry" href="telemetry.html">Telemetry</a>
+          <a data-page="timeline" href="timeline.html">Implementation Timeline</a>
+          <a data-page="lab" href="lab.html">Deep Dive Lab</a>
+        </nav>
+      </aside>
+      <main class="main">
+        <header class="hero">
+          <div>
+            <h1>Implementation timeline</h1>
+            <p>
+              The prototype was built as a managed sequence of subagent-owned slices with spec review,
+              code-quality review, and final blocker reviews. The important part is not the number of
+              commits; it is that each layer became mechanically verifiable.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Final verification</h3>
+            <ul>
+              <li><code>pnpm install --frozen-lockfile</code></li>
+              <li><code>pnpm typecheck</code></li>
+              <li><code>pnpm test</code>: 63 tests</li>
+              <li>Template mirror diff: no output</li>
+              <li>Manual smoke: create, validate, cloud, sync, observe, env-values</li>
+            </ul>
+          </div>
+        </header>
+
+        <section class="content">
+          <section class="section">
+            <h2>Build sequence</h2>
+            <div class="timeline">
+              <div class="event">
+                <h3>Design and plan</h3>
+                <p>Captured the agent-first framework design and the slice-1 implementation plan under <code>docs/superpowers/</code>.</p>
+              </div>
+              <div class="event">
+                <h3>Workspace and core</h3>
+                <p>Established pnpm/TypeScript/Vitest, diagnostics, strict manifest parsing, env graph, and local validation.</p>
+              </div>
+              <div class="event">
+                <h3>Telemetry and local cloud</h3>
+                <p>Added wide events, redaction, JSONL querying, adapter interfaces, and local-cloud state simulation.</p>
+              </div>
+              <div class="event">
+                <h3>CLI and generator</h3>
+                <p>Implemented command router, local commands, generated B2B SaaS template, package-local templates, and executable generator bin.</p>
+              </div>
+              <div class="event">
+                <h3>E2E and docs</h3>
+                <p>Added generated-project workflow coverage and the human-facing README smoke.</p>
+              </div>
+              <div class="event">
+                <h3>Final blocker hardening</h3>
+                <p>Closed review gaps: anchor validation, stale drift reconciliation, CLI package runtime, generated script delegation, env-value safety, and generated secret ignores.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
+            <h2>Review themes that changed the code</h2>
+            <div class="grid two">
+              <div class="card">
+                <h3>Detecting is not enough</h3>
+                <p>Cloud stale drift was detected before sync could repair it. The final adapter now unlinks stale selected-environment services during sync.</p>
+              </div>
+              <div class="card">
+                <h3>Generated scripts must not lie</h3>
+                <p>The first wrapper duplicated validation. The final wrapper delegates to the real CLI and avoids embedding local machine paths.</p>
+              </div>
+              <div class="card">
+                <h3>Env values need a real local source</h3>
+                <p>Required custom env declarations now read from a documented, gitignored, schema-validated <code>.agentstack/env-values.json</code>.</p>
+              </div>
+              <div class="card">
+                <h3>Template docs are part of validation</h3>
+                <p>Generated docs, package/workspace files, surface anchors, and non-file cases are all mechanically checked.</p>
+              </div>
+            </div>
+          </section>
+        </section>
+        <footer class="footer">Evidence: git history, final test output, and final review notes.</footer>
+      </main>
+    </div>
+    <script src="assets/site.js"></script>
+  </body>
+</html>

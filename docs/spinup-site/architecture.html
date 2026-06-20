@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Agentstack System Map</title>
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body data-page="architecture">
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="brand"><strong>Agentstack Spin-Up</strong><span>How the prototype is layered</span></div>
+        <nav class="nav" aria-label="Spin-up navigation">
+          <a data-page="home" href="index.html">Start Here</a>
+          <a data-page="architecture" href="architecture.html">System Map</a>
+          <a data-page="workflows" href="workflows.html">Command Journeys</a>
+          <a data-page="guardrails" href="guardrails.html">Validation & Guardrails</a>
+          <a data-page="generated" href="generated-app.html">Generated App</a>
+          <a data-page="telemetry" href="telemetry.html">Telemetry</a>
+          <a data-page="timeline" href="timeline.html">Implementation Timeline</a>
+          <a data-page="lab" href="lab.html">Deep Dive Lab</a>
+        </nav>
+      </aside>
+      <main class="main">
+        <header class="hero">
+          <div>
+            <h1>System map</h1>
+            <p>
+              The prototype is intentionally split into small packages. The kernel owns schemas
+              and diagnostics; adapters simulate provider state; telemetry owns event inspection;
+              the CLI composes them; the generator emits a minimal B2B SaaS app.
+            </p>
+          </div>
+          <div class="diagram hero-art">
+            <svg viewBox="0 0 620 390" role="img" aria-label="Package dependency map">
+              <defs>
+                <marker id="arrow-arch" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+                  <path class="svg-arrow" d="M0,0 L0,6 L9,3 z"></path>
+                </marker>
+              </defs>
+              <rect class="svg-box svg-teal" x="210" y="30" width="200" height="70" rx="8"></rect>
+              <text class="svg-label" x="260" y="62">CLI</text>
+              <text class="svg-small" x="242" y="84">command orchestration</text>
+              <rect class="svg-box svg-blue" x="34" y="150" width="170" height="70" rx="8"></rect>
+              <text class="svg-label" x="88" y="182">Core</text>
+              <text class="svg-small" x="64" y="204">manifest, env, validation</text>
+              <rect class="svg-box svg-amber" x="226" y="150" width="170" height="70" rx="8"></rect>
+              <text class="svg-label" x="276" y="182">Adapters</text>
+              <text class="svg-small" x="258" y="204">local-cloud state</text>
+              <rect class="svg-box svg-rose" x="418" y="150" width="170" height="70" rx="8"></rect>
+              <text class="svg-label" x="470" y="182">Telemetry</text>
+              <text class="svg-small" x="446" y="204">events, JSONL, redaction</text>
+              <rect class="svg-box svg-blue" x="90" y="290" width="200" height="70" rx="8"></rect>
+              <text class="svg-label" x="138" y="322">Generator</text>
+              <text class="svg-small" x="120" y="344">copies B2B SaaS template</text>
+              <rect class="svg-box svg-teal" x="340" y="290" width="210" height="70" rx="8"></rect>
+              <text class="svg-label" x="386" y="322">Generated App</text>
+              <text class="svg-small" x="374" y="344">scripts delegate to CLI</text>
+              <path class="svg-line" marker-end="url(#arrow-arch)" d="M270 102 L168 146"></path>
+              <path class="svg-line" marker-end="url(#arrow-arch)" d="M310 102 L310 146"></path>
+              <path class="svg-line" marker-end="url(#arrow-arch)" d="M352 102 L452 146"></path>
+              <path class="svg-line" marker-end="url(#arrow-arch)" d="M282 290 L232 224"></path>
+              <path class="svg-line" marker-end="url(#arrow-arch)" d="M352 290 L396 224"></path>
+              <path class="svg-line" marker-end="url(#arrow-arch)" d="M340 325 H300"></path>
+            </svg>
+          </div>
+        </header>
+
+        <section class="content">
+          <section class="section">
+            <h2>Package ownership</h2>
+            <div class="grid three">
+              <div class="card">
+                <h3><code>@agentstack/core</code></h3>
+                <p>Defines the manifest schema, diagnostics, env graph, env-value parsing, local validation, and generated-anchor policy.</p>
+              </div>
+              <div class="card">
+                <h3><code>@agentstack/adapters</code></h3>
+                <p>Defines provider adapter interfaces and the filesystem-backed local-cloud adapter used by this slice.</p>
+              </div>
+              <div class="card">
+                <h3><code>@agentstack/telemetry</code></h3>
+                <p>Creates wide events, redacts sensitive state, stores JSONL, and runs local queries.</p>
+              </div>
+              <div class="card">
+                <h3><code>@agentstack/cli</code></h3>
+                <p>Loads project context, composes validation, runs local-cloud commands, and queries telemetry.</p>
+              </div>
+              <div class="card">
+                <h3><code>create-agent-stack</code></h3>
+                <p>Generates a B2B SaaS project from the template and package-local template mirror.</p>
+              </div>
+              <div class="card">
+                <h3><code>templates/b2b-saas</code></h3>
+                <p>The generated app shape: web, mobile, Convex, domain, theme, telemetry, docs, scripts, and safety ignore rules.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
+            <h2>Layering rule</h2>
+            <div class="callout">
+              Core packages do not know about the filesystem except through the CLI. Core computes what should be true.
+              The CLI checks the project on disk and passes structured inputs to core/adapters/telemetry.
+            </div>
+          </section>
+
+          <section class="section">
+            <h2>What is deliberately local</h2>
+            <table class="table">
+              <thead><tr><th>Area</th><th>Prototype behavior</th><th>Future real adapter behavior</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>Cloud providers</td>
+                  <td><code>.agentstack/local-cloud.json</code> simulates linked services per environment.</td>
+                  <td>Convex, Clerk, Vercel, and EAS adapters implement the same validate/sync interface.</td>
+                </tr>
+                <tr>
+                  <td>Env values</td>
+                  <td><code>.agentstack/env-values.json</code> satisfies required custom env declarations locally.</td>
+                  <td>Provider-specific env APIs and secret stores can be wrapped behind the framework.</td>
+                </tr>
+                <tr>
+                  <td>Telemetry</td>
+                  <td><code>.agentstack/events.jsonl</code> stores redacted-queryable wide events.</td>
+                  <td>OTel exporter/provider can replace the local store without changing event shape.</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+        </section>
+        <footer class="footer">Evidence: <code>packages/core</code>, <code>packages/cli</code>, <code>packages/adapters</code>, <code>packages/telemetry</code>, <code>packages/create-agent-stack</code>.</footer>
+      </main>
+    </div>
+    <script src="assets/site.js"></script>
+  </body>
+</html>

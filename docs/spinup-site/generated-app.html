@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Agentstack Generated App</title>
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body data-page="generated">
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="brand"><strong>Agentstack Spin-Up</strong><span>What the generator emits</span></div>
+        <nav class="nav" aria-label="Spin-up navigation">
+          <a data-page="home" href="index.html">Start Here</a>
+          <a data-page="architecture" href="architecture.html">System Map</a>
+          <a data-page="workflows" href="workflows.html">Command Journeys</a>
+          <a data-page="guardrails" href="guardrails.html">Validation & Guardrails</a>
+          <a data-page="generated" href="generated-app.html">Generated App</a>
+          <a data-page="telemetry" href="telemetry.html">Telemetry</a>
+          <a data-page="timeline" href="timeline.html">Implementation Timeline</a>
+          <a data-page="lab" href="lab.html">Deep Dive Lab</a>
+        </nav>
+      </aside>
+      <main class="main">
+        <header class="hero">
+          <div>
+            <h1>The generated app is a bounded playground.</h1>
+            <p>
+              It is not a full SaaS product yet. It is a minimal, typed, agent-readable shell that
+              proves the framework can own project shape, scripts, safety defaults, docs, and validation.
+            </p>
+          </div>
+          <div class="diagram hero-art">
+            <svg viewBox="0 0 620 360" role="img" aria-label="Generated app file tree">
+              <rect class="svg-box svg-teal" x="40" y="34" width="240" height="46" rx="8"></rect>
+              <text class="svg-label" x="66" y="64">acme-crm/</text>
+              <rect class="svg-box" x="70" y="98" width="210" height="34" rx="6"></rect>
+              <text class="svg-small" x="92" y="121">agentstack.config.json</text>
+              <rect class="svg-box" x="70" y="142" width="210" height="34" rx="6"></rect>
+              <text class="svg-small" x="92" y="165">AGENTS.md + docs/agentstack</text>
+              <rect class="svg-box svg-blue" x="330" y="34" width="220" height="46" rx="8"></rect>
+              <text class="svg-label" x="358" y="64">surfaces</text>
+              <rect class="svg-box" x="340" y="98" width="190" height="34" rx="6"></rect>
+              <text class="svg-small" x="362" y="121">apps/web/package.json</text>
+              <rect class="svg-box" x="340" y="142" width="190" height="34" rx="6"></rect>
+              <text class="svg-small" x="362" y="165">apps/mobile/package.json</text>
+              <rect class="svg-box" x="340" y="186" width="190" height="34" rx="6"></rect>
+              <text class="svg-small" x="362" y="209">convex/schema.ts</text>
+              <rect class="svg-box svg-amber" x="70" y="230" width="210" height="46" rx="8"></rect>
+              <text class="svg-label" x="100" y="260">shared packages</text>
+              <rect class="svg-box svg-rose" x="330" y="250" width="220" height="46" rx="8"></rect>
+              <text class="svg-label" x="358" y="280">scripts/agentstack.mjs</text>
+            </svg>
+          </div>
+        </header>
+
+        <section class="content">
+          <section class="section">
+            <h2>Generated project contents</h2>
+            <div class="grid three">
+              <div class="card"><h3>App identity</h3><p><code>agentstack.config.json</code> contains app slug/name, environments, surfaces, enabled services, env declarations, and telemetry policy.</p></div>
+              <div class="card"><h3>Surfaces</h3><p>Web, mobile, and Convex anchors exist so validation can detect accidental deletion or malformed project shape.</p></div>
+              <div class="card"><h3>Shared packages</h3><p><code>domain</code>, <code>theme</code>, and <code>telemetry</code> packages establish where future type-safe shared code belongs.</p></div>
+              <div class="card"><h3>Agent docs</h3><p><code>AGENTS.md</code> and <code>docs/agentstack/</code> teach agents the local workflow and boundaries.</p></div>
+              <div class="card"><h3>Safety defaults</h3><p>Generated <code>.gitignore</code> protects <code>.agentstack/</code>, <code>.env</code>, and <code>.env.*</code>.</p></div>
+              <div class="card"><h3>Scripts</h3><p><code>pnpm run validate</code>, <code>init:cloud</code>, and <code>validate:cloud</code> delegate to an installed CLI or explicit source-prototype env vars.</p></div>
+            </div>
+          </section>
+
+          <section class="section">
+            <h2>Why two template copies exist</h2>
+            <p class="lede">
+              The root <code>templates/b2b-saas</code> copy is easy to inspect in the repository.
+              The package-local copy under <code>packages/create-agent-stack/templates/b2b-saas</code>
+              is what the generator can ship in an npm package. Tests enforce byte-for-byte parity.
+            </p>
+            <pre><code>diff -qr templates/b2b-saas packages/create-agent-stack/templates/b2b-saas</code></pre>
+          </section>
+
+          <section class="section">
+            <h2>Script delegation model</h2>
+            <table class="table">
+              <thead><tr><th>Mode</th><th>How scripts find the CLI</th><th>Why</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>Installed future package</td>
+                  <td>Runs <code>agentstack</code> from local <code>node_modules/.bin</code> or PATH.</td>
+                  <td>Generated projects should not contain a machine-specific repo path.</td>
+                </tr>
+                <tr>
+                  <td>Source prototype</td>
+                  <td>Set <code>AGENTSTACK_CLI_BIN</code> and <code>AGENTSTACK_TSX_BIN</code>.</td>
+                  <td>Lets this local repo prove real CLI behavior before publishing packages.</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+        </section>
+        <footer class="footer">Evidence: <code>packages/create-agent-stack/src/generate.ts</code>, <code>templates/b2b-saas/</code>, <code>packages/create-agent-stack/src/generate.test.ts</code>.</footer>
+      </main>
+    </div>
+    <script src="assets/site.js"></script>
+  </body>
+</html>

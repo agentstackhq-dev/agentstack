@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Agentstack Spin-Up</title>
+    <link rel="stylesheet" href="assets/styles.css">
+  </head>
+  <body data-page="home">
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="brand">
+          <strong>Agentstack Spin-Up</strong>
+          <span>Internal map of the prototype slice</span>
+        </div>
+        <nav class="nav" aria-label="Spin-up navigation">
+          <a data-page="home" href="index.html">Start Here</a>
+          <a data-page="architecture" href="architecture.html">System Map</a>
+          <a data-page="workflows" href="workflows.html">Command Journeys</a>
+          <a data-page="guardrails" href="guardrails.html">Validation & Guardrails</a>
+          <a data-page="generated" href="generated-app.html">Generated App</a>
+          <a data-page="telemetry" href="telemetry.html">Telemetry</a>
+          <a data-page="timeline" href="timeline.html">Implementation Timeline</a>
+          <a data-page="lab" href="lab.html">Deep Dive Lab</a>
+        </nav>
+      </aside>
+      <main class="main">
+        <header class="hero">
+          <div>
+            <h1>What we built, why it matters, and how the pieces fit.</h1>
+            <p>
+              Agentstack slice 1 is a local, executable proof of an agent-first framework contract.
+              It does not call Convex, Clerk, Vercel, or EAS yet. It proves the command surface,
+              validation model, generated project shape, cloud-drift loop, and telemetry inspection
+              path that real adapters can later implement.
+            </p>
+            <div class="pill-row">
+              <span class="pill">TypeScript monorepo</span>
+              <span class="pill">Convex/Clerk/Vercel/EAS model</span>
+              <span class="pill">React + React Native template anchors</span>
+              <span class="pill">OpenTelemetry-ready wide events</span>
+            </div>
+          </div>
+          <div class="hero-art diagram" aria-label="Agentstack high-level diagram">
+            <svg viewBox="0 0 560 360" role="img">
+              <defs>
+                <marker id="arrow-home" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+                  <path class="svg-arrow" d="M0,0 L0,6 L9,3 z"></path>
+                </marker>
+              </defs>
+              <rect class="svg-box svg-teal" x="36" y="42" width="150" height="70" rx="8"></rect>
+              <text class="svg-label" x="58" y="78">Coding Agent</text>
+              <text class="svg-small" x="58" y="99">asks for command contract</text>
+              <rect class="svg-box svg-blue" x="340" y="42" width="170" height="70" rx="8"></rect>
+              <text class="svg-label" x="368" y="78">Agentstack CLI</text>
+              <text class="svg-small" x="368" y="99">validate, sync, observe</text>
+              <rect class="svg-box svg-amber" x="60" y="210" width="150" height="70" rx="8"></rect>
+              <text class="svg-label" x="90" y="246">Generated App</text>
+              <text class="svg-small" x="90" y="267">web, mobile, convex</text>
+              <rect class="svg-box svg-rose" x="330" y="210" width="180" height="70" rx="8"></rect>
+              <text class="svg-label" x="360" y="246">Local Cloud</text>
+              <text class="svg-small" x="360" y="267">drift simulation</text>
+              <path class="svg-line" marker-end="url(#arrow-home)" d="M188 77 H332"></path>
+              <path class="svg-line" marker-end="url(#arrow-home)" d="M420 114 V200"></path>
+              <path class="svg-line" marker-end="url(#arrow-home)" d="M330 245 H220"></path>
+              <path class="svg-line" marker-end="url(#arrow-home)" d="M134 210 V122"></path>
+              <circle cx="280" cy="168" r="42" fill="rgba(117,197,111,0.16)" stroke="#75c56f"></circle>
+              <text class="svg-label" x="256" y="164">Typed</text>
+              <text class="svg-label" x="246" y="184">Contract</text>
+            </svg>
+          </div>
+        </header>
+
+        <section class="content">
+          <div class="grid four">
+            <div class="card metric">
+              <strong>6</strong>
+              <span>workspace packages/surfaces in the framework repo</span>
+            </div>
+            <div class="card metric">
+              <strong>63</strong>
+              <span>passing tests in final verification</span>
+            </div>
+            <div class="card metric">
+              <strong>0</strong>
+              <span>real provider API calls in this slice</span>
+            </div>
+            <div class="card metric">
+              <strong>1</strong>
+              <span>local command contract that generated apps can use</span>
+            </div>
+          </div>
+
+          <section class="section">
+            <h2>The short version</h2>
+            <div class="grid two">
+              <div class="card">
+                <h3>What exists now</h3>
+                <p>
+                  A local-first framework kernel with a manifest schema, generated app template,
+                  CLI command router, validation engine, filesystem-backed local-cloud adapter,
+                  JSONL telemetry store, and end-to-end prototype workflow test.
+                </p>
+              </div>
+              <div class="card">
+                <h3>What it proves</h3>
+                <p>
+                  An agent can bootstrap a project, validate local structure, initialize simulated
+                  provider state, reconcile drift, and inspect redacted telemetry without getting lost
+                  in provider dashboards, env state, or hand-written setup steps.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
+            <h2>How to read this site</h2>
+            <div class="grid three">
+              <div class="card">
+                <h3>1. Map the layers</h3>
+                <p>Start with <a href="architecture.html">System Map</a> to learn what each package owns.</p>
+              </div>
+              <div class="card">
+                <h3>2. Follow the commands</h3>
+                <p>Use <a href="workflows.html">Command Journeys</a> to see the generated app lifecycle.</p>
+              </div>
+              <div class="card">
+                <h3>3. Stress the guardrails</h3>
+                <p>Use <a href="lab.html">Deep Dive Lab</a> to understand failure modes and repair paths.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
+            <h2>Evidence anchors</h2>
+            <p class="lede">
+              The explanations here are grounded in the final code. These are the most important files to know.
+            </p>
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Concern</th>
+                  <th>Evidence</th>
+                  <th>Why it matters</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Manifest and local validation</td>
+                  <td><code>packages/core/src/manifest.ts</code>, <code>packages/core/src/validation.ts</code></td>
+                  <td>Defines the typed project contract and generated-anchor rules.</td>
+                </tr>
+                <tr>
+                  <td>CLI workflows</td>
+                  <td><code>packages/cli/src/run.ts</code>, <code>packages/cli/src/context.ts</code></td>
+                  <td>Orchestrates validate, init, sync, and observe commands.</td>
+                </tr>
+                <tr>
+                  <td>Local cloud drift</td>
+                  <td><code>packages/adapters/src/local-cloud.ts</code></td>
+                  <td>Simulates provider state and tests the drift-repair contract.</td>
+                </tr>
+                <tr>
+                  <td>Telemetry inspection</td>
+                  <td><code>packages/telemetry/src/events.ts</code>, <code>packages/telemetry/src/store.ts</code></td>
+                  <td>Models redacted wide events and local query behavior.</td>
+                </tr>
+                <tr>
+                  <td>Generator</td>
+                  <td><code>packages/create-agent-stack/src/generate.ts</code>, <code>templates/b2b-saas/</code></td>
+                  <td>Copies the project template and replaces app identity tokens.</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+        </section>
+        <footer class="footer">Internal spin-up site generated from the local Agentstack prototype repository.</footer>
+      </main>
+    </div>
+    <script src="assets/site.js"></script>
+  </body>
+</html>
