@@ -11,33 +11,33 @@ export const customEnvSchema = z.object({
   required: z.boolean().default(false),
   secret: z.boolean().default(false),
   validate: z.string().optional()
-});
+}).strict();
 
 export const manifestSchema = z.object({
   app: z.object({
     name: z.string().min(1),
     slug: z.string().regex(/^[a-z0-9-]+$/)
-  }),
+  }).strict(),
   environments: z.array(environmentSchema).min(1),
   surfaces: z.array(surfaceSchema).min(1),
   services: z.object({
-    clerk: z.object({ enabled: z.boolean() }),
-    convex: z.object({ enabled: z.boolean() }),
-    vercel: z.object({ enabled: z.boolean() }),
-    eas: z.object({ enabled: z.boolean() })
-  }),
+    clerk: z.object({ enabled: z.boolean() }).strict(),
+    convex: z.object({ enabled: z.boolean() }).strict(),
+    vercel: z.object({ enabled: z.boolean() }).strict(),
+    eas: z.object({ enabled: z.boolean() }).strict()
+  }).strict(),
   env: z.object({
     custom: z.record(customEnvSchema)
-  }),
+  }).strict(),
   telemetry: z.object({
     enabled: z.boolean(),
     exporter: z.enum(["local", "otlp", "control-plane"]),
     redaction: z.object({
       defaultPolicy: z.enum(["strict", "billing-safe", "debug"]),
       forbidRawSecrets: z.boolean()
-    })
-  })
-});
+    }).strict()
+  }).strict()
+}).strict();
 
 export type AgentstackManifest = z.infer<typeof manifestSchema>;
 export type EnvironmentName = z.infer<typeof environmentSchema>;
@@ -51,7 +51,7 @@ export function createDefaultManifest(slug: string): AgentstackManifest {
     .map((part) => part[0]?.toUpperCase() + part.slice(1))
     .join(" ");
 
-  return {
+  const candidate = {
     app: { name, slug },
     environments: ["development", "preview", "production"],
     surfaces: ["web", "mobile", "convex"],
@@ -73,6 +73,8 @@ export function createDefaultManifest(slug: string): AgentstackManifest {
       }
     }
   };
+
+  return manifestSchema.parse(candidate);
 }
 
 export function parseManifest(input: unknown): Result<AgentstackManifest> {
