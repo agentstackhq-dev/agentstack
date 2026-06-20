@@ -248,6 +248,114 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("Path: docs/agentstack/theming.md");
   });
 
+  it("fails validation on a raw secret-like value in source without printing the value", async () => {
+    await mkdir(join(dir, "apps/web/src"), { recursive: true });
+    await writeFile(
+      join(dir, "apps/web/src/leak.ts"),
+      'export const key = "sk_test_1234567890abcdefghijklmnop";\n',
+      "utf8"
+    );
+
+    const code = await runAgentstack(["validate"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL source.secret.detected");
+    expect(output.join("\n")).toContain("Path: apps/web/src/leak.ts");
+    expect(output.join("\n")).toContain("Blocks: validate, validate --cloud, deploy");
+    expect(output.join("\n")).not.toContain("sk_test_1234567890abcdefghijklmnop");
+  });
+
+  it("fails validation on an inline hyphenated OpenAI-style key without printing the value", async () => {
+    await mkdir(join(dir, "apps/web/src"), { recursive: true });
+    await writeFile(
+      join(dir, "apps/web/src/hyphenated-leak.ts"),
+      'const openaiKey = "sk-proj-1234567890abcdefghijklmnop";\n',
+      "utf8"
+    );
+
+    const code = await runAgentstack(["validate"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL source.secret.detected");
+    expect(output.join("\n")).toContain("Path: apps/web/src/hyphenated-leak.ts");
+    expect(output.join("\n")).not.toContain("sk-proj-1234567890abcdefghijklmnop");
+  });
+
+  it("ignores secret-like local state under .agentstack during validation", async () => {
+    await mkdir(join(dir, ".agentstack"), { recursive: true });
+    await writeFile(
+      join(dir, ".agentstack", "env-values.json"),
+      `${JSON.stringify({ preview: { convex: { OPENAI_API_KEY: "sk_test_1234567890abcdefghijklmnop" } } }, null, 2)}\n`,
+      "utf8"
+    );
+
+    const code = await runAgentstack(["validate"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS validate");
+    expect(output.join("\n")).not.toContain("source.secret.detected");
+  });
+
+  it("fails validation on a raw secret-like value in .env without printing the value", async () => {
+    await writeFile(
+      join(dir, ".env"),
+      "OPENAI_API_KEY=sk_test_1234567890abcdefghijklmnop\n",
+      "utf8"
+    );
+
+    const code = await runAgentstack(["validate"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL source.secret.detected");
+    expect(output.join("\n")).toContain("Path: .env");
+    expect(output.join("\n")).not.toContain("sk_test_1234567890abcdefghijklmnop");
+  });
+
+  it("blocks deploy on a raw secret-like value in source without printing the value", async () => {
+    await mkdir(join(dir, "apps/web/src"), { recursive: true });
+    await writeFile(
+      join(dir, "apps/web/src/leak.ts"),
+      'export const key = "sk_test_1234567890abcdefghijklmnop";\n',
+      "utf8"
+    );
+
+    const code = await runAgentstack(["deploy", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL source.secret.detected");
+    expect(output.join("\n")).toContain("Path: apps/web/src/leak.ts");
+    expect(output.join("\n")).toContain("Blocks: validate, validate --cloud, deploy");
+    expect(output.join("\n")).not.toContain("sk_test_1234567890abcdefghijklmnop");
+    expect(output.join("\n")).not.toContain("deploy.not-implemented");
+  });
+
+  it("returns an explicit planned deploy diagnostic after local validation passes", async () => {
+    const code = await runAgentstack(["deploy", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL deploy.not-implemented");
+    expect(output.join("\n")).toContain("Path: preview");
+    expect(output.join("\n")).toContain("agentstack deploy is planned but does not perform provider deployment yet.");
+  });
+
   it("fails cloud validation when cloud state is missing", async () => {
     const code = await runAgentstack(["validate", "--cloud"], {
       cwd: dir,

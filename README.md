@@ -48,7 +48,7 @@ PASS validate --cloud
 ## Prototype Commands
 
 - `create-agent-stack <app-name>` copies the B2B SaaS template into a new project directory.
-- `pnpm run validate` checks the local Agentstack manifest and command contract through an installed `agentstack` CLI, or through `AGENTSTACK_CLI_BIN` for local source prototypes.
+- `pnpm run validate` checks the local Agentstack manifest, generated anchors, env value shape, telemetry policy, and source-secret policy through an installed `agentstack` CLI, or through `AGENTSTACK_CLI_BIN` for local source prototypes.
 - `.agentstack/env-values.json` can satisfy required custom env declarations for `validate` and `validate:cloud` using the environment -> surface -> variable JSON shape.
 - `pnpm run env:inspect` prints expected preview services and declared environment bindings.
 - `pnpm run sync:preview` plans preview local-cloud changes without writing state.

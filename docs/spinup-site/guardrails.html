@@ -62,6 +62,10 @@
                 <p><code>.agentstack/env-values.json</code> is validated as environment -> surface -> variable -> string. It is ignored by generated <code>.gitignore</code>.</p>
               </div>
               <div class="card">
+                <h3>Source secret policy</h3>
+                <p><code>agentstack validate</code> and the guarded <code>agentstack deploy --env</code> placeholder scan source, docs, and <code>.env</code> files for raw secret-like values while skipping local state, dependency, build, and cache directories.</p>
+              </div>
+              <div class="card">
                 <h3>Cloud drift</h3>
                 <p>Local-cloud validation reports missing services and stale linked services. Sync links missing state and unlinks stale state for the selected environment.</p>
               </div>
@@ -77,6 +81,16 @@ clerk is linked in preview but is not enabled in the manifest.
 Fix: Remove preview.clerk from local cloud state or re-enable it,
 then run agentstack sync --env preview --apply.
 Blocks: validate --cloud</code></pre>
+              <pre><code>FAIL source.secret.detected
+Path: apps/web/src/leak.ts
+Potential raw secret found in apps/web/src/leak.ts.
+Fix: Move the value to a provider secret store or set local
+validation state with agentstack env set.
+Blocks: validate, validate --cloud, deploy</code></pre>
+              <pre><code>FAIL deploy.not-implemented
+Path: preview
+agentstack deploy is planned but does not perform provider deployment yet.
+Fix: Use provider CLIs directly after agentstack validate and sync pass.</code></pre>
               <div class="card">
                 <h3>Why this matters</h3>
                 <p>

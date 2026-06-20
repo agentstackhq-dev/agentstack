@@ -36,7 +36,7 @@
             <ul>
               <li><code>pnpm install --frozen-lockfile</code></li>
               <li><code>pnpm typecheck</code></li>
-              <li><code>pnpm test</code>: 97 tests</li>
+              <li><code>pnpm test</code>: 103 tests</li>
               <li>Template mirror diff: no output</li>
               <li>Smoke path: create, validate, env inspect, sync plan/apply, cloud validate, observe timeline</li>
             </ul>
@@ -100,6 +100,10 @@
               <div class="card">
                 <h3>Env values need a real local source</h3>
                 <p>Required custom env declarations now read from a documented, gitignored, schema-validated <code>.agentstack/env-values.json</code>.</p>
+              </div>
+              <div class="card">
+                <h3>Source secrets must stop locally</h3>
+                <p>Validation and the planned deploy command now block raw secret-like values in source, docs, and <code>.env</code> files before cloud checks or deploy placeholder behavior run, without printing the detected value.</p>
               </div>
               <div class="card">
                 <h3>Template docs are part of validation</h3>

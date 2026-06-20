@@ -1,4 +1,4 @@
-import { mkdir, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { LocalCloudAdapter } from "@agentstack/adapters";
 import {
@@ -11,6 +11,7 @@ import {
   validateLocalProject,
   type EnvValueState,
   type AgentstackManifest,
+  type Diagnostic,
   type EnvironmentName,
   type SurfaceName
 } from "@agentstack/core";
@@ -65,6 +66,10 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
       return await syncCommand(argv.slice(1), io);
     }
 
+    if (command === "deploy") {
+      return await deployCommand(argv.slice(1), io);
+    }
+
     if (command === "env" && subcommand === "inspect") {
       return await envInspectCommand(rest, io);
     }
@@ -95,17 +100,11 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
 
 async function validateCommand(argv: string[], io: RunIo): Promise<number> {
   const options = parseOptions(argv);
-  const context = await loadProjectContext(io.cwd);
-  const envValues = await loadLocalEnvValues(io.cwd);
-  const localResult = validateLocalProject({ manifest: context.manifest, envValues });
-  const anchorResult = validateGeneratedAnchors({
-    manifest: context.manifest,
-    missingPaths: await findMissingGeneratedAnchors(context.cwd, context.manifest)
-  });
-  const diagnostics = [...localResult.diagnostics, ...anchorResult.diagnostics];
+  const { context, localResult, anchorResult, sourcePolicyDiagnostics, diagnostics } =
+    await runLocalValidationGate(io.cwd);
   diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
 
-  if (!localResult.ok || !anchorResult.ok) {
+  if (!localResult.ok || !anchorResult.ok || sourcePolicyDiagnostics.length > 0) {
     await recordCommandEvent(io, {
       name: "agentstack.validate.completed",
       environment: "development",
@@ -164,6 +163,56 @@ async function validateCommand(argv: string[], io: RunIo): Promise<number> {
   return 0;
 }
 
+async function deployCommand(argv: string[], io: RunIo): Promise<number> {
+  const options = parseOptions(argv);
+  const environment = readEnvironmentOption(options.env, {
+    flag: "env",
+    fix: "Run agentstack deploy --env preview."
+  });
+  const { localResult, anchorResult, sourcePolicyDiagnostics, diagnostics } =
+    await runLocalValidationGate(io.cwd);
+  diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
+
+  if (!localResult.ok || !anchorResult.ok || sourcePolicyDiagnostics.length > 0) {
+    return 1;
+  }
+
+  io.write(
+    formatDiagnostic({
+      severity: "fail",
+      code: "deploy.not-implemented",
+      path: environment,
+      message: "agentstack deploy is planned but does not perform provider deployment yet.",
+      fix: "Use provider CLIs directly after agentstack validate and sync pass."
+    })
+  );
+  return 1;
+}
+
+async function runLocalValidationGate(cwd: string): Promise<{
+  context: Awaited<ReturnType<typeof loadProjectContext>>;
+  localResult: ReturnType<typeof validateLocalProject>;
+  anchorResult: ReturnType<typeof validateGeneratedAnchors>;
+  sourcePolicyDiagnostics: Diagnostic[];
+  diagnostics: Diagnostic[];
+}> {
+  const context = await loadProjectContext(cwd);
+  const envValues = await loadLocalEnvValues(cwd);
+  const localResult = validateLocalProject({ manifest: context.manifest, envValues });
+  const anchorResult = validateGeneratedAnchors({
+    manifest: context.manifest,
+    missingPaths: await findMissingGeneratedAnchors(context.cwd, context.manifest)
+  });
+  const sourcePolicyDiagnostics = await findSourcePolicyDiagnostics(context.cwd);
+  const diagnostics = [
+    ...localResult.diagnostics,
+    ...anchorResult.diagnostics,
+    ...sourcePolicyDiagnostics
+  ];
+
+  return { context, localResult, anchorResult, sourcePolicyDiagnostics, diagnostics };
+}
+
 async function findMissingGeneratedAnchors(
   cwd: string,
   manifest: AgentstackManifest
@@ -184,6 +233,81 @@ async function findMissingGeneratedAnchors(
   );
 
   return checks.filter((anchor): anchor is string => Boolean(anchor));
+}
+
+async function findSourcePolicyDiagnostics(cwd: string): Promise<Diagnostic[]> {
+  const files = await listProjectFiles(cwd);
+  const diagnostics: Diagnostic[] = [];
+
+  for (const file of files) {
+    const content = await readFile(join(cwd, file), "utf8");
+    if (containsSecretLikeValue(content)) {
+      diagnostics.push({
+        severity: "fail",
+        code: "source.secret.detected",
+        path: file,
+        message: `Potential raw secret found in ${file}.`,
+        fix: "Move the value to a provider secret store or set local validation state with agentstack env set.",
+        blocks: ["validate", "validate --cloud", "deploy"]
+      });
+    }
+  }
+
+  return diagnostics;
+}
+
+const skippedSourcePolicyDirs = new Set([
+  ".agentstack",
+  ".git",
+  ".next",
+  ".nuxt",
+  ".svelte-kit",
+  ".turbo",
+  ".vite",
+  "build",
+  "cache",
+  ".cache",
+  "coverage",
+  "dist",
+  "node_modules",
+  "out",
+  "target"
+]);
+
+async function listProjectFiles(cwd: string): Promise<string[]> {
+  const files: string[] = [];
+
+  async function visit(relativeDir: string): Promise<void> {
+    const entries = await readdir(join(cwd, relativeDir), { withFileTypes: true });
+    for (const entry of entries) {
+      const relativePath = relativeDir ? `${relativeDir}/${entry.name}` : entry.name;
+
+      if (entry.isDirectory()) {
+        if (!skippedSourcePolicyDirs.has(entry.name)) {
+          await visit(relativePath);
+        }
+        continue;
+      }
+
+      if (entry.isFile() && entry.name !== ".env.example") {
+        files.push(relativePath);
+      }
+    }
+  }
+
+  await visit("");
+  return files;
+}
+
+function containsSecretLikeValue(content: string): boolean {
+  const secretPatterns = [
+    /\bsk_(?:live|test|proj|ant|or|[a-z0-9]+)_[A-Za-z0-9_-]{20,}\b/,
+    /\bsk-(?:live|test|proj|ant|or)-[A-Za-z0-9_-]{20,}\b/,
+    /\b(?:api[_-]?key|secret|token|password|private[_-]?key)\b\s*[:=]\s*["']?[A-Za-z0-9_./+=-]{20,}["']?/i,
+    /-----BEGIN (?:RSA |EC |OPENSSH |PGP )?PRIVATE KEY-----/
+  ];
+
+  return secretPatterns.some((pattern) => pattern.test(content));
 }
 
 async function syncCommand(argv: string[], io: RunIo): Promise<number> {
