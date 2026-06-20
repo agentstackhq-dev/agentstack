@@ -71,6 +71,7 @@ export class LocalCloudAdapter implements CloudAdapter {
   ): Promise<SyncPlan> {
     const state = await this.readState();
     const required = buildEnvGraph(manifest).nodes.filter((node) => node.environment === environment);
+    const requiredServices = new Set(required.map((node) => node.service));
     const changes: string[] = [];
 
     for (const node of required) {
@@ -96,7 +97,21 @@ export class LocalCloudAdapter implements CloudAdapter {
       }
     }
 
+    const stale = state.services.filter(
+      (service) => service.environment === environment && service.linked && !requiredServices.has(service.service)
+    );
+
+    for (const service of stale) {
+      changes.push(`unlink ${environment}.${service.service}`);
+    }
+
     if (options.apply) {
+      if (stale.length > 0) {
+        state.services = state.services.filter(
+          (service) =>
+            service.environment !== environment || !service.linked || requiredServices.has(service.service)
+        );
+      }
       await this.writeState(state);
     }
 

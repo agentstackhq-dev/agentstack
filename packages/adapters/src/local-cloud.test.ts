@@ -40,6 +40,7 @@ describe("local-cloud adapter", () => {
     const manifest = createDefaultManifest("acme-crm");
 
     await adapter.sync(manifest, "preview", { apply: true });
+    await adapter.sync(manifest, "production", { apply: true });
     manifest.services.clerk.enabled = false;
 
     const previewDiagnostics = await adapter.validate(manifest, "preview");
@@ -56,6 +57,62 @@ describe("local-cloud adapter", () => {
       "agentstack sync --env preview --apply"
     );
     expect(productionDiagnostics.map((diagnostic) => diagnostic.path)).not.toContain("preview.clerk");
+  });
+
+  it("reconciles stale linked services disabled in the manifest for the selected environment", async () => {
+    const adapter = new LocalCloudAdapter(dir);
+    const manifest = createDefaultManifest("acme-crm");
+
+    await adapter.sync(manifest, "preview", { apply: true });
+    await adapter.sync(manifest, "production", { apply: true });
+    manifest.services.clerk.enabled = false;
+
+    const staleDiagnostics = await adapter.validate(manifest, "preview");
+    const plan = await adapter.sync(manifest, "preview", { apply: true });
+    const diagnostics = await adapter.validate(manifest, "preview");
+    const state = JSON.parse(await readFile(statePath(), "utf8")) as {
+      services: Array<{ environment: string; service: string; linked: boolean }>;
+    };
+
+    expect(staleDiagnostics.map((diagnostic) => diagnostic.code)).toContain("cloud.service.stale");
+    expect(plan.changes).toContain("unlink preview.clerk");
+    expect(diagnostics).toEqual([]);
+    expect(
+      state.services.some(
+        (service) => service.environment === "preview" && service.service === "clerk" && service.linked
+      )
+    ).toBe(false);
+    expect(
+      state.services.some(
+        (service) => service.environment === "production" && service.service === "clerk" && service.linked
+      )
+    ).toBe(true);
+  });
+
+  it("plans stale linked service reconciliation without writing state when apply is false", async () => {
+    const adapter = new LocalCloudAdapter(dir);
+    const manifest = createDefaultManifest("acme-crm");
+
+    await adapter.sync(manifest, "preview", { apply: true });
+    manifest.services.clerk.enabled = false;
+
+    const plan = await adapter.sync(manifest, "preview", { apply: false });
+    const diagnostics = await adapter.validate(manifest, "preview");
+    const state = JSON.parse(await readFile(statePath(), "utf8")) as {
+      services: Array<{ environment: string; service: string; linked: boolean }>;
+    };
+
+    expect(plan).toEqual({
+      environment: "preview",
+      changes: ["unlink preview.clerk"],
+      applied: false
+    });
+    expect(diagnostics.map((diagnostic) => diagnostic.code)).toContain("cloud.service.stale");
+    expect(
+      state.services.some(
+        (service) => service.environment === "preview" && service.service === "clerk" && service.linked
+      )
+    ).toBe(true);
   });
 
   it("reconciles existing unlinked service state", async () => {
