@@ -76,8 +76,35 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("Path: package.json");
   });
 
+  it("fails local validation when the workspace anchor is missing", async () => {
+    await rm(join(dir, "pnpm-workspace.yaml"));
+
+    const code = await runAgentstack(["validate"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL template.anchor.missing");
+    expect(output.join("\n")).toContain("Path: pnpm-workspace.yaml");
+  });
+
   it("reports a missing manifest config as a required generated anchor", async () => {
     await rm(join(dir, "agentstack.config.json"));
+
+    const code = await runAgentstack(["validate"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL template.anchor.missing");
+    expect(output.join("\n")).toContain("Path: agentstack.config.json");
+  });
+
+  it("reports a manifest config directory as a required generated anchor", async () => {
+    await rm(join(dir, "agentstack.config.json"));
+    await mkdir(join(dir, "agentstack.config.json"));
 
     const code = await runAgentstack(["validate"], {
       cwd: dir,
@@ -241,6 +268,7 @@ async function writeGeneratedAnchors(): Promise<void> {
   const anchors = [
     "AGENTS.md",
     "package.json",
+    "pnpm-workspace.yaml",
     "docs/agentstack/workflows.md",
     "docs/agentstack/validation.md",
     "docs/agentstack/observability.md",

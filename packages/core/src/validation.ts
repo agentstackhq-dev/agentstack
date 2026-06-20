@@ -33,6 +33,7 @@ export function getRequiredGeneratedAnchors(manifest: AgentstackManifest): strin
   const anchors = [
     "AGENTS.md",
     "package.json",
+    "pnpm-workspace.yaml",
     "agentstack.config.json",
     "docs/agentstack/workflows.md",
     "docs/agentstack/validation.md",

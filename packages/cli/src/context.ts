@@ -19,7 +19,7 @@ export async function loadProjectContext(cwd: string): Promise<ProjectContext> {
   try {
     raw = await readFile(path, "utf8");
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+    if (isMissingManifestAnchorError(error)) {
       throw new Error(formatDiagnostic(createMissingGeneratedAnchorDiagnostic("agentstack.config.json")));
     }
     throw error;
@@ -38,4 +38,8 @@ export async function loadProjectContext(cwd: string): Promise<ProjectContext> {
   }
 
   return { cwd, manifest: parsed.value };
+}
+
+function isMissingManifestAnchorError(error: unknown): boolean {
+  return ["ENOENT", "EISDIR"].includes((error as NodeJS.ErrnoException).code ?? "");
 }
