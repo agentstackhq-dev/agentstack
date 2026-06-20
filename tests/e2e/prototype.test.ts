@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -35,7 +35,24 @@ describe("Agentstack executable prototype workflow", () => {
     await expect(readFile(join(appDir, "apps/web/src/features/invoices.ts"), "utf8")).resolves.toContain(
       "invoicesWebFeature"
     );
+    const manifestPath = join(appDir, "agentstack.config.json");
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+    manifest.env.custom.STRIPE_MODE = {
+      surfaces: ["convex"],
+      environments: ["preview"],
+      required: true,
+      secret: false,
+      validate: "enum:sandbox,live"
+    };
+    await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 
+    expect(await runAgentstack(["validate"], { cwd: appDir, write })).toBe(1);
+    expect(
+      await runAgentstack(
+        ["env", "set", "--env", "preview", "--surface", "convex", "--name", "STRIPE_MODE", "--value", "sandbox"],
+        { cwd: appDir, write }
+      )
+    ).toBe(0);
     expect(await runAgentstack(["validate"], { cwd: appDir, write })).toBe(0);
     expect(await runAgentstack(["env", "inspect", "--env", "preview"], { cwd: appDir, write })).toBe(0);
     expect(await runAgentstack(["validate", "--cloud", "--env", "preview"], { cwd: appDir, write })).toBe(1);
@@ -72,6 +89,7 @@ describe("Agentstack executable prototype workflow", () => {
 
     const renderedOutput = output.join("\n");
     expect(renderedOutput).toContain("CREATED feature invoices");
+    expect(renderedOutput).toContain("PASS env set preview convex.STRIPE_MODE");
     expect(renderedOutput).toContain("PASS env inspect preview");
     expect(renderedOutput).toContain("PLAN preview");
     expect(renderedOutput).toContain("APPLIED preview");

@@ -345,8 +345,177 @@ describe("runAgentstack", () => {
     expect(code).toBe(0);
     expect(output).toContain("PASS env inspect preview");
     expect(output).toContain("- service clerk linked=yes");
-    expect(output).toContain("- env web.STRIPE_MODE required=yes secret=no");
-    expect(output).toContain("- env convex.STRIPE_MODE required=yes secret=no");
+    expect(output).toContain("- env web.STRIPE_MODE required=yes secret=no present=no");
+    expect(output).toContain("- env convex.STRIPE_MODE required=yes secret=no present=no");
+  });
+
+  it("sets a declared custom env value and lets validation pass", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.environments = ["preview"];
+    manifest.surfaces = ["convex"];
+    manifest.env.custom.STRIPE_MODE = {
+      surfaces: ["convex"],
+      environments: ["preview"],
+      required: true,
+      secret: false,
+      validate: "enum:sandbox,live"
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+
+    expect(await runAgentstack(["validate"], { cwd: dir, write: () => undefined })).toBe(1);
+    const setCode = await runAgentstack(
+      ["env", "set", "--env", "preview", "--surface", "convex", "--name", "STRIPE_MODE", "--value", "sandbox"],
+      { cwd: dir, write: (line) => output.push(line) }
+    );
+    const values = JSON.parse(await readFile(join(dir, ".agentstack", "env-values.json"), "utf8"));
+
+    expect(setCode).toBe(0);
+    expect(output).toContain("PASS env set preview convex.STRIPE_MODE");
+    expect(output.join("\n")).not.toContain("sandbox");
+    expect(values.preview.convex.STRIPE_MODE).toBe("sandbox");
+    output = [];
+    expect(await runAgentstack(["validate"], { cwd: dir, write: (line) => output.push(line) })).toBe(0);
+    expect(output).toContain("PASS validate");
+  });
+
+  it("preserves existing local env values when setting another value", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.env.custom.STRIPE_MODE = {
+      surfaces: ["web", "convex"],
+      environments: ["preview"],
+      required: true,
+      secret: false,
+      validate: "enum:sandbox,live"
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    await mkdir(join(dir, ".agentstack"), { recursive: true });
+    await writeFile(
+      join(dir, ".agentstack", "env-values.json"),
+      `${JSON.stringify({ preview: { web: { STRIPE_MODE: "sandbox" } } }, null, 2)}\n`
+    );
+
+    expect(
+      await runAgentstack(
+        ["env", "set", "--env", "preview", "--surface", "convex", "--name", "STRIPE_MODE", "--value", "live"],
+        { cwd: dir, write: () => undefined }
+      )
+    ).toBe(0);
+    const values = JSON.parse(await readFile(join(dir, ".agentstack", "env-values.json"), "utf8"));
+
+    expect(values.preview.web.STRIPE_MODE).toBe("sandbox");
+    expect(values.preview.convex.STRIPE_MODE).toBe("live");
+  });
+
+  it("rejects undeclared and out-of-scope env set bindings", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.env.custom.STRIPE_MODE = {
+      surfaces: ["convex"],
+      environments: ["preview"],
+      required: true,
+      secret: false
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+
+    expect(
+      await runAgentstack(
+        ["env", "set", "--env", "preview", "--surface", "convex", "--name", "NOPE", "--value", "x"],
+        { cwd: dir, write: (line) => output.push(line) }
+      )
+    ).toBe(1);
+    expect(output.join("\n")).toContain("FAIL env.custom.undeclared");
+    output = [];
+
+    expect(
+      await runAgentstack(
+        ["env", "set", "--env", "production", "--surface", "convex", "--name", "STRIPE_MODE", "--value", "x"],
+        { cwd: dir, write: (line) => output.push(line) }
+      )
+    ).toBe(1);
+    expect(output.join("\n")).toContain("FAIL env.custom.out-of-scope");
+    output = [];
+
+    expect(
+      await runAgentstack(
+        ["env", "set", "--env", "preview", "--surface", "web", "--name", "STRIPE_MODE", "--value", "x"],
+        { cwd: dir, write: (line) => output.push(line) }
+      )
+    ).toBe(1);
+    expect(output.join("\n")).toContain("FAIL env.custom.out-of-scope");
+    await expect(stat(join(dir, ".agentstack", "env-values.json"))).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("rejects invalid enum env values before writing", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.env.custom.STRIPE_MODE = {
+      surfaces: ["convex"],
+      environments: ["preview"],
+      required: true,
+      secret: false,
+      validate: "enum:sandbox,live"
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+
+    const code = await runAgentstack(
+      ["env", "set", "--env", "preview", "--surface", "convex", "--name", "STRIPE_MODE", "--value", "invalid"],
+      { cwd: dir, write: (line) => output.push(line) }
+    );
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL env.custom.invalid-enum");
+    await expect(stat(join(dir, ".agentstack", "env-values.json"))).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("does not print or record secret env values", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.env.custom.OPENAI_API_KEY = {
+      surfaces: ["convex"],
+      environments: ["preview"],
+      required: true,
+      secret: true
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+
+    expect(
+      await runAgentstack(
+        ["env", "set", "--env", "preview", "--surface", "convex", "--name", "OPENAI_API_KEY", "--value", "sk_live_secret"],
+        { cwd: dir, write: (line) => output.push(line) }
+      )
+    ).toBe(0);
+    expect(output.join("\n")).not.toContain("sk_live_secret");
+    output = [];
+
+    expect(
+      await runAgentstack(["env", "inspect", "--env", "preview"], {
+        cwd: dir,
+        write: (line) => output.push(line)
+      })
+    ).toBe(0);
+    expect(output.join("\n")).toContain("- env convex.OPENAI_API_KEY required=yes secret=yes present=yes");
+    expect(output.join("\n")).not.toContain("sk_live_secret");
+    output = [];
+
+    expect(
+      await runAgentstack(
+        ["observe", "timeline", "--env", "preview", "--journey", "environment-sync"],
+        { cwd: dir, write: (line) => output.push(line) }
+      )
+    ).toBe(0);
+    expect(output.join("\n")).toContain("agentstack.env.set.completed");
+    expect(output.join("\n")).not.toContain("sk_live_secret");
+  });
+
+  it("requires env set option values with actionable diagnostics", async () => {
+    const code = await runAgentstack(
+      ["env", "set", "--env", "preview", "--surface", "convex", "--name", "STRIPE_MODE"],
+      { cwd: dir, write: (line) => output.push(line) }
+    );
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL cli.option.missing");
+    expect(output.join("\n")).toContain("--value requires a value.");
+    expect(output.join("\n")).toContain(
+      "Fix: Run agentstack env set --env preview --surface convex --name STRIPE_MODE --value sandbox."
+    );
   });
 
   it("requires env inspect environment values with an actionable diagnostic", async () => {

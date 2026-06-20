@@ -6,10 +6,13 @@ import {
   formatDiagnostic,
   getRequiredGeneratedAnchors,
   planFeatureFiles,
+  validateCustomEnvValues,
   validateGeneratedAnchors,
   validateLocalProject,
+  type EnvValueState,
   type AgentstackManifest,
-  type EnvironmentName
+  type EnvironmentName,
+  type SurfaceName
 } from "@agentstack/core";
 import {
   createWideEvent,
@@ -28,6 +31,7 @@ export type RunIo = {
 type ParsedOptions = Record<string, string | boolean>;
 
 const environmentValues = ["development", "preview", "production"] as const;
+const surfaceValues = ["web", "mobile", "convex"] as const;
 const telemetrySurfaceValues = [
   "web",
   "mobile",
@@ -63,6 +67,10 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
 
     if (command === "env" && subcommand === "inspect") {
       return await envInspectCommand(rest, io);
+    }
+
+    if (command === "env" && subcommand === "set") {
+      return await envSetCommand(rest, io);
     }
 
     if (command === "add" && subcommand === "feature") {
@@ -208,6 +216,7 @@ async function envInspectCommand(argv: string[], io: RunIo): Promise<number> {
     fix: "Run agentstack env inspect --env preview."
   });
   const context = await loadProjectContext(io.cwd);
+  const envValues = await loadLocalEnvValues(io.cwd);
   const graph = buildEnvGraph(context.manifest);
   const adapter = new LocalCloudAdapter(io.cwd);
   const report = await adapter.inspect(context.manifest, environment);
@@ -219,7 +228,7 @@ async function envInspectCommand(argv: string[], io: RunIo): Promise<number> {
   }
   for (const binding of graph.bindings.filter((candidate) => candidate.environment === environment)) {
     io.write(
-      `- env ${binding.surface}.${binding.name} required=${binding.required ? "yes" : "no"} secret=${binding.secret ? "yes" : "no"}`
+      `- env ${binding.surface}.${binding.name} required=${binding.required ? "yes" : "no"} secret=${binding.secret ? "yes" : "no"} present=${envValues[environment]?.[binding.surface]?.[binding.name] ? "yes" : "no"}`
     );
   }
 
@@ -233,6 +242,85 @@ async function envInspectCommand(argv: string[], io: RunIo): Promise<number> {
       expectedServices: report.expected.map((resource) => resource.service),
       linkedServices: report.linked.map((resource) => resource.service),
       missingServices: report.missing.map((resource) => resource.service)
+    }
+  });
+  return 0;
+}
+
+async function envSetCommand(argv: string[], io: RunIo): Promise<number> {
+  const options = parseOptions(argv);
+  const environment = readEnvironmentOption(options.env, {
+    flag: "env",
+    fix: "Run agentstack env set --env preview --surface convex --name STRIPE_MODE --value sandbox."
+  });
+  const surface = readSurfaceOption(options.surface, {
+    flag: "surface",
+    fix: "Run agentstack env set --env preview --surface convex --name STRIPE_MODE --value sandbox."
+  });
+  const name = readRequiredStringOption(
+    options.name,
+    "name",
+    "Run agentstack env set --env preview --surface convex --name STRIPE_MODE --value sandbox."
+  );
+  const value = readRequiredStringOption(
+    options.value,
+    "value",
+    "Run agentstack env set --env preview --surface convex --name STRIPE_MODE --value sandbox."
+  );
+  const context = await loadProjectContext(io.cwd);
+  const graph = buildEnvGraph(context.manifest);
+  const binding = graph.bindings.find(
+    (candidate) =>
+      candidate.environment === environment && candidate.surface === surface && candidate.name === name
+  );
+
+  if (!context.manifest.env.custom[name]) {
+    throw new Error(
+      [
+        "FAIL env.custom.undeclared",
+        `Path: env.custom.${name}`,
+        `${name} is not declared in agentstack.config.json.`,
+        "Fix: Declare the custom env value in agentstack.config.json before setting a local value."
+      ].join("\n")
+    );
+  }
+
+  if (!binding) {
+    throw new Error(
+      [
+        "FAIL env.custom.out-of-scope",
+        `Path: ${environment}.${surface}.${name}`,
+        `${name} is not declared for ${surface} in ${environment}.`,
+        "Fix: Add the environment and surface to env.custom declaration or choose a declared binding."
+      ].join("\n")
+    );
+  }
+
+  const currentValues = await loadLocalEnvValues(io.cwd);
+  const nextValues = setEnvValue(currentValues, environment, surface, name, value);
+  const diagnosticPath = `${environment}.${surface}.${name}`;
+  const diagnostics = validateCustomEnvValues(context.manifest, nextValues).filter(
+    (diagnostic) => diagnostic.path === diagnosticPath && diagnostic.code === "env.custom.invalid-enum"
+  );
+  if (diagnostics.length > 0) {
+    throw new Error(diagnostics.map(formatDiagnostic).join("\n"));
+  }
+
+  await saveLocalEnvValues(io.cwd, nextValues);
+
+  io.write(`PASS env set ${environment} ${surface}.${name}`);
+  io.write(`Secret: ${binding.secret ? "yes" : "no"}`);
+  await recordCommandEvent(io, {
+    name: "agentstack.env.set.completed",
+    environment,
+    journey: "environment-sync",
+    command: ["env", "set", ...argv].join(" "),
+    status: "ok",
+    state: {
+      surface,
+      name,
+      secret: binding.secret,
+      changed: true
     }
   });
   return 0;
@@ -450,6 +538,34 @@ function readEnvironmentOption(
   );
 }
 
+function readSurfaceOption(
+  value: string | boolean | undefined,
+  options: { flag: string; fix: string }
+): SurfaceName {
+  if (typeof value !== "string") {
+    throw new Error(
+      [
+        "FAIL cli.option.missing",
+        `--${options.flag} requires a value.`,
+        `Expected one of: ${surfaceValues.join(", ")}.`,
+        `Fix: ${options.fix}`
+      ].join("\n")
+    );
+  }
+
+  if (isSurface(value)) {
+    return value;
+  }
+
+  throw new Error(
+    [
+      "FAIL cli.option.invalid",
+      `Invalid --${options.flag} value: ${value}. Expected one of: ${surfaceValues.join(", ")}.`,
+      `Fix: ${options.fix}`
+    ].join("\n")
+  );
+}
+
 function readTelemetryEnvironmentOption(
   value: string | boolean | undefined
 ): TelemetryEnvironment | undefined {
@@ -571,10 +687,42 @@ function isEnvironment(value: string): value is EnvironmentName {
   return environmentValues.includes(value as EnvironmentName);
 }
 
+function isSurface(value: string): value is SurfaceName {
+  return surfaceValues.includes(value as SurfaceName);
+}
+
 function isTelemetrySurface(value: string): value is TelemetrySurface {
   return telemetrySurfaceValues.includes(value as TelemetrySurface);
 }
 
 function readString(value: string | boolean | undefined): string | undefined {
   return typeof value === "string" ? value : undefined;
+}
+
+function setEnvValue(
+  values: EnvValueState,
+  environment: EnvironmentName,
+  surface: SurfaceName,
+  name: string,
+  value: string
+): EnvValueState {
+  return {
+    ...values,
+    [environment]: {
+      ...values[environment],
+      [surface]: {
+        ...values[environment]?.[surface],
+        [name]: value
+      }
+    }
+  };
+}
+
+async function saveLocalEnvValues(cwd: string, values: EnvValueState): Promise<void> {
+  await mkdir(join(cwd, ".agentstack"), { recursive: true });
+  await writeFile(
+    join(cwd, ".agentstack", "env-values.json"),
+    `${JSON.stringify(values, null, 2)}\n`,
+    "utf8"
+  );
 }

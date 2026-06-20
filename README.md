@@ -23,6 +23,7 @@ cd acme-crm
 export AGENTSTACK_CLI_BIN=../../packages/cli/src/bin.ts
 export AGENTSTACK_TSX_BIN=../../node_modules/.bin/tsx
 node scripts/agentstack.mjs add feature invoices --surfaces web,mobile --backend convex
+node scripts/agentstack.mjs env set --env preview --surface convex --name STRIPE_MODE --value sandbox
 pnpm run validate
 pnpm run env:inspect
 pnpm run sync:preview
@@ -36,6 +37,7 @@ Expected smoke output includes:
 ```text
 Created acme-crm
 CREATED feature invoices
+PASS env set preview convex.STRIPE_MODE
 PASS validate
 PASS env inspect preview
 PLAN preview

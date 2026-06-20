@@ -34,7 +34,15 @@
     }
   },
   "env": {
-    "custom": {}
+    "custom": {
+      "STRIPE_MODE": {
+        "surfaces": ["convex"],
+        "environments": ["preview", "production"],
+        "required": false,
+        "secret": false,
+        "validate": "enum:sandbox,live"
+      }
+    }
   },
   "telemetry": {
     "enabled": true,
