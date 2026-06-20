@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.agentstack/
+.env
+.env.*
+!.env.example
+coverage/
+tmp/
+.DS_Store
