@@ -27,6 +27,11 @@ const generatedAnchorFiles = [
   "docs/agentstack/mobile.md",
   "docs/agentstack/preview.md",
   "docs/agentstack/saas-spine.md",
+  "docs/agentstack/skills.md",
+  "skills/agentstack/SKILL.md",
+  "skills/agentstack/references/workflows.md",
+  "skills/agentstack/references/guardrails.md",
+  "skills/agentstack/references/observability.md",
   "packages/config/package.json",
   "packages/config/src/index.ts",
   "packages/telemetry/package.json",
@@ -89,6 +94,7 @@ describe("generateProject", () => {
         "mobile:build:plan": "node scripts/agentstack.mjs build mobile --env preview",
         "mobile:build:apply": "node scripts/agentstack.mjs build mobile --env preview --apply",
         "theme:validate": "node scripts/agentstack.mjs theme validate",
+        "skills:inspect": "node scripts/agentstack.mjs skills inspect",
         "sync:preview": "node scripts/agentstack.mjs sync --env preview",
         "sync:preview:apply": "node scripts/agentstack.mjs sync --env preview --apply",
         "observe:timeline": "node scripts/agentstack.mjs observe timeline --journey smoke --env preview"
@@ -127,6 +133,12 @@ describe("generateProject", () => {
       );
       await expect(readFile(join(targetDir, "docs/agentstack/saas-spine.md"), "utf8")).resolves.toContain(
         "Core SaaS Spine"
+      );
+      await expect(readFile(join(targetDir, "docs/agentstack/skills.md"), "utf8")).resolves.toContain(
+        "agentstack skills inspect"
+      );
+      await expect(readFile(join(targetDir, "skills/agentstack/SKILL.md"), "utf8")).resolves.toContain(
+        "No MCP dependency"
       );
       await expect(readFile(join(targetDir, "docs/agentstack/preview.md"), "utf8")).resolves.toContain(
         "local preview deploy rehearsal"

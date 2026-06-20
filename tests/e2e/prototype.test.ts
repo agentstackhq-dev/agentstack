@@ -115,6 +115,7 @@ describe("Agentstack executable prototype workflow", () => {
     expect(await runAgentstack(["sync", "--env", "preview", "--apply"], { cwd: appDir, write })).toBe(0);
     expect(await runAgentstack(["validate", "--cloud", "--env", "preview"], { cwd: appDir, write })).toBe(0);
     expect(await runAgentstack(["inspect", "--env", "preview"], { cwd: appDir, write })).toBe(0);
+    expect(await runAgentstack(["skills", "inspect"], { cwd: appDir, write })).toBe(0);
     expect(await runAgentstack(["doctor", "--env", "preview"], { cwd: appDir, write })).toBe(0);
     expect(await runAgentstack(["dev", "--env", "preview"], { cwd: appDir, write })).toBe(0);
     expect(await runAgentstack(["deploy", "--env", "preview"], { cwd: appDir, write })).toBe(0);
@@ -184,6 +185,12 @@ describe("Agentstack executable prototype workflow", () => {
       )
     ).toBe(0);
     expect(
+      await runAgentstack(
+        ["observe", "timeline", "--env", "development", "--journey", "agent-guidance"],
+        { cwd: appDir, write }
+      )
+    ).toBe(0);
+    expect(
       await runAgentstack(["observe", "timeline", "--env", "development", "--journey", "billing"], {
         cwd: appDir,
         write
@@ -198,6 +205,8 @@ describe("Agentstack executable prototype workflow", () => {
     expect(renderedOutput).toContain("PASS env set preview convex.STRIPE_MODE");
     expect(renderedOutput).toContain("PASS env inspect preview");
     expect(renderedOutput).toContain("PASS inspect acme-crm");
+    expect(renderedOutput).toContain("PASS skills inspect");
+    expect(renderedOutput).toContain("No MCP dependency");
     expect(renderedOutput).toContain("PASS doctor preview");
     expect(renderedOutput).toContain("PASS dev preflight preview");
     expect(renderedOutput).toContain("PLAN preview");
@@ -212,6 +221,7 @@ describe("Agentstack executable prototype workflow", () => {
     expect(renderedOutput).toContain("agentstack.validate.completed");
     expect(renderedOutput).toContain("agentstack.deploy.completed");
     expect(renderedOutput).toContain("agentstack.mobile.build.completed");
+    expect(renderedOutput).toContain("agentstack.skills.inspect.completed");
     expect(renderedOutput).toContain("agentstack.event.added");
     expect(renderedOutput).toContain("agentstack.billing-plan.added");
     expect(renderedOutput).toContain("[redacted]");

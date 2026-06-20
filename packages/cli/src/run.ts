@@ -4,7 +4,9 @@ import { LocalCloudAdapter } from "@agentstack/adapters";
 import {
   buildEnvGraph,
   createLifecycleSummary,
+  expectedAgentstackGuidanceVersion,
   formatDiagnostic,
+  getGuidanceGeneratedAnchors,
   getRequiredGeneratedAnchors,
   planTelemetryEventFiles,
   planBillingPlanFiles,
@@ -109,6 +111,10 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
 
     if (command === "theme" && subcommand === "validate") {
       return await themeValidateCommand(io);
+    }
+
+    if (command === "skills" && subcommand === "inspect") {
+      return await skillsInspectCommand(io);
     }
 
     if (command === "env" && subcommand === "inspect") {
@@ -233,6 +239,42 @@ async function inspectCommand(argv: string[], io: RunIo): Promise<number> {
     }
   });
   return 0;
+}
+
+async function skillsInspectCommand(io: RunIo): Promise<number> {
+  const validation = await runLocalValidationGate(io.cwd);
+  const guidanceAnchors = getGuidanceGeneratedAnchors(validation.context.manifest);
+  const missingGuidanceAnchors = guidanceAnchors.filter((anchor) =>
+    validation.missingAnchors.includes(anchor)
+  );
+  const staleDiagnostics = validation.diagnostics.filter(
+    (diagnostic) => diagnostic.code === "guidance.version.stale"
+  );
+
+  io.write(`${missingGuidanceAnchors.length > 0 ? "FAIL" : "PASS"} skills inspect`);
+  io.write(`Guidance version: ${validation.context.manifest.guidanceVersion}`);
+  io.write(`Expected guidance version: ${expectedAgentstackGuidanceVersion}`);
+  io.write("No MCP dependency");
+  staleDiagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
+  io.write("Guidance anchors:");
+  for (const anchor of guidanceAnchors) {
+    io.write(`- ${validation.missingAnchors.includes(anchor) ? "MISSING" : "PRESENT"} ${anchor}`);
+  }
+
+  await recordCommandEvent(io, {
+    name: "agentstack.skills.inspect.completed",
+    environment: "development",
+    journey: "agent-guidance",
+    command: "skills inspect",
+    status: missingGuidanceAnchors.length > 0 ? "fail" : "ok",
+    state: {
+      anchors: guidanceAnchors.length,
+      missing: missingGuidanceAnchors.length,
+      stale: staleDiagnostics.length
+    }
+  });
+
+  return missingGuidanceAnchors.length > 0 ? 1 : 0;
 }
 
 async function doctorCommand(argv: string[], io: RunIo): Promise<number> {

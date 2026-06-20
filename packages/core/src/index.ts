@@ -2,6 +2,7 @@ export * from "./diagnostics.js";
 export * from "./env-graph.js";
 export * from "./features.js";
 export * from "./billing-plans.js";
+export * from "./guidance.js";
 export * from "./lifecycle.js";
 export * from "./manifest.js";
 export * from "./mobile-build.js";

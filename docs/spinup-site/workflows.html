@@ -80,6 +80,7 @@ node scripts/agentstack.mjs add billing-plan pro --entitlements feature.auditLog
 node scripts/agentstack.mjs add event billing.subscription.updated --journey billing --surfaces web,convex --state plan:string,seatCount:number
 node scripts/agentstack.mjs env set --env preview --surface convex --name STRIPE_MODE --value sandbox
 pnpm run inspect
+pnpm run skills:inspect
 pnpm run validate
 pnpm run env:inspect
 pnpm run sync:preview
@@ -105,6 +106,7 @@ node scripts/agentstack.mjs observe timeline --env development --journey telemet
                   <li><code>add event</code> creates typed telemetry definitions and generated event docs.</li>
                   <li><code>env set</code> writes scoped local env state without exposing values in output.</li>
                   <li><code>inspect</code> summarizes app identity, generated anchors, enabled services, and preview local-cloud state.</li>
+                  <li><code>skills:inspect</code> confirms the versioned repo-local skill pack and no-MCP guidance contract are present.</li>
                   <li><code>validate</code> checks manifest, env, telemetry policy, and generated files.</li>
                   <li><code>env:inspect</code> prints expected preview services and env bindings.</li>
                   <li><code>sync:preview</code> plans local-cloud repair before apply.</li>

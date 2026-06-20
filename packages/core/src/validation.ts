@@ -1,5 +1,6 @@
 import { validateCustomEnvValues, type EnvValueState } from "./env-graph.js";
 import type { Diagnostic, Result } from "./diagnostics.js";
+import { getGuidanceGeneratedAnchors, validateGuidancePolicy } from "./guidance.js";
 import type { AgentstackManifest } from "./manifest.js";
 import { getSaasSpineGeneratedAnchors } from "./saas-spine.js";
 
@@ -20,7 +21,8 @@ export type GeneratedAnchorValidationInput = {
 export function validateLocalProject(input: LocalValidationInput): Result<LocalValidationReport> {
   const diagnostics: Diagnostic[] = [
     ...validateCustomEnvValues(input.manifest, input.envValues),
-    ...validateTelemetryPolicy(input.manifest)
+    ...validateTelemetryPolicy(input.manifest),
+    ...validateGuidancePolicy(input.manifest)
   ];
 
   if (diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
@@ -51,6 +53,7 @@ export function getRequiredGeneratedAnchors(manifest: AgentstackManifest): strin
 
   anchors.push(...manifest.generated.requiredAnchors);
   anchors.push(...getSaasSpineGeneratedAnchors(manifest));
+  anchors.push(...getGuidanceGeneratedAnchors(manifest));
 
   if (manifest.surfaces.includes("web")) {
     anchors.push("apps/web/package.json");
@@ -71,7 +74,7 @@ export function getRequiredGeneratedAnchors(manifest: AgentstackManifest): strin
     anchors.push("packages/telemetry/src/events.ts");
   }
 
-  return anchors;
+  return Array.from(new Set(anchors));
 }
 
 export function validateGeneratedAnchors(

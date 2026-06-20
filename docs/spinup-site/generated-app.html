@@ -67,7 +67,8 @@
               <div class="card"><h3>Theme contract</h3><p><code>packages/theme/tokens.json</code> is the source of truth. <code>@app/theme</code> imports it, and <code>@app/ui</code> uses token roles instead of hardcoded colors.</p></div>
               <div class="card"><h3>Feature workflow</h3><p><code>agentstack add feature &lt;name&gt; --surfaces web,mobile --backend convex</code> creates coordinated product anchors before surface code diverges.</p></div>
               <div class="card"><h3>Event workflow</h3><p><code>agentstack add event billing.subscription.updated --journey billing --surfaces web,convex --state plan:string,seatCount:number</code> creates typed telemetry files and generated event docs.</p></div>
-              <div class="card"><h3>Agent docs</h3><p><code>AGENTS.md</code> and <code>docs/agentstack/</code> teach agents the local workflow, feature-first generation, and boundaries.</p></div>
+              <div class="card"><h3>Agent docs</h3><p><code>AGENTS.md</code>, <code>docs/agentstack/</code>, and <code>skills/agentstack/</code> teach agents the local workflow, feature-first generation, and boundaries.</p></div>
+              <div class="card"><h3>Guidance skill pack</h3><p><code>skills/agentstack/SKILL.md</code> gives installable-skill-aware agents deeper workflows while <code>pnpm run skills:inspect</code> verifies version and file presence. There is no MCP dependency.</p></div>
               <div class="card"><h3>Safety defaults</h3><p>Generated <code>.gitignore</code> protects <code>.agentstack/</code>, <code>.env</code>, and <code>.env.*</code>.</p></div>
               <div class="card"><h3>Lifecycle scripts</h3><p><code>inspect</code>, <code>doctor</code>, and <code>dev</code> help agents read project state, run preflight checks, and list next commands before editing. <code>dev</code> does not start real servers in this prototype.</p></div>
               <div class="card"><h3>Scripts</h3><p><code>validate</code>, <code>env:inspect</code>, <code>sync:preview</code>, <code>validate:cloud</code>, <code>preview:deploy</code>, <code>preview:deploy:apply</code>, and <code>observe:timeline</code> delegate to an installed CLI or explicit source-prototype env vars.</p></div>
@@ -87,6 +88,7 @@
             <pre><code>packages/domain/src/saas-spine.ts        typed roles, memberships, plans, entitlements, audit events
 convex/saasSpine.ts                     Convex org, membership, and role authorization anchors
 docs/agentstack/saas-spine.md           agent-readable SaaS contract and workflow notes
+pnpm run skills:inspect                 guidance version and installable skill anchors
 pnpm run validate                       Clerk identity, Clerk webhooks, billing, entitlement, and audit anchors</code></pre>
           </section>
 
@@ -119,6 +121,11 @@ pnpm run validate                       Clerk identity, Clerk webhooks, billing,
                   <td>Lifecycle preflight</td>
                   <td>Run <code>inspect</code>, <code>doctor</code>, then <code>dev</code> before provider-facing work.</td>
                   <td><code>dev</code> prints next commands only; real web, mobile, Convex, Expo, and provider servers are future work.</td>
+                </tr>
+                <tr>
+                  <td>Agent guidance</td>
+                  <td>Run <code>skills:inspect</code>, then read <code>skills/agentstack/SKILL.md</code> and matching references for the task.</td>
+                  <td>The framework gives agents versioned workflows without making MCP part of the product contract.</td>
                 </tr>
                 <tr>
                   <td>Local preview deploy rehearsal</td>

@@ -27,6 +27,7 @@ node scripts/agentstack.mjs add billing-plan pro --entitlements feature.auditLog
 node scripts/agentstack.mjs add event billing.subscription.updated --journey billing --surfaces web,convex --state plan:string,seatCount:number
 node scripts/agentstack.mjs env set --env preview --surface convex --name STRIPE_MODE --value sandbox
 pnpm run inspect
+pnpm run skills:inspect
 pnpm run validate
 pnpm run env:inspect
 pnpm run sync:preview
@@ -54,6 +55,7 @@ CREATED billing-plan pro
 CREATED event billing.subscription.updated
 PASS env set preview convex.STRIPE_MODE
 PASS inspect acme-crm
+PASS skills inspect
 PASS validate
 PASS env inspect preview
 PLAN preview
@@ -78,6 +80,7 @@ agentstack.event.added
 - `agentstack add billing-plan <name> --entitlements <keys> --seats <count>` creates coordinated billing-plan anchors across domain, Convex, web, mobile, telemetry, and docs.
 - `agentstack add event <name> --journey <journey> --surfaces web,mobile,convex --state key:type` creates typed app telemetry event definitions and local event docs.
 - `pnpm run inspect` summarizes app identity, framework and guidance versions, generated anchor counts, enabled services, and preview local-cloud state.
+- `pnpm run skills:inspect` checks the versioned repo-local skill pack, prints required guidance anchors, and confirms there is no MCP dependency.
 - `pnpm run doctor` runs local validation plus preview local-cloud checks and prints repair commands before provider, env, build, sync, or deploy work.
 - `pnpm run dev` is a local preflight only. It prints next commands such as validation, env inspection, sync, web dev, and mobile dev; this prototype does not start real web, mobile, Convex, Expo, or provider servers.
 - `pnpm run validate` checks the local Agentstack manifest, generated anchors, env value shape, telemetry policy, and source-secret policy through an installed `agentstack` CLI, or through `AGENTSTACK_CLI_BIN` for local source prototypes.

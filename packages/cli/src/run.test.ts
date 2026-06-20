@@ -266,6 +266,57 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("agentstack.doctor.completed");
   });
 
+  it("inspects generated Agentstack guidance skills", async () => {
+    const code = await runAgentstack(["skills", "inspect"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS skills inspect");
+    expect(output.join("\n")).toContain("Guidance version: 2026-06-20");
+    expect(output.join("\n")).toContain("skills/agentstack/SKILL.md");
+    expect(output.join("\n")).toContain("No MCP dependency");
+
+    output = [];
+    expect(
+      await runAgentstack(
+        ["observe", "timeline", "--env", "development", "--journey", "agent-guidance"],
+        {
+          cwd: dir,
+          write: (line) => output.push(line)
+        }
+      )
+    ).toBe(0);
+    expect(output.join("\n")).toContain("agentstack.skills.inspect.completed");
+  });
+
+  it("fails guidance skill inspection when a guidance anchor is missing", async () => {
+    await rm(join(dir, "skills/agentstack/SKILL.md"), { force: true });
+
+    const code = await runAgentstack(["skills", "inspect"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL skills inspect");
+    expect(output.join("\n")).toContain("- MISSING skills/agentstack/SKILL.md");
+
+    output = [];
+    expect(
+      await runAgentstack(
+        ["observe", "timeline", "--env", "development", "--journey", "agent-guidance"],
+        {
+          cwd: dir,
+          write: (line) => output.push(line)
+        }
+      )
+    ).toBe(0);
+    expect(output.join("\n")).toContain("agentstack.skills.inspect.completed");
+    expect(output.join("\n")).toContain('"status":"fail"');
+  });
+
   it("loads local custom env values during validation", async () => {
     const manifest = createDefaultManifest("acme-crm");
     manifest.environments = ["preview"];
@@ -1712,6 +1763,11 @@ async function writeGeneratedAnchors(): Promise<void> {
     "apps/mobile/app.config.ts",
     "apps/mobile/eas.json",
     "docs/agentstack/mobile.md",
+    "docs/agentstack/skills.md",
+    "skills/agentstack/SKILL.md",
+    "skills/agentstack/references/workflows.md",
+    "skills/agentstack/references/guardrails.md",
+    "skills/agentstack/references/observability.md",
     "convex/schema.ts",
     "convex/saasSpine.ts",
     "packages/domain/src/index.ts",

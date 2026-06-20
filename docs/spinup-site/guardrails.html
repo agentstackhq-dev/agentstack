@@ -59,6 +59,10 @@
                 <p>Required files include root package/workspace files, docs, web/mobile packages, Convex schema, domain/theme, and telemetry anchors. Directories do not count as files.</p>
               </div>
               <div class="card">
+                <h3>Guidance version</h3>
+                <p><code>agentstack skills inspect</code> checks <code>skills/agentstack/</code> and <code>docs/agentstack/skills.md</code>. Missing guidance files fail as anchors; stale guidance versions warn without blocking local validation.</p>
+              </div>
+              <div class="card">
                 <h3>Custom env values</h3>
                 <p><code>.agentstack/env-values.json</code> is validated as environment -> surface -> variable -> string. It is ignored by generated <code>.gitignore</code>.</p>
               </div>
@@ -116,6 +120,12 @@ APPLIED deploy preview
 
 APPLIED mobile build preview
 - applied eas profile preview distribution internal development-client=no</code></pre>
+              <pre><code>PASS skills inspect
+Guidance version: 2026-06-20
+Expected guidance version: 2026-06-20
+No MCP dependency
+Guidance anchors:
+- PRESENT skills/agentstack/SKILL.md</code></pre>
               <div class="card">
                 <h3>Why this matters</h3>
                 <p>

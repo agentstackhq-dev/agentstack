@@ -6,6 +6,7 @@ export const surfaceSchema = z.enum(["web", "mobile", "convex"]);
 export const serviceSchema = z.enum(["clerk", "convex", "vercel", "eas"]);
 export const serviceModeSchema = z.enum(["managed", "external", "manual"]);
 export const telemetryLevelSchema = z.enum(["off", "debug", "journey", "audit"]);
+export const expectedAgentstackGuidanceVersion = "2026-06-20";
 
 const allEnvironments = ["development", "preview", "production"] as const;
 
@@ -36,7 +37,7 @@ export const customEnvSchema = z.object({
 
 export const manifestSchema = z.object({
   frameworkVersion: z.string().min(1).default("0.0.0"),
-  guidanceVersion: z.string().min(1).default("2026-06-20"),
+  guidanceVersion: z.string().min(1).default(expectedAgentstackGuidanceVersion),
   app: z.object({
     name: z.string().min(1),
     slug: z.string().regex(/^[a-z0-9-]+$/)
@@ -91,7 +92,7 @@ export function createDefaultManifest(slug: string): AgentstackManifest {
 
   const candidate = {
     frameworkVersion: "0.0.0",
-    guidanceVersion: "2026-06-20",
+    guidanceVersion: expectedAgentstackGuidanceVersion,
     app: { name, slug },
     environments: ["development", "preview", "production"],
     surfaces: ["web", "mobile", "convex"],

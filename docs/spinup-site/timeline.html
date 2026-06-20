@@ -104,6 +104,10 @@
                 <h3>Billing plan generation</h3>
                 <p>Added <code>agentstack add billing-plan</code> so agents can create coordinated billing-plan anchors across domain, Convex, web, mobile, telemetry, docs, and the <code>billing</code> telemetry journey.</p>
               </div>
+              <div class="event">
+                <h3>Versioned agent guidance</h3>
+                <p>Added <code>skills/agentstack/</code>, <code>docs/agentstack/skills.md</code>, guidance-version validation warnings, and <code>agentstack skills inspect</code> so agents get installable workflows without MCP as a product dependency.</p>
+              </div>
             </div>
           </section>
 
@@ -129,6 +133,10 @@
               <div class="card">
                 <h3>Template docs are part of validation</h3>
                 <p>Generated docs, package/workspace files, surface anchors, and non-file cases are all mechanically checked.</p>
+              </div>
+              <div class="card">
+                <h3>Guidance needs its own contract</h3>
+                <p>Concise <code>AGENTS.md</code> rules are not enough for deep workflows. The generated skill pack is versioned, inspectable, and still portable to agents that do not support installable skills.</p>
               </div>
             </div>
           </section>

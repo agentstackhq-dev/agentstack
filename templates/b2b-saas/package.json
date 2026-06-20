@@ -23,6 +23,7 @@
     "mobile:build:plan": "node scripts/agentstack.mjs build mobile --env preview",
     "mobile:build:apply": "node scripts/agentstack.mjs build mobile --env preview --apply",
     "theme:validate": "node scripts/agentstack.mjs theme validate",
+    "skills:inspect": "node scripts/agentstack.mjs skills inspect",
     "sync:preview": "node scripts/agentstack.mjs sync --env preview",
     "sync:preview:apply": "node scripts/agentstack.mjs sync --env preview --apply",
     "observe:timeline": "node scripts/agentstack.mjs observe timeline --journey smoke --env preview"
