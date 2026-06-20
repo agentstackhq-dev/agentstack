@@ -36,6 +36,21 @@ importers:
         specifier: workspace:*
         version: link:../core
 
+  packages/cli:
+    dependencies:
+      '@agentstack/adapters':
+        specifier: workspace:*
+        version: link:../adapters
+      '@agentstack/core':
+        specifier: workspace:*
+        version: link:../core
+      '@agentstack/telemetry':
+        specifier: workspace:*
+        version: link:../telemetry
+      commander:
+        specifier: ^12.1.0
+        version: 12.1.0
+
   packages/core:
     dependencies:
       zod:

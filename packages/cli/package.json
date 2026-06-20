@@ -1,0 +1,13 @@
+{
+  "name": "@agentstack/cli",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "bin": { "agentstack": "src/bin.ts" },
+  "dependencies": {
+    "@agentstack/adapters": "workspace:*",
+    "@agentstack/core": "workspace:*",
+    "@agentstack/telemetry": "workspace:*",
+    "commander": "^12.1.0"
+  }
+}
