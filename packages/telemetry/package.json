@@ -1,0 +1,9 @@
+{
+  "name": "@agentstack/telemetry",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}
