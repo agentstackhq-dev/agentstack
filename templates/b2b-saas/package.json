@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "validate": "agentstack validate",
-    "validate:cloud": "agentstack validate --cloud",
-    "init:cloud": "agentstack init cloud"
+    "validate": "node scripts/agentstack.mjs validate",
+    "validate:cloud": "node scripts/agentstack.mjs validate --cloud",
+    "init:cloud": "node scripts/agentstack.mjs init cloud"
   },
   "workspaces": ["apps/*", "packages/*"]
 }

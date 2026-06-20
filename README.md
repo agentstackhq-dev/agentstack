@@ -20,9 +20,9 @@ mkdir -p tmp
 cd tmp
 ../node_modules/.bin/tsx ../packages/create-agent-stack/src/bin.ts acme-crm
 cd acme-crm
-../../node_modules/.bin/tsx ../../packages/cli/src/bin.ts validate
-../../node_modules/.bin/tsx ../../packages/cli/src/bin.ts init cloud
-../../node_modules/.bin/tsx ../../packages/cli/src/bin.ts validate --cloud
+pnpm run validate
+pnpm run init:cloud
+pnpm run validate:cloud
 ```
 
 Expected smoke output includes:
@@ -37,6 +37,6 @@ APPLIED preview
 ## Prototype Commands
 
 - `create-agent-stack <app-name>` copies the B2B SaaS template into a new project directory.
-- `agentstack validate` checks the local Agentstack manifest and command contract.
-- `agentstack init cloud` applies development and preview state through the local-cloud adapter.
-- `agentstack validate --cloud` compares the project manifest with the adapter state.
+- `pnpm run validate` checks the local Agentstack manifest and command contract in a generated project.
+- `pnpm run init:cloud` applies development and preview state through the generated local-cloud prototype.
+- `pnpm run validate:cloud` compares the project manifest with the generated local-cloud state.

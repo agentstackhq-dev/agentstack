@@ -1,6 +1,8 @@
 import { mkdtemp, readFile, readdir, rm, stat } from "node:fs/promises";
+import { execFile } from "node:child_process";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
+import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, test } from "vitest";
@@ -14,6 +16,7 @@ const packageManifestPath = join(packageRoot, "package.json");
 const rootTemplateDir = join(repoRoot, "templates/b2b-saas");
 const packageTemplateDir = join(packageRoot, "templates/b2b-saas");
 const templateTokens = ["__APP_SLUG__", "__APP_NAME__"];
+const execFileAsync = promisify(execFile);
 
 describe("generateProject", () => {
   test("generates a B2B SaaS project with app tokens replaced", async () => {
@@ -29,8 +32,27 @@ describe("generateProject", () => {
       const agents = await readFile(join(targetDir, "AGENTS.md"), "utf8");
 
       expect(manifest.app.slug).toBe("acme-crm");
-      expect(agents).toContain("Run `agentstack validate` before completion.");
+      expect(agents).toContain("Run `pnpm run validate` before completion.");
       await expectNoTemplateTokens(targetDir);
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  test("generates package scripts that execute from the generated project", async () => {
+    const tempRoot = await mkdtemp(join(tmpdir(), "agentstack-create-"));
+    const targetDir = join(tempRoot, "acme-crm");
+
+    try {
+      await generateProject({ name: "acme-crm", targetDir });
+
+      await expect(runPackageScript(targetDir, "validate")).resolves.toContain(
+        "PASS validate"
+      );
+      await expect(runPackageScript(targetDir, "init:cloud")).resolves.toContain(
+        "APPLIED preview"
+      );
+      await expect(runPackageScript(targetDir, "validate:cloud")).resolves.toBeDefined();
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }
@@ -60,7 +82,7 @@ describe("packaged template", () => {
     ).resolves.toContain("__APP_SLUG__");
     await expect(
       readFile(join(packageTemplateDir, "AGENTS.md"), "utf8")
-    ).resolves.toContain("Run `agentstack validate` before completion.");
+    ).resolves.toContain("Run `pnpm run validate` before completion.");
   });
 
   test("keeps repo-root and package-local templates identical", async () => {
@@ -101,6 +123,11 @@ async function expectNoTemplateTokens(directory: string): Promise<void> {
       }
     })
   );
+}
+
+async function runPackageScript(cwd: string, script: string): Promise<string> {
+  const { stdout, stderr } = await execFileAsync("pnpm", ["run", script], { cwd });
+  return `${stdout}${stderr}`;
 }
 
 async function listFiles(directory: string): Promise<string[]> {
