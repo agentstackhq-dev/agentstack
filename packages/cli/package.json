@@ -3,11 +3,12 @@
   "version": "0.0.0",
   "type": "module",
   "main": "src/index.ts",
-  "bin": { "agentstack": "src/bin.ts" },
+  "bin": { "agentstack": "src/bin.js" },
   "dependencies": {
     "@agentstack/adapters": "workspace:*",
     "@agentstack/core": "workspace:*",
     "@agentstack/telemetry": "workspace:*",
-    "commander": "^12.1.0"
+    "commander": "^12.1.0",
+    "tsx": "^4.19.2"
   }
 }

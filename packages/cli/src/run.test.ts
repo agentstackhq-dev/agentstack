@@ -1,10 +1,15 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createDefaultManifest } from "@agentstack/core";
 import { createWideEvent, JsonlTelemetryStore } from "@agentstack/telemetry";
 import { runAgentstack } from "./index.js";
+
+const packageDir = dirname(dirname(fileURLToPath(import.meta.url)));
+const packageManifestPath = join(packageDir, "package.json");
+const packageShimPath = join(packageDir, "src/bin.js");
 
 let dir: string;
 let output: string[];
@@ -261,6 +266,20 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("--env requires a value.");
     expect(output.join("\n")).toContain("Expected one of: development, preview, production.");
     expect(output.join("\n")).toContain("Fix: Run agentstack sync --env preview --apply.");
+  });
+});
+
+describe("package metadata", () => {
+  it("exposes a self-contained Node shim for the installed agentstack bin", async () => {
+    const packageManifest = JSON.parse(
+      await readFile(packageManifestPath, "utf8")
+    );
+
+    expect(packageManifest.bin.agentstack).toBe("src/bin.js");
+    expect(packageManifest.dependencies).toHaveProperty("tsx");
+    await expect(stat(packageShimPath)).resolves.toMatchObject({
+      isFile: expect.any(Function)
+    });
   });
 });
 
