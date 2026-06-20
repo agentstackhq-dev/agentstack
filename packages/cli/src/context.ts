@@ -1,6 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { formatDiagnostic, parseManifest, type AgentstackManifest } from "@agentstack/core";
+import {
+  createMissingGeneratedAnchorDiagnostic,
+  formatDiagnostic,
+  parseManifest,
+  type AgentstackManifest
+} from "@agentstack/core";
 
 export type ProjectContext = {
   cwd: string;
@@ -15,7 +20,7 @@ export async function loadProjectContext(cwd: string): Promise<ProjectContext> {
     raw = await readFile(path, "utf8");
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      throw new Error(`FAIL manifest.missing\nMissing agentstack.config.json in ${cwd}.`);
+      throw new Error(formatDiagnostic(createMissingGeneratedAnchorDiagnostic("agentstack.config.json")));
     }
     throw error;
   }

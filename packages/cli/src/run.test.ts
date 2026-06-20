@@ -49,6 +49,19 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("Path: apps/web/package.json");
   });
 
+  it("reports a missing manifest config as a required generated anchor", async () => {
+    await rm(join(dir, "agentstack.config.json"));
+
+    const code = await runAgentstack(["validate"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL template.anchor.missing");
+    expect(output.join("\n")).toContain("Path: agentstack.config.json");
+  });
+
   it("fails cloud validation when cloud state is missing", async () => {
     const code = await runAgentstack(["validate", "--cloud"], {
       cwd: dir,

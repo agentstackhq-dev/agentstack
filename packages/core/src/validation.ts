@@ -65,20 +65,24 @@ export function validateGeneratedAnchors(
   const required = new Set(getRequiredGeneratedAnchors(input.manifest));
   const diagnostics: Diagnostic[] = input.missingPaths
     .filter((path) => required.has(path))
-    .map((path) => ({
-      severity: "fail",
-      code: "template.anchor.missing",
-      path,
-      message: `Required generated file is missing: ${path}.`,
-      fix: "Restore the generated anchor or rerun agentstack init for this project.",
-      blocks: ["validate", "validate --cloud", "deploy"]
-    }));
+    .map(createMissingGeneratedAnchorDiagnostic);
 
   if (diagnostics.length > 0) {
     return { ok: false, diagnostics };
   }
 
   return { ok: true, value: { diagnostics }, diagnostics };
+}
+
+export function createMissingGeneratedAnchorDiagnostic(path: string): Diagnostic {
+  return {
+    severity: "fail",
+    code: "template.anchor.missing",
+    path,
+    message: `Required generated file is missing: ${path}.`,
+    fix: "Restore the generated anchor or rerun agentstack init for this project.",
+    blocks: ["validate", "validate --cloud", "deploy"]
+  };
 }
 
 function validateTelemetryPolicy(manifest: AgentstackManifest): Diagnostic[] {
