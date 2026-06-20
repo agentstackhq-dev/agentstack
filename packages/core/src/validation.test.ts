@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createDefaultManifest } from "./manifest.js";
-import { validateLocalProject } from "./validation.js";
+import { getRequiredGeneratedAnchors, validateGeneratedAnchors, validateLocalProject } from "./validation.js";
 
 describe("local validation", () => {
   it("passes a valid default manifest", () => {
@@ -43,6 +43,33 @@ describe("local validation", () => {
       expect.objectContaining({
         severity: "fail",
         code: "telemetry.redaction.disabled"
+      })
+    ]);
+  });
+
+  it("includes manifest-declared generated anchors in required anchors", () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.generated.requiredAnchors = ["docs/agentstack/auth.md", "packages/config/src/index.ts"];
+
+    expect(getRequiredGeneratedAnchors(manifest)).toEqual(
+      expect.arrayContaining(["docs/agentstack/auth.md", "packages/config/src/index.ts"])
+    );
+  });
+
+  it("fails generated anchor validation for missing manifest-declared anchors", () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.generated.requiredAnchors = ["docs/agentstack/auth.md"];
+
+    const result = validateGeneratedAnchors({
+      manifest,
+      missingPaths: ["docs/agentstack/auth.md"]
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({
+        code: "template.anchor.missing",
+        path: "docs/agentstack/auth.md"
       })
     ]);
   });

@@ -18,6 +18,108 @@ afterEach(async () => {
 });
 
 describe("local-cloud adapter", () => {
+  it("inspects expected, linked, missing, and stale service resources for an environment", async () => {
+    const adapter = new LocalCloudAdapter(dir);
+    const manifest = createDefaultManifest("acme-crm");
+
+    await mkdir(join(dir, ".agentstack"), { recursive: true });
+    await writeFile(
+      statePath(),
+      `${JSON.stringify(
+        {
+          services: [
+            {
+              environment: "preview",
+              service: "clerk",
+              linked: true,
+              env: {}
+            },
+            {
+              environment: "preview",
+              service: "legacy" as never,
+              linked: true,
+              env: {}
+            },
+            {
+              environment: "production",
+              service: "convex",
+              linked: true,
+              env: {}
+            }
+          ]
+        },
+        null,
+        2
+      )}\n`,
+      "utf8"
+    );
+
+    const report = await adapter.inspect(manifest, "preview");
+
+    expect(report.environment).toBe("preview");
+    expect(report.expected.map((resource) => resource.service)).toEqual(["clerk", "convex", "vercel", "eas"]);
+    expect(report.linked.map((resource) => resource.service)).toEqual(["clerk"]);
+    expect(report.missing.map((resource) => resource.service)).toEqual(["convex", "vercel", "eas"]);
+    expect(report.stale.map((resource) => resource.service)).toEqual(["legacy"]);
+  });
+
+  it("plans service lifecycle changes from an inspect report", async () => {
+    const adapter = new LocalCloudAdapter(dir);
+    const manifest = createDefaultManifest("acme-crm");
+
+    await mkdir(join(dir, ".agentstack"), { recursive: true });
+    await writeFile(
+      statePath(),
+      `${JSON.stringify(
+        {
+          services: [
+            {
+              environment: "preview",
+              service: "clerk",
+              linked: true,
+              env: {}
+            },
+            {
+              environment: "preview",
+              service: "legacy" as never,
+              linked: true,
+              env: {}
+            }
+          ]
+        },
+        null,
+        2
+      )}\n`,
+      "utf8"
+    );
+
+    const report = await adapter.inspect(manifest, "preview");
+    const plan = adapter.plan(report);
+
+    expect(plan).toEqual({
+      environment: "preview",
+      changes: [
+        { action: "link", environment: "preview", service: "convex" },
+        { action: "link", environment: "preview", service: "vercel" },
+        { action: "link", environment: "preview", service: "eas" },
+        { action: "unlink", environment: "preview", service: "legacy" }
+      ]
+    });
+  });
+
+  it("requires explicit production apply acknowledgement for lifecycle application", async () => {
+    const adapter = new LocalCloudAdapter(dir);
+    const manifest = createDefaultManifest("acme-crm");
+    const plan = adapter.plan(await adapter.inspect(manifest, "production"));
+
+    await expect(adapter.apply(plan)).rejects.toThrow("Production local-cloud mutations require explicit confirmation.");
+    await expect(adapter.apply(plan, { confirmProduction: true })).resolves.toEqual({
+      environment: "production",
+      changes: plan.changes,
+      applied: true
+    });
+  });
+
   it("detects missing managed service state", async () => {
     const adapter = new LocalCloudAdapter(dir);
     const diagnostics = await adapter.validate(createDefaultManifest("acme-crm"), "preview");

@@ -31,6 +31,25 @@ describe("wide telemetry events", () => {
     expect(event.state).toEqual({ plan: "pro" });
   });
 
+  it("creates timeline-friendly metadata fields when provided", () => {
+    const event = createWideEvent("cli.validate.completed", {
+      environment: "preview",
+      surface: "cli",
+      schemaVersion: "wide.v2",
+      component: "cli",
+      command: "validate --cloud --env preview",
+      status: "ok",
+      correlationId: "corr_123"
+    });
+
+    expect(event).toMatchObject({
+      schemaVersion: "wide.v2",
+      component: "cli",
+      command: "validate --cloud --env preview",
+      status: "ok"
+    });
+  });
+
   it("redacts secret-like state values", () => {
     const event = createWideEvent("auth.session.created", {
       environment: "production",
@@ -41,14 +60,14 @@ describe("wide telemetry events", () => {
       state: {
         email: "person@example.com",
         CLERK_SECRET_KEY: "sk_live_secret",
-        nested: { token: "abc123" }
+        nested: { token: "abc123", owner: "owner@example.com", reference: "pk_test_123" }
       }
     });
 
     expect(redactEvent(event).state).toEqual({
       email: "[redacted]",
       CLERK_SECRET_KEY: "[redacted]",
-      nested: { token: "[redacted]" }
+      nested: { token: "[redacted]", owner: "[redacted]", reference: "[redacted]" }
     });
   });
 
@@ -70,6 +89,53 @@ describe("wide telemetry events", () => {
     expect(events[0]?.name).toBe("billing.subscription.updated");
     expect(events[0]?.actorId).toBe("[redacted]");
     expect(events[0]?.state).toEqual({ plan: "pro", token: "[redacted]" });
+  });
+
+  it("returns a redacted filtered timeline sorted chronologically", async () => {
+    const store = new JsonlTelemetryStore(join(dir, "events.jsonl"));
+    await store.append({
+      ...createWideEvent("cli.validate.completed", {
+        environment: "preview",
+        surface: "cli",
+        journey: "validation",
+        actorId: "user_123",
+        correlationId: "corr_123",
+        state: { apiKey: "sk_live_secret" }
+      }),
+      timestamp: "2026-06-20T10:00:03.000Z"
+    });
+    await store.append({
+      ...createWideEvent("cli.env.inspect.started", {
+        environment: "preview",
+        surface: "cli",
+        journey: "validation",
+        actorId: "user_456",
+        correlationId: "corr_456",
+        state: { email: "person@example.com" }
+      }),
+      timestamp: "2026-06-20T10:00:01.000Z"
+    });
+    await store.append({
+      ...createWideEvent("cli.validate.completed", {
+        environment: "production",
+        surface: "cli",
+        journey: "validation",
+        correlationId: "corr_789"
+      }),
+      timestamp: "2026-06-20T10:00:02.000Z"
+    });
+
+    const events = await store.timeline({ environment: "preview", journey: "validation" });
+
+    expect(events.map((event) => event.name)).toEqual([
+      "cli.env.inspect.started",
+      "cli.validate.completed"
+    ]);
+    expect(events.map((event) => event.actorId)).toEqual(["[redacted]", "[redacted]"]);
+    expect(events.map((event) => event.state)).toEqual([
+      { email: "[redacted]" },
+      { apiKey: "[redacted]" }
+    ]);
   });
 
   it("preserves concurrent appends", async () => {

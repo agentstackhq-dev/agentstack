@@ -2,6 +2,7 @@ import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import { LocalCloudAdapter } from "@agentstack/adapters";
 import {
+  buildEnvGraph,
   formatDiagnostic,
   getRequiredGeneratedAnchors,
   validateGeneratedAnchors,
@@ -10,6 +11,7 @@ import {
   type EnvironmentName
 } from "@agentstack/core";
 import {
+  createWideEvent,
   JsonlTelemetryStore,
   type TelemetryEnvironment,
   type TelemetryQuery,
@@ -58,6 +60,10 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
       return await syncCommand(argv.slice(1), io);
     }
 
+    if (command === "env" && subcommand === "inspect") {
+      return await envInspectCommand(rest, io);
+    }
+
     if (command === "init" && subcommand === "cloud") {
       return await initCloudCommand(io);
     }
@@ -87,21 +93,61 @@ async function validateCommand(argv: string[], io: RunIo): Promise<number> {
   diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
 
   if (!localResult.ok || !anchorResult.ok) {
+    await recordCommandEvent(io, {
+      name: "agentstack.validate.completed",
+      environment: "development",
+      journey: "validation",
+      command: ["validate", ...argv].join(" "),
+      status: "fail",
+      state: { diagnostics: diagnostics.length }
+    });
     return 1;
   }
 
   if (options.cloud) {
+    const environment =
+      options.env === undefined
+        ? "preview"
+        : readEnvironmentOption(options.env, {
+            flag: "env",
+            fix: "Run agentstack validate --cloud --env preview."
+          });
     const adapter = new LocalCloudAdapter(io.cwd);
-    const diagnostics = await adapter.validate(context.manifest, "preview");
+    const diagnostics = await adapter.validate(context.manifest, environment);
     diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
     if (diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
+      await recordCommandEvent(io, {
+        name: "agentstack.validate.completed",
+        environment,
+        journey: "validation",
+        command: ["validate", ...argv].join(" "),
+        status: "fail",
+        state: { diagnostics: diagnostics.length }
+      });
       return 1;
     }
     io.write("PASS validate --cloud");
+    io.write(`Environment: ${environment}`);
+    await recordCommandEvent(io, {
+      name: "agentstack.validate.completed",
+      environment,
+      journey: "validation",
+      command: ["validate", ...argv].join(" "),
+      status: "ok",
+      state: { diagnostics: diagnostics.length }
+    });
     return 0;
   }
 
   io.write("PASS validate");
+  await recordCommandEvent(io, {
+    name: "agentstack.validate.completed",
+    environment: "development",
+    journey: "validation",
+    command: ["validate", ...argv].join(" "),
+    status: "ok",
+    state: { diagnostics: diagnostics.length }
+  });
   return 0;
 }
 
@@ -139,6 +185,51 @@ async function syncCommand(argv: string[], io: RunIo): Promise<number> {
 
   io.write(`${plan.applied ? "APPLIED" : "PLAN"} ${plan.environment}`);
   plan.changes.forEach((change) => io.write(`- ${change}`));
+  await recordCommandEvent(io, {
+    name: "agentstack.sync.completed",
+    environment,
+    journey: "environment-sync",
+    command: ["sync", ...argv].join(" "),
+    status: "ok",
+    state: { applied: plan.applied, changes: plan.changes }
+  });
+  return 0;
+}
+
+async function envInspectCommand(argv: string[], io: RunIo): Promise<number> {
+  const options = parseOptions(argv);
+  const environment = readEnvironmentOption(options.env, {
+    flag: "env",
+    fix: "Run agentstack env inspect --env preview."
+  });
+  const context = await loadProjectContext(io.cwd);
+  const graph = buildEnvGraph(context.manifest);
+  const adapter = new LocalCloudAdapter(io.cwd);
+  const report = await adapter.inspect(context.manifest, environment);
+  const linked = new Set(report.linked.map((resource) => resource.service));
+
+  io.write(`PASS env inspect ${environment}`);
+  for (const resource of report.expected) {
+    io.write(`- service ${resource.service} linked=${linked.has(resource.service) ? "yes" : "no"}`);
+  }
+  for (const binding of graph.bindings.filter((candidate) => candidate.environment === environment)) {
+    io.write(
+      `- env ${binding.surface}.${binding.name} required=${binding.required ? "yes" : "no"} secret=${binding.secret ? "yes" : "no"}`
+    );
+  }
+
+  await recordCommandEvent(io, {
+    name: "agentstack.env.inspect.completed",
+    environment,
+    journey: "environment-sync",
+    command: ["env", "inspect", ...argv].join(" "),
+    status: "ok",
+    state: {
+      expectedServices: report.expected.map((resource) => resource.service),
+      linkedServices: report.linked.map((resource) => resource.service),
+      missingServices: report.missing.map((resource) => resource.service)
+    }
+  });
   return 0;
 }
 
@@ -158,7 +249,7 @@ async function initCloudCommand(io: RunIo): Promise<number> {
 async function observeCommand(argv: string[], io: RunIo): Promise<number> {
   const [mode, ...rest] = argv;
 
-  if (mode !== "query") {
+  if (mode !== "query" && mode !== "timeline") {
     io.write("FAIL cli.unknown-command");
     return 1;
   }
@@ -179,7 +270,7 @@ async function observeCommand(argv: string[], io: RunIo): Promise<number> {
     correlationId: readString(options.correlation),
     journeyId: readString(options["journey-id"])
   };
-  const events = await store.query(query);
+  const events = mode === "timeline" ? await store.timeline(query) : await store.query(query);
 
   io.write(`PASS observe ${mode} ${events.length}`);
   for (const event of events) {
@@ -187,7 +278,41 @@ async function observeCommand(argv: string[], io: RunIo): Promise<number> {
     io.write(JSON.stringify(event.state));
   }
 
+  await recordCommandEvent(io, {
+    name: "agentstack.observe.completed",
+    environment: query.environment ?? "development",
+    journey: "observability",
+    command: ["observe", ...argv].join(" "),
+    status: "ok",
+    state: { mode, events: events.length }
+  });
   return 0;
+}
+
+async function recordCommandEvent(
+  io: RunIo,
+  input: {
+    name: string;
+    environment: TelemetryEnvironment;
+    journey: string;
+    command: string;
+    status: string;
+    state: Record<string, unknown>;
+  }
+): Promise<void> {
+  const store = new JsonlTelemetryStore(join(io.cwd, ".agentstack", "events.jsonl"));
+  await store.append(
+    createWideEvent(input.name, {
+      environment: input.environment,
+      surface: "cli",
+      schemaVersion: "wide.v2",
+      component: "agentstack-cli",
+      command: input.command,
+      status: input.status,
+      journey: input.journey,
+      state: input.state
+    })
+  );
 }
 
 function parseOptions(argv: string[]): ParsedOptions {

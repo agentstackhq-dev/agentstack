@@ -46,6 +46,8 @@ export function getRequiredGeneratedAnchors(manifest: AgentstackManifest): strin
     "packages/theme/src/index.ts"
   ];
 
+  anchors.push(...manifest.generated.requiredAnchors);
+
   if (manifest.surfaces.includes("web")) {
     anchors.push("apps/web/package.json");
   }

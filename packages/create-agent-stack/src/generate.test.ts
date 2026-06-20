@@ -19,6 +19,21 @@ const rootTemplateDir = join(repoRoot, "templates/b2b-saas");
 const packageTemplateDir = join(packageRoot, "templates/b2b-saas");
 const templateTokens = ["__APP_SLUG__", "__APP_NAME__"];
 const execFileAsync = promisify(execFile);
+const generatedAnchorFiles = [
+  ".env.example",
+  "docs/agentstack/auth.md",
+  "docs/agentstack/billing.md",
+  "docs/agentstack/local-development.md",
+  "packages/config/package.json",
+  "packages/config/src/index.ts",
+  "packages/ui/package.json",
+  "packages/ui/src/index.ts",
+  "packages/agentstack-runtime/package.json",
+  "packages/agentstack-runtime/src/index.ts",
+  "apps/web/src/index.ts",
+  "apps/mobile/src/index.ts",
+  "convex/agentstack.ts"
+];
 
 describe("generateProject", () => {
   test("generates a B2B SaaS project with app tokens replaced", async () => {
@@ -33,12 +48,22 @@ describe("generateProject", () => {
       );
       const agents = await readFile(join(targetDir, "AGENTS.md"), "utf8");
       const gitignore = await readFile(join(targetDir, ".gitignore"), "utf8");
+      const packageManifest = JSON.parse(
+        await readFile(join(targetDir, "package.json"), "utf8")
+      );
 
       expect(manifest.app.slug).toBe("acme-crm");
       expect(agents).toContain("Run `pnpm run validate` before completion.");
       expect(gitignore).toContain(".agentstack/");
       expect(gitignore).toContain(".env.*");
       expect(gitignore).toContain("!.env.example");
+      expect(packageManifest.scripts).toMatchObject({
+        "env:inspect": "node scripts/agentstack.mjs env inspect --env preview",
+        "sync:preview": "node scripts/agentstack.mjs sync --env preview",
+        "sync:preview:apply": "node scripts/agentstack.mjs sync --env preview --apply",
+        "observe:timeline": "node scripts/agentstack.mjs observe timeline --journey smoke --env preview"
+      });
+      await expectGeneratedAnchors(targetDir);
       await expectNoTemplateTokens(targetDir);
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
@@ -144,6 +169,13 @@ describe("packaged template", () => {
     await expect(
       readFile(join(packageTemplateDir, "AGENTS.md"), "utf8")
     ).resolves.toContain("Run `pnpm run validate` before completion.");
+    await Promise.all(
+      generatedAnchorFiles.map(async (file) => {
+        await expect(stat(join(packageTemplateDir, file))).resolves.toMatchObject({
+          isFile: expect.any(Function)
+        });
+      })
+    );
   });
 
   test("keeps repo-root and package-local templates identical", async () => {
@@ -182,6 +214,16 @@ async function expectNoTemplateTokens(directory: string): Promise<void> {
       for (const token of templateTokens) {
         expect(content).not.toContain(token);
       }
+    })
+  );
+}
+
+async function expectGeneratedAnchors(directory: string): Promise<void> {
+  await Promise.all(
+    generatedAnchorFiles.map(async (file) => {
+      await expect(stat(join(directory, file))).resolves.toMatchObject({
+        isFile: expect.any(Function)
+      });
     })
   );
 }

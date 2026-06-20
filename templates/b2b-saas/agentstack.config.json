@@ -1,4 +1,6 @@
 {
+  "frameworkVersion": "0.0.0",
+  "guidanceVersion": "2026-06-20",
   "app": {
     "name": "__APP_NAME__",
     "slug": "__APP_SLUG__"
@@ -7,16 +9,28 @@
   "surfaces": ["web", "mobile", "convex"],
   "services": {
     "clerk": {
-      "enabled": true
+      "enabled": true,
+      "provider": "clerk",
+      "mode": "managed",
+      "requiredEnvironments": ["development", "preview", "production"]
     },
     "convex": {
-      "enabled": true
+      "enabled": true,
+      "provider": "convex",
+      "mode": "managed",
+      "requiredEnvironments": ["development", "preview", "production"]
     },
     "vercel": {
-      "enabled": true
+      "enabled": true,
+      "provider": "vercel",
+      "mode": "managed",
+      "requiredEnvironments": ["preview", "production"]
     },
     "eas": {
-      "enabled": true
+      "enabled": true,
+      "provider": "eas",
+      "mode": "managed",
+      "requiredEnvironments": ["preview", "production"]
     }
   },
   "env": {
@@ -25,9 +39,40 @@
   "telemetry": {
     "enabled": true,
     "exporter": "local",
+    "environments": {
+      "development": {
+        "required": false,
+        "level": "debug"
+      },
+      "preview": {
+        "required": true,
+        "level": "journey"
+      },
+      "production": {
+        "required": true,
+        "level": "audit"
+      }
+    },
     "redaction": {
       "defaultPolicy": "strict",
       "forbidRawSecrets": true
     }
+  },
+  "generated": {
+    "requiredAnchors": [
+      ".env.example",
+      "docs/agentstack/auth.md",
+      "docs/agentstack/billing.md",
+      "docs/agentstack/local-development.md",
+      "packages/config/package.json",
+      "packages/config/src/index.ts",
+      "packages/ui/package.json",
+      "packages/ui/src/index.ts",
+      "packages/agentstack-runtime/package.json",
+      "packages/agentstack-runtime/src/index.ts",
+      "apps/web/src/index.ts",
+      "apps/mobile/src/index.ts",
+      "convex/agentstack.ts"
+    ]
   }
 }

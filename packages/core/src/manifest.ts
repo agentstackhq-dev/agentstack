@@ -4,6 +4,27 @@ import { fail, pass, type Diagnostic, type Result } from "./diagnostics.js";
 export const environmentSchema = z.enum(["development", "preview", "production"]);
 export const surfaceSchema = z.enum(["web", "mobile", "convex"]);
 export const serviceSchema = z.enum(["clerk", "convex", "vercel", "eas"]);
+export const serviceModeSchema = z.enum(["managed", "external", "manual"]);
+export const telemetryLevelSchema = z.enum(["off", "debug", "journey", "audit"]);
+
+const allEnvironments = ["development", "preview", "production"] as const;
+
+const serviceConfigSchema = (provider: z.infer<typeof serviceSchema>) =>
+  z
+    .object({
+      enabled: z.boolean(),
+      provider: serviceSchema.default(provider),
+      mode: serviceModeSchema.default("managed"),
+      requiredEnvironments: z.array(environmentSchema).default([...allEnvironments])
+    })
+    .strict();
+
+const telemetryEnvironmentPolicySchema = z
+  .object({
+    required: z.boolean(),
+    level: telemetryLevelSchema
+  })
+  .strict();
 
 export const customEnvSchema = z.object({
   surfaces: z.array(surfaceSchema).min(1),
@@ -14,6 +35,8 @@ export const customEnvSchema = z.object({
 }).strict();
 
 export const manifestSchema = z.object({
+  frameworkVersion: z.string().min(1).default("0.0.0"),
+  guidanceVersion: z.string().min(1).default("2026-06-20"),
   app: z.object({
     name: z.string().min(1),
     slug: z.string().regex(/^[a-z0-9-]+$/)
@@ -21,10 +44,10 @@ export const manifestSchema = z.object({
   environments: z.array(environmentSchema).min(1),
   surfaces: z.array(surfaceSchema).min(1),
   services: z.object({
-    clerk: z.object({ enabled: z.boolean() }).strict(),
-    convex: z.object({ enabled: z.boolean() }).strict(),
-    vercel: z.object({ enabled: z.boolean() }).strict(),
-    eas: z.object({ enabled: z.boolean() }).strict()
+    clerk: serviceConfigSchema("clerk"),
+    convex: serviceConfigSchema("convex"),
+    vercel: serviceConfigSchema("vercel"),
+    eas: serviceConfigSchema("eas")
   }).strict(),
   env: z.object({
     custom: z.record(customEnvSchema)
@@ -32,10 +55,25 @@ export const manifestSchema = z.object({
   telemetry: z.object({
     enabled: z.boolean(),
     exporter: z.enum(["local", "otlp", "control-plane"]),
+    environments: z
+      .object({
+        development: telemetryEnvironmentPolicySchema,
+        preview: telemetryEnvironmentPolicySchema,
+        production: telemetryEnvironmentPolicySchema
+      })
+      .strict()
+      .default({
+        development: { required: false, level: "debug" },
+        preview: { required: true, level: "journey" },
+        production: { required: true, level: "journey" }
+      }),
     redaction: z.object({
       defaultPolicy: z.enum(["strict", "billing-safe", "debug"]),
       forbidRawSecrets: z.boolean()
     }).strict()
+  }).strict(),
+  generated: z.object({
+    requiredAnchors: z.array(z.string().min(1)).default([])
   }).strict()
 }).strict();
 
@@ -52,14 +90,36 @@ export function createDefaultManifest(slug: string): AgentstackManifest {
     .join(" ");
 
   const candidate = {
+    frameworkVersion: "0.0.0",
+    guidanceVersion: "2026-06-20",
     app: { name, slug },
     environments: ["development", "preview", "production"],
     surfaces: ["web", "mobile", "convex"],
     services: {
-      clerk: { enabled: true },
-      convex: { enabled: true },
-      vercel: { enabled: true },
-      eas: { enabled: true }
+      clerk: {
+        enabled: true,
+        provider: "clerk",
+        mode: "managed",
+        requiredEnvironments: ["development", "preview", "production"]
+      },
+      convex: {
+        enabled: true,
+        provider: "convex",
+        mode: "managed",
+        requiredEnvironments: ["development", "preview", "production"]
+      },
+      vercel: {
+        enabled: true,
+        provider: "vercel",
+        mode: "managed",
+        requiredEnvironments: ["development", "preview", "production"]
+      },
+      eas: {
+        enabled: true,
+        provider: "eas",
+        mode: "managed",
+        requiredEnvironments: ["development", "preview", "production"]
+      }
     },
     env: {
       custom: {}
@@ -67,10 +127,18 @@ export function createDefaultManifest(slug: string): AgentstackManifest {
     telemetry: {
       enabled: true,
       exporter: "local",
+      environments: {
+        development: { required: false, level: "debug" },
+        preview: { required: true, level: "journey" },
+        production: { required: true, level: "journey" }
+      },
       redaction: {
         defaultPolicy: "strict",
         forbidRawSecrets: true
       }
+    },
+    generated: {
+      requiredAnchors: []
     }
   };
 

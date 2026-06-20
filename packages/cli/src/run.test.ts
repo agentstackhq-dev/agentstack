@@ -302,6 +302,121 @@ describe("runAgentstack", () => {
     expect(output).toContain("PASS validate --cloud");
   });
 
+  it("validates cloud state for an explicit environment", async () => {
+    await runAgentstack(["sync", "--env", "production", "--apply"], {
+      cwd: dir,
+      write: () => undefined
+    });
+
+    const code = await runAgentstack(["validate", "--cloud", "--env", "production"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS validate --cloud");
+    expect(output).toContain("Environment: production");
+  });
+
+  it("inspects environment service and env binding state", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.env.custom.STRIPE_MODE = {
+      surfaces: ["web", "convex"],
+      environments: ["preview"],
+      required: true,
+      secret: false,
+      validate: "enum:sandbox,live"
+    };
+    await writeFile(
+      join(dir, "agentstack.config.json"),
+      `${JSON.stringify(manifest, null, 2)}\n`,
+      "utf8"
+    );
+    await runAgentstack(["sync", "--env", "preview", "--apply"], {
+      cwd: dir,
+      write: () => undefined
+    });
+
+    const code = await runAgentstack(["env", "inspect", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS env inspect preview");
+    expect(output).toContain("- service clerk linked=yes");
+    expect(output).toContain("- env web.STRIPE_MODE required=yes secret=no");
+    expect(output).toContain("- env convex.STRIPE_MODE required=yes secret=no");
+  });
+
+  it("requires env inspect environment values with an actionable diagnostic", async () => {
+    const code = await runAgentstack(["env", "inspect"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL cli.option.missing");
+    expect(output.join("\n")).toContain("--env requires a value.");
+    expect(output.join("\n")).toContain("Fix: Run agentstack env inspect --env preview.");
+  });
+
+  it("prints observed timelines in chronological order", async () => {
+    const store = new JsonlTelemetryStore(join(dir, ".agentstack", "events.jsonl"));
+    await store.append({
+      ...createWideEvent("agentstack.sync.completed", {
+        environment: "preview",
+        surface: "cli",
+        journey: "environment-sync",
+        state: { token: "sk_live_secret" }
+      }),
+      timestamp: "2026-06-20T10:00:02.000Z"
+    });
+    await store.append({
+      ...createWideEvent("agentstack.env.inspect.completed", {
+        environment: "preview",
+        surface: "cli",
+        journey: "environment-sync",
+        state: { status: "started" }
+      }),
+      timestamp: "2026-06-20T10:00:01.000Z"
+    });
+
+    const code = await runAgentstack(
+      ["observe", "timeline", "--env", "preview", "--journey", "environment-sync"],
+      {
+        cwd: dir,
+        write: (line) => output.push(line)
+      }
+    );
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS observe timeline 2");
+    expect(output.indexOf("2026-06-20T10:00:01.000Z preview cli agentstack.env.inspect.completed")).toBeLessThan(
+      output.indexOf("2026-06-20T10:00:02.000Z preview cli agentstack.sync.completed")
+    );
+    expect(output.join("\n")).toContain("[redacted]");
+  });
+
+  it("records command telemetry for validation", async () => {
+    await runAgentstack(["validate"], {
+      cwd: dir,
+      write: () => undefined
+    });
+
+    const code = await runAgentstack(
+      ["observe", "timeline", "--env", "development", "--journey", "validation"],
+      {
+        cwd: dir,
+        write: (line) => output.push(line)
+      }
+    );
+
+    expect(code).toBe(0);
+    expect(output.join("\n")).toContain("agentstack.validate.completed");
+    expect(output.join("\n")).toContain('"diagnostics":0');
+  });
+
   it("queries observed events with redacted sensitive telemetry", async () => {
     const store = new JsonlTelemetryStore(join(dir, ".agentstack", "events.jsonl"));
     await store.append(

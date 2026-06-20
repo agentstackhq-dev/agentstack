@@ -15,8 +15,18 @@ export type EnvGraphNode = {
   managed: boolean;
 };
 
+export type EnvGraphBinding = {
+  environment: EnvironmentName;
+  surface: SurfaceName;
+  name: string;
+  required: boolean;
+  secret: boolean;
+  validate?: string;
+};
+
 export type EnvGraph = {
   nodes: EnvGraphNode[];
+  bindings: EnvGraphBinding[];
 };
 
 export type EnvValueState = Partial<
@@ -48,16 +58,38 @@ export function parseEnvValueState(input: unknown): Result<EnvValueState> {
 
 export function buildEnvGraph(manifest: AgentstackManifest): EnvGraph {
   const nodes: EnvGraphNode[] = [];
+  const bindings: EnvGraphBinding[] = [];
 
   for (const environment of manifest.environments) {
     for (const service of serviceOrder) {
-      if (manifest.services[service].enabled) {
-        nodes.push({ environment, service, managed: true });
+      const serviceConfig = manifest.services[service];
+      if (serviceConfig.enabled && serviceConfig.requiredEnvironments.includes(environment)) {
+        nodes.push({ environment, service, managed: serviceConfig.mode === "managed" });
       }
     }
   }
 
-  return { nodes };
+  for (const [name, declaration] of Object.entries(manifest.env.custom)) {
+    const activeEnvironments = declaration.environments.filter((environment) =>
+      manifest.environments.includes(environment)
+    );
+    const activeSurfaces = declaration.surfaces.filter((surface) => manifest.surfaces.includes(surface));
+
+    for (const environment of activeEnvironments) {
+      for (const surface of activeSurfaces) {
+        bindings.push({
+          environment,
+          surface,
+          name,
+          required: declaration.required,
+          secret: declaration.secret,
+          ...(declaration.validate ? { validate: declaration.validate } : {})
+        });
+      }
+    }
+  }
+
+  return { nodes, bindings };
 }
 
 export function validateCustomEnvValues(
@@ -67,10 +99,6 @@ export function validateCustomEnvValues(
   const diagnostics: Diagnostic[] = [];
 
   for (const [name, declaration] of Object.entries(manifest.env.custom)) {
-    if (!declaration.required) {
-      continue;
-    }
-
     const activeEnvironments = declaration.environments.filter((environment) =>
       manifest.environments.includes(environment)
     );
@@ -80,6 +108,10 @@ export function validateCustomEnvValues(
       for (const surface of activeSurfaces) {
         const value = values[environment]?.[surface]?.[name];
         if (!value) {
+          if (!declaration.required) {
+            continue;
+          }
+
           diagnostics.push({
             severity: "fail",
             code: "env.custom.missing",
@@ -88,10 +120,35 @@ export function validateCustomEnvValues(
             fix: `Add ${environment}.${surface}.${name} to .agentstack/env-values.json.`,
             blocks: ["validate", "validate --cloud"]
           });
+          continue;
+        }
+
+        const enumOptions = parseEnumValidation(declaration.validate);
+        if (enumOptions && !enumOptions.includes(value)) {
+          diagnostics.push({
+            severity: "fail",
+            code: "env.custom.invalid-enum",
+            path: `${environment}.${surface}.${name}`,
+            message: `${name} must be one of ${enumOptions.join(", ")} for ${surface} in ${environment}.`,
+            fix: `Set ${environment}.${surface}.${name} to one of ${enumOptions.join(", ")}.`,
+            blocks: ["validate", "validate --cloud"]
+          });
         }
       }
     }
   }
 
   return diagnostics;
+}
+
+function parseEnumValidation(validate: string | undefined): string[] | undefined {
+  if (!validate?.startsWith("enum:")) {
+    return undefined;
+  }
+
+  return validate
+    .slice("enum:".length)
+    .split(",")
+    .map((option) => option.trim())
+    .filter(Boolean);
 }

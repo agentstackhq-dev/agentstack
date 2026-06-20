@@ -13,10 +13,14 @@ export type TelemetrySurface =
 
 export type WideEvent = {
   id: string;
+  schemaVersion?: string;
   name: string;
   timestamp: string;
   environment: TelemetryEnvironment;
   surface: TelemetrySurface;
+  component?: string;
+  command?: string;
+  status?: string;
   journey?: string;
   traceId: string;
   correlationId: string;
@@ -30,6 +34,10 @@ export type WideEvent = {
 export type WideEventInput = {
   environment: TelemetryEnvironment;
   surface: TelemetrySurface;
+  schemaVersion?: string;
+  component?: string;
+  command?: string;
+  status?: string;
   journey?: string;
   traceId?: string;
   correlationId?: string;
@@ -42,14 +50,20 @@ export type WideEventInput = {
 
 const sensitivePattern =
   /(secret|token|password|email|key|authorization|cookie|session|jwt|phone|ip)/i;
+const sensitiveStringPattern =
+  /(^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$)|((sk|pk)_(live|test)_[A-Za-z0-9_-]+)|([A-Za-z0-9_-]*(secret|token|password|jwt|api[_-]?key)[A-Za-z0-9_-]*)/i;
 
 export function createWideEvent(name: string, input: WideEventInput): WideEvent {
   return {
     id: `evt_${randomUUID()}`,
+    schemaVersion: input.schemaVersion,
     name,
     timestamp: new Date().toISOString(),
     environment: input.environment,
     surface: input.surface,
+    component: input.component,
+    command: input.command,
+    status: input.status,
     journey: input.journey,
     traceId: input.traceId ?? `trace_${randomUUID()}`,
     correlationId: input.correlationId ?? `corr_${randomUUID()}`,
@@ -63,6 +77,10 @@ export function createWideEvent(name: string, input: WideEventInput): WideEvent 
 
 export function redactValue(key: string, value: unknown): unknown {
   if (sensitivePattern.test(key)) {
+    return "[redacted]";
+  }
+
+  if (typeof value === "string" && sensitiveStringPattern.test(value)) {
     return "[redacted]";
   }
 

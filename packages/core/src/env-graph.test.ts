@@ -23,6 +23,54 @@ describe("environment graph", () => {
     ]);
   });
 
+  it("includes expected env bindings by environment, surface, and name", () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.env.custom.STRIPE_MODE = {
+      surfaces: ["web", "convex"],
+      environments: ["preview", "production"],
+      required: true,
+      secret: false,
+      validate: "enum:sandbox,live"
+    };
+
+    const graph = buildEnvGraph(manifest);
+
+    expect(graph.bindings).toEqual([
+      {
+        environment: "preview",
+        surface: "web",
+        name: "STRIPE_MODE",
+        required: true,
+        secret: false,
+        validate: "enum:sandbox,live"
+      },
+      {
+        environment: "preview",
+        surface: "convex",
+        name: "STRIPE_MODE",
+        required: true,
+        secret: false,
+        validate: "enum:sandbox,live"
+      },
+      {
+        environment: "production",
+        surface: "web",
+        name: "STRIPE_MODE",
+        required: true,
+        secret: false,
+        validate: "enum:sandbox,live"
+      },
+      {
+        environment: "production",
+        surface: "convex",
+        name: "STRIPE_MODE",
+        required: true,
+        secret: false,
+        validate: "enum:sandbox,live"
+      }
+    ]);
+  });
+
   it("excludes disabled services", () => {
     const manifest = createDefaultManifest("acme-crm");
     manifest.services.eas.enabled = false;
@@ -37,6 +85,27 @@ describe("environment graph", () => {
       "preview:convex",
       "production:clerk",
       "production:convex"
+    ]);
+  });
+
+  it("only creates service nodes for declared required environments", () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.services.vercel.requiredEnvironments = ["preview", "production"];
+    manifest.services.eas.requiredEnvironments = ["production"];
+    manifest.services.clerk.mode = "external";
+
+    const graph = buildEnvGraph(manifest);
+
+    expect(graph.nodes.map((node) => `${node.environment}:${node.service}:${node.managed}`)).toEqual([
+      "development:clerk:false",
+      "development:convex:true",
+      "preview:clerk:false",
+      "preview:convex:true",
+      "preview:vercel:true",
+      "production:clerk:false",
+      "production:convex:true",
+      "production:vercel:true",
+      "production:eas:true"
     ]);
   });
 
@@ -59,6 +128,28 @@ describe("environment graph", () => {
       expect.objectContaining({
         code: "env.custom.missing",
         path: "preview.convex.OPENAI_API_KEY"
+      })
+    ]);
+  });
+
+  it("validates enum custom env values", () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.env.custom.STRIPE_MODE = {
+      surfaces: ["convex"],
+      environments: ["preview"],
+      required: true,
+      secret: false,
+      validate: "enum:sandbox,live"
+    };
+
+    const diagnostics = validateCustomEnvValues(manifest, {
+      preview: { convex: { STRIPE_MODE: "test" } }
+    });
+
+    expect(diagnostics).toEqual([
+      expect.objectContaining({
+        code: "env.custom.invalid-enum",
+        path: "preview.convex.STRIPE_MODE"
       })
     ]);
   });

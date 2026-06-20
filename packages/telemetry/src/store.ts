@@ -29,6 +29,16 @@ export class JsonlTelemetryStore {
   async query(query: TelemetryQuery): Promise<WideEvent[]> {
     const events = await this.readEvents();
 
+    return this.applyQuery(events, query).map(redactEvent).sort(compareTimestamp);
+  }
+
+  async timeline(query: TelemetryQuery): Promise<WideEvent[]> {
+    const events = await this.readEvents();
+
+    return this.applyQuery(events, query).map(redactEvent).sort(compareTimestamp);
+  }
+
+  private applyQuery(events: WideEvent[], query: TelemetryQuery): WideEvent[] {
     return events
       .filter((event) => !query.environment || event.environment === query.environment)
       .filter((event) => !query.surface || event.surface === query.surface)
@@ -36,9 +46,7 @@ export class JsonlTelemetryStore {
       .filter((event) => !query.journey || event.journey === query.journey)
       .filter((event) => !query.traceId || event.traceId === query.traceId)
       .filter((event) => !query.correlationId || event.correlationId === query.correlationId)
-      .filter((event) => !query.journeyId || event.journeyId === query.journeyId)
-      .map(redactEvent)
-      .sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+      .filter((event) => !query.journeyId || event.journeyId === query.journeyId);
   }
 
   private async readRaw(): Promise<string> {
@@ -67,4 +75,8 @@ export class JsonlTelemetryStore {
         }
       });
   }
+}
+
+function compareTimestamp(a: WideEvent, b: WideEvent): number {
+  return a.timestamp.localeCompare(b.timestamp);
 }

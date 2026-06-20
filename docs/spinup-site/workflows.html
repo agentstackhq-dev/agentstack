@@ -75,7 +75,9 @@ cd acme-crm
 export AGENTSTACK_CLI_BIN=../../packages/cli/src/bin.ts
 export AGENTSTACK_TSX_BIN=../../node_modules/.bin/tsx
 pnpm run validate
-pnpm run init:cloud
+pnpm run env:inspect
+pnpm run sync:preview
+pnpm run sync:preview:apply
 pnpm run validate:cloud</code></pre>
               </div>
               <div class="card">
@@ -83,8 +85,9 @@ pnpm run validate:cloud</code></pre>
                 <ol>
                   <li><code>create-agent-stack</code> copies template anchors and replaces app tokens.</li>
                   <li><code>validate</code> checks manifest, env, telemetry policy, and generated files.</li>
-                  <li><code>init:cloud</code> writes development and preview local-cloud links.</li>
-                  <li><code>validate:cloud</code> confirms preview cloud state matches the manifest.</li>
+                  <li><code>env:inspect</code> prints expected preview services and env bindings.</li>
+                  <li><code>sync:preview</code> plans local-cloud repair before apply.</li>
+                  <li><code>validate:cloud</code> confirms named cloud state matches the manifest.</li>
                 </ol>
               </div>
             </div>
@@ -140,7 +143,7 @@ pnpm run validate:cloud</code></pre>
                 <tr>
                   <td>Cloud not initialized</td>
                   <td><code>FAIL cloud.service.missing</code></td>
-                  <td>Run <code>pnpm run init:cloud</code> or <code>agentstack sync --env preview --apply</code>.</td>
+                  <td>Run <code>pnpm run sync:preview</code>, then <code>pnpm run sync:preview:apply</code>.</td>
                 </tr>
                 <tr>
                   <td>Manifest disables a linked service</td>

@@ -28,10 +28,10 @@ const scenarios = {
     files: ["packages/adapters/src/local-cloud.ts", "packages/adapters/src/local-cloud.test.ts"]
   },
   telemetry: {
-    title: "Debug an onboarding journey",
-    command: "agentstack observe query --env preview --journey onboarding",
-    result: "PASS observe query 1",
-    detail: "JSONL telemetry events are filtered by environment, surface, event, trace, correlation, or journey. State is redacted before output, so email/token-like fields are safe to inspect.",
+    title: "Inspect a validation journey",
+    command: "agentstack observe timeline --env preview --journey validation",
+    result: "PASS observe timeline 2",
+    detail: "JSONL telemetry events are filtered into chronological timelines by environment, surface, event, trace, correlation, or journey. State is redacted before output, so email/token-like fields are safe to inspect.",
     files: ["packages/telemetry/src/events.ts", "packages/telemetry/src/store.ts", "packages/cli/src/run.ts"]
   }
 };

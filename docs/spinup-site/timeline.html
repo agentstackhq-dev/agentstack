@@ -36,9 +36,9 @@
             <ul>
               <li><code>pnpm install --frozen-lockfile</code></li>
               <li><code>pnpm typecheck</code></li>
-              <li><code>pnpm test</code>: 63 tests</li>
+              <li><code>pnpm test</code>: 79 tests</li>
               <li>Template mirror diff: no output</li>
-              <li>Manual smoke: create, validate, cloud, sync, observe, env-values</li>
+              <li>Smoke path: create, validate, env inspect, sync plan/apply, cloud validate, observe timeline</li>
             </ul>
           </div>
         </header>
@@ -70,6 +70,10 @@
               <div class="event">
                 <h3>Final blocker hardening</h3>
                 <p>Closed review gaps: anchor validation, stale drift reconciliation, CLI package runtime, generated script delegation, env-value safety, and generated secret ignores.</p>
+              </div>
+              <div class="event">
+                <h3>Slice 2 lifecycle</h3>
+                <p>Added environment-scoped service expectations, provider inspect/plan/apply lifecycle, command telemetry timelines, and stronger generated app anchors.</p>
               </div>
             </div>
           </section>

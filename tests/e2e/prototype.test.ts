@@ -18,7 +18,7 @@ afterEach(async () => {
 });
 
 describe("Agentstack executable prototype workflow", () => {
-  test("generates, validates, initializes cloud, and observes redacted telemetry", async () => {
+  test("generates, validates, inspects env state, syncs cloud, and observes telemetry", async () => {
     tempRoot = await mkdtemp(join(tmpdir(), "agentstack-prototype-"));
     const appDir = join(tempRoot, "acme-crm");
     const output: string[] = [];
@@ -27,9 +27,11 @@ describe("Agentstack executable prototype workflow", () => {
     await generateProject({ name: "acme-crm", targetDir: appDir });
 
     expect(await runAgentstack(["validate"], { cwd: appDir, write })).toBe(0);
-    expect(await runAgentstack(["validate", "--cloud"], { cwd: appDir, write })).toBe(1);
-    expect(await runAgentstack(["init", "cloud"], { cwd: appDir, write })).toBe(0);
-    expect(await runAgentstack(["validate", "--cloud"], { cwd: appDir, write })).toBe(0);
+    expect(await runAgentstack(["env", "inspect", "--env", "preview"], { cwd: appDir, write })).toBe(0);
+    expect(await runAgentstack(["validate", "--cloud", "--env", "preview"], { cwd: appDir, write })).toBe(1);
+    expect(await runAgentstack(["sync", "--env", "preview"], { cwd: appDir, write })).toBe(0);
+    expect(await runAgentstack(["sync", "--env", "preview", "--apply"], { cwd: appDir, write })).toBe(0);
+    expect(await runAgentstack(["validate", "--cloud", "--env", "preview"], { cwd: appDir, write })).toBe(0);
 
     const store = new JsonlTelemetryStore(join(appDir, ".agentstack", "events.jsonl"));
     await store.append(
@@ -51,8 +53,20 @@ describe("Agentstack executable prototype workflow", () => {
       )
     ).toBe(0);
 
+    expect(
+      await runAgentstack(
+        ["observe", "timeline", "--env", "preview", "--journey", "validation"],
+        { cwd: appDir, write }
+      )
+    ).toBe(0);
+
     const renderedOutput = output.join("\n");
+    expect(renderedOutput).toContain("PASS env inspect preview");
+    expect(renderedOutput).toContain("PLAN preview");
+    expect(renderedOutput).toContain("APPLIED preview");
+    expect(renderedOutput).toContain("Environment: preview");
     expect(renderedOutput).toContain("onboarding.step.completed");
+    expect(renderedOutput).toContain("agentstack.validate.completed");
     expect(renderedOutput).toContain("[redacted]");
   });
 });
