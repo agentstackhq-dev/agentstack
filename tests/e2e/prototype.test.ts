@@ -223,6 +223,20 @@ describe("Agentstack executable prototype workflow", () => {
         write
       })
     ).toBe(0);
+    expect(
+      await runAgentstack(["observe", "export", "--env", "preview", "--format", "otlp-json"], {
+        cwd: appDir,
+        write
+      })
+    ).toBe(0);
+    const previewOtlpExport = await readFile(
+      join(appDir, ".agentstack", "exports", "telemetry-preview-otlp.json"),
+      "utf8"
+    );
+    expect(previewOtlpExport).toContain('"resourceLogs"');
+    expect(previewOtlpExport).toContain('"agentstack.state.userEmail"');
+    expect(previewOtlpExport).toContain("[redacted]");
+    expect(previewOtlpExport).not.toContain("buyer@example.com");
 
     const renderedOutput = output.join("\n");
     expect(renderedOutput).toContain("PASS theme validate");
@@ -259,6 +273,7 @@ describe("Agentstack executable prototype workflow", () => {
     expect(renderedOutput).toContain("agentstack.skills.inspect.completed");
     expect(renderedOutput).toContain("agentstack.event.added");
     expect(renderedOutput).toContain("agentstack.billing-plan.added");
+    expect(renderedOutput).toContain("EXPORTED observe otlp-json preview");
     expect(renderedOutput).toContain("[redacted]");
   });
 });

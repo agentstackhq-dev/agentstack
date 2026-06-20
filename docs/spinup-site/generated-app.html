@@ -73,6 +73,7 @@
               <div class="card"><h3>Lifecycle scripts</h3><p><code>inspect</code>, <code>doctor</code>, and <code>dev</code> help agents read project state, run preflight checks, and list next commands before editing. <code>dev</code> does not start real servers in this prototype.</p></div>
               <div class="card"><h3>Scripts</h3><p><code>validate</code>, <code>env:inspect</code>, <code>sync:preview</code>, <code>validate:cloud</code>, <code>preview:deploy</code>, <code>prod:prepare</code>, <code>prod:provision</code>, <code>prod:validate</code>, <code>prod:deploy</code>, and <code>observe:timeline</code> delegate to an installed CLI or explicit source-prototype env vars.</p></div>
               <div class="card"><h3>Observability inspection</h3><p><code>docs/agentstack/observability.md</code> teaches <code>trace</code>, <code>journey</code>, <code>errors</code>, <code>webhook</code>, <code>component</code>, and <code>compare</code> workflows over redacted local JSONL.</p></div>
+              <div class="card"><h3>Telemetry export</h3><p><code>telemetry:export:preview</code> and <code>telemetry:export:production</code> write an <code>OTLP-shaped JSON</code> local export artifact from redacted store query output without configuring network export or a hosted provider.</p></div>
               <div class="card"><h3>Preview runbook</h3><p><code>docs/agentstack/preview.md</code> documents exact local rehearsal commands, expected output, files written, and non-goals. It states the workflow is not real provider deployment.</p></div>
               <div class="card"><h3>Mobile build profiles</h3><p><code>apps/mobile/eas.json</code> and <code>apps/mobile/app.config.ts</code> define generated EAS/Expo anchors. Root and mobile package scripts route through <code>agentstack build mobile</code>.</p></div>
             </div>
@@ -146,7 +147,9 @@ pnpm run validate                       Clerk identity, Clerk webhooks, billing,
             <p class="lede">
               Web, mobile, and Convex anchors import generated event definitions and call
               <code>createAppTelemetry(runtime).event(...)</code>. The helper creates typed local
-              envelopes only; it does not send app events to OTLP or any hosted provider.
+              envelopes only. Local JSONL remains the source for inspection, and export scripts write
+              an <code>OTLP-shaped JSON</code> local export artifact without sending app events to a
+              hosted provider.
             </p>
             <pre><code>packages/telemetry/package.json
 packages/telemetry/src/events.ts
@@ -156,7 +159,9 @@ apps/web/src/index.ts
 apps/mobile/src/index.ts
 convex/agentstack.ts
 docs/agentstack/observability.md
-.agentstack/events.jsonl</code></pre>
+.agentstack/events.jsonl
+pnpm run telemetry:export:preview
+pnpm run telemetry:export:production</code></pre>
           </section>
           <section class="section">
             <h2>Mobile build anchors</h2>

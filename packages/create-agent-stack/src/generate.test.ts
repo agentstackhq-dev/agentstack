@@ -103,7 +103,9 @@ describe("generateProject", () => {
         "skills:inspect": "node scripts/agentstack.mjs skills inspect",
         "sync:preview": "node scripts/agentstack.mjs sync --env preview",
         "sync:preview:apply": "node scripts/agentstack.mjs sync --env preview --apply",
-        "observe:timeline": "node scripts/agentstack.mjs observe timeline --journey smoke --env preview"
+        "observe:timeline": "node scripts/agentstack.mjs observe timeline --journey smoke --env preview",
+        "telemetry:export:preview": "node scripts/agentstack.mjs observe export --env preview --format otlp-json",
+        "telemetry:export:production": "node scripts/agentstack.mjs observe export --env production --format otlp-json"
       });
       expect(manifest.generated.requiredAnchors).toEqual(
         expect.arrayContaining([

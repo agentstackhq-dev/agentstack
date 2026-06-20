@@ -1654,6 +1654,73 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("[redacted]");
   });
 
+  it("exports observed events as local OTLP JSON", async () => {
+    const store = new JsonlTelemetryStore(join(dir, ".agentstack", "events.jsonl"));
+    await store.append(
+      createWideEvent("billing.subscription.updated", {
+        environment: "preview",
+        surface: "web",
+        state: {
+          status: "active",
+          customerEmail: "buyer@example.com"
+        }
+      })
+    );
+
+    const code = await runAgentstack(
+      ["observe", "export", "--env", "preview", "--format", "otlp-json"],
+      {
+        cwd: dir,
+        write: (line) => output.push(line)
+      }
+    );
+
+    expect(code).toBe(0);
+    expect(output.join("\n")).toContain("EXPORTED observe otlp-json preview 1");
+    expect(output.join("\n")).toContain(".agentstack/exports/telemetry-preview-otlp.json");
+    const artifact = await readFile(join(dir, ".agentstack", "exports", "telemetry-preview-otlp.json"), "utf8");
+    const request = JSON.parse(artifact);
+    const logRecords = request.resourceLogs[0].scopeLogs[0].logRecords;
+    const attributes = logRecords[0].attributes;
+    expect(logRecords).toHaveLength(1);
+    expect(attributes).toContainEqual({
+      key: "agentstack.state.customerEmail",
+      value: { stringValue: "[redacted]" }
+    });
+    expect(artifact).not.toContain("buyer@example.com");
+    expect(artifact).not.toContain("agentstack.observe.export.completed");
+  });
+
+  it("defaults observe export to local OTLP JSON", async () => {
+    const store = new JsonlTelemetryStore(join(dir, ".agentstack", "events.jsonl"));
+    await store.append(
+      createWideEvent("agentstack.validate.completed", {
+        environment: "preview",
+        surface: "cli",
+        journey: "validation",
+        state: { diagnostics: 0 }
+      })
+    );
+
+    const code = await runAgentstack(["observe", "export", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output.join("\n")).toContain("EXPORTED observe otlp-json preview 1");
+  });
+
+  it("rejects unsupported observe export formats", async () => {
+    const code = await runAgentstack(["observe", "export", "--env", "preview", "--format", "csv"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL observe.export.format.unsupported");
+  });
+
   it("inspects traces, journeys, errors, webhooks, components, and env comparisons", async () => {
     const store = new JsonlTelemetryStore(join(dir, ".agentstack", "events.jsonl"));
     await store.append({

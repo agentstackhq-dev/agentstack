@@ -28,8 +28,9 @@
             <h1>Wide events make debugging explainable.</h1>
             <p>
               The telemetry package models events as high-resolution snapshots of state. This
-              prototype reads redacted local JSONL so agents can inspect journeys without claiming
-              OTLP export, hosted indexing, or provider dashboards.
+              prototype reads redacted local JSONL for inspection and can write an OTLP-shaped JSON
+              local export artifact for handoff without claiming network export, hosted indexing,
+              or provider dashboards.
             </p>
           </div>
           <div class="diagram hero-art">
@@ -73,7 +74,27 @@ telemetry.event(onboardingStepCompletedEvent, {
                 <p>
                   The event definition supplies name, journey, surfaces, schema version, and state
                   field types. The runtime helper adds app, environment, surface, optional correlation
-                  context, and a timestamp without requiring a provider export.
+                  context, and a timestamp without requiring network export.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
+            <h2>Local export artifact</h2>
+            <div class="grid two">
+              <pre><code>pnpm run telemetry:export:preview
+pnpm run telemetry:export:production
+
+node scripts/agentstack.mjs observe export \
+  --env preview \
+  --format otlp-json</code></pre>
+              <div class="card">
+                <h3>Where export fits</h3>
+                <p>
+                  Local JSONL remains the source for local inspection. The export command writes an
+                  <code>OTLP-shaped JSON</code> local export artifact from redacted store query output
+                  so agents can hand off evidence without configuring network export or a hosted provider.
                 </p>
               </div>
             </div>
@@ -159,14 +180,15 @@ agentstack observe compare --env preview,production --journey billing</code></pr
                 <p>
                   Agents need production-debugging visibility, but not raw secrets. The telemetry store
                   redacts sensitive fields before query output, including email/token/key-like fields.
-                  The current store is local JSONL; provider export and retention controls are future
-                  adapter work.
+                  Local export artifacts are redacted because they are built from the same redacted
+                  store query output. Network export, hosted providers, and retention controls are
+                  future adapter work.
                 </p>
               </div>
             </div>
           </section>
         </section>
-        <footer class="footer">Evidence: generated <code>packages/telemetry/src/events.ts</code>, <code>packages/telemetry/src/events/index.ts</code>, <code>packages/telemetry/src/index.ts</code>, generated observability docs, and the local <code>.agentstack/events.jsonl</code> inspection workflow.</footer>
+        <footer class="footer">Evidence: generated <code>packages/telemetry/src/events.ts</code>, <code>packages/telemetry/src/events/index.ts</code>, <code>packages/telemetry/src/index.ts</code>, generated observability docs, local <code>.agentstack/events.jsonl</code> inspection, and the <code>OTLP-shaped JSON</code> local export artifact workflow.</footer>
       </main>
     </div>
     <script src="assets/site.js"></script>

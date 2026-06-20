@@ -64,9 +64,9 @@ const scenarios = {
   },
   telemetry: {
     title: "Inspect a validation journey",
-    command: "agentstack observe timeline --env preview --journey validation",
-    result: "PASS observe timeline 2",
-    detail: "JSONL telemetry events are filtered into chronological timelines by environment, surface, event, trace, correlation, or journey. State is redacted before output, and the prototype does not export to OTLP or a hosted provider.",
+    command: "agentstack observe timeline --env preview --journey validation && agentstack observe export --env preview --format otlp-json",
+    result: "PASS observe timeline 2 / EXPORTED observe otlp-json preview <count> / .agentstack/exports/telemetry-preview-otlp.json",
+    detail: "JSONL telemetry events remain the source for local inspection. Export writes an OTLP-shaped JSON local export artifact from redacted store query output; no network export or hosted provider is configured by default.",
     files: ["packages/telemetry/src/events.ts", "packages/telemetry/src/store.ts", "packages/cli/src/run.ts"]
   },
   observabilityInspection: {

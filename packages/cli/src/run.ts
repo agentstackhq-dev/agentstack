@@ -33,6 +33,7 @@ import {
   isErrorEvent,
   JsonlTelemetryStore,
   parseSinceWindow,
+  wideEventsToOtlpLogsRequest,
   type TelemetryEnvironment,
   type TelemetryQuery,
   type TelemetrySurface,
@@ -78,7 +79,8 @@ const observeValueOptions = [
   "error-class",
   "id",
   "since",
-  "group-by"
+  "group-by",
+  "format"
 ] as const;
 
 export async function runAgentstack(argv: string[], io: RunIo): Promise<number> {
@@ -1371,12 +1373,46 @@ async function observeCommand(argv: string[], io: RunIo): Promise<number> {
     "error-class": "Run agentstack observe errors --error-class WebhookSignatureError.",
     id: "Run agentstack observe trace --id trace_123 --env production.",
     since: "Run agentstack observe errors --env production --since 2h.",
-    "group-by": "Run agentstack observe errors --env production --group-by component."
+    "group-by": "Run agentstack observe errors --env production --group-by component.",
+    format: "Run agentstack observe export --env preview --format otlp-json."
   });
   const store = new JsonlTelemetryStore(join(io.cwd, ".agentstack", "events.jsonl"));
   const compareOptions = { ...options };
   delete compareOptions.env;
   const query = mode === "compare" ? buildObserveQuery(compareOptions) : buildObserveQuery(options);
+
+  if (mode === "export") {
+    const environment = readRequiredTelemetryEnvironmentOption(options.env);
+    const format = readString(options.format) ?? "otlp-json";
+    if (format !== "otlp-json") {
+      throw new Error(
+        [
+          "FAIL observe.export.format.unsupported",
+          `Unsupported observe export format: ${format}.`,
+          "Fix: Run agentstack observe export --env preview --format otlp-json."
+        ].join("\n")
+      );
+    }
+
+    const events = await store.timeline({ environment });
+    const request = wideEventsToOtlpLogsRequest(events, { serviceName: "agentstack-app" });
+    const artifactPath = join(".agentstack", "exports", `telemetry-${environment}-otlp.json`);
+    const absoluteArtifactPath = join(io.cwd, artifactPath);
+    await mkdir(dirname(absoluteArtifactPath), { recursive: true });
+    await writeFile(absoluteArtifactPath, `${JSON.stringify(request, null, 2)}\n`, "utf8");
+
+    io.write(`EXPORTED observe otlp-json ${environment} ${events.length}`);
+    io.write(artifactPath);
+    await recordCommandEvent(io, {
+      name: "agentstack.observe.export.completed",
+      environment,
+      journey: "observability",
+      command: ["observe", ...argv].join(" "),
+      status: "ok",
+      state: { format, events: events.length, artifactPath }
+    });
+    return 0;
+  }
 
   if (mode === "query" || mode === "timeline") {
     const events = mode === "timeline" ? await store.timeline(query) : await store.query(query);
@@ -1827,6 +1863,16 @@ function readTelemetryEnvironmentOption(
       "Fix: Run agentstack observe query --env preview."
     ].join("\n")
   );
+}
+
+function readRequiredTelemetryEnvironmentOption(
+  value: string | boolean | undefined
+): TelemetryEnvironment {
+  if (value === undefined) {
+    throwMissingOption("env", "Run agentstack observe export --env preview --format otlp-json.");
+  }
+
+  return readTelemetryEnvironmentOption(value) as TelemetryEnvironment;
 }
 
 function readTelemetrySurfaceOption(value: string | boolean | undefined): TelemetrySurface | undefined {

@@ -2,7 +2,7 @@
 
 Agentstack is an agent-first control framework for B2B SaaS teams building on Convex, Clerk, React, React Native, Vercel, Expo/EAS, and OpenTelemetry.
 
-This prototype proves the local command contract: generate a project, inspect lifecycle state, run doctor-style preflight checks, validate the framework manifest, inspect environment state, plan and apply local-cloud sync, validate a named environment, rehearse local preview and production deploy flows, and inspect redacted command telemetry from the CLI. It does not provision real provider resources yet.
+This prototype proves the local command contract: generate a project, inspect lifecycle state, run doctor-style preflight checks, validate the framework manifest, inspect environment state, plan and apply local-cloud sync, validate a named environment, rehearse local preview and production deploy flows, inspect redacted command telemetry from the CLI, and write an `OTLP-shaped JSON` local export artifact for agent handoff. It does not provision real provider resources yet.
 
 The current cloud implementation is a filesystem-backed local-cloud adapter. Real Convex, Clerk, Vercel, EAS, Stripe, and telemetry adapters will implement the same validation, sync, deploy, and inspection contracts.
 
@@ -45,6 +45,8 @@ pnpm run prod:deploy
 pnpm run prod:deploy:apply
 pnpm run mobile:build:preview
 pnpm run mobile:build:preview:apply
+pnpm run telemetry:export:preview
+pnpm run telemetry:export:production
 node scripts/agentstack.mjs observe timeline --env preview --journey deployment
 node scripts/agentstack.mjs observe timeline --env production --journey deployment
 node scripts/agentstack.mjs observe timeline --env production --journey production-release
@@ -81,6 +83,10 @@ PLAN deploy production
 APPLIED deploy production
 PLAN mobile build preview
 APPLIED mobile build preview
+EXPORTED observe otlp-json preview <event-count>
+.agentstack/exports/telemetry-preview-otlp.json
+EXPORTED observe otlp-json production <event-count>
+.agentstack/exports/telemetry-production-otlp.json
 agentstack.deploy.completed
 agentstack.mobile.build.completed
 agentstack.billing-plan.added
@@ -114,6 +120,7 @@ agentstack.event.added
 - `pnpm run mobile:build:preview` plans the local mobile/EAS preview build rehearsal without writing `.agentstack/builds/mobile-preview.json`.
 - `pnpm run mobile:build:preview:apply` applies the local mobile build rehearsal, writes `.agentstack/builds/mobile-preview.json`, and records `agentstack.mobile.build.completed` telemetry.
 - `pnpm run observe:timeline` queries redacted local command telemetry.
-- Generated apps use `createAppTelemetry(runtime).event(definition, state)` to create provider-neutral typed envelopes. This prototype does not export app telemetry to OTLP or a hosted provider.
+- `pnpm run telemetry:export:preview` and `pnpm run telemetry:export:production` write an `OTLP-shaped JSON` local export artifact from redacted store query output. Local JSONL remains the source for local inspection, and no network export or hosted provider is configured by default.
+- Generated apps use `createAppTelemetry(runtime).event(definition, state)` to create provider-neutral typed envelopes. This prototype writes only local export artifacts; it does not send app telemetry to a hosted provider.
 
 Preview and production release commands are local rehearsals only. They do not deploy to real provider APIs.

@@ -4,7 +4,9 @@ Use wide, typed, redacted telemetry events for product and operational behavior.
 
 Use framework observability commands with filters for environment, surface, event name, journey, trace, and correlation context when investigating behavior.
 
-The local generated prototype records framework command events in `.agentstack/events.jsonl`. This is redacted local JSONL only: it does not configure OTLP export, ship spans to a hosted provider, or create provider dashboard links yet. Use `pnpm run observe:timeline` to inspect a redacted preview timeline.
+The local generated prototype records framework command events in `.agentstack/events.jsonl`. Local JSONL remains the source for local inspection: it does not configure network export, ship spans to a hosted provider, or create provider dashboard links. Use `pnpm run observe:timeline` to inspect a redacted preview timeline.
+
+Use `node scripts/agentstack.mjs observe export --env preview --format otlp-json` when an agent needs a portable file for handoff. The command writes an `OTLP-shaped JSON` local export artifact from the same redacted store query output used by inspection commands. `pnpm run telemetry:export:preview` and `pnpm run telemetry:export:production` are convenience scripts for preview and production local export artifacts; no network export or hosted provider is configured by default.
 
 ## Typed App Events
 
@@ -32,7 +34,7 @@ const event = telemetry.event(billingSubscriptionUpdatedEvent, {
 });
 ```
 
-This slice creates provider-neutral envelopes only. It does not configure OTLP export or send data to a hosted telemetry provider.
+This slice creates provider-neutral envelopes only. It can write an `OTLP-shaped JSON` local export artifact from redacted local query output, but it does not configure network export or send data to a hosted telemetry provider.
 
 ## Inspection Workflow
 
@@ -72,7 +74,8 @@ agentstack observe compare --env preview,production --journey onboarding
 
 ## Current Limits
 
-- Storage is `.agentstack/events.jsonl` in the generated project.
-- Output is local, redacted, and provider-neutral.
-- OTLP export, hosted telemetry indexing, provider dashboards, retention policies, and production permission enforcement are future adapter work.
+- Storage is `.agentstack/events.jsonl` in the generated project, and local JSONL remains the source of local inspection.
+- Inspection output and `OTLP-shaped JSON` local export artifact output are local, redacted, and provider-neutral.
+- The export artifact is redacted because it is built from redacted store query output.
+- Network export, hosted telemetry indexing, provider dashboards, retention policies, and production permission enforcement are future adapter work.
 - The command shape is intentionally compatible with future hosted or OTLP-backed adapters, but this prototype does not claim those adapters exist.
