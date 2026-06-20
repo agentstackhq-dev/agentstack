@@ -820,6 +820,153 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("--backend requires a value.");
   });
 
+  it("adds a typed telemetry event and registers generated anchors", async () => {
+    const code = await runAgentstack(
+      [
+        "add",
+        "event",
+        "billing.subscription.updated",
+        "--journey",
+        "billing",
+        "--surfaces",
+        "web,convex",
+        "--state",
+        "plan:string,seatCount:number"
+      ],
+      { cwd: dir, write: (line) => output.push(line) }
+    );
+
+    expect(code).toBe(0);
+    expect(output).toContain("CREATED event billing.subscription.updated");
+    expect(output).toContain("- packages/telemetry/src/events/billing-subscription-updated.ts");
+    expect(output).toContain("- docs/agentstack/events/billing-subscription-updated.md");
+    await expect(
+      readFile(join(dir, "packages/telemetry/src/events/billing-subscription-updated.ts"), "utf8")
+    ).resolves.toContain('plan: "string"');
+    await expect(
+      readFile(join(dir, "packages/telemetry/src/events/billing-subscription-updated.ts"), "utf8")
+    ).resolves.toContain("satisfies AppTelemetryDefinition");
+    await expect(
+      readFile(join(dir, "packages/telemetry/src/events/index.ts"), "utf8")
+    ).resolves.toContain('export * from "./billing-subscription-updated.js";');
+    const manifest = JSON.parse(await readFile(join(dir, "agentstack.config.json"), "utf8")) as {
+      generated: { requiredAnchors: string[] };
+    };
+    expect(manifest.generated.requiredAnchors).toEqual(
+      expect.arrayContaining([
+        "packages/telemetry/src/events/billing-subscription-updated.ts",
+        "packages/telemetry/src/events/index.ts",
+        "docs/agentstack/events/billing-subscription-updated.md"
+      ])
+    );
+  });
+
+  it("preserves existing telemetry event barrel exports without duplicates", async () => {
+    await mkdir(join(dir, "packages/telemetry/src/events"), { recursive: true });
+    await writeFile(
+      join(dir, "packages/telemetry/src/events/index.ts"),
+      'export * from "./billing-subscription-updated.js";\nexport * from "./other-event.js";\n',
+      "utf8"
+    );
+
+    const code = await runAgentstack(
+      [
+        "add",
+        "event",
+        "billing.subscription.updated",
+        "--journey",
+        "billing",
+        "--surfaces",
+        "web",
+        "--state",
+        "plan:string"
+      ],
+      { cwd: dir, write: (line) => output.push(line) }
+    );
+
+    expect(code).toBe(0);
+    const barrel = await readFile(join(dir, "packages/telemetry/src/events/index.ts"), "utf8");
+    expect(barrel.match(/billing-subscription-updated/g)).toHaveLength(1);
+    expect(barrel).toContain('export * from "./other-event.js";');
+  });
+
+  it("refuses to overwrite existing telemetry event files", async () => {
+    const argv = [
+      "add",
+      "event",
+      "billing.subscription.updated",
+      "--journey",
+      "billing",
+      "--surfaces",
+      "web,convex",
+      "--state",
+      "plan:string"
+    ];
+    expect(await runAgentstack(argv, { cwd: dir, write: () => undefined })).toBe(0);
+
+    const code = await runAgentstack(argv, {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL event.file.exists");
+    expect(output.join("\n")).toContain("Path: packages/telemetry/src/events/billing-subscription-updated.ts");
+  });
+
+  it("reports invalid telemetry event options with actionable diagnostics", async () => {
+    const code = await runAgentstack(
+      [
+        "add",
+        "event",
+        "Billing Updated",
+        "--journey",
+        "billing",
+        "--surfaces",
+        "web,desktop",
+        "--state",
+        "plan:string"
+      ],
+      { cwd: dir, write: (line) => output.push(line) }
+    );
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL event.invalid");
+    expect(output.join("\n")).toContain("lowercase dot-separated identifiers");
+    expect(output.join("\n")).toContain(
+      "Fix: Run agentstack add event billing.subscription.updated --journey billing --surfaces web,convex --state plan:string."
+    );
+  });
+
+  it("records command telemetry when adding an event without raw secret output", async () => {
+    expect(
+      await runAgentstack(
+        [
+          "add",
+          "event",
+          "billing.subscription.updated",
+          "--journey",
+          "billing",
+          "--surfaces",
+          "web",
+          "--state",
+          "plan:string"
+        ],
+        { cwd: dir, write: () => undefined }
+      )
+    ).toBe(0);
+
+    const code = await runAgentstack(
+      ["observe", "timeline", "--env", "development", "--journey", "telemetry-generation"],
+      { cwd: dir, write: (line) => output.push(line) }
+    );
+
+    expect(code).toBe(0);
+    expect(output.join("\n")).toContain("agentstack.event.added");
+    expect(output.join("\n")).toContain('"event":"billing.subscription.updated"');
+    expect(output.join("\n")).not.toContain("sk_live");
+  });
+
   it("prints observed timelines in chronological order", async () => {
     const store = new JsonlTelemetryStore(join(dir, ".agentstack", "events.jsonl"));
     await store.append({

@@ -75,6 +75,7 @@ cd acme-crm
 export AGENTSTACK_CLI_BIN=../../packages/cli/src/bin.ts
 export AGENTSTACK_TSX_BIN=../../node_modules/.bin/tsx
 node scripts/agentstack.mjs add feature invoices --surfaces web,mobile --backend convex
+node scripts/agentstack.mjs add event billing.subscription.updated --journey billing --surfaces web,convex --state plan:string,seatCount:number
 node scripts/agentstack.mjs env set --env preview --surface convex --name STRIPE_MODE --value sandbox
 pnpm run validate
 pnpm run env:inspect
@@ -83,13 +84,15 @@ pnpm run sync:preview:apply
 pnpm run validate:cloud
 pnpm run preview:deploy
 pnpm run preview:deploy:apply
-node scripts/agentstack.mjs observe timeline --env preview --journey deployment</code></pre>
+node scripts/agentstack.mjs observe timeline --env preview --journey deployment
+node scripts/agentstack.mjs observe timeline --env development --journey telemetry-generation</code></pre>
               </div>
               <div class="card">
                 <h3>What each command proves</h3>
                 <ol>
                   <li><code>create-agent-stack</code> copies template anchors and replaces app tokens.</li>
                   <li><code>add feature</code> creates coordinated domain, Convex, surface, telemetry, and feature-doc anchors.</li>
+                  <li><code>add event</code> creates typed telemetry definitions and generated event docs.</li>
                   <li><code>env set</code> writes scoped local env state without exposing values in output.</li>
                   <li><code>validate</code> checks manifest, env, telemetry policy, and generated files.</li>
                   <li><code>env:inspect</code> prints expected preview services and env bindings.</li>
@@ -143,6 +146,11 @@ node scripts/agentstack.mjs observe timeline --env preview --journey deployment<
                   <td>Feature file already exists</td>
                   <td>Add-feature refuses an unsafe overwrite.</td>
                   <td>Choose a new feature name or update the existing feature anchors intentionally.</td>
+                </tr>
+                <tr>
+                  <td>Event file already exists</td>
+                  <td>Add-event refuses an unsafe overwrite.</td>
+                  <td>Choose a new event name or update the existing generated event file intentionally.</td>
                 </tr>
                 <tr>
                   <td>Generated file missing</td>

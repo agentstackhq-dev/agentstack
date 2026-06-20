@@ -32,9 +32,28 @@ describe("Agentstack executable prototype workflow", () => {
         { cwd: appDir, write }
       )
     ).toBe(0);
+    expect(
+      await runAgentstack(
+        [
+          "add",
+          "event",
+          "billing.subscription.updated",
+          "--journey",
+          "billing",
+          "--surfaces",
+          "web,convex",
+          "--state",
+          "plan:string,seatCount:number"
+        ],
+        { cwd: appDir, write }
+      )
+    ).toBe(0);
     await expect(readFile(join(appDir, "apps/web/src/features/invoices.ts"), "utf8")).resolves.toContain(
       "invoicesWebFeature"
     );
+    await expect(
+      readFile(join(appDir, "packages/telemetry/src/events/billing-subscription-updated.ts"), "utf8")
+    ).resolves.toContain("billing.subscription.updated");
     const manifestPath = join(appDir, "agentstack.config.json");
     const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
     manifest.env.custom.STRIPE_MODE = {
@@ -97,9 +116,16 @@ describe("Agentstack executable prototype workflow", () => {
         { cwd: appDir, write }
       )
     ).toBe(0);
+    expect(
+      await runAgentstack(
+        ["observe", "timeline", "--env", "development", "--journey", "telemetry-generation"],
+        { cwd: appDir, write }
+      )
+    ).toBe(0);
 
     const renderedOutput = output.join("\n");
     expect(renderedOutput).toContain("CREATED feature invoices");
+    expect(renderedOutput).toContain("CREATED event billing.subscription.updated");
     expect(renderedOutput).toContain("PASS env set preview convex.STRIPE_MODE");
     expect(renderedOutput).toContain("PASS env inspect preview");
     expect(renderedOutput).toContain("PLAN preview");
@@ -110,6 +136,7 @@ describe("Agentstack executable prototype workflow", () => {
     expect(renderedOutput).toContain("onboarding.step.completed");
     expect(renderedOutput).toContain("agentstack.validate.completed");
     expect(renderedOutput).toContain("agentstack.deploy.completed");
+    expect(renderedOutput).toContain("agentstack.event.added");
     expect(renderedOutput).toContain("[redacted]");
   });
 });

@@ -5,6 +5,7 @@ import {
   buildEnvGraph,
   formatDiagnostic,
   getRequiredGeneratedAnchors,
+  planTelemetryEventFiles,
   planFeatureFiles,
   validateCustomEnvValues,
   validateGeneratedAnchors,
@@ -80,6 +81,10 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
 
     if (command === "add" && subcommand === "feature") {
       return await addFeatureCommand(rest, io);
+    }
+
+    if (command === "add" && subcommand === "event") {
+      return await addEventCommand(rest, io);
     }
 
     if (command === "init" && subcommand === "cloud") {
@@ -551,6 +556,97 @@ async function addFeatureCommand(argv: string[], io: RunIo): Promise<number> {
     }
   });
   return 0;
+}
+
+async function addEventCommand(argv: string[], io: RunIo): Promise<number> {
+  const [eventName, ...rest] = argv;
+  const fix =
+    "Run agentstack add event billing.subscription.updated --journey billing --surfaces web,convex --state plan:string.";
+  if (!eventName || eventName.startsWith("--")) {
+    throw new Error(["FAIL event.name.missing", "Event name is required.", `Fix: ${fix}`].join("\n"));
+  }
+
+  const options = parseOptions(rest);
+  const journey = readRequiredStringOption(options.journey, "journey", fix);
+  const surfacesValue = readRequiredStringOption(options.surfaces, "surfaces", fix);
+  const stateValue = readRequiredStringOption(options.state, "state", fix);
+  let plan: ReturnType<typeof planTelemetryEventFiles>;
+  try {
+    plan = planTelemetryEventFiles(eventName, {
+      journey,
+      surfaces: surfacesValue.split(",").map((surface) => surface.trim()).filter(Boolean),
+      state: stateValue.split(",").map((field) => field.trim()).filter(Boolean)
+    });
+  } catch (error) {
+    throw new Error(["FAIL event.invalid", (error as Error).message, `Fix: ${fix}`].join("\n"));
+  }
+
+  const existing = await findExistingFeatureFiles(io.cwd, plan.files);
+  if (existing.length > 0) {
+    throw new Error(
+      [
+        "FAIL event.file.exists",
+        "Event generation refuses to overwrite existing files.",
+        ...existing.map((path) => `Path: ${path}`),
+        "Fix: Choose a new event name or update the existing event anchors intentionally."
+      ].join("\n")
+    );
+  }
+
+  for (const file of plan.files) {
+    const path = join(io.cwd, file.path);
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, file.content, "utf8");
+  }
+  const eventBarrelPath = await updateTelemetryEventBarrel(io.cwd, plan.name.slug);
+  await registerGeneratedAnchors(io.cwd, [...plan.files.map((file) => file.path), eventBarrelPath]);
+
+  io.write(`CREATED event ${plan.name.input}`);
+  for (const file of plan.files) {
+    io.write(`- ${file.path}`);
+  }
+  io.write(`- ${eventBarrelPath}`);
+
+  await recordCommandEvent(io, {
+    name: "agentstack.event.added",
+    environment: "development",
+    journey: "telemetry-generation",
+    command: ["add", "event", plan.name.input].join(" "),
+    status: "ok",
+    state: {
+      event: plan.name.input,
+      journey: plan.journey,
+      surfaces: plan.surfaces,
+      state: plan.state.map((field) => ({ key: field.key, type: field.type })),
+      files: [...plan.files.map((file) => file.path), eventBarrelPath]
+    }
+  });
+  return 0;
+}
+
+async function updateTelemetryEventBarrel(cwd: string, eventSlug: string): Promise<string> {
+  const barrelPath = "packages/telemetry/src/events/index.ts";
+  const absolutePath = join(cwd, barrelPath);
+  const exportLine = `export * from "./${eventSlug}.js";`;
+  let existing = "";
+
+  try {
+    existing = await readFile(absolutePath, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw error;
+    }
+  }
+
+  const lines = existing
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const nextLines = lines.includes(exportLine) ? lines : [...lines, exportLine];
+
+  await mkdir(dirname(absolutePath), { recursive: true });
+  await writeFile(absolutePath, `${nextLines.join("\n")}\n`, "utf8");
+  return barrelPath;
 }
 
 async function initCloudCommand(io: RunIo): Promise<number> {

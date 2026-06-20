@@ -36,9 +36,9 @@
             <ul>
               <li><code>pnpm install --frozen-lockfile</code></li>
               <li><code>pnpm typecheck</code></li>
-              <li><code>pnpm test</code>: 109 tests</li>
+              <li><code>pnpm test</code>: 119 tests</li>
               <li>Template mirror diff: no output</li>
-              <li>Smoke path: create, validate, env inspect, sync plan/apply, cloud validate, preview deploy plan/apply, observe timeline</li>
+              <li>Smoke path: create, add feature, add event, validate, env inspect, sync plan/apply, cloud validate, preview deploy plan/apply, observe timelines</li>
             </ul>
           </div>
         </header>
@@ -86,6 +86,10 @@
               <div class="event">
                 <h3>Preview deploy rehearsal</h3>
                 <p>Added local-only <code>PLAN deploy preview</code> and <code>APPLIED deploy preview</code> flows, a secret-free <code>.agentstack/deployments/preview.json</code> artifact, and <code>agentstack.deploy.completed</code> telemetry.</p>
+              </div>
+              <div class="event">
+                <h3>Typed app telemetry</h3>
+                <p>Added generated <code>@app/telemetry</code> metadata, typed event definitions, <code>createAppTelemetry</code> envelopes, <code>agentstack add event</code> docs, and the <code>telemetry-generation</code> observe timeline.</p>
               </div>
             </div>
           </section>

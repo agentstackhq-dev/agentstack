@@ -27,6 +27,10 @@ const generatedAnchorFiles = [
   "docs/agentstack/preview.md",
   "packages/config/package.json",
   "packages/config/src/index.ts",
+  "packages/telemetry/package.json",
+  "packages/telemetry/src/events.ts",
+  "packages/telemetry/src/events/index.ts",
+  "packages/telemetry/src/index.ts",
   "packages/ui/package.json",
   "packages/ui/src/index.ts",
   "packages/agentstack-runtime/package.json",
@@ -71,6 +75,35 @@ describe("generateProject", () => {
       });
       await expect(readFile(join(targetDir, "docs/agentstack/preview.md"), "utf8")).resolves.toContain(
         "local preview deploy rehearsal"
+      );
+      await expect(readFile(join(targetDir, "packages/telemetry/package.json"), "utf8")).resolves.toContain(
+        "@app/telemetry"
+      );
+      await expect(readFile(join(targetDir, "packages/telemetry/src/index.ts"), "utf8")).resolves.toContain(
+        "createAppEvent"
+      );
+      await expect(readFile(join(targetDir, "packages/telemetry/src/index.ts"), "utf8")).resolves.toContain(
+        "AppTelemetryState"
+      );
+      await expect(readFile(join(targetDir, "packages/telemetry/src/index.ts"), "utf8")).resolves.toContain(
+        "JsonValue"
+      );
+      await expect(readFile(join(targetDir, "packages/telemetry/src/index.ts"), "utf8")).resolves.toContain(
+        'T extends "json" ? JsonValue'
+      );
+      await expect(readFile(join(targetDir, "packages/telemetry/src/events/index.ts"), "utf8")).resolves.toContain(
+        "../events.js"
+      );
+      expect(manifest.generated.requiredAnchors).toEqual(
+        expect.arrayContaining([
+          "packages/telemetry/package.json",
+          "packages/telemetry/src/events.ts",
+          "packages/telemetry/src/events/index.ts",
+          "packages/telemetry/src/index.ts"
+        ])
+      );
+      await expect(readFile(join(targetDir, "apps/web/src/index.ts"), "utf8")).resolves.toContain(
+        "createAppTelemetry"
       );
       await expectGeneratedAnchors(targetDir);
       await expectNoTemplateTokens(targetDir);
