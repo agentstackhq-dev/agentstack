@@ -32,7 +32,10 @@ pnpm run sync:preview:apply
 pnpm run validate:cloud
 pnpm run preview:deploy
 pnpm run preview:deploy:apply
+pnpm run mobile:build:preview
+pnpm run mobile:build:preview:apply
 node scripts/agentstack.mjs observe timeline --env preview --journey deployment
+node scripts/agentstack.mjs observe timeline --env preview --journey mobile-build
 node scripts/agentstack.mjs observe timeline --env development --journey telemetry-generation
 pnpm run observe:timeline
 ```
@@ -51,7 +54,10 @@ APPLIED preview
 PASS validate --cloud
 PLAN deploy preview
 APPLIED deploy preview
+PLAN mobile build preview
+APPLIED mobile build preview
 agentstack.deploy.completed
+agentstack.mobile.build.completed
 agentstack.event.added
 ```
 
@@ -67,6 +73,8 @@ agentstack.event.added
 - `pnpm run validate:cloud` compares the project manifest with local-cloud state for the preview environment.
 - `pnpm run preview:deploy` plans the local preview deploy rehearsal without writing `.agentstack/deployments/preview.json`.
 - `pnpm run preview:deploy:apply` applies the local preview deploy rehearsal, writes `.agentstack/deployments/preview.json`, and records `agentstack.deploy.completed` telemetry.
+- `pnpm run mobile:build:preview` plans the local mobile/EAS preview build rehearsal without writing `.agentstack/builds/mobile-preview.json`.
+- `pnpm run mobile:build:preview:apply` applies the local mobile build rehearsal, writes `.agentstack/builds/mobile-preview.json`, and records `agentstack.mobile.build.completed` telemetry.
 - `pnpm run observe:timeline` queries redacted local command telemetry.
 - Generated apps use `createAppTelemetry(runtime).event(definition, state)` to create provider-neutral typed envelopes. This prototype does not export app telemetry to OTLP or a hosted provider.
 

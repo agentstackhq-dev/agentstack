@@ -70,6 +70,7 @@
               <div class="card"><h3>Safety defaults</h3><p>Generated <code>.gitignore</code> protects <code>.agentstack/</code>, <code>.env</code>, and <code>.env.*</code>.</p></div>
               <div class="card"><h3>Scripts</h3><p><code>validate</code>, <code>env:inspect</code>, <code>sync:preview</code>, <code>validate:cloud</code>, <code>preview:deploy</code>, <code>preview:deploy:apply</code>, and <code>observe:timeline</code> delegate to an installed CLI or explicit source-prototype env vars.</p></div>
               <div class="card"><h3>Preview runbook</h3><p><code>docs/agentstack/preview.md</code> documents exact local rehearsal commands, expected output, files written, and non-goals. It states the workflow is not real provider deployment.</p></div>
+              <div class="card"><h3>Mobile build profiles</h3><p><code>apps/mobile/eas.json</code> and <code>apps/mobile/app.config.ts</code> define generated EAS/Expo anchors. Root and mobile package scripts route through <code>agentstack build mobile</code>.</p></div>
             </div>
           </section>
 
@@ -121,6 +122,21 @@ packages/agentstack-runtime/src/index.ts
 apps/web/src/index.ts
 apps/mobile/src/index.ts
 convex/agentstack.ts</code></pre>
+          </section>
+          <section class="section">
+            <h2>Mobile build anchors</h2>
+            <p class="lede">
+              Mobile build rehearsal is local-first. Planning does not write state. Apply writes
+              <code>.agentstack/builds/mobile-preview.json</code> and emits
+              <code>agentstack.mobile.build.completed</code> on the <code>mobile-build</code> journey.
+            </p>
+            <pre><code>apps/mobile/eas.json
+apps/mobile/app.config.ts
+docs/agentstack/mobile.md
+pnpm run mobile:build:development
+pnpm run mobile:build:preview
+pnpm run mobile:build:preview:apply
+pnpm run mobile:build:production</code></pre>
           </section>
         </section>
         <footer class="footer">Evidence: <code>packages/create-agent-stack/src/generate.ts</code>, <code>templates/b2b-saas/</code>, <code>packages/create-agent-stack/src/generate.test.ts</code>.</footer>

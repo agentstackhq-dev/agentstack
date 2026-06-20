@@ -24,6 +24,7 @@ const generatedAnchorFiles = [
   "docs/agentstack/auth.md",
   "docs/agentstack/billing.md",
   "docs/agentstack/local-development.md",
+  "docs/agentstack/mobile.md",
   "docs/agentstack/preview.md",
   "packages/config/package.json",
   "packages/config/src/index.ts",
@@ -38,6 +39,8 @@ const generatedAnchorFiles = [
   "packages/ui/src/index.ts",
   "packages/agentstack-runtime/package.json",
   "packages/agentstack-runtime/src/index.ts",
+  "apps/mobile/app.config.ts",
+  "apps/mobile/eas.json",
   "apps/web/src/index.ts",
   "apps/mobile/src/index.ts",
   "convex/agentstack.ts"
@@ -73,11 +76,46 @@ describe("generateProject", () => {
         "preview:validate": "node scripts/agentstack.mjs validate --cloud --env preview",
         "preview:deploy": "node scripts/agentstack.mjs deploy --env preview",
         "preview:deploy:apply": "node scripts/agentstack.mjs deploy --env preview --apply",
+        "mobile:build:development": "node scripts/agentstack.mjs build mobile --env development",
+        "mobile:build:preview": "node scripts/agentstack.mjs build mobile --env preview",
+        "mobile:build:preview:apply": "node scripts/agentstack.mjs build mobile --env preview --apply",
+        "mobile:build:production": "node scripts/agentstack.mjs build mobile --env production",
+        "mobile:build:plan": "node scripts/agentstack.mjs build mobile --env preview",
+        "mobile:build:apply": "node scripts/agentstack.mjs build mobile --env preview --apply",
         "theme:validate": "node scripts/agentstack.mjs theme validate",
         "sync:preview": "node scripts/agentstack.mjs sync --env preview",
         "sync:preview:apply": "node scripts/agentstack.mjs sync --env preview --apply",
         "observe:timeline": "node scripts/agentstack.mjs observe timeline --journey smoke --env preview"
       });
+      expect(manifest.generated.requiredAnchors).toEqual(
+        expect.arrayContaining([
+          "apps/mobile/app.config.ts",
+          "apps/mobile/eas.json",
+          "docs/agentstack/mobile.md"
+        ])
+      );
+      const mobilePackageManifest = JSON.parse(
+        await readFile(join(targetDir, "apps/mobile/package.json"), "utf8")
+      );
+      expect(mobilePackageManifest.scripts).toMatchObject({
+        "dev-client": "node ../../scripts/agentstack.mjs build mobile --env development",
+        "build:development": "node ../../scripts/agentstack.mjs build mobile --env development",
+        "build:preview": "node ../../scripts/agentstack.mjs build mobile --env preview",
+        "build:preview:apply": "node ../../scripts/agentstack.mjs build mobile --env preview --apply",
+        "build:production": "node ../../scripts/agentstack.mjs build mobile --env production"
+      });
+      await expect(readFile(join(targetDir, "apps/mobile/eas.json"), "utf8")).resolves.toContain(
+        '"developmentClient": true'
+      );
+      await expect(readFile(join(targetDir, "apps/mobile/eas.json"), "utf8")).resolves.toContain(
+        '"version": ">= 20.0.0"'
+      );
+      await expect(readFile(join(targetDir, "apps/mobile/app.config.ts"), "utf8")).resolves.toContain(
+        "slug: agentstackConfig.app.slug"
+      );
+      await expect(readFile(join(targetDir, "docs/agentstack/mobile.md"), "utf8")).resolves.toContain(
+        "local mobile build rehearsal"
+      );
       await expect(readFile(join(targetDir, "docs/agentstack/preview.md"), "utf8")).resolves.toContain(
         "local preview deploy rehearsal"
       );
@@ -113,6 +151,9 @@ describe("generateProject", () => {
       );
       expect(manifest.generated.requiredAnchors).toEqual(
         expect.arrayContaining([
+          "apps/mobile/app.config.ts",
+          "apps/mobile/eas.json",
+          "docs/agentstack/mobile.md",
           "packages/telemetry/package.json",
           "packages/telemetry/src/events.ts",
           "packages/telemetry/src/events/index.ts",

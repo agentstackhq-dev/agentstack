@@ -56,6 +56,9 @@ export function getRequiredGeneratedAnchors(manifest: AgentstackManifest): strin
 
   if (manifest.surfaces.includes("mobile")) {
     anchors.push("apps/mobile/package.json");
+    anchors.push("apps/mobile/app.config.ts");
+    anchors.push("apps/mobile/eas.json");
+    anchors.push("docs/agentstack/mobile.md");
   }
 
   if (manifest.surfaces.includes("convex")) {

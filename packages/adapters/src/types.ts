@@ -1,4 +1,10 @@
-import type { AgentstackManifest, Diagnostic, EnvironmentName, ServiceName } from "@agentstack/core";
+import type {
+  AgentstackManifest,
+  Diagnostic,
+  EnvironmentName,
+  MobileBuildPlan,
+  ServiceName
+} from "@agentstack/core";
 
 export type SyncOptions = {
   apply: boolean;
@@ -6,6 +12,11 @@ export type SyncOptions = {
 
 export type DeployOptions = {
   apply: boolean;
+};
+
+export type MobileBuildOptions = {
+  apply: boolean;
+  confirmProduction?: boolean;
 };
 
 export type InspectServiceResource = {
@@ -48,6 +59,10 @@ export type DeployPlan = {
   artifactPath?: string;
 };
 
+export type MobileBuildAdapterPlan = MobileBuildPlan & {
+  service: "eas";
+};
+
 export type ApplyOptions = {
   confirmProduction?: boolean;
 };
@@ -77,4 +92,9 @@ export interface CloudAdapter {
     environment: EnvironmentName,
     options: DeployOptions
   ): Promise<DeployPlan>;
+  mobileBuild(
+    manifest: AgentstackManifest,
+    environment: EnvironmentName,
+    options: MobileBuildOptions
+  ): Promise<MobileBuildAdapterPlan>;
 }

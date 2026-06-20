@@ -33,6 +33,55 @@ describe("local-cloud adapter", () => {
     });
   });
 
+  it("plans a preview mobile build without writing an artifact", async () => {
+    const adapter = new LocalCloudAdapter(dir);
+    const plan = await adapter.mobileBuild(createDefaultManifest("acme-crm"), "preview", {
+      apply: false
+    });
+
+    expect(plan).toMatchObject({
+      environment: "preview",
+      profile: "preview",
+      service: "eas",
+      applied: false,
+      artifactPath: ".agentstack/builds/mobile-preview.json"
+    });
+    await expect(stat(join(dir, ".agentstack", "builds", "mobile-preview.json"))).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+  });
+
+  it("applies a preview mobile build by writing a local artifact", async () => {
+    const adapter = new LocalCloudAdapter(dir);
+    const plan = await adapter.mobileBuild(createDefaultManifest("acme-crm"), "preview", {
+      apply: true
+    });
+
+    const artifact = JSON.parse(await readFile(join(dir, ".agentstack", "builds", "mobile-preview.json"), "utf8"));
+
+    expect(plan.applied).toBe(true);
+    expect(artifact).toMatchObject({
+      environment: "preview",
+      profile: "preview",
+      service: "eas",
+      applied: true
+    });
+  });
+
+  it("passes production build confirmation through the core contract", async () => {
+    const adapter = new LocalCloudAdapter(dir);
+
+    await expect(
+      adapter.mobileBuild(createDefaultManifest("acme-crm"), "production", { apply: true })
+    ).rejects.toThrow("mobile.build.production-confirmation.required");
+    await expect(
+      adapter.mobileBuild(createDefaultManifest("acme-crm"), "production", {
+        apply: true,
+        confirmProduction: true
+      })
+    ).resolves.toMatchObject({ environment: "production", profile: "production", applied: true });
+  });
+
   it("applies preview deploy by reconciling services and writing a deployment artifact", async () => {
     const adapter = new LocalCloudAdapter(dir);
     const manifest = createDefaultManifest("acme-crm");

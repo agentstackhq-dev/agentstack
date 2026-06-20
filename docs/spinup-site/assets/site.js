@@ -41,6 +41,13 @@ const scenarios = {
     detail: "The deploy rehearsal is local-only. Plan does not write a deployment artifact. Apply writes .agentstack/deployments/preview.json and records agentstack.deploy.completed telemetry without calling real provider APIs.",
     files: ["templates/b2b-saas/docs/agentstack/preview.md", "packages/cli/src/run.ts", "tests/e2e/prototype.test.ts"]
   },
+  mobileBuild: {
+    title: "Mobile build rehearsal",
+    command: "pnpm run mobile:build:preview && pnpm run mobile:build:preview:apply",
+    result: "PLAN mobile build preview / APPLIED mobile build preview",
+    detail: "The mobile build rehearsal checks local validation and EAS readiness, then writes .agentstack/builds/mobile-preview.json only when apply is used. It records agentstack.mobile.build.completed without submitting a real EAS build.",
+    files: ["packages/core/src/mobile-build.ts", "packages/cli/src/run.ts", "templates/b2b-saas/docs/agentstack/mobile.md"]
+  },
   telemetry: {
     title: "Inspect a validation journey",
     command: "agentstack observe timeline --env preview --journey validation",

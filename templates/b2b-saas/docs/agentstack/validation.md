@@ -10,4 +10,6 @@ Local validation also scans source, docs, and `.env` files for raw secret-like v
 
 Run `pnpm run env:inspect` when provider state, environment sync, or deployment readiness matters. Use `pnpm run preview:plan` to plan local-cloud repair, `pnpm run preview:apply` to apply it, `pnpm run preview:validate` to compare expected preview state with configured services, and `pnpm run preview:deploy` to rehearse deploy planning locally.
 
+Use `pnpm run mobile:build:development`, `pnpm run mobile:build:preview`, and `pnpm run mobile:build:production` to validate generated mobile build profiles. The preview apply step writes `.agentstack/builds/mobile-preview.json` only; it does not call Expo or EAS.
+
 Generated scripts delegate to an installed `agentstack` CLI. For source-prototype smoke runs, set `AGENTSTACK_CLI_BIN` to the framework CLI entrypoint and `AGENTSTACK_TSX_BIN` to the local `tsx` runner before running package scripts.

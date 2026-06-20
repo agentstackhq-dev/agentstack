@@ -30,7 +30,7 @@
       "enabled": true,
       "provider": "eas",
       "mode": "managed",
-      "requiredEnvironments": ["preview", "production"]
+      "requiredEnvironments": ["development", "preview", "production"]
     }
   },
   "env": {
@@ -72,6 +72,7 @@
       "docs/agentstack/auth.md",
       "docs/agentstack/billing.md",
       "docs/agentstack/local-development.md",
+      "docs/agentstack/mobile.md",
       "packages/config/package.json",
       "packages/config/src/index.ts",
       "packages/telemetry/package.json",
@@ -85,6 +86,8 @@
       "packages/ui/src/index.ts",
       "packages/agentstack-runtime/package.json",
       "packages/agentstack-runtime/src/index.ts",
+      "apps/mobile/app.config.ts",
+      "apps/mobile/eas.json",
       "apps/web/src/index.ts",
       "apps/mobile/src/index.ts",
       "convex/agentstack.ts"

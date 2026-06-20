@@ -551,6 +551,76 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain('"services":["clerk","convex","vercel","eas"]');
   });
 
+  it("plans a preview mobile build when EAS is linked", async () => {
+    await runAgentstack(["sync", "--env", "preview", "--apply"], { cwd: dir, write: () => undefined });
+
+    const code = await runAgentstack(["build", "mobile", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PLAN mobile build preview");
+    expect(output).toContain("- planned eas profile preview distribution internal development-client=no");
+    await expect(stat(join(dir, ".agentstack", "builds", "mobile-preview.json"))).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+  });
+
+  it("applies a preview mobile build and writes an artifact", async () => {
+    await runAgentstack(["sync", "--env", "preview", "--apply"], { cwd: dir, write: () => undefined });
+
+    const code = await runAgentstack(["build", "mobile", "--env", "preview", "--apply"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("APPLIED mobile build preview");
+    await expect(readFile(join(dir, ".agentstack", "builds", "mobile-preview.json"), "utf8")).resolves.toContain(
+      '"profile": "preview"'
+    );
+  });
+
+  it("requires EAS cloud state before mobile builds", async () => {
+    const code = await runAgentstack(["build", "mobile", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL cloud.service.missing");
+    expect(output.join("\n")).toContain("Path: preview.eas");
+    expect(output.join("\n")).toContain("Fix: Run agentstack sync --env preview --apply.");
+  });
+
+  it("requires production confirmation before applying production mobile builds", async () => {
+    await runAgentstack(["sync", "--env", "production", "--apply"], { cwd: dir, write: () => undefined });
+
+    const code = await runAgentstack(["build", "mobile", "--env", "production", "--apply"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL mobile.build.production-confirmation.required");
+    expect(output.join("\n")).not.toContain("APPLIED mobile build production");
+  });
+
+  it("records mobile build telemetry", async () => {
+    await runAgentstack(["sync", "--env", "preview", "--apply"], { cwd: dir, write: () => undefined });
+    await runAgentstack(["build", "mobile", "--env", "preview", "--apply"], { cwd: dir, write: () => undefined });
+
+    const code = await runAgentstack(
+      ["observe", "timeline", "--env", "preview", "--journey", "mobile-build"],
+      { cwd: dir, write: (line) => output.push(line) }
+    );
+
+    expect(code).toBe(0);
+    expect(output.join("\n")).toContain("agentstack.mobile.build.completed");
+    expect(output.join("\n")).toContain('"profile":"preview"');
+  });
+
   it("fails cloud validation when cloud state is missing", async () => {
     const code = await runAgentstack(["validate", "--cloud"], {
       cwd: dir,
@@ -1266,6 +1336,9 @@ async function writeGeneratedAnchors(): Promise<void> {
     "docs/agentstack/theming.md",
     "apps/web/package.json",
     "apps/mobile/package.json",
+    "apps/mobile/app.config.ts",
+    "apps/mobile/eas.json",
+    "docs/agentstack/mobile.md",
     "convex/schema.ts",
     "packages/domain/src/index.ts",
     "packages/theme/package.json",

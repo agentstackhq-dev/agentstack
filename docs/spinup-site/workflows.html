@@ -85,7 +85,10 @@ pnpm run sync:preview:apply
 pnpm run validate:cloud
 pnpm run preview:deploy
 pnpm run preview:deploy:apply
+pnpm run mobile:build:preview
+pnpm run mobile:build:preview:apply
 node scripts/agentstack.mjs observe timeline --env preview --journey deployment
+node scripts/agentstack.mjs observe timeline --env preview --journey mobile-build
 node scripts/agentstack.mjs observe timeline --env development --journey telemetry-generation</code></pre>
               </div>
               <div class="card">
@@ -101,6 +104,8 @@ node scripts/agentstack.mjs observe timeline --env development --journey telemet
                   <li><code>validate:cloud</code> confirms named cloud state matches the manifest.</li>
                   <li><code>preview:deploy</code> prints <code>PLAN deploy preview</code> without writing a deployment artifact.</li>
                   <li><code>preview:deploy:apply</code> prints <code>APPLIED deploy preview</code>, writes <code>.agentstack/deployments/preview.json</code>, and records <code>agentstack.deploy.completed</code>.</li>
+                  <li><code>mobile:build:preview</code> prints <code>PLAN mobile build preview</code> without writing a build artifact.</li>
+                  <li><code>mobile:build:preview:apply</code> prints <code>APPLIED mobile build preview</code>, writes <code>.agentstack/builds/mobile-preview.json</code>, and records <code>agentstack.mobile.build.completed</code>.</li>
                 </ol>
               </div>
             </div>
@@ -177,6 +182,11 @@ node scripts/agentstack.mjs observe timeline --env development --journey telemet
                   <td>Preview deploy rehearsal not applied</td>
                   <td>No <code>.agentstack/deployments/preview.json</code></td>
                   <td>Run <code>pnpm run preview:deploy:apply</code>; this writes local state only and does not call real providers.</td>
+                </tr>
+                <tr>
+                  <td>Mobile build rehearsal not applied</td>
+                  <td>No <code>.agentstack/builds/mobile-preview.json</code></td>
+                  <td>Run <code>pnpm run mobile:build:preview:apply</code>; this writes local state only and does not submit an EAS build.</td>
                 </tr>
               </tbody>
             </table>

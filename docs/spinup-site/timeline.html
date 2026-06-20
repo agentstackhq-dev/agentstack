@@ -37,9 +37,9 @@
             <ul>
               <li><code>pnpm install --frozen-lockfile</code></li>
               <li><code>pnpm typecheck</code></li>
-              <li><code>pnpm test</code>: 132 tests</li>
+              <li><code>pnpm test</code>: 146 tests</li>
               <li>Template mirror diff: no output</li>
-              <li>Smoke path: create, add feature, add event, validate, env inspect, sync plan/apply, cloud validate, preview deploy plan/apply, observe timelines</li>
+              <li>Smoke path: create, add feature, add event, validate, env inspect, sync plan/apply, cloud validate, preview deploy plan/apply, mobile build plan/apply, observe timelines</li>
             </ul>
           </div>
         </header>
@@ -95,6 +95,10 @@
               <div class="event">
                 <h3>Theme and UI foundations</h3>
                 <p>Added <code>agentstack theme validate</code>, structured theme tokens, a JSON-backed typed theme wrapper, unstyled <code>@app/ui</code> primitives, pnpm package-manager pinning, and generated docs for token-role styling.</p>
+              </div>
+              <div class="event">
+                <h3>Mobile build profiles</h3>
+                <p>Added <code>agentstack build mobile</code>, development/preview/production profile normalization, local build artifacts, generated <code>eas.json</code>/<code>app.config.ts</code> anchors, and the <code>mobile-build</code> telemetry journey.</p>
               </div>
             </div>
           </section>

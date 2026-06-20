@@ -72,6 +72,10 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
       return await deployCommand(argv.slice(1), io);
     }
 
+    if (command === "build" && subcommand === "mobile") {
+      return await buildMobileCommand(rest, io);
+    }
+
     if (command === "theme" && subcommand === "validate") {
       return await themeValidateCommand(io);
     }
@@ -216,6 +220,58 @@ async function deployCommand(argv: string[], io: RunIo): Promise<number> {
       applied: deployPlan.applied,
       steps: deployPlan.steps.length,
       services: Array.from(new Set(deployPlan.steps.map((step) => step.service)))
+    }
+  });
+  return 0;
+}
+
+async function buildMobileCommand(argv: string[], io: RunIo): Promise<number> {
+  const options = parseOptions(argv);
+  const environment = readEnvironmentOption(options.env, {
+    flag: "env",
+    fix: "Run agentstack build mobile --env preview."
+  });
+  const { context, diagnostics } = await runLocalValidationGate(io.cwd);
+  diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
+
+  if (diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
+    return 1;
+  }
+
+  const adapter = new LocalCloudAdapter(io.cwd);
+  const easDiagnostics = (await adapter.validate(context.manifest, environment)).filter(
+    (diagnostic) => diagnostic.path === `${environment}.eas`
+  );
+  easDiagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
+  if (easDiagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
+    return 1;
+  }
+
+  const mobilePlan = await adapter.mobileBuild(context.manifest, environment, {
+    apply: Boolean(options.apply),
+    confirmProduction: Boolean(options["confirm-production"])
+  });
+  const status = mobilePlan.applied ? "applied" : "planned";
+
+  io.write(`${mobilePlan.applied ? "APPLIED" : "PLAN"} mobile build ${mobilePlan.environment}`);
+  io.write(
+    `- ${status} eas profile ${mobilePlan.profile} distribution ${mobilePlan.distribution} development-client=${
+      mobilePlan.developmentClient ? "yes" : "no"
+    }`
+  );
+
+  await recordCommandEvent(io, {
+    name: "agentstack.mobile.build.completed",
+    environment,
+    journey: "mobile-build",
+    command: ["build", "mobile", ...argv].join(" "),
+    status: "ok",
+    state: {
+      applied: mobilePlan.applied,
+      profile: mobilePlan.profile,
+      distribution: mobilePlan.distribution,
+      developmentClient: mobilePlan.developmentClient,
+      service: mobilePlan.service
     }
   });
   return 0;

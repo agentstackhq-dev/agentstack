@@ -84,6 +84,13 @@ describe("Agentstack executable prototype workflow", () => {
     await expect(readFile(join(appDir, ".agentstack/deployments/preview.json"), "utf8")).resolves.toContain(
       '"environment": "preview"'
     );
+    expect(await runAgentstack(["build", "mobile", "--env", "preview"], { cwd: appDir, write })).toBe(0);
+    expect(
+      await runAgentstack(["build", "mobile", "--env", "preview", "--apply"], { cwd: appDir, write })
+    ).toBe(0);
+    await expect(readFile(join(appDir, ".agentstack/builds/mobile-preview.json"), "utf8")).resolves.toContain(
+      '"environment": "preview"'
+    );
 
     const store = new JsonlTelemetryStore(join(appDir, ".agentstack", "events.jsonl"));
     await store.append(
@@ -119,6 +126,12 @@ describe("Agentstack executable prototype workflow", () => {
     ).toBe(0);
     expect(
       await runAgentstack(
+        ["observe", "timeline", "--env", "preview", "--journey", "mobile-build"],
+        { cwd: appDir, write }
+      )
+    ).toBe(0);
+    expect(
+      await runAgentstack(
         ["observe", "timeline", "--env", "development", "--journey", "telemetry-generation"],
         { cwd: appDir, write }
       )
@@ -134,10 +147,13 @@ describe("Agentstack executable prototype workflow", () => {
     expect(renderedOutput).toContain("APPLIED preview");
     expect(renderedOutput).toContain("PLAN deploy preview");
     expect(renderedOutput).toContain("APPLIED deploy preview");
+    expect(renderedOutput).toContain("PLAN mobile build preview");
+    expect(renderedOutput).toContain("APPLIED mobile build preview");
     expect(renderedOutput).toContain("Environment: preview");
     expect(renderedOutput).toContain("onboarding.step.completed");
     expect(renderedOutput).toContain("agentstack.validate.completed");
     expect(renderedOutput).toContain("agentstack.deploy.completed");
+    expect(renderedOutput).toContain("agentstack.mobile.build.completed");
     expect(renderedOutput).toContain("agentstack.event.added");
     expect(renderedOutput).toContain("[redacted]");
   });

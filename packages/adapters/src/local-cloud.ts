@@ -2,6 +2,8 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
   buildEnvGraph,
+  createMobileBuildPlan,
+  formatDiagnostic,
   type AgentstackManifest,
   type Diagnostic,
   type EnvironmentName,
@@ -17,6 +19,8 @@ import type {
   InspectReport,
   InspectServiceResource,
   LifecycleSyncPlan,
+  MobileBuildAdapterPlan,
+  MobileBuildOptions,
   SyncChange,
   SyncOptions,
   SyncPlan
@@ -200,6 +204,24 @@ export class LocalCloudAdapter implements CloudAdapter {
     return appliedPlan;
   }
 
+  async mobileBuild(
+    manifest: AgentstackManifest,
+    environment: EnvironmentName,
+    options: MobileBuildOptions
+  ): Promise<MobileBuildAdapterPlan> {
+    const result = createMobileBuildPlan(manifest, environment, options);
+    if (!result.ok) {
+      throw new Error(result.diagnostics.map(formatDiagnostic).join("\n"));
+    }
+
+    const plan: MobileBuildAdapterPlan = { ...result.value, service: "eas" };
+    if (options.apply) {
+      await this.writeMobileBuildArtifact(plan.artifactPath, plan);
+    }
+
+    return plan;
+  }
+
   private get statePath(): string {
     return join(this.projectRoot, ".agentstack", "local-cloud.json");
   }
@@ -207,6 +229,12 @@ export class LocalCloudAdapter implements CloudAdapter {
   private async writeDeploymentArtifact(relativePath: string, plan: DeployPlan): Promise<void> {
     const fullPath = join(this.projectRoot, relativePath);
     await mkdir(join(this.projectRoot, ".agentstack", "deployments"), { recursive: true });
+    await writeFile(fullPath, `${JSON.stringify(plan, null, 2)}\n`, "utf8");
+  }
+
+  private async writeMobileBuildArtifact(relativePath: string, plan: MobileBuildAdapterPlan): Promise<void> {
+    const fullPath = join(this.projectRoot, relativePath);
+    await mkdir(join(this.projectRoot, ".agentstack", "builds"), { recursive: true });
     await writeFile(fullPath, `${JSON.stringify(plan, null, 2)}\n`, "utf8");
   }
 
