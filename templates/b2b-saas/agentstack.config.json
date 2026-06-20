@@ -4,11 +4,7 @@
     "slug": "__APP_SLUG__"
   },
   "environments": ["development", "preview", "production"],
-  "surfaces": {
-    "web": true,
-    "mobile": true,
-    "convex": true
-  },
+  "surfaces": ["web", "mobile", "convex"],
   "services": {
     "clerk": {
       "enabled": true
@@ -28,8 +24,10 @@
   },
   "telemetry": {
     "enabled": true,
-    "mode": "local",
-    "strict": true,
-    "forbidRawSecrets": true
+    "exporter": "local",
+    "redaction": {
+      "defaultPolicy": "strict",
+      "forbidRawSecrets": true
+    }
   }
 }
