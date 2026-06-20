@@ -2,7 +2,16 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createWideEvent, eventNameMatches, JsonlTelemetryStore, redactEvent } from "./index.js";
+import {
+  compareEventCountsByEnvironment,
+  createWideEvent,
+  eventNameMatches,
+  groupErrorEvents,
+  isErrorEvent,
+  JsonlTelemetryStore,
+  parseSinceWindow,
+  redactEvent
+} from "./index.js";
 
 let dir: string;
 
@@ -184,5 +193,170 @@ describe("wide telemetry events", () => {
     );
     expect(eventNameMatches("billing.subscription.updated", "billing.*")).toBe(true);
     expect(eventNameMatches("auth.session.created", "billing.*")).toBe(false);
+  });
+
+  it("filters by component, release, actor, command, error class, and since window", async () => {
+    const store = new JsonlTelemetryStore(join(dir, "events.jsonl"));
+    await store.append({
+      ...createWideEvent("billing.webhook.failed", {
+        environment: "production",
+        surface: "convex",
+        component: "convex:billing.applySubscriptionUpdate",
+        command: "observe errors",
+        status: "error",
+        journey: "billing",
+        actorId: "user_123",
+        releaseId: "rel_2026_06_20",
+        correlationId: "corr_error",
+        state: {
+          errorClass: "WebhookSignatureError",
+          token: "secret-token"
+        }
+      }),
+      timestamp: "2026-06-20T10:00:00.000Z"
+    });
+    await store.append({
+      ...createWideEvent("billing.webhook.failed", {
+        environment: "production",
+        surface: "convex",
+        component: "convex:billing.applySubscriptionUpdate",
+        command: "observe errors",
+        status: "error",
+        journey: "billing",
+        actorId: "user_123",
+        releaseId: "rel_2026_06_20",
+        correlationId: "corr_old",
+        state: { errorClass: "WebhookSignatureError" }
+      }),
+      timestamp: "2026-06-20T09:00:00.000Z"
+    });
+    await store.append({
+      ...createWideEvent("billing.webhook.failed", {
+        environment: "production",
+        surface: "convex",
+        component: "convex:billing.reconcile",
+        command: "observe errors",
+        status: "error",
+        journey: "billing",
+        actorId: "user_456",
+        releaseId: "rel_2026_06_20",
+        correlationId: "corr_other",
+        state: { errorClass: "ReconcileError" }
+      }),
+      timestamp: "2026-06-20T10:05:00.000Z"
+    });
+
+    const events = await store.query({
+      environment: "production",
+      component: "convex:billing.applySubscriptionUpdate",
+      releaseId: "rel_2026_06_20",
+      actorId: "user_123",
+      command: "observe errors",
+      since: "2026-06-20T09:30:00.000Z",
+      errorClass: "WebhookSignatureError"
+    });
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      name: "billing.webhook.failed",
+      actorId: "[redacted]",
+      component: "convex:billing.applySubscriptionUpdate"
+    });
+    expect(events[0]?.state).toMatchObject({
+      errorClass: "WebhookSignatureError",
+      token: "[redacted]"
+    });
+  });
+
+  it("parses relative since windows and rejects unsupported windows", () => {
+    const now = new Date("2026-06-20T12:00:00.000Z");
+
+    expect(parseSinceWindow("15m", now).toISOString()).toBe("2026-06-20T11:45:00.000Z");
+    expect(parseSinceWindow("2h", now).toISOString()).toBe("2026-06-20T10:00:00.000Z");
+    expect(parseSinceWindow("7d", now).toISOString()).toBe("2026-06-13T12:00:00.000Z");
+    expect(parseSinceWindow("2026-06-20T09:30:00.000Z", now).toISOString()).toBe(
+      "2026-06-20T09:30:00.000Z"
+    );
+    expect(() => parseSinceWindow("yesterday", now)).toThrow(/Invalid since window/);
+  });
+
+  it("identifies and groups redacted error events", () => {
+    const events = [
+      createWideEvent("billing.webhook.failed", {
+        environment: "production",
+        surface: "convex",
+        component: "convex:billing.applySubscriptionUpdate",
+        status: "error",
+        correlationId: "corr_1",
+        state: { errorClass: "WebhookSignatureError", secret: "secret-token" }
+      }),
+      createWideEvent("billing.webhook.failed", {
+        environment: "production",
+        surface: "convex",
+        component: "convex:billing.applySubscriptionUpdate",
+        status: "failed",
+        correlationId: "corr_2",
+        state: { error: { class: "WebhookSignatureError" } }
+      }),
+      createWideEvent("billing.webhook.completed", {
+        environment: "preview",
+        surface: "convex",
+        component: "convex:billing.applySubscriptionUpdate",
+        status: "ok",
+        correlationId: "corr_3"
+      })
+    ];
+
+    expect(events.map(isErrorEvent)).toEqual([true, true, false]);
+    expect(groupErrorEvents(events)).toEqual([
+      {
+        component: "convex:billing.applySubscriptionUpdate",
+        event: "billing.webhook.failed",
+        surface: "convex",
+        environment: "production",
+        errorClass: "WebhookSignatureError",
+        count: 2
+      }
+    ]);
+  });
+
+  it("compares event counts across environments for a journey and event family", () => {
+    const events = [
+      createWideEvent("onboarding.started", {
+        environment: "preview",
+        surface: "web",
+        journey: "onboarding",
+        correlationId: "corr_1"
+      }),
+      createWideEvent("onboarding.completed", {
+        environment: "preview",
+        surface: "web",
+        journey: "onboarding",
+        correlationId: "corr_2"
+      }),
+      createWideEvent("onboarding.started", {
+        environment: "production",
+        surface: "web",
+        journey: "onboarding",
+        correlationId: "corr_3"
+      }),
+      createWideEvent("billing.started", {
+        environment: "production",
+        surface: "web",
+        journey: "billing",
+        correlationId: "corr_4"
+      })
+    ];
+
+    expect(
+      compareEventCountsByEnvironment(events, {
+        environments: ["preview", "production"],
+        journey: "onboarding",
+        event: "onboarding.*"
+      })
+    ).toEqual([
+      { environment: "preview", count: 2 },
+      { environment: "production", count: 1 }
+    ]);
   });
 });

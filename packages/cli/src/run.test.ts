@@ -1371,6 +1371,177 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("[redacted]");
   });
 
+  it("inspects traces, journeys, errors, webhooks, components, and env comparisons", async () => {
+    const store = new JsonlTelemetryStore(join(dir, ".agentstack", "events.jsonl"));
+    await store.append({
+      ...createWideEvent("onboarding.started", {
+        environment: "preview",
+        surface: "web",
+        component: "web:onboarding",
+        journey: "onboarding",
+        traceId: "trace_onboarding",
+        journeyId: "journey_onboarding",
+        state: { step: "start", email: "buyer@example.com" }
+      }),
+      timestamp: "2026-06-20T10:00:00.000Z"
+    });
+    await store.append({
+      ...createWideEvent("onboarding.completed", {
+        environment: "production",
+        surface: "web",
+        component: "web:onboarding",
+        journey: "onboarding",
+        traceId: "trace_production",
+        journeyId: "journey_production",
+        state: { step: "complete" }
+      }),
+      timestamp: "2026-06-20T10:02:00.000Z"
+    });
+    await store.append({
+      ...createWideEvent("billing.subscription.failed", {
+        environment: "production",
+        surface: "convex",
+        component: "convex:billing.applySubscriptionUpdate",
+        status: "error",
+        traceId: "trace_billing",
+        state: { errorClass: "StripeCardError", stripeToken: "sk_live_secret" }
+      }),
+      timestamp: "2026-06-20T10:03:00.000Z"
+    });
+    await store.append({
+      ...createWideEvent("webhook.clerk.received", {
+        environment: "production",
+        surface: "clerk",
+        component: "clerk:webhook",
+        status: "ok",
+        state: { provider: "clerk", eventType: "user.created", authorization: "Bearer secret" }
+      }),
+      timestamp: "2026-06-20T10:04:00.000Z"
+    });
+
+    expect(
+      await runAgentstack(["observe", "trace", "--id", "trace_onboarding", "--env", "preview"], {
+        cwd: dir,
+        write: (line) => output.push(line)
+      })
+    ).toBe(0);
+    expect(
+      await runAgentstack(["observe", "journey", "--id", "journey_onboarding", "--include-state"], {
+        cwd: dir,
+        write: (line) => output.push(line)
+      })
+    ).toBe(0);
+    expect(
+      await runAgentstack(
+        [
+          "observe",
+          "errors",
+          "--env",
+          "production",
+          "--since",
+          "2026-06-20T09:00:00.000Z",
+          "--group-by",
+          "component"
+        ],
+        { cwd: dir, write: (line) => output.push(line) }
+      )
+    ).toBe(0);
+    expect(
+      await runAgentstack(
+        [
+          "observe",
+          "webhook",
+          "clerk",
+          "--env",
+          "production",
+          "--since",
+          "2026-06-20T09:00:00.000Z"
+        ],
+        {
+          cwd: dir,
+          write: (line) => output.push(line)
+        }
+      )
+    ).toBe(0);
+    expect(
+      await runAgentstack(
+        ["observe", "component", "convex:billing.applySubscriptionUpdate", "--env", "production"],
+        { cwd: dir, write: (line) => output.push(line) }
+      )
+    ).toBe(0);
+    expect(
+      await runAgentstack(
+        ["observe", "compare", "--env", "preview,production", "--journey", "onboarding"],
+        { cwd: dir, write: (line) => output.push(line) }
+      )
+    ).toBe(0);
+    expect(
+      await runAgentstack(
+        [
+          "observe",
+          "query",
+          "--env",
+          "production",
+          "--component",
+          "convex:billing.applySubscriptionUpdate",
+          "--error-class",
+          "StripeCardError"
+        ],
+        { cwd: dir, write: (line) => output.push(line) }
+      )
+    ).toBe(0);
+
+    const rendered = output.join("\n");
+    expect(rendered).toContain("PASS observe trace 1");
+    expect(rendered).toContain("PASS observe journey 1");
+    expect(rendered).toContain("PASS observe errors 1");
+    expect(rendered).toContain("group component convex:billing.applySubscriptionUpdate events=1");
+    expect(rendered).toContain("PASS observe webhook clerk 1");
+    expect(rendered).toContain("PASS observe component convex:billing.applySubscriptionUpdate 1");
+    expect(rendered).toContain("PASS observe compare onboarding 2");
+    expect(rendered).toContain("PASS observe query 1");
+    expect(rendered).toContain("preview events=1 errors=0");
+    expect(rendered).toContain("production events=1 errors=0");
+    expect(rendered).toContain("[redacted]");
+    expect(rendered).not.toContain("buyer@example.com");
+    expect(rendered).not.toContain("sk_live_secret");
+
+    output = [];
+    expect(
+      await runAgentstack(["observe", "query", "--event", "agentstack.observe.completed"], {
+        cwd: dir,
+        write: (line) => output.push(line)
+      })
+    ).toBe(0);
+    expect(output).toContain("PASS observe query 7");
+  });
+
+  it("requires trace ids for observe trace with an actionable diagnostic", async () => {
+    const code = await runAgentstack(["observe", "trace", "--env", "production"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL cli.option.missing");
+    expect(output.join("\n")).toContain("--id requires a value.");
+    expect(output.join("\n")).toContain("Fix: Run agentstack observe trace --id trace_123 --env production.");
+  });
+
+  it("rejects empty observe compare environment lists", async () => {
+    const code = await runAgentstack(
+      ["observe", "compare", "--env", ",", "--journey", "onboarding"],
+      {
+        cwd: dir,
+        write: (line) => output.push(line)
+      }
+    );
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL cli.option.invalid");
+    expect(output.join("\n")).toContain("Expected comma-separated environments.");
+  });
+
   it("rejects invalid observe environment filters", async () => {
     const code = await runAgentstack(["observe", "query", "--env", "nope"], {
       cwd: dir,

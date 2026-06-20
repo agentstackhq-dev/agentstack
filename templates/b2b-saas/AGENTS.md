@@ -16,6 +16,8 @@
 - For source-prototype smoke runs, set `AGENTSTACK_CLI_BIN` and `AGENTSTACK_TSX_BIN` before running generated package scripts.
 - Inspect behavior with framework observability commands when available.
 - Inspect generated-event command history with `agentstack observe timeline --journey telemetry-generation --env development`.
+- For incidents, pivot from broad `observe query` or `observe timeline` output into focused modes: `trace`, `journey`, `errors`, `webhook`, `component`, and `compare`.
+- Treat observability output as redacted local `.agentstack/events.jsonl` evidence. OTLP export, hosted telemetry providers, and provider dashboards are not configured in this prototype.
 - Rehearse releases with `pnpm run preview:deploy` and `pnpm run preview:deploy:apply`; they do not deploy to real providers.
 - Rehearse mobile builds with `pnpm run mobile:build:development`, `pnpm run mobile:build:preview`, and `pnpm run mobile:build:preview:apply`; they write local `.agentstack/builds/` artifacts only when apply is used.
 - Use `apps/mobile/eas.json` and `apps/mobile/app.config.ts` as generated anchors for Expo/EAS configuration tied to `agentstack.config.json`.

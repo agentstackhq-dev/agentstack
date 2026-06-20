@@ -52,8 +52,15 @@ const scenarios = {
     title: "Inspect a validation journey",
     command: "agentstack observe timeline --env preview --journey validation",
     result: "PASS observe timeline 2",
-    detail: "JSONL telemetry events are filtered into chronological timelines by environment, surface, event, trace, correlation, or journey. State is redacted before output, so email/token-like fields are safe to inspect.",
+    detail: "JSONL telemetry events are filtered into chronological timelines by environment, surface, event, trace, correlation, or journey. State is redacted before output, and the prototype does not export to OTLP or a hosted provider.",
     files: ["packages/telemetry/src/events.ts", "packages/telemetry/src/store.ts", "packages/cli/src/run.ts"]
+  },
+  observabilityInspection: {
+    title: "Narrow an incident from local events",
+    command: "agentstack observe errors --env production --since 2h --group-by component",
+    result: "PASS observe errors / grouped by component",
+    detail: "Start broad with query or timeline, then pivot into trace, journey, errors, webhook, component, or compare. These commands inspect redacted .agentstack/events.jsonl evidence and are shaped for future adapters without claiming hosted telemetry today.",
+    files: ["templates/b2b-saas/docs/agentstack/observability.md", "packages/telemetry/src/store.ts", "packages/cli/src/run.ts"]
   }
 };
 

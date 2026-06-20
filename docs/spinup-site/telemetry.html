@@ -27,8 +27,9 @@
           <div>
             <h1>Wide events make debugging explainable.</h1>
             <p>
-              The telemetry package models events as high-resolution snapshots of state. The local
-              implementation uses JSONL so agents can inspect journeys without a hosted control plane.
+              The telemetry package models events as high-resolution snapshots of state. This
+              prototype reads redacted local JSONL so agents can inspect journeys without claiming
+              OTLP export, hosted indexing, or provider dashboards.
             </p>
           </div>
           <div class="diagram hero-art">
@@ -43,11 +44,15 @@
               <rect class="svg-box svg-blue" x="240" y="80" width="150" height="60" rx="8"></rect>
               <text class="svg-label" x="286" y="114">JSONL</text>
               <rect class="svg-box svg-amber" x="432" y="80" width="150" height="60" rx="8"></rect>
-              <text class="svg-label" x="468" y="114">query</text>
+              <text class="svg-label" x="458" y="114">inspect</text>
               <path class="svg-line" marker-end="url(#arrow-tel)" d="M188 110 H234"></path>
               <path class="svg-line" marker-end="url(#arrow-tel)" d="M390 110 H426"></path>
-              <rect class="svg-box svg-rose" x="148" y="220" width="320" height="58" rx="8"></rect>
-              <text class="svg-label" x="218" y="250">redacted output for agents</text>
+              <rect class="svg-box svg-rose" x="78" y="218" width="132" height="50" rx="8"></rect>
+              <text class="svg-small" x="106" y="248">trace</text>
+              <rect class="svg-box svg-rose" x="224" y="218" width="132" height="50" rx="8"></rect>
+              <text class="svg-small" x="250" y="248">journey</text>
+              <rect class="svg-box svg-rose" x="370" y="218" width="132" height="50" rx="8"></rect>
+              <text class="svg-small" x="400" y="248">errors</text>
               <path class="svg-line" marker-end="url(#arrow-tel)" d="M506 142 C506 198 308 190 308 214"></path>
             </svg>
           </div>
@@ -97,6 +102,38 @@ node scripts/agentstack.mjs observe timeline \
           </section>
 
           <section class="section">
+            <h2>Inspection modes</h2>
+            <p class="lede">
+              Use <code>query</code> and <code>timeline</code> for discovery, then switch to the
+              mode that answers the incident question. Every mode below reads the same redacted
+              <code>.agentstack/events.jsonl</code> stream in this prototype.
+            </p>
+            <div class="inspection-grid">
+              <div class="inspection-card"><span>trace</span><strong>One request path</strong><code>agentstack observe trace --id trace_123 --env production</code></div>
+              <div class="inspection-card"><span>journey</span><strong>Workflow reconstruction</strong><code>agentstack observe journey --id journey_123 --include-state</code></div>
+              <div class="inspection-card"><span>errors</span><strong>Grouped failure view</strong><code>agentstack observe errors --env production --since 2h --group-by component</code></div>
+              <div class="inspection-card"><span>webhook</span><strong>Provider callback intake</strong><code>agentstack observe webhook clerk --env production --since 24h</code></div>
+              <div class="inspection-card"><span>component</span><strong>Boundary-specific history</strong><code>agentstack observe component convex:billing.applySubscriptionUpdate --env production</code></div>
+              <div class="inspection-card"><span>compare</span><strong>Preview vs production drift</strong><code>agentstack observe compare --env preview,production --journey onboarding</code></div>
+            </div>
+          </section>
+
+          <section class="section">
+            <h2>Incident path</h2>
+            <div class="incident-path" aria-label="Observability incident workflow">
+              <div><strong>Discover</strong><span>query or timeline</span></div>
+              <div><strong>Narrow</strong><span>trace, journey, component</span></div>
+              <div><strong>Classify</strong><span>errors or webhook</span></div>
+              <div><strong>Compare</strong><span>preview vs production</span></div>
+              <div><strong>Repair</strong><span>edit the emitting surface</span></div>
+            </div>
+            <pre><code>agentstack observe query --env production --surface convex --event billing.*
+agentstack observe errors --env production --since 2h --group-by component
+agentstack observe component convex:billing.applySubscriptionUpdate --env production
+agentstack observe compare --env preview,production --journey billing</code></pre>
+          </section>
+
+          <section class="section">
             <h2>Query filters</h2>
             <div class="grid three">
               <div class="card"><h3>Environment</h3><p><code>--env preview</code> scopes incidents to the deployed context.</p></div>
@@ -105,6 +142,9 @@ node scripts/agentstack.mjs observe timeline \
               <div class="card"><h3>Journey</h3><p><code>--journey onboarding</code> reconstructs user journeys.</p></div>
               <div class="card"><h3>Trace</h3><p><code>--trace trace_123</code> can follow request-level context.</p></div>
               <div class="card"><h3>Correlation</h3><p><code>--correlation corr_123</code> groups related actions across surfaces.</p></div>
+              <div class="card"><h3>Component</h3><p><code>--component convex:billing.applySubscriptionUpdate</code> isolates a runtime boundary.</p></div>
+              <div class="card"><h3>Time window</h3><p><code>--since 2h</code> keeps agents from debugging stale local history.</p></div>
+              <div class="card"><h3>Error class</h3><p><code>--error-class WebhookSignatureError</code> narrows grouped failures.</p></div>
             </div>
           </section>
 
@@ -119,12 +159,14 @@ node scripts/agentstack.mjs observe timeline \
                 <p>
                   Agents need production-debugging visibility, but not raw secrets. The telemetry store
                   redacts sensitive fields before query output, including email/token/key-like fields.
+                  The current store is local JSONL; provider export and retention controls are future
+                  adapter work.
                 </p>
               </div>
             </div>
           </section>
         </section>
-        <footer class="footer">Evidence: generated <code>packages/telemetry/src/events.ts</code>, <code>packages/telemetry/src/events/index.ts</code>, <code>packages/telemetry/src/index.ts</code>, plus core/CLI event planning.</footer>
+        <footer class="footer">Evidence: generated <code>packages/telemetry/src/events.ts</code>, <code>packages/telemetry/src/events/index.ts</code>, <code>packages/telemetry/src/index.ts</code>, generated observability docs, and the local <code>.agentstack/events.jsonl</code> inspection workflow.</footer>
       </main>
     </div>
     <script src="assets/site.js"></script>

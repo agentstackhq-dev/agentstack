@@ -86,6 +86,7 @@
               <button class="tab-button" type="button" data-scenario="previewDeploy">Preview deploy rehearsal</button>
               <button class="tab-button" type="button" data-scenario="mobileBuild">Mobile build rehearsal</button>
               <button class="tab-button" type="button" data-scenario="telemetry">Telemetry journey</button>
+              <button class="tab-button" type="button" data-scenario="observabilityInspection">Observability inspection</button>
             </div>
 
             <div class="card scenario-output" data-scenario-output></div>
@@ -115,7 +116,7 @@
                 <ul>
                   <li>Feature work should define the new invariant and the command that checks it.</li>
                   <li>Provider work should map to initialize, sync, inspect, validate, repair, and observe.</li>
-                  <li>Production debugging should begin from correlated telemetry and narrow by journey.</li>
+                  <li>Production debugging should begin from correlated telemetry, then narrow by trace, journey, errors, webhook, component, or environment comparison.</li>
                 </ul>
               </div>
             </div>
@@ -134,7 +135,7 @@
               </div>
               <div class="card">
                 <h3>When debugging production</h3>
-                <p>Which event, trace, correlation id, user journey, or service span should an agent inspect before editing code?</p>
+                <p>Which event, trace, journey, webhook, component, or environment comparison should an agent inspect before editing code?</p>
               </div>
             </div>
           </section>

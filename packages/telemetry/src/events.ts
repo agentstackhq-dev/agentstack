@@ -118,3 +118,152 @@ export function eventNameMatches(name: string, pattern: string): boolean {
 
   return name === pattern;
 }
+
+export type SinceWindow = string | Date;
+
+export type ErrorEventGroup = {
+  component?: string;
+  event: string;
+  surface: TelemetrySurface;
+  environment: TelemetryEnvironment;
+  errorClass?: string;
+  count: number;
+};
+
+export type EnvironmentEventCount = {
+  environment: TelemetryEnvironment;
+  count: number;
+};
+
+export type EnvironmentEventCountQuery = {
+  environments: TelemetryEnvironment[];
+  journey?: string;
+  event?: string;
+};
+
+const relativeSincePattern = /^(\d+)(m|h|d)$/;
+
+export function parseSinceWindow(since: SinceWindow, now = new Date()): Date {
+  if (since instanceof Date) {
+    if (Number.isNaN(since.getTime())) {
+      throw new Error("Invalid since window: Date is invalid");
+    }
+    return since;
+  }
+
+  const relativeMatch = relativeSincePattern.exec(since);
+  if (relativeMatch) {
+    const amount = Number(relativeMatch[1]);
+    const unit = relativeMatch[2];
+    const millisecondsByUnit = {
+      m: 60 * 1000,
+      h: 60 * 60 * 1000,
+      d: 24 * 60 * 60 * 1000
+    } as const;
+
+    return new Date(
+      now.getTime() - amount * millisecondsByUnit[unit as keyof typeof millisecondsByUnit]
+    );
+  }
+
+  const parsed = new Date(since);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error(`Invalid since window: ${since}`);
+  }
+
+  return parsed;
+}
+
+export function getErrorClass(event: WideEvent): string | undefined {
+  const state = event.state;
+  const directErrorClass = state.errorClass;
+  if (typeof directErrorClass === "string") {
+    return directErrorClass;
+  }
+
+  const error = state.error;
+  if (error && typeof error === "object") {
+    const errorRecord = error as Record<string, unknown>;
+    if (typeof errorRecord.class === "string") {
+      return errorRecord.class;
+    }
+    if (typeof errorRecord.name === "string") {
+      return errorRecord.name;
+    }
+  }
+
+  return undefined;
+}
+
+export function isErrorEvent(event: WideEvent): boolean {
+  const normalizedStatus = event.status?.toLowerCase();
+  return (
+    normalizedStatus === "error" ||
+    normalizedStatus === "failed" ||
+    event.name.endsWith(".error") ||
+    event.name.endsWith(".failed") ||
+    getErrorClass(event) !== undefined
+  );
+}
+
+export function groupErrorEvents(events: WideEvent[]): ErrorEventGroup[] {
+  const groups = new Map<string, ErrorEventGroup>();
+
+  for (const event of events) {
+    if (!isErrorEvent(event)) {
+      continue;
+    }
+
+    const errorClass = getErrorClass(event);
+    const key = [
+      event.component ?? "",
+      event.name,
+      event.surface,
+      event.environment,
+      errorClass ?? ""
+    ].join("\u0000");
+    const existing = groups.get(key);
+
+    if (existing) {
+      existing.count += 1;
+      continue;
+    }
+
+    groups.set(key, {
+      component: event.component,
+      event: event.name,
+      surface: event.surface,
+      environment: event.environment,
+      errorClass,
+      count: 1
+    });
+  }
+
+  return Array.from(groups.values()).sort(compareErrorGroups);
+}
+
+export function compareEventCountsByEnvironment(
+  events: WideEvent[],
+  query: EnvironmentEventCountQuery
+): EnvironmentEventCount[] {
+  return query.environments.map((environment) => ({
+    environment,
+    count: events.filter(
+      (event) =>
+        event.environment === environment &&
+        (!query.journey || event.journey === query.journey) &&
+        (!query.event || eventNameMatches(event.name, query.event))
+    ).length
+  }));
+}
+
+function compareErrorGroups(a: ErrorEventGroup, b: ErrorEventGroup): number {
+  return (
+    b.count - a.count ||
+    a.environment.localeCompare(b.environment) ||
+    a.surface.localeCompare(b.surface) ||
+    (a.component ?? "").localeCompare(b.component ?? "") ||
+    a.event.localeCompare(b.event) ||
+    (a.errorClass ?? "").localeCompare(b.errorClass ?? "")
+  );
+}

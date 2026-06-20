@@ -398,6 +398,74 @@ pre code {
   min-height: 220px;
 }
 
+.inspection-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.inspection-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 0.45rem;
+  min-height: 150px;
+  padding: 0.9rem;
+}
+
+.inspection-card span {
+  color: var(--teal);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.inspection-card strong {
+  color: var(--ink);
+}
+
+.inspection-card code {
+  align-self: end;
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.incident-path {
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.incident-path div {
+  background: #0d1216;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 0.15rem;
+  min-height: 86px;
+  padding: 0.85rem;
+  position: relative;
+}
+
+.incident-path div:not(:last-child)::after {
+  color: var(--amber);
+  content: ">";
+  font-weight: 700;
+  position: absolute;
+  right: -0.48rem;
+  top: 1.8rem;
+}
+
+.incident-path strong {
+  color: var(--ink);
+}
+
+.incident-path span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .kbd {
   background: #0b0f12;
   border: 1px solid var(--line);
@@ -432,8 +500,17 @@ pre code {
 
   .two,
   .three,
-  .four {
+  .four,
+  .inspection-grid,
+  .incident-path {
     grid-template-columns: 1fr;
+  }
+
+  .incident-path div:not(:last-child)::after {
+    bottom: -1rem;
+    right: 1rem;
+    top: auto;
+    transform: rotate(90deg);
   }
 }
 

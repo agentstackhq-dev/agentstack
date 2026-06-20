@@ -132,7 +132,10 @@ describe("Agentstack executable prototype workflow", () => {
       createWideEvent("onboarding.step.completed", {
         environment: "preview",
         surface: "web",
+        component: "web:onboarding",
         journey: "onboarding",
+        traceId: "trace_onboarding_e2e",
+        journeyId: "journey_onboarding_e2e",
         state: {
           step: "invite-team",
           userEmail: "buyer@example.com"
@@ -143,6 +146,12 @@ describe("Agentstack executable prototype workflow", () => {
     expect(
       await runAgentstack(
         ["observe", "query", "--env", "preview", "--journey", "onboarding"],
+        { cwd: appDir, write }
+      )
+    ).toBe(0);
+    expect(
+      await runAgentstack(
+        ["observe", "component", "web:onboarding", "--env", "preview"],
         { cwd: appDir, write }
       )
     ).toBe(0);
@@ -193,6 +202,7 @@ describe("Agentstack executable prototype workflow", () => {
     expect(renderedOutput).toContain("APPLIED mobile build preview");
     expect(renderedOutput).toContain("Environment: preview");
     expect(renderedOutput).toContain("onboarding.step.completed");
+    expect(renderedOutput).toContain("PASS observe component web:onboarding 1");
     expect(renderedOutput).toContain("agentstack.validate.completed");
     expect(renderedOutput).toContain("agentstack.deploy.completed");
     expect(renderedOutput).toContain("agentstack.mobile.build.completed");

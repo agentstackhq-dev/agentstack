@@ -2,9 +2,12 @@ import { appendFile, mkdir, readFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import {
   eventNameMatches,
+  getErrorClass,
+  parseSinceWindow,
   redactEvent,
   type TelemetryEnvironment,
   type TelemetrySurface,
+  type SinceWindow,
   type WideEvent
 } from "./events.js";
 
@@ -16,6 +19,12 @@ export type TelemetryQuery = {
   traceId?: string;
   correlationId?: string;
   journeyId?: string;
+  component?: string;
+  releaseId?: string;
+  actorId?: string;
+  command?: string;
+  since?: SinceWindow;
+  errorClass?: string;
 };
 
 export class JsonlTelemetryStore {
@@ -39,6 +48,8 @@ export class JsonlTelemetryStore {
   }
 
   private applyQuery(events: WideEvent[], query: TelemetryQuery): WideEvent[] {
+    const since = query.since ? parseSinceWindow(query.since) : undefined;
+
     return events
       .filter((event) => !query.environment || event.environment === query.environment)
       .filter((event) => !query.surface || event.surface === query.surface)
@@ -46,7 +57,13 @@ export class JsonlTelemetryStore {
       .filter((event) => !query.journey || event.journey === query.journey)
       .filter((event) => !query.traceId || event.traceId === query.traceId)
       .filter((event) => !query.correlationId || event.correlationId === query.correlationId)
-      .filter((event) => !query.journeyId || event.journeyId === query.journeyId);
+      .filter((event) => !query.journeyId || event.journeyId === query.journeyId)
+      .filter((event) => !query.component || event.component === query.component)
+      .filter((event) => !query.releaseId || event.releaseId === query.releaseId)
+      .filter((event) => !query.actorId || event.actorId === query.actorId)
+      .filter((event) => !query.command || event.command === query.command)
+      .filter((event) => !query.errorClass || getErrorClass(event) === query.errorClass)
+      .filter((event) => !since || new Date(event.timestamp).getTime() >= since.getTime());
   }
 
   private async readRaw(): Promise<string> {

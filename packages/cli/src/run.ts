@@ -19,11 +19,16 @@ import {
   type SurfaceName
 } from "@agentstack/core";
 import {
+  compareEventCountsByEnvironment,
   createWideEvent,
+  groupErrorEvents,
+  isErrorEvent,
   JsonlTelemetryStore,
+  parseSinceWindow,
   type TelemetryEnvironment,
   type TelemetryQuery,
-  type TelemetrySurface
+  type TelemetrySurface,
+  type WideEvent
 } from "@agentstack/telemetry";
 import { loadLocalEnvValues, loadProjectContext } from "./context.js";
 
@@ -54,7 +59,17 @@ const observeValueOptions = [
   "journey",
   "trace",
   "correlation",
-  "journey-id"
+  "journey-id",
+  "component",
+  "release",
+  "release-id",
+  "actor",
+  "actor-id",
+  "command",
+  "error-class",
+  "id",
+  "since",
+  "group-by"
 ] as const;
 
 export async function runAgentstack(argv: string[], io: RunIo): Promise<number> {
@@ -933,7 +948,7 @@ async function initCloudCommand(io: RunIo): Promise<number> {
 async function observeCommand(argv: string[], io: RunIo): Promise<number> {
   const [mode, ...rest] = argv;
 
-  if (mode !== "query" && mode !== "timeline") {
+  if (!mode) {
     io.write("FAIL cli.unknown-command");
     return 1;
   }
@@ -942,35 +957,268 @@ async function observeCommand(argv: string[], io: RunIo): Promise<number> {
   requireOptionValues(options, observeValueOptions, {
     event: "Run agentstack observe query --event billing.*.",
     env: "Run agentstack observe query --env preview.",
-    surface: "Run agentstack observe query --surface web."
+    surface: "Run agentstack observe query --surface web.",
+    component: "Run agentstack observe query --component convex:billing.applySubscriptionUpdate.",
+    release: "Run agentstack observe query --release rel_2026_06_20.",
+    "release-id": "Run agentstack observe query --release-id rel_2026_06_20.",
+    actor: "Run agentstack observe query --actor user_123.",
+    "actor-id": "Run agentstack observe query --actor-id user_123.",
+    command: "Run agentstack observe query --command validate.",
+    "error-class": "Run agentstack observe errors --error-class WebhookSignatureError.",
+    id: "Run agentstack observe trace --id trace_123 --env production.",
+    since: "Run agentstack observe errors --env production --since 2h.",
+    "group-by": "Run agentstack observe errors --env production --group-by component."
   });
   const store = new JsonlTelemetryStore(join(io.cwd, ".agentstack", "events.jsonl"));
-  const query: TelemetryQuery = {
+  const compareOptions = { ...options };
+  delete compareOptions.env;
+  const query = mode === "compare" ? buildObserveQuery(compareOptions) : buildObserveQuery(options);
+
+  if (mode === "query" || mode === "timeline") {
+    const events = mode === "timeline" ? await store.timeline(query) : await store.query(query);
+
+    io.write(`PASS observe ${mode} ${events.length}`);
+    writeObservedEvents(io, events, { includeState: true });
+    await recordObserveCompleted(io, argv, query.environment, mode, events.length);
+    return 0;
+  }
+
+  if (mode === "trace") {
+    const id = readRequiredStringOption(
+      options.id,
+      "id",
+      "Run agentstack observe trace --id trace_123 --env production."
+    );
+    const events = await store.timeline({
+      ...query,
+      traceId: id
+    });
+    io.write(`PASS observe trace ${events.length}`);
+    writeObservedEvents(io, events, { includeState: true });
+    await recordObserveCompleted(io, argv, query.environment, mode, events.length);
+    return 0;
+  }
+
+  if (mode === "journey") {
+    const id = readRequiredStringOption(
+      options.id,
+      "id",
+      "Run agentstack observe journey --id journey_123 --include-state."
+    );
+    const events = await store.timeline({
+      ...query,
+      journeyId: id
+    });
+    io.write(`PASS observe journey ${events.length}`);
+    writeObservedEvents(io, events, { includeState: Boolean(options["include-state"]) });
+    await recordObserveCompleted(io, argv, query.environment, mode, events.length);
+    return 0;
+  }
+
+  if (mode === "errors") {
+    const environment = readTelemetryEnvironmentOption(options.env);
+    const events = (await store.timeline({
+      ...query,
+      environment
+    })).filter(isErrorEvent);
+    io.write(`PASS observe errors ${events.length}`);
+    if (readString(options["group-by"]) === "component") {
+      for (const [component, count] of countErrorGroupsByComponent(events)) {
+        io.write(`group component ${component} events=${count}`);
+      }
+    }
+    writeObservedEvents(io, events, { includeState: true });
+    await recordObserveCompleted(io, argv, environment, mode, events.length);
+    return 0;
+  }
+
+  if (mode === "webhook") {
+    const [provider] = rest;
+    if (!provider || provider.startsWith("--")) {
+      throw new Error(
+        [
+          "FAIL cli.option.missing",
+          "Webhook provider is required.",
+          "Fix: Run agentstack observe webhook clerk --env production --since 24h."
+        ].join("\n")
+      );
+    }
+    const environment = readTelemetryEnvironmentOption(options.env);
+    const events = (await store.timeline({
+      ...query,
+      environment
+    })).filter(
+      (event) =>
+        event.surface === provider ||
+        event.name.startsWith(`webhook.${provider}.`) ||
+        event.component === `${provider}:webhook` ||
+        event.state.provider === provider
+    );
+    io.write(`PASS observe webhook ${provider} ${events.length}`);
+    writeObservedEvents(io, events, { includeState: true });
+    await recordObserveCompleted(io, argv, environment, mode, events.length);
+    return 0;
+  }
+
+  if (mode === "component") {
+    const [component] = rest;
+    if (!component || component.startsWith("--")) {
+      throw new Error(
+        [
+          "FAIL cli.option.missing",
+          "Component id is required.",
+          "Fix: Run agentstack observe component convex:billing.applySubscriptionUpdate --env production."
+        ].join("\n")
+      );
+    }
+    const environment = readTelemetryEnvironmentOption(options.env);
+    const events = await store.timeline({
+      ...query,
+      environment,
+      component
+    });
+    io.write(`PASS observe component ${component} ${events.length}`);
+    writeObservedEvents(io, events, { includeState: true });
+    await recordObserveCompleted(io, argv, environment, mode, events.length);
+    return 0;
+  }
+
+  if (mode === "compare") {
+    const environments = readCompareEnvironments(options.env);
+    const journey = readRequiredStringOption(
+      options.journey,
+      "journey",
+      "Run agentstack observe compare --env preview,production --journey onboarding."
+    );
+    const events = (await store.timeline({ ...query, journey })).filter(
+      (event) => environments.includes(event.environment)
+    );
+    io.write(`PASS observe compare ${journey} ${events.length}`);
+    const counts = compareEventCountsByEnvironment(events, {
+      environments,
+      journey,
+      event: query.event
+    });
+    for (const { environment, count } of counts) {
+      const environmentEvents = events.filter((event) => event.environment === environment);
+      io.write(`${environment} events=${count} errors=${environmentEvents.filter(isErrorEvent).length}`);
+    }
+    await recordObserveCompleted(io, argv, environments[0], mode, events.length);
+    return 0;
+  }
+
+  io.write("FAIL cli.unknown-command");
+  return 1;
+}
+
+function buildObserveQuery(options: ParsedOptions): TelemetryQuery {
+  return {
     environment: readTelemetryEnvironmentOption(options.env),
     surface: readTelemetrySurfaceOption(options.surface),
     event: readString(options.event),
     journey: readString(options.journey),
     traceId: readString(options.trace),
     correlationId: readString(options.correlation),
-    journeyId: readString(options["journey-id"])
+    journeyId: readString(options["journey-id"]),
+    component: readString(options.component),
+    releaseId: readString(options["release-id"]) ?? readString(options.release),
+    actorId: readString(options["actor-id"]) ?? readString(options.actor),
+    command: readString(options.command),
+    since: readSinceOption(options.since),
+    errorClass: readString(options["error-class"])
   };
-  const events = mode === "timeline" ? await store.timeline(query) : await store.query(query);
+}
 
-  io.write(`PASS observe ${mode} ${events.length}`);
+function writeObservedEvents(
+  io: RunIo,
+  events: WideEvent[],
+  options: { includeState: boolean }
+): void {
   for (const event of events) {
     io.write(`${event.timestamp} ${event.environment} ${event.surface} ${event.name}`);
-    io.write(JSON.stringify(event.state));
+    if (options.includeState) {
+      io.write(JSON.stringify(event.state));
+    }
+  }
+}
+
+function readSinceOption(value: string | boolean | undefined): Date | undefined {
+  if (value === undefined) {
+    return undefined;
   }
 
+  if (typeof value !== "string") {
+    throwMissingOption("since", "Run agentstack observe errors --env production --since 2h.");
+  }
+
+  try {
+    return parseSinceWindow(value);
+  } catch {
+    throw new Error(
+      [
+        "FAIL cli.option.invalid",
+        `Invalid --since value: ${value}. Expected relative time like 2h or an ISO timestamp.`,
+        "Fix: Run agentstack observe errors --env production --since 2h."
+      ].join("\n")
+    );
+  }
+}
+
+function countErrorGroupsByComponent(events: WideEvent[]): Array<[string, number]> {
+  const counts = new Map<string, number>();
+  for (const group of groupErrorEvents(events)) {
+    const component = group.component ?? "unknown";
+    counts.set(component, (counts.get(component) ?? 0) + group.count);
+  }
+  return Array.from(counts.entries()).sort(([a], [b]) => a.localeCompare(b));
+}
+
+function readCompareEnvironments(value: string | boolean | undefined): TelemetryEnvironment[] {
+  const raw = readRequiredStringOption(
+    value,
+    "env",
+    "Run agentstack observe compare --env preview,production --journey onboarding."
+  );
+  const environments = raw.split(",").map((environment) => environment.trim()).filter(Boolean);
+  if (environments.length === 0) {
+    throw new Error(
+      [
+        "FAIL cli.option.invalid",
+        `Invalid --env value: ${raw}. Expected comma-separated environments.`,
+        "Fix: Run agentstack observe compare --env preview,production --journey onboarding."
+      ].join("\n")
+    );
+  }
+
+  for (const environment of environments) {
+    if (!isEnvironment(environment)) {
+      throw new Error(
+        [
+          "FAIL cli.option.invalid",
+          `Invalid --env value: ${environment}. Expected one of: ${environmentValues.join(", ")}.`,
+          "Fix: Run agentstack observe compare --env preview,production --journey onboarding."
+        ].join("\n")
+      );
+    }
+  }
+  return environments as TelemetryEnvironment[];
+}
+
+async function recordObserveCompleted(
+  io: RunIo,
+  argv: string[],
+  environment: TelemetryEnvironment | undefined,
+  mode: string,
+  events: number
+): Promise<void> {
   await recordCommandEvent(io, {
     name: "agentstack.observe.completed",
-    environment: query.environment ?? "development",
+    environment: environment ?? "development",
     journey: "observability",
     command: ["observe", ...argv].join(" "),
     status: "ok",
-    state: { mode, events: events.length }
+    state: { mode, events }
   });
-  return 0;
 }
 
 async function recordCommandEvent(
