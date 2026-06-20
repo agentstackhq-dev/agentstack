@@ -173,6 +173,21 @@ describe("generateProject", () => {
         "createAppEvent"
       );
       await expect(readFile(join(targetDir, "packages/telemetry/src/index.ts"), "utf8")).resolves.toContain(
+        "createAppSpan"
+      );
+      await expect(readFile(join(targetDir, "packages/telemetry/src/index.ts"), "utf8")).resolves.toContain(
+        "createAppJourney"
+      );
+      await expect(readFile(join(targetDir, "packages/telemetry/src/index.ts"), "utf8")).resolves.toContain(
+        "redactAppTelemetryState"
+      );
+      await expect(readFile(join(targetDir, "packages/telemetry/src/index.ts"), "utf8")).resolves.toContain(
+        "AppTelemetrySpanEnvelope"
+      );
+      await expect(readFile(join(targetDir, "packages/telemetry/src/index.ts"), "utf8")).resolves.toContain(
+        "AppTelemetryJourneyEnvelope"
+      );
+      await expect(readFile(join(targetDir, "packages/telemetry/src/index.ts"), "utf8")).resolves.toContain(
         "AppTelemetryState"
       );
       await expect(readFile(join(targetDir, "packages/telemetry/src/index.ts"), "utf8")).resolves.toContain(
@@ -211,6 +226,30 @@ describe("generateProject", () => {
       );
       await expect(readFile(join(targetDir, "apps/web/src/index.ts"), "utf8")).resolves.toContain(
         "createAppTelemetry"
+      );
+      await expect(readFile(join(targetDir, "packages/agentstack-runtime/src/index.ts"), "utf8")).resolves.toContain(
+        "identify(identity"
+      );
+      await expect(readFile(join(targetDir, "packages/agentstack-runtime/src/index.ts"), "utf8")).resolves.toContain(
+        "span(name"
+      );
+      await expect(readFile(join(targetDir, "packages/agentstack-runtime/src/index.ts"), "utf8")).resolves.toContain(
+        "journey(journey"
+      );
+      await expect(readFile(join(targetDir, "packages/agentstack-runtime/src/index.ts"), "utf8")).resolves.toContain(
+        "redact(state"
+      );
+      await expect(readFile(join(targetDir, "apps/web/src/index.ts"), "utf8")).resolves.toContain(
+        "webOnboardingSpanAnchor"
+      );
+      await expect(readFile(join(targetDir, "apps/web/src/index.ts"), "utf8")).resolves.toContain(
+        "webOnboardingJourneyAnchor"
+      );
+      await expect(readFile(join(targetDir, "apps/mobile/src/index.ts"), "utf8")).resolves.toContain(
+        "mobileAuthenticationSpanAnchor"
+      );
+      await expect(readFile(join(targetDir, "convex/agentstack.ts"), "utf8")).resolves.toContain(
+        "convexBillingJourneyAnchor"
       );
       await expectGeneratedAnchors(targetDir);
       await expectNoTemplateTokens(targetDir);
@@ -293,6 +332,48 @@ describe("generateProject", () => {
         join(targetDir, "packages/domain/src/saas-spine.ts"),
         join(targetDir, "convex/saasSpine.ts"),
         join(targetDir, "convex/schema.ts")
+      ];
+
+      await expect(
+        execFileAsync(
+          "pnpm",
+          [
+            "exec",
+            "tsc",
+            "--strict",
+            "--module",
+            "NodeNext",
+            "--moduleResolution",
+            "NodeNext",
+            "--target",
+            "ES2022",
+            "--skipLibCheck",
+            "--noEmit",
+            ...files
+          ],
+          { cwd: repoRoot }
+        )
+      ).resolves.toBeDefined();
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  test("generates telemetry and runtime anchors that typecheck in isolation", async () => {
+    const tempRoot = await mkdtemp(join(tmpdir(), "agentstack-create-"));
+    const targetDir = join(tempRoot, "acme-crm");
+
+    try {
+      await generateProject({ name: "acme-crm", targetDir });
+
+      const files = [
+        join(targetDir, "packages/telemetry/src/events.ts"),
+        join(targetDir, "packages/telemetry/src/events/index.ts"),
+        join(targetDir, "packages/telemetry/src/index.ts"),
+        join(targetDir, "packages/agentstack-runtime/src/index.ts"),
+        join(targetDir, "apps/web/src/index.ts"),
+        join(targetDir, "apps/mobile/src/index.ts"),
+        join(targetDir, "convex/agentstack.ts")
       ];
 
       await expect(

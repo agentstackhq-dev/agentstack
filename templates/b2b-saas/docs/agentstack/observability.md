@@ -27,14 +27,27 @@ node scripts/agentstack.mjs observe timeline --journey telemetry-generation --en
 Use event definitions through the runtime helper:
 
 ```ts
-const telemetry = createAppTelemetry(runtime);
-const event = telemetry.event(billingSubscriptionUpdatedEvent, {
-  plan: "team",
-  seatCount: 5
+const telemetry = createAppTelemetry(runtime).identify({
+  actorId: "user_123",
+  orgId: "org_123",
+  journeyId: "journey_billing_123"
 });
+
+telemetry.event(billingSubscriptionUpdatedEvent, { plan: "team", seatCount: 5 });
+telemetry.span("convex.billing.applySubscriptionUpdate", { plan: "team" });
+telemetry.journey("billing", "subscription-updated", { plan: "team" });
+telemetry.redact({ email: "person@example.com", plan: "team" });
 ```
 
-This slice creates provider-neutral envelopes only. It can write an `OTLP-shaped JSON` local export artifact from redacted local query output, but it does not configure network export or send data to a hosted telemetry provider.
+These app-facing primitives create provider-neutral local envelopes only:
+
+- `identify` returns a telemetry helper with actor, org, journey, or release context attached.
+- `event` creates a typed event envelope from a generated event definition.
+- `span` creates a local span envelope for a runtime boundary.
+- `journey` creates a local workflow phase envelope.
+- `redact` previews the same state redaction used by generated envelopes.
+
+State is redacted before it appears in generated telemetry envelopes. This slice can write an `OTLP-shaped JSON` local export artifact from redacted local query output, but it does not configure hosted telemetry, network export, provider ingestion, or dashboard links.
 
 ## Inspection Workflow
 

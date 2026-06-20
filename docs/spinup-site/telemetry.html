@@ -27,10 +27,10 @@
           <div>
             <h1>Wide events make debugging explainable.</h1>
             <p>
-              The telemetry package models events as high-resolution snapshots of state. This
-              prototype reads redacted local JSONL for inspection and can write an OTLP-shaped JSON
-              local export artifact for handoff without claiming network export, hosted indexing,
-              or provider dashboards.
+              The telemetry package models events, spans, journeys, identity, and redaction as
+              provider-neutral local envelopes. This prototype reads redacted local JSONL for
+              inspection and can write an OTLP-shaped JSON local export artifact for handoff
+              without claiming network export, hosted indexing, or provider dashboards.
             </p>
           </div>
           <div class="diagram hero-art">
@@ -61,20 +61,25 @@
 
         <section class="content">
           <section class="section">
-            <h2>Event shape</h2>
+            <h2>Runtime primitives</h2>
             <div class="grid two">
-              <pre><code>const telemetry = createAppTelemetry(webRuntime);
+              <pre><code>const telemetry = createAppTelemetry(webRuntime).identify({
+  actorId: "user_123",
+  orgId: "org_123",
+  journeyId: "journey_billing_123"
+});
 
-telemetry.event(onboardingStepCompletedEvent, {
-  step: "workspace",
-  workspaceId: "workspace_123"
-});</code></pre>
+telemetry.event(billingSubscriptionUpdatedEvent, { plan: "team", seatCount: 5 });
+telemetry.span("convex.billing.applySubscriptionUpdate", { plan: "team" });
+telemetry.journey("billing", "subscription-updated", { plan: "team" });
+telemetry.redact({ email: "person@example.com", plan: "team" });</code></pre>
               <div class="card">
-                <h3>What makes it wide</h3>
+                <h3>What gets created</h3>
                 <p>
-                  The event definition supplies name, journey, surfaces, schema version, and state
-                  field types. The runtime helper adds app, environment, surface, optional correlation
-                  context, and a timestamp without requiring network export.
+                  The runtime helper creates provider-neutral local envelopes for typed events, spans,
+                  and journey phases. State is redacted before it appears in generated telemetry
+                  envelopes, and no hosted telemetry, network export, provider ingestion, or dashboard
+                  link is configured by these primitives.
                 </p>
               </div>
             </div>

@@ -121,6 +121,6 @@ agentstack.event.added
 - `pnpm run mobile:build:preview:apply` applies the local mobile build rehearsal, writes `.agentstack/builds/mobile-preview.json`, and records `agentstack.mobile.build.completed` telemetry.
 - `pnpm run observe:timeline` queries redacted local command telemetry.
 - `pnpm run telemetry:export:preview` and `pnpm run telemetry:export:production` write an `OTLP-shaped JSON` local export artifact from redacted store query output. Local JSONL remains the source for local inspection, and no network export or hosted provider is configured by default.
-- Generated apps use `createAppTelemetry(runtime).event(definition, state)` to create provider-neutral typed envelopes. This prototype writes only local export artifacts; it does not send app telemetry to a hosted provider.
+- Generated apps use `createAppTelemetry(runtime)` with `identify`, `event`, `span`, `journey`, and `redact` to create provider-neutral local envelopes. State is redacted before it appears in generated telemetry envelopes. Local CLI inspection still reads `.agentstack/events.jsonl`; this prototype writes only local export artifacts and does not configure hosted telemetry, network export, or provider ingestion.
 
 Preview and production release commands are local rehearsals only. They do not deploy to real provider APIs.

@@ -10,9 +10,25 @@ export const webRuntime = createRuntimeContext({
 
 export const webTelemetry = createAppTelemetry(webRuntime);
 
-export const webOnboardingTelemetryAnchor = webTelemetry.event(onboardingStepCompletedEvent, {
+export const webTelemetryForDemoActor = webTelemetry.identify({
+  actorId: "demo-user",
+  orgId: "demo-org",
+  journeyId: "journey_onboarding_demo"
+});
+
+export const webOnboardingTelemetryAnchor = webTelemetryForDemoActor.event(onboardingStepCompletedEvent, {
   step: "workspace-created",
   workspaceId: "demo-workspace"
 });
+
+export const webOnboardingSpanAnchor = webTelemetryForDemoActor.span("web.onboarding.render", {
+  screen: "onboarding"
+});
+
+export const webOnboardingJourneyAnchor = webTelemetryForDemoActor.journey(
+  "onboarding",
+  "workspace-created",
+  { workspaceId: "demo-workspace", email: "founder@example.com" }
+);
 
 export const webAnchor = "Add web product routes and components here.";
