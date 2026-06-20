@@ -62,6 +62,19 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("Path: agentstack.config.json");
   });
 
+  it("fails local validation when a required generated docs anchor is missing", async () => {
+    await rm(join(dir, "docs/agentstack/theming.md"));
+
+    const code = await runAgentstack(["validate"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL template.anchor.missing");
+    expect(output.join("\n")).toContain("Path: docs/agentstack/theming.md");
+  });
+
   it("fails cloud validation when cloud state is missing", async () => {
     const code = await runAgentstack(["validate", "--cloud"], {
       cwd: dir,
@@ -203,6 +216,10 @@ async function writeGeneratedAnchors(): Promise<void> {
     "docs/agentstack/workflows.md",
     "docs/agentstack/validation.md",
     "docs/agentstack/observability.md",
+    "docs/agentstack/environments.md",
+    "docs/agentstack/generated-boundaries.md",
+    "docs/agentstack/release.md",
+    "docs/agentstack/theming.md",
     "apps/web/package.json",
     "apps/mobile/package.json",
     "convex/schema.ts",

@@ -36,6 +36,10 @@ export function getRequiredGeneratedAnchors(manifest: AgentstackManifest): strin
     "docs/agentstack/workflows.md",
     "docs/agentstack/validation.md",
     "docs/agentstack/observability.md",
+    "docs/agentstack/environments.md",
+    "docs/agentstack/generated-boundaries.md",
+    "docs/agentstack/release.md",
+    "docs/agentstack/theming.md",
     "packages/domain/src/index.ts",
     "packages/theme/src/index.ts"
   ];
