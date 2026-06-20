@@ -89,7 +89,7 @@ export function parseManifest(input: unknown): Result<AgentstackManifest> {
     code: "manifest.invalid",
     path: issue.path.join("."),
     message: issue.message,
-    fix: "Update agentstack.config.ts so it matches the Agentstack manifest schema.",
+    fix: "Update agentstack.config.json so it matches the Agentstack manifest schema.",
     blocks: ["validate", "validate --cloud", "deploy"]
   }));
 

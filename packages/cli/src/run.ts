@@ -1,8 +1,12 @@
+import { access } from "node:fs/promises";
 import { join } from "node:path";
 import { LocalCloudAdapter } from "@agentstack/adapters";
 import {
   formatDiagnostic,
+  getRequiredGeneratedAnchors,
+  validateGeneratedAnchors,
   validateLocalProject,
+  type AgentstackManifest,
   type EnvironmentName
 } from "@agentstack/core";
 import {
@@ -73,10 +77,15 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
 async function validateCommand(argv: string[], io: RunIo): Promise<number> {
   const options = parseOptions(argv);
   const context = await loadProjectContext(io.cwd);
-  const result = validateLocalProject({ manifest: context.manifest, envValues: {} });
-  result.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
+  const localResult = validateLocalProject({ manifest: context.manifest, envValues: {} });
+  const anchorResult = validateGeneratedAnchors({
+    manifest: context.manifest,
+    missingPaths: await findMissingGeneratedAnchors(context.cwd, context.manifest)
+  });
+  const diagnostics = [...localResult.diagnostics, ...anchorResult.diagnostics];
+  diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
 
-  if (!result.ok) {
+  if (!localResult.ok || !anchorResult.ok) {
     return 1;
   }
 
@@ -93,6 +102,28 @@ async function validateCommand(argv: string[], io: RunIo): Promise<number> {
 
   io.write("PASS validate");
   return 0;
+}
+
+async function findMissingGeneratedAnchors(
+  cwd: string,
+  manifest: AgentstackManifest
+): Promise<string[]> {
+  const anchors = getRequiredGeneratedAnchors(manifest);
+  const checks = await Promise.all(
+    anchors.map(async (anchor) => {
+      try {
+        await access(join(cwd, anchor));
+        return undefined;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+          return anchor;
+        }
+        throw error;
+      }
+    })
+  );
+
+  return checks.filter((anchor): anchor is string => Boolean(anchor));
 }
 
 async function syncCommand(argv: string[], io: RunIo): Promise<number> {

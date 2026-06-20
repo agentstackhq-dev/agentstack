@@ -11,6 +11,11 @@ export type LocalValidationReport = {
   diagnostics: Diagnostic[];
 };
 
+export type GeneratedAnchorValidationInput = {
+  manifest: AgentstackManifest;
+  missingPaths: string[];
+};
+
 export function validateLocalProject(input: LocalValidationInput): Result<LocalValidationReport> {
   const diagnostics: Diagnostic[] = [
     ...validateCustomEnvValues(input.manifest, input.envValues),
@@ -18,6 +23,58 @@ export function validateLocalProject(input: LocalValidationInput): Result<LocalV
   ];
 
   if (diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
+    return { ok: false, diagnostics };
+  }
+
+  return { ok: true, value: { diagnostics }, diagnostics };
+}
+
+export function getRequiredGeneratedAnchors(manifest: AgentstackManifest): string[] {
+  const anchors = [
+    "AGENTS.md",
+    "agentstack.config.json",
+    "docs/agentstack/workflows.md",
+    "docs/agentstack/validation.md",
+    "docs/agentstack/observability.md",
+    "packages/domain/src/index.ts",
+    "packages/theme/src/index.ts"
+  ];
+
+  if (manifest.surfaces.includes("web")) {
+    anchors.push("apps/web/package.json");
+  }
+
+  if (manifest.surfaces.includes("mobile")) {
+    anchors.push("apps/mobile/package.json");
+  }
+
+  if (manifest.surfaces.includes("convex")) {
+    anchors.push("convex/schema.ts");
+  }
+
+  if (manifest.telemetry.enabled) {
+    anchors.push("packages/telemetry/src/events.ts");
+  }
+
+  return anchors;
+}
+
+export function validateGeneratedAnchors(
+  input: GeneratedAnchorValidationInput
+): Result<LocalValidationReport> {
+  const required = new Set(getRequiredGeneratedAnchors(input.manifest));
+  const diagnostics: Diagnostic[] = input.missingPaths
+    .filter((path) => required.has(path))
+    .map((path) => ({
+      severity: "fail",
+      code: "template.anchor.missing",
+      path,
+      message: `Required generated file is missing: ${path}.`,
+      fix: "Restore the generated anchor or rerun agentstack init for this project.",
+      blocks: ["validate", "validate --cloud", "deploy"]
+    }));
+
+  if (diagnostics.length > 0) {
     return { ok: false, diagnostics };
   }
 
@@ -32,7 +89,7 @@ function validateTelemetryPolicy(manifest: AgentstackManifest): Diagnostic[] {
       severity: "warn",
       code: "telemetry.disabled",
       message: "Telemetry is disabled, so journey inspection will not be available.",
-      fix: "Set telemetry.enabled to true in agentstack.config.ts."
+      fix: "Set telemetry.enabled to true in agentstack.config.json."
     });
   }
 

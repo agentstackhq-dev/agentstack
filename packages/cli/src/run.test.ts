@@ -1,6 +1,6 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createDefaultManifest } from "@agentstack/core";
 import { createWideEvent, JsonlTelemetryStore } from "@agentstack/telemetry";
@@ -18,6 +18,7 @@ beforeEach(async () => {
     `${JSON.stringify(manifest, null, 2)}\n`,
     "utf8"
   );
+  await writeGeneratedAnchors();
 });
 
 afterEach(async () => {
@@ -33,6 +34,19 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(0);
     expect(output).toContain("PASS validate");
+  });
+
+  it("fails local validation when a required generated anchor is missing", async () => {
+    await rm(join(dir, "apps/web/package.json"));
+
+    const code = await runAgentstack(["validate"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL template.anchor.missing");
+    expect(output.join("\n")).toContain("Path: apps/web/package.json");
   });
 
   it("fails cloud validation when cloud state is missing", async () => {
@@ -169,3 +183,25 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("Fix: Run agentstack sync --env preview --apply.");
   });
 });
+
+async function writeGeneratedAnchors(): Promise<void> {
+  const anchors = [
+    "AGENTS.md",
+    "docs/agentstack/workflows.md",
+    "docs/agentstack/validation.md",
+    "docs/agentstack/observability.md",
+    "apps/web/package.json",
+    "apps/mobile/package.json",
+    "convex/schema.ts",
+    "packages/domain/src/index.ts",
+    "packages/theme/src/index.ts",
+    "packages/telemetry/src/events.ts"
+  ];
+
+  await Promise.all(
+    anchors.map(async (anchor) => {
+      await mkdir(dirname(join(dir, anchor)), { recursive: true });
+      await writeFile(join(dir, anchor), "{}\n", "utf8");
+    })
+  );
+}
