@@ -115,6 +115,16 @@ Blocks: validate, validate --cloud, deploy</code></pre>
 APPLIED deploy preview
 - applied release preview.vercel
 - applied release preview.eas</code></pre>
+              <pre><code>PASS prod prepare production
+
+PLAN prod provision production
+- link production.clerk
+- link production.convex
+
+PASS validate --release production
+APPLIED deploy production
+- applied release production.clerk
+- applied release production.convex</code></pre>
               <pre><code>PLAN mobile build preview
 - planned eas profile preview distribution internal development-client=no
 

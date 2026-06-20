@@ -196,7 +196,7 @@ export class LocalCloudAdapter implements CloudAdapter {
       return plan;
     }
 
-    await this.apply(lifecyclePlan);
+    await this.apply(lifecyclePlan, { confirmProduction: options.confirmProduction });
     const artifactPath = join(".agentstack", "deployments", `${environment}.json`);
     const appliedPlan: DeployPlan = { ...plan, artifactPath };
     await this.writeDeploymentArtifact(artifactPath, appliedPlan);

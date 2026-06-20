@@ -48,6 +48,13 @@ const scenarios = {
     detail: "The deploy rehearsal is local-only. Plan does not write a deployment artifact. Apply writes .agentstack/deployments/preview.json and records agentstack.deploy.completed telemetry without calling real provider APIs.",
     files: ["templates/b2b-saas/docs/agentstack/preview.md", "packages/cli/src/run.ts", "tests/e2e/prototype.test.ts"]
   },
+  productionRelease: {
+    title: "Production release rehearsal",
+    command: "pnpm run prod:prepare && pnpm run prod:provision && pnpm run prod:provision:apply && pnpm run prod:validate && pnpm run prod:deploy && pnpm run prod:deploy:apply",
+    result: "PASS prod prepare production / PLAN prod provision production / APPLIED prod provision production / PASS validate --release production / PLAN deploy production / APPLIED deploy production",
+    detail: "The production release rehearsal is local-only. Prepare checks readiness and reports repair commands. Provision plans and applies local production state. Validate runs release validation. Deploy plans production deploy, and deploy apply writes a local artifact only after explicit production confirmation through the script. No real provider APIs are called.",
+    files: ["templates/b2b-saas/docs/agentstack/release.md", "templates/b2b-saas/package.json", "packages/create-agent-stack/src/generate.test.ts"]
+  },
   mobileBuild: {
     title: "Mobile build rehearsal",
     command: "pnpm run mobile:build:preview && pnpm run mobile:build:preview:apply",

@@ -130,6 +130,21 @@ describe("Agentstack executable prototype workflow", () => {
     await expect(readFile(join(appDir, ".agentstack/builds/mobile-preview.json"), "utf8")).resolves.toContain(
       '"environment": "preview"'
     );
+    expect(await runAgentstack(["prod", "prepare"], { cwd: appDir, write })).toBe(0);
+    expect(await runAgentstack(["prod", "provision"], { cwd: appDir, write })).toBe(0);
+    expect(await runAgentstack(["prod", "provision", "--apply"], { cwd: appDir, write })).toBe(0);
+    expect(await runAgentstack(["validate", "--release", "prod"], { cwd: appDir, write })).toBe(0);
+    expect(await runAgentstack(["prod", "prepare"], { cwd: appDir, write })).toBe(0);
+    expect(await runAgentstack(["deploy", "--env", "prod"], { cwd: appDir, write })).toBe(0);
+    expect(
+      await runAgentstack(["deploy", "--env", "production", "--apply", "--confirm-production"], {
+        cwd: appDir,
+        write
+      })
+    ).toBe(0);
+    await expect(readFile(join(appDir, ".agentstack/deployments/production.json"), "utf8")).resolves.toContain(
+      '"environment": "production"'
+    );
 
     const store = new JsonlTelemetryStore(join(appDir, ".agentstack", "events.jsonl"));
     await store.append(
@@ -169,6 +184,18 @@ describe("Agentstack executable prototype workflow", () => {
     expect(
       await runAgentstack(
         ["observe", "timeline", "--env", "preview", "--journey", "deployment"],
+        { cwd: appDir, write }
+      )
+    ).toBe(0);
+    expect(
+      await runAgentstack(
+        ["observe", "timeline", "--env", "production", "--journey", "deployment"],
+        { cwd: appDir, write }
+      )
+    ).toBe(0);
+    expect(
+      await runAgentstack(
+        ["observe", "timeline", "--env", "production", "--journey", "production-release"],
         { cwd: appDir, write }
       )
     ).toBe(0);
@@ -215,12 +242,20 @@ describe("Agentstack executable prototype workflow", () => {
     expect(renderedOutput).toContain("APPLIED deploy preview");
     expect(renderedOutput).toContain("PLAN mobile build preview");
     expect(renderedOutput).toContain("APPLIED mobile build preview");
+    expect(renderedOutput).toContain("PLAN prod provision production");
+    expect(renderedOutput).toContain("APPLIED prod provision production");
+    expect(renderedOutput).toContain("PASS validate --release production");
+    expect(renderedOutput).toContain("PASS prod prepare production");
+    expect(renderedOutput).toContain("PLAN deploy production");
+    expect(renderedOutput).toContain("APPLIED deploy production");
     expect(renderedOutput).toContain("Environment: preview");
     expect(renderedOutput).toContain("onboarding.step.completed");
     expect(renderedOutput).toContain("PASS observe component web:onboarding 1");
     expect(renderedOutput).toContain("agentstack.validate.completed");
     expect(renderedOutput).toContain("agentstack.deploy.completed");
     expect(renderedOutput).toContain("agentstack.mobile.build.completed");
+    expect(renderedOutput).toContain("agentstack.prod.prepare.completed");
+    expect(renderedOutput).toContain("agentstack.prod.provision.completed");
     expect(renderedOutput).toContain("agentstack.skills.inspect.completed");
     expect(renderedOutput).toContain("agentstack.event.added");
     expect(renderedOutput).toContain("agentstack.billing-plan.added");

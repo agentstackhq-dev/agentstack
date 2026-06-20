@@ -111,6 +111,29 @@ describe("local-cloud adapter", () => {
     expect(state.services.filter((service) => service.environment === "preview" && service.linked)).toHaveLength(4);
   });
 
+  it("requires explicit production confirmation for deploy apply and writes the artifact when confirmed", async () => {
+    const adapter = new LocalCloudAdapter(dir);
+    const manifest = createDefaultManifest("acme-crm");
+
+    await adapter.sync(manifest, "production", { apply: true });
+
+    await expect(adapter.deploy(manifest, "production", { apply: true })).rejects.toThrow(
+      "Production local-cloud mutations require explicit confirmation."
+    );
+
+    const plan = await adapter.deploy(manifest, "production", {
+      apply: true,
+      confirmProduction: true
+    });
+
+    expect(plan).toMatchObject({
+      environment: "production",
+      applied: true,
+      artifactPath: ".agentstack/deployments/production.json"
+    });
+    await expect(stat(join(dir, ".agentstack", "deployments", "production.json"))).resolves.toBeTruthy();
+  });
+
   it("keeps deploy apply idempotent and reconciles stale local-cloud services", async () => {
     const adapter = new LocalCloudAdapter(dir);
     const manifest = createDefaultManifest("acme-crm");

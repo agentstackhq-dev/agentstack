@@ -431,6 +431,86 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).not.toContain("PASS validate");
   });
 
+  it("fails production release validation before production cloud is synced", async () => {
+    const code = await runAgentstack(["validate", "--release", "prod"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL cloud.service.missing");
+    expect(output.join("\n")).toContain("Path: production.");
+    expect(output.join("\n")).not.toContain("PASS validate --release production");
+  });
+
+  it("plans production provision without writing state and applies production provision", async () => {
+    const planCode = await runAgentstack(["prod", "provision"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(planCode).toBe(0);
+    expect(output).toContain("PLAN prod provision production");
+    expect(output).toContain("- link production.clerk");
+    await expect(stat(join(dir, ".agentstack", "local-cloud.json"))).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+
+    output = [];
+    const applyCode = await runAgentstack(["prod", "provision", "--apply"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(applyCode).toBe(0);
+    expect(output).toContain("APPLIED prod provision production");
+    expect(output).toContain("- link production.clerk");
+    await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).resolves.toContain(
+      '"environment": "production"'
+    );
+  });
+
+  it("passes production release validation after production provision apply", async () => {
+    await runAgentstack(["prod", "provision", "--apply"], { cwd: dir, write: () => undefined });
+
+    const code = await runAgentstack(["validate", "--release", "production"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS validate --release production");
+  });
+
+  it("prepares production before production cloud is synced", async () => {
+    const beforeCode = await runAgentstack(["prod", "prepare"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(beforeCode).toBe(0);
+    expect(output).toContain("PASS prod prepare production");
+    expect(output.join("\n")).not.toContain("FAIL cloud.service.missing");
+    expect(output.join("\n")).toContain("Next commands:");
+    expect(output.join("\n")).toContain("agentstack prod provision --apply");
+    expect(output.join("\n")).toContain("agentstack validate --release prod");
+  });
+
+  it("fails production prepare when release policy is not locally ready", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.telemetry.environments.production.required = false;
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+
+    const code = await runAgentstack(["prod", "prepare"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL prod prepare production");
+    expect(output.join("\n")).toContain("FAIL release.telemetry.production-required");
+  });
+
   it("fails local validation when a required generated anchor is missing", async () => {
     await rm(join(dir, "apps/web/package.json"));
 
@@ -620,27 +700,88 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).not.toContain("deploy.not-implemented");
   });
 
-  it("rejects non-preview deploy environments with an actionable diagnostic", async () => {
+  it("requires production release readiness before planning production deploys", async () => {
     const code = await runAgentstack(["deploy", "--env", "production"], {
       cwd: dir,
       write: (line) => output.push(line)
     });
 
     expect(code).toBe(1);
-    expect(output.join("\n")).toContain("FAIL deploy.environment.unsupported");
-    expect(output.join("\n")).toContain("Path: production");
-    expect(output.join("\n")).toContain("Fix: Run agentstack deploy --env preview.");
+    expect(output.join("\n")).toContain("FAIL cloud.service.missing");
     expect(output.join("\n")).not.toContain("PLAN deploy production");
+  });
 
-    output = [];
+  it("plans production deploy after release validation passes", async () => {
+    await runAgentstack(["prod", "provision", "--apply"], { cwd: dir, write: () => undefined });
+
+    const code = await runAgentstack(["deploy", "--env", "prod"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS validate --release production");
+    expect(output).toContain("PLAN deploy production");
+    expect(output).toContain("- planned release production.vercel");
+    await expect(stat(join(dir, ".agentstack", "deployments", "production.json"))).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+  });
+
+  it("accepts prod as a production environment alias for sync", async () => {
+    const code = await runAgentstack(["sync", "--env", "prod"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PLAN production");
+    expect(output).toContain("- link production.clerk");
+  });
+
+  it("requires explicit confirmation before applying production deploys", async () => {
+    await runAgentstack(["prod", "provision", "--apply"], { cwd: dir, write: () => undefined });
+
     const applyCode = await runAgentstack(["deploy", "--env", "production", "--apply"], {
       cwd: dir,
       write: (line) => output.push(line)
     });
 
     expect(applyCode).toBe(1);
-    expect(output.join("\n")).toContain("FAIL deploy.environment.unsupported");
+    expect(output.join("\n")).toContain("FAIL deploy.production-confirmation.required");
     expect(output.join("\n")).not.toContain("APPLIED deploy production");
+  });
+
+  it("applies production deploy with explicit confirmation", async () => {
+    await runAgentstack(["prod", "provision", "--apply"], { cwd: dir, write: () => undefined });
+    output = [];
+    const applyCode = await runAgentstack(
+      ["deploy", "--env", "production", "--apply", "--confirm-production"],
+      {
+        cwd: dir,
+        write: (line) => output.push(line)
+      }
+    );
+
+    expect(applyCode).toBe(0);
+    expect(output).toContain("APPLIED deploy production");
+    expect(output).toContain("- applied release production.vercel");
+    await expect(readFile(join(dir, ".agentstack", "deployments", "production.json"), "utf8")).resolves.toContain(
+      '"environment": "production"'
+    );
+  });
+
+  it("rejects development deploy environments with an actionable diagnostic", async () => {
+    const code = await runAgentstack(["deploy", "--env", "development"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL deploy.environment.unsupported");
+    expect(output.join("\n")).toContain("Path: development");
+    expect(output.join("\n")).toContain("Fix: Run agentstack deploy --env preview.");
+    expect(output.join("\n")).not.toContain("PLAN deploy development");
   });
 
   it("plans preview deploy without writing a deployment artifact", async () => {
@@ -1726,7 +1867,7 @@ describe("runAgentstack", () => {
     expect(code).toBe(1);
     expect(output.join("\n")).toContain("FAIL cli.option.missing");
     expect(output.join("\n")).toContain("--env requires a value.");
-    expect(output.join("\n")).toContain("Expected one of: development, preview, production.");
+    expect(output.join("\n")).toContain("Expected one of: development, preview, production, prod.");
     expect(output.join("\n")).toContain("Fix: Run agentstack sync --env preview --apply.");
   });
 });

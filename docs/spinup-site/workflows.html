@@ -90,9 +90,17 @@ pnpm run doctor
 pnpm run dev
 pnpm run preview:deploy
 pnpm run preview:deploy:apply
+pnpm run prod:prepare
+pnpm run prod:provision
+pnpm run prod:provision:apply
+pnpm run prod:validate
+pnpm run prod:deploy
+pnpm run prod:deploy:apply
 pnpm run mobile:build:preview
 pnpm run mobile:build:preview:apply
 node scripts/agentstack.mjs observe timeline --env preview --journey deployment
+node scripts/agentstack.mjs observe timeline --env production --journey deployment
+node scripts/agentstack.mjs observe timeline --env production --journey production-release
 node scripts/agentstack.mjs observe timeline --env preview --journey mobile-build
 node scripts/agentstack.mjs observe timeline --env development --journey billing
 node scripts/agentstack.mjs observe timeline --env development --journey telemetry-generation</code></pre>
@@ -115,6 +123,10 @@ node scripts/agentstack.mjs observe timeline --env development --journey telemet
                   <li><code>dev</code> is a preflight only; it prints next web, mobile, validation, env, and sync commands without starting real servers.</li>
                   <li><code>preview:deploy</code> prints <code>PLAN deploy preview</code> without writing a deployment artifact.</li>
                   <li><code>preview:deploy:apply</code> prints <code>APPLIED deploy preview</code>, writes <code>.agentstack/deployments/preview.json</code>, and records <code>agentstack.deploy.completed</code>.</li>
+                  <li><code>prod:prepare</code> checks production release readiness and reports repair commands.</li>
+                  <li><code>prod:provision</code> plans production local-cloud state; <code>prod:provision:apply</code> applies that local state.</li>
+                  <li><code>prod:validate</code> runs release validation, then <code>prod:deploy</code> plans production deploy.</li>
+                  <li><code>prod:deploy:apply</code> applies the local production artifact only and requires explicit production confirmation through the script. No real provider APIs are called.</li>
                   <li><code>mobile:build:preview</code> prints <code>PLAN mobile build preview</code> without writing a build artifact.</li>
                   <li><code>mobile:build:preview:apply</code> prints <code>APPLIED mobile build preview</code>, writes <code>.agentstack/builds/mobile-preview.json</code>, and records <code>agentstack.mobile.build.completed</code>.</li>
                   <li><code>observe timeline --journey billing</code> confirms billing-plan generation telemetry, including <code>agentstack.billing-plan.added</code>.</li>

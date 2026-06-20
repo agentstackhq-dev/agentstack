@@ -6,6 +6,7 @@ export * from "./guidance.js";
 export * from "./lifecycle.js";
 export * from "./manifest.js";
 export * from "./mobile-build.js";
+export * from "./release.js";
 export * from "./saas-spine.js";
 export * from "./telemetry-events.js";
 export * from "./theme.js";

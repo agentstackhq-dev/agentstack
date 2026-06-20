@@ -2,7 +2,7 @@
 
 Agentstack is an agent-first control framework for B2B SaaS teams building on Convex, Clerk, React, React Native, Vercel, Expo/EAS, and OpenTelemetry.
 
-This prototype proves the local command contract: generate a project, inspect lifecycle state, run doctor-style preflight checks, validate the framework manifest, inspect environment state, plan and apply local-cloud sync, validate a named environment, rehearse a local preview deploy, and inspect redacted command telemetry from the CLI. It does not provision real provider resources yet.
+This prototype proves the local command contract: generate a project, inspect lifecycle state, run doctor-style preflight checks, validate the framework manifest, inspect environment state, plan and apply local-cloud sync, validate a named environment, rehearse local preview and production deploy flows, and inspect redacted command telemetry from the CLI. It does not provision real provider resources yet.
 
 The current cloud implementation is a filesystem-backed local-cloud adapter. Real Convex, Clerk, Vercel, EAS, Stripe, and telemetry adapters will implement the same validation, sync, deploy, and inspection contracts.
 
@@ -37,9 +37,17 @@ pnpm run doctor
 pnpm run dev
 pnpm run preview:deploy
 pnpm run preview:deploy:apply
+pnpm run prod:prepare
+pnpm run prod:provision
+pnpm run prod:provision:apply
+pnpm run prod:validate
+pnpm run prod:deploy
+pnpm run prod:deploy:apply
 pnpm run mobile:build:preview
 pnpm run mobile:build:preview:apply
 node scripts/agentstack.mjs observe timeline --env preview --journey deployment
+node scripts/agentstack.mjs observe timeline --env production --journey deployment
+node scripts/agentstack.mjs observe timeline --env production --journey production-release
 node scripts/agentstack.mjs observe timeline --env preview --journey mobile-build
 node scripts/agentstack.mjs observe timeline --env development --journey billing
 node scripts/agentstack.mjs observe timeline --env development --journey telemetry-generation
@@ -65,6 +73,12 @@ PASS doctor preview
 PASS dev preflight preview
 PLAN deploy preview
 APPLIED deploy preview
+PASS prod prepare production
+PLAN prod provision production
+APPLIED prod provision production
+PASS validate --release production
+PLAN deploy production
+APPLIED deploy production
 PLAN mobile build preview
 APPLIED mobile build preview
 agentstack.deploy.completed
@@ -91,9 +105,15 @@ agentstack.event.added
 - `pnpm run validate:cloud` compares the project manifest with local-cloud state for the preview environment.
 - `pnpm run preview:deploy` plans the local preview deploy rehearsal without writing `.agentstack/deployments/preview.json`.
 - `pnpm run preview:deploy:apply` applies the local preview deploy rehearsal, writes `.agentstack/deployments/preview.json`, and records `agentstack.deploy.completed` telemetry.
+- `pnpm run prod:prepare` checks production release readiness and reports repair commands before provision or deploy work.
+- `pnpm run prod:provision` plans production local-cloud state without writing state.
+- `pnpm run prod:provision:apply` applies local production state.
+- `pnpm run prod:validate` runs release validation for the production release lane.
+- `pnpm run prod:deploy` plans the local production deploy rehearsal without writing a deployment artifact.
+- `pnpm run prod:deploy:apply` applies the local production deployment artifact only and requires explicit production confirmation through the generated script.
 - `pnpm run mobile:build:preview` plans the local mobile/EAS preview build rehearsal without writing `.agentstack/builds/mobile-preview.json`.
 - `pnpm run mobile:build:preview:apply` applies the local mobile build rehearsal, writes `.agentstack/builds/mobile-preview.json`, and records `agentstack.mobile.build.completed` telemetry.
 - `pnpm run observe:timeline` queries redacted local command telemetry.
 - Generated apps use `createAppTelemetry(runtime).event(definition, state)` to create provider-neutral typed envelopes. This prototype does not export app telemetry to OTLP or a hosted provider.
 
-Preview deploy commands are local rehearsals only. They do not deploy to real provider APIs.
+Preview and production release commands are local rehearsals only. They do not deploy to real provider APIs.

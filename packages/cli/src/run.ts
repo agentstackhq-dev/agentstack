@@ -8,9 +8,11 @@ import {
   formatDiagnostic,
   getGuidanceGeneratedAnchors,
   getRequiredGeneratedAnchors,
+  normalizeReleaseEnvironment,
   planTelemetryEventFiles,
   planBillingPlanFiles,
   planFeatureFiles,
+  validateReleasePolicy,
   validateCustomEnvValues,
   validateGeneratedAnchors,
   validateLocalProject,
@@ -21,6 +23,7 @@ import {
   type EnvironmentName,
   type LifecycleCloudSummary,
   type LifecycleSummary,
+  type ReleaseEnvironment,
   type SurfaceName
 } from "@agentstack/core";
 import {
@@ -45,6 +48,7 @@ export type RunIo = {
 type ParsedOptions = Record<string, string | boolean>;
 
 const environmentValues = ["development", "preview", "production"] as const;
+const environmentOptionValues = ["development", "preview", "production", "prod"] as const;
 const surfaceValues = ["web", "mobile", "convex"] as const;
 const telemetrySurfaceValues = [
   "web",
@@ -105,6 +109,10 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
       return await deployCommand(argv.slice(1), io);
     }
 
+    if (command === "prod") {
+      return await prodCommand([subcommand, ...rest].filter(Boolean), io);
+    }
+
     if (command === "build" && subcommand === "mobile") {
       return await buildMobileCommand(rest, io);
     }
@@ -155,6 +163,37 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
 
 async function validateCommand(argv: string[], io: RunIo): Promise<number> {
   const options = parseOptions(argv);
+  if (options.release !== undefined) {
+    const environment = readReleaseEnvironmentOption(options.release, {
+      flag: "release",
+      fix: "Run agentstack validate --release prod."
+    });
+    const result = await runReleaseValidationGate(io, argv, environment);
+    result.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
+    if (result.failed) {
+      await recordCommandEvent(io, {
+        name: "agentstack.validate.completed",
+        environment,
+        journey: "validation",
+        command: ["validate", ...argv].join(" "),
+        status: "fail",
+        state: { diagnostics: result.diagnostics.length, release: true }
+      });
+      return 1;
+    }
+
+    io.write(`PASS validate --release ${environment}`);
+    await recordCommandEvent(io, {
+      name: "agentstack.validate.completed",
+      environment,
+      journey: "validation",
+      command: ["validate", ...argv].join(" "),
+      status: "ok",
+      state: { diagnostics: result.diagnostics.length, release: true }
+    });
+    return 0;
+  }
+
   const { context, diagnostics } = await runLocalValidationGate(io.cwd);
   diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
 
@@ -344,28 +383,56 @@ async function deployCommand(argv: string[], io: RunIo): Promise<number> {
     flag: "env",
     fix: "Run agentstack deploy --env preview."
   });
-  if (environment !== "preview") {
+  if (environment === "development") {
     io.write(
       formatDiagnostic({
         severity: "fail",
         code: "deploy.environment.unsupported",
         path: environment,
-        message: "Local deploy rehearsal currently supports the preview environment only.",
+        message: "Deploy supports preview and production environments only.",
         fix: "Run agentstack deploy --env preview.",
         blocks: ["deploy"]
       })
     );
     return 1;
   }
-  const { context, diagnostics } = await runLocalValidationGate(io.cwd);
-  diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
 
-  if (diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
-    return 1;
+  let context: Awaited<ReturnType<typeof loadProjectContext>>;
+  if (environment === "production") {
+    const result = await runReleaseValidationGate(io, argv, "production");
+    result.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
+    if (result.failed) {
+      return 1;
+    }
+    io.write("PASS validate --release production");
+    context = result.context;
+
+    if (options.apply && !options["confirm-production"]) {
+      io.write(
+        formatDiagnostic({
+          severity: "fail",
+          code: "deploy.production-confirmation.required",
+          path: "production",
+          message: "Production deploy apply requires explicit confirmation.",
+          fix: "Run agentstack deploy --env production --apply --confirm-production.",
+          blocks: ["deploy"]
+        })
+      );
+      return 1;
+    }
+  } else {
+    const validation = await runLocalValidationGate(io.cwd);
+    validation.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
+
+    if (validation.diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
+      return 1;
+    }
+    context = validation.context;
   }
 
   const deployPlan = await new LocalCloudAdapter(io.cwd).deploy(context.manifest, environment, {
-    apply: Boolean(options.apply)
+    apply: Boolean(options.apply),
+    confirmProduction: Boolean(options["confirm-production"])
   });
   io.write(`${deployPlan.applied ? "APPLIED" : "PLAN"} deploy ${deployPlan.environment}`);
   deployPlan.steps.forEach((step) =>
@@ -383,6 +450,61 @@ async function deployCommand(argv: string[], io: RunIo): Promise<number> {
       steps: deployPlan.steps.length,
       services: Array.from(new Set(deployPlan.steps.map((step) => step.service)))
     }
+  });
+  return 0;
+}
+
+async function prodCommand(argv: string[], io: RunIo): Promise<number> {
+  const [subcommand, ...rest] = argv;
+
+  if (subcommand === "prepare") {
+    return await prodPrepareCommand(rest, io);
+  }
+
+  if (subcommand === "provision") {
+    return await prodProvisionCommand(rest, io);
+  }
+
+  io.write("FAIL cli.unknown-command");
+  return 1;
+}
+
+async function prodPrepareCommand(argv: string[], io: RunIo): Promise<number> {
+  const result = await runProductionPrepareGate(io.cwd);
+  io.write(`${result.failed ? "FAIL" : "PASS"} prod prepare production`);
+  result.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
+  writeNextCommands(io, [
+    "agentstack prod provision --apply",
+    "agentstack validate --release prod",
+    "agentstack deploy --env production"
+  ]);
+
+  await recordCommandEvent(io, {
+    name: "agentstack.prod.prepare.completed",
+    environment: "production",
+    journey: "production-release",
+    command: ["prod", "prepare", ...argv].join(" "),
+    status: result.failed ? "fail" : "ok",
+    state: { diagnostics: result.diagnostics.length }
+  });
+  return result.failed ? 1 : 0;
+}
+
+async function prodProvisionCommand(argv: string[], io: RunIo): Promise<number> {
+  const options = parseOptions(argv);
+  const context = await loadProjectContext(io.cwd);
+  const adapter = new LocalCloudAdapter(io.cwd);
+  const plan = await adapter.sync(context.manifest, "production", { apply: Boolean(options.apply) });
+
+  io.write(`${plan.applied ? "APPLIED" : "PLAN"} prod provision production`);
+  plan.changes.forEach((change) => io.write(`- ${change}`));
+  await recordCommandEvent(io, {
+    name: "agentstack.prod.provision.completed",
+    environment: "production",
+    journey: "production-release",
+    command: ["prod", "provision", ...argv].join(" "),
+    status: "ok",
+    state: { applied: plan.applied, changes: plan.changes }
   });
   return 0;
 }
@@ -473,6 +595,44 @@ async function runLocalValidationGate(cwd: string): Promise<{
     sourcePolicyDiagnostics,
     missingAnchors,
     diagnostics
+  };
+}
+
+async function runReleaseValidationGate(
+  io: RunIo,
+  _argv: string[],
+  environment: ReleaseEnvironment
+): Promise<{
+  context: Awaited<ReturnType<typeof loadProjectContext>>;
+  diagnostics: Diagnostic[];
+  failed: boolean;
+}> {
+  const localValidation = await runLocalValidationGate(io.cwd);
+  const adapter = new LocalCloudAdapter(io.cwd);
+  const releaseDiagnostics = validateReleasePolicy(localValidation.context.manifest, environment);
+  const cloudDiagnostics = await adapter.validate(localValidation.context.manifest, environment);
+  const diagnostics = [...localValidation.diagnostics, ...releaseDiagnostics, ...cloudDiagnostics];
+
+  return {
+    context: localValidation.context,
+    diagnostics,
+    failed: diagnostics.some((diagnostic) => diagnostic.severity === "fail")
+  };
+}
+
+async function runProductionPrepareGate(cwd: string): Promise<{
+  context: Awaited<ReturnType<typeof loadProjectContext>>;
+  diagnostics: Diagnostic[];
+  failed: boolean;
+}> {
+  const localValidation = await runLocalValidationGate(cwd);
+  const releaseDiagnostics = validateReleasePolicy(localValidation.context.manifest, "production");
+  const diagnostics = [...localValidation.diagnostics, ...releaseDiagnostics];
+
+  return {
+    context: localValidation.context,
+    diagnostics,
+    failed: diagnostics.some((diagnostic) => diagnostic.severity === "fail")
   };
 }
 
@@ -1526,23 +1686,36 @@ function readEnvironmentOption(
       [
         "FAIL cli.option.missing",
         `--${options.flag} requires a value.`,
-        `Expected one of: ${environmentValues.join(", ")}.`,
+        `Expected one of: ${environmentOptionValues.join(", ")}.`,
         `Fix: ${options.fix}`
       ].join("\n")
     );
+  }
+
+  const environment = normalizeEnvironmentName(value);
+  if (environment) {
+    return environment;
+  }
+
+  throw new Error(
+    [
+      "FAIL cli.option.invalid",
+      `Invalid --${options.flag} value: ${value}. Expected one of: ${environmentOptionValues.join(", ")}.`,
+      `Fix: ${options.fix}`
+    ].join("\n")
+  );
+}
+
+function normalizeEnvironmentName(value: string): EnvironmentName | undefined {
+  if (value === "prod") {
+    return "production";
   }
 
   if (isEnvironment(value)) {
     return value;
   }
 
-  throw new Error(
-    [
-      "FAIL cli.option.invalid",
-      `Invalid --${options.flag} value: ${value}. Expected one of: ${environmentValues.join(", ")}.`,
-      `Fix: ${options.fix}`
-    ].join("\n")
-  );
+  return undefined;
 }
 
 function readLifecycleEnvironmentOption(
@@ -1554,6 +1727,35 @@ function readLifecycleEnvironmentOption(
   }
 
   return readEnvironmentOption(value, options);
+}
+
+function readReleaseEnvironmentOption(
+  value: string | boolean | undefined,
+  options: { flag: string; fix: string }
+): ReleaseEnvironment {
+  if (typeof value !== "string") {
+    throw new Error(
+      [
+        "FAIL cli.option.missing",
+        `--${options.flag} requires a value.`,
+        "Expected one of: preview, prod, production.",
+        `Fix: ${options.fix}`
+      ].join("\n")
+    );
+  }
+
+  const environment = normalizeReleaseEnvironment(value);
+  if (environment) {
+    return environment;
+  }
+
+  throw new Error(
+    [
+      "FAIL cli.option.invalid",
+      `Invalid --${options.flag} value: ${value}. Expected one of: preview, prod, production.`,
+      `Fix: ${options.fix}`
+    ].join("\n")
+  );
 }
 
 function readDevEnvironmentOption(value: string | boolean | undefined): EnvironmentName {

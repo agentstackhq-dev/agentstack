@@ -12,6 +12,7 @@ export type SyncOptions = {
 
 export type DeployOptions = {
   apply: boolean;
+  confirmProduction?: boolean;
 };
 
 export type MobileBuildOptions = {

@@ -71,7 +71,7 @@
               <div class="card"><h3>Guidance skill pack</h3><p><code>skills/agentstack/SKILL.md</code> gives installable-skill-aware agents deeper workflows while <code>pnpm run skills:inspect</code> verifies version and file presence. There is no MCP dependency.</p></div>
               <div class="card"><h3>Safety defaults</h3><p>Generated <code>.gitignore</code> protects <code>.agentstack/</code>, <code>.env</code>, and <code>.env.*</code>.</p></div>
               <div class="card"><h3>Lifecycle scripts</h3><p><code>inspect</code>, <code>doctor</code>, and <code>dev</code> help agents read project state, run preflight checks, and list next commands before editing. <code>dev</code> does not start real servers in this prototype.</p></div>
-              <div class="card"><h3>Scripts</h3><p><code>validate</code>, <code>env:inspect</code>, <code>sync:preview</code>, <code>validate:cloud</code>, <code>preview:deploy</code>, <code>preview:deploy:apply</code>, and <code>observe:timeline</code> delegate to an installed CLI or explicit source-prototype env vars.</p></div>
+              <div class="card"><h3>Scripts</h3><p><code>validate</code>, <code>env:inspect</code>, <code>sync:preview</code>, <code>validate:cloud</code>, <code>preview:deploy</code>, <code>prod:prepare</code>, <code>prod:provision</code>, <code>prod:validate</code>, <code>prod:deploy</code>, and <code>observe:timeline</code> delegate to an installed CLI or explicit source-prototype env vars.</p></div>
               <div class="card"><h3>Observability inspection</h3><p><code>docs/agentstack/observability.md</code> teaches <code>trace</code>, <code>journey</code>, <code>errors</code>, <code>webhook</code>, <code>component</code>, and <code>compare</code> workflows over redacted local JSONL.</p></div>
               <div class="card"><h3>Preview runbook</h3><p><code>docs/agentstack/preview.md</code> documents exact local rehearsal commands, expected output, files written, and non-goals. It states the workflow is not real provider deployment.</p></div>
               <div class="card"><h3>Mobile build profiles</h3><p><code>apps/mobile/eas.json</code> and <code>apps/mobile/app.config.ts</code> define generated EAS/Expo anchors. Root and mobile package scripts route through <code>agentstack build mobile</code>.</p></div>
@@ -131,6 +131,11 @@ pnpm run validate                       Clerk identity, Clerk webhooks, billing,
                   <td>Local preview deploy rehearsal</td>
                   <td>Run <code>preview:deploy</code> for <code>PLAN deploy preview</code> and <code>preview:deploy:apply</code> for <code>APPLIED deploy preview</code>.</td>
                   <td>Writes <code>.agentstack/deployments/preview.json</code> and telemetry locally without calling provider APIs.</td>
+                </tr>
+                <tr>
+                  <td>Local production release rehearsal</td>
+                  <td>Run <code>prod:prepare</code>, <code>prod:provision</code>, <code>prod:validate</code>, <code>prod:deploy</code>, and their apply variants where available.</td>
+                  <td>Plans and applies local production state and artifacts only; <code>prod:deploy:apply</code> requires explicit production confirmation through the script and calls no provider APIs.</td>
                 </tr>
               </tbody>
             </table>
