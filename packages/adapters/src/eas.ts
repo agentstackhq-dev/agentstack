@@ -1,5 +1,10 @@
 import type { EnvironmentName } from "@agentstack/core";
 
+import {
+  createProviderExecutionResult,
+  type ProviderCommandExecutor,
+  type ProviderExecutionResult
+} from "./provider-executor.js";
 import type { ProviderOperation } from "./provider-operations.js";
 
 export type EasCommandKind =
@@ -47,6 +52,15 @@ export type EasCommandPlan = {
   environment: EnvironmentName;
   target: EasTarget;
   commands: EasCliCommand[];
+};
+
+export type InspectEasPreviewReadOnlyOptions = {
+  environment: EnvironmentName;
+  executor: ProviderCommandExecutor;
+  cwd?: string;
+  env?: Record<string, string | undefined>;
+  timeoutMs?: number;
+  secretValues?: string[];
 };
 
 export function createEasTarget(environment: EnvironmentName): EasTarget {
@@ -120,6 +134,46 @@ export function createEasCommandPlan(input: EasCommandPlanInput): EasCommandPlan
     target,
     commands
   };
+}
+
+export async function inspectEasPreviewReadOnly(
+  options: InspectEasPreviewReadOnlyOptions
+): Promise<ProviderExecutionResult[]> {
+  if (options.environment !== "preview") {
+    throw new Error(
+      "EAS runtime inspect supports preview env-list only. Production inspect, build, project:init, and env mutation execution are not available in this slice."
+    );
+  }
+
+  const target = createEasTarget(options.environment);
+  const commands = [target.envListCommand];
+  const results: ProviderExecutionResult[] = [];
+
+  for (const command of commands) {
+    const [executable, ...args] = command.args;
+    if (!executable) {
+      throw new Error(`EAS command ${command.id} has no executable.`);
+    }
+
+    const result = await options.executor.execute(executable, args, {
+      cwd: options.cwd,
+      env: options.env,
+      timeoutMs: options.timeoutMs
+    });
+
+    results.push(
+      createProviderExecutionResult({
+        service: "eas",
+        environment: options.environment,
+        commandKind: command.kind,
+        command,
+        result,
+        secretValues: options.secretValues
+      })
+    );
+  }
+
+  return results;
 }
 
 function operationCommand(operation: ProviderOperation, target: EasTarget): EasCliCommand[] {

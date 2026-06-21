@@ -126,7 +126,7 @@
                 <tr>
                   <td>Cloud providers</td>
                   <td><code>.agentstack/local-cloud.json</code> simulates linked services per environment, and <code>.agentstack/deployments/preview.json</code> records local preview deploy rehearsal output.</td>
-                  <td><code>inspect</code> shows <code>contract-only</code> or per-provider <code>command-plan</code> adapter status with stable pending operation IDs. Provider plan prints redacted <code>pnpm exec clerk</code>, <code>pnpm exec convex</code>, <code>pnpm exec vercel</code>, and <code>pnpm exec eas</code> command shapes without executing provider commands. Provider inspect is explicit Clerk/Convex diagnostics, and provider apply is explicit Convex execution.</td>
+                  <td><code>inspect</code> shows <code>contract-only</code> or per-provider <code>command-plan</code> adapter status with stable pending operation IDs. Provider plan prints redacted <code>pnpm exec clerk</code>, <code>pnpm exec convex</code>, <code>pnpm exec vercel</code>, and <code>pnpm exec eas</code> command shapes without executing provider commands. Provider inspect reads Clerk/Convex diagnostics and EAS preview env-list; provider apply executes Convex and Vercel preview deploy only.</td>
                 </tr>
                 <tr>
                   <td>Env values</td>
@@ -199,7 +199,7 @@
                 <tr><td>How does an agent run the workflow?</td><td><code>@agentstack/cli</code> and generated scripts</td><td>Inspect, doctor, dev preflight, validate, env inspect/set, sync, provider plan/inspect/apply, deploy, build mobile, observe.</td></tr>
                 <tr><td>Where is provider state?</td><td><code>@agentstack/adapters</code></td><td><code>.agentstack/local-cloud.json</code>, redacted command-plan operations, and explicit Clerk/Convex diagnostics or Convex apply results.</td></tr>
                 <tr><td>Where is incident evidence?</td><td><code>@agentstack/telemetry</code></td><td><code>.agentstack/events.jsonl</code> and local <code>OTLP-shaped JSON</code> exports.</td></tr>
-                <tr><td>What is still a gap?</td><td>Outside the current boundary</td><td>Vercel/EAS provider execution, hosted telemetry ingestion, production servers, Stripe provider execution, app-store submission.</td></tr>
+                <tr><td>What is still a gap?</td><td>Outside the current boundary</td><td>Vercel production apply, Vercel env mutation execution, EAS apply/build/project:init/env mutation, EAS production inspect, hosted telemetry ingestion, Stripe provider execution, broader workflows, and app-store submission.</td></tr>
               </tbody>
             </table>
           </section>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createEasCommandPlan, createEasTarget } from "./eas.js";
+import { createEasCommandPlan, createEasTarget, inspectEasPreviewReadOnly } from "./eas.js";
 
 describe("eas command planner", () => {
   it("plans preview mobile build targets with internal distribution", () => {
@@ -165,5 +165,55 @@ describe("eas command planner", () => {
       "--non-interactive"
     ]);
     expect(JSON.stringify(plan)).not.toContain("SENTRY_AUTH_TOKEN_VALUE");
+  });
+
+  it("executes only preview env-list for EAS inspect and redacts provider output", async () => {
+    const executions: Array<{ command: string; args: string[] }> = [];
+    const results = await inspectEasPreviewReadOnly({
+      environment: "preview",
+      executor: {
+        async execute(command, args) {
+          executions.push({ command, args });
+          return {
+            exitCode: 0,
+            stdout: "SENTRY_AUTH_TOKEN=secret-token",
+            stderr: "",
+            durationMs: 6
+          };
+        }
+      },
+      secretValues: ["secret-token"]
+    });
+
+    expect(executions).toEqual([
+      { command: "pnpm", args: ["exec", "eas", "env:list", "--environment", "preview"] }
+    ]);
+    expect(results).toEqual([
+      expect.objectContaining({
+        service: "eas",
+        environment: "preview",
+        commandKind: "mobile.env.list",
+        status: "success",
+        outputRedacted: true
+      })
+    ]);
+    expect(JSON.stringify(results)).not.toContain("secret-token");
+  });
+
+  it("rejects EAS production inspect without executing", async () => {
+    const executions: string[] = [];
+
+    await expect(
+      inspectEasPreviewReadOnly({
+        environment: "production",
+        executor: {
+          async execute(command) {
+            executions.push(command);
+            return { exitCode: 0, stdout: "", stderr: "", durationMs: 1 };
+          }
+        }
+      })
+    ).rejects.toThrow("EAS runtime inspect supports preview env-list only.");
+    expect(executions).toEqual([]);
   });
 });

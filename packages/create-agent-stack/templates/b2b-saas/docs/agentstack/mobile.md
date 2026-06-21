@@ -34,6 +34,7 @@ pnpm run build:preview
 pnpm run build:preview:apply
 pnpm run build:production
 pnpm run provider:eas:preview
+pnpm run provider:eas:inspect:preview
 pnpm run provider:eas:production
 ```
 
@@ -41,8 +42,10 @@ Use `pnpm run provider:eas:preview` or `pnpm run provider:eas:production` to pri
 
 The EAS provider plan includes `eas project:init --non-interactive`, `eas env:list --environment <env>`, and `eas build -p all -e <profile> --json --non-interactive`. Env create/update/delete commands are planned from Agentstack provider operations and label values as coming from `.agentstack/env-values.json`; raw values and secrets are not printed.
 
+Use `pnpm run provider:eas:inspect:preview` for explicit read-only EAS provider inspection. It executes only `pnpm exec eas env:list --environment preview`. It does not run EAS project initialization, builds, env create/update/delete commands, production inspect, or apply.
+
 EAS server env values must exist in EAS for EAS Build. Local `.env` files and CI variables are useful for local workflows, but they are not a replacement for EAS server env values used by build workers.
 
-App-store submission is outside the current generated framework boundary. This slice plans builds only and does not run `eas submit`.
+App-store submission is outside the current generated framework boundary. This slice plans builds only and does not run `eas submit` or `eas build`.
 
 Keep generated mobile build files under source control. Do not commit `.agentstack/builds/` artifacts.

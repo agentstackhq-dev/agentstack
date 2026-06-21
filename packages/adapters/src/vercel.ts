@@ -1,5 +1,10 @@
 import type { EnvironmentName } from "@agentstack/core";
 
+import {
+  createProviderExecutionResult,
+  type ProviderCommandExecutor,
+  type ProviderExecutionResult
+} from "./provider-executor.js";
 import type { ProviderOperation } from "./provider-operations.js";
 
 export type VercelCommandKind = "web.deploy" | "env.add" | "env.update" | "env.remove";
@@ -36,6 +41,14 @@ export type VercelCommandPlan = {
   environment: EnvironmentName;
   target: VercelTarget;
   commands: VercelCliCommand[];
+};
+
+export type ExecuteVercelPreviewApplyOptions = VercelCommandPlanInput & {
+  executor: ProviderCommandExecutor;
+  cwd?: string;
+  env?: Record<string, string | undefined>;
+  timeoutMs?: number;
+  secretValues?: string[];
 };
 
 export function createVercelTarget(environment: EnvironmentName): VercelTarget {
@@ -90,6 +103,46 @@ export function createVercelCommandPlan(input: VercelCommandPlanInput): VercelCo
     target,
     commands
   };
+}
+
+export async function executeVercelPreviewApply(
+  options: ExecuteVercelPreviewApplyOptions
+): Promise<ProviderExecutionResult[]> {
+  if (options.environment !== "preview") {
+    throw new Error(
+      "Vercel runtime apply supports preview deploy only. Production apply and env mutation execution are not available in this slice."
+    );
+  }
+
+  const plan = createVercelCommandPlan({ ...options, includeDeploy: true });
+  const commands = plan.commands.filter((command) => command.kind === "web.deploy");
+  const results: ProviderExecutionResult[] = [];
+
+  for (const command of commands) {
+    const [executable, ...args] = command.args;
+    if (!executable) {
+      throw new Error(`Vercel command ${command.id} has no executable.`);
+    }
+
+    const result = await options.executor.execute(executable, args, {
+      cwd: options.cwd,
+      env: options.env,
+      timeoutMs: options.timeoutMs
+    });
+
+    results.push(
+      createProviderExecutionResult({
+        service: "vercel",
+        environment: options.environment,
+        commandKind: command.kind,
+        command,
+        result,
+        secretValues: options.secretValues
+      })
+    );
+  }
+
+  return results;
 }
 
 function operationCommand(operation: ProviderOperation, target: VercelTarget): VercelCliCommand[] {

@@ -1459,7 +1459,42 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).not.toContain("sk_live_not_known_locally");
   });
 
-  it("rejects provider inspect for Vercel and EAS in this slice", async () => {
+  it("executes EAS preview inspect env-list only", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.surfaces = ["mobile"];
+    manifest.env.custom.SENTRY_AUTH_TOKEN = {
+      surfaces: ["mobile"],
+      environments: ["preview"],
+      required: true,
+      secret: true,
+      providerTargets: easPreviewTarget
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    await writeLocalEnvValues({
+      preview: { mobile: { SENTRY_AUTH_TOKEN: "local-eas-secret" } }
+    });
+
+    const code = await runAgentstack(["provider", "inspect", "--service", "eas", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("SENTRY_AUTH_TOKEN=provider-eas-secret")
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("WARN provider inspect eas preview");
+    expect(output.join("\n")).toContain("Target: preview");
+    expect(output.join("\n")).toContain("Required env: EXPO_TOKEN");
+    expect(output.join("\n")).toContain("Operations: 2");
+    expect(output.join("\n")).toContain("Commands: 1");
+    expect(output.join("\n")).toContain("Results: 1");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec eas env:list --environment preview"
+    ]);
+    expect(output.join("\n")).not.toContain("local-eas-secret");
+    expect(output.join("\n")).not.toContain("provider-eas-secret");
+  });
+
+  it("rejects provider inspect for Vercel in this slice", async () => {
     const vercelCode = await runAgentstack(
       ["provider", "inspect", "--service", "vercel", "--env", "preview"],
       {
@@ -1468,14 +1503,8 @@ describe("runAgentstack", () => {
         providerExecutor: createMockProviderExecutor()
       }
     );
-    const easCode = await runAgentstack(["provider", "inspect", "--service", "eas", "--env", "preview"], {
-      cwd: dir,
-      write: (line) => output.push(line),
-      providerExecutor: createMockProviderExecutor()
-    });
 
     expect(vercelCode).toBe(1);
-    expect(easCode).toBe(1);
     expect(output.join("\n")).toContain("FAIL provider.service.unsupported");
   });
 
@@ -1517,6 +1546,39 @@ describe("runAgentstack", () => {
     expect(providerExecutions[1]?.stdin).toBe("sk-local-provider-value");
   });
 
+  it("applies Vercel preview deploy only through the injected executor with redacted output", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.surfaces = ["web"];
+    manifest.env.custom.API_TOKEN = {
+      surfaces: ["web"],
+      environments: ["preview"],
+      required: true,
+      secret: true,
+      providerTargets: vercelPreviewTarget
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    await writeLocalEnvValues({
+      preview: { web: { API_TOKEN: "local-vercel-secret" } }
+    });
+
+    const code = await runAgentstack(["provider", "apply", "--service", "vercel", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("deployed with API_TOKEN=provider-vercel-secret")
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("APPLIED provider vercel preview");
+    expect(output.join("\n")).toContain("Operations: 2");
+    expect(output.join("\n")).toContain("Commands: 1");
+    expect(output.join("\n")).toContain("Results: 1");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec vercel deploy --target=preview"
+    ]);
+    expect(output.join("\n")).not.toContain("local-vercel-secret");
+    expect(output.join("\n")).not.toContain("provider-vercel-secret");
+  });
+
   it("rejects Clerk apply in this slice", async () => {
     const code = await runAgentstack(["provider", "apply", "--service", "clerk", "--env", "preview"], {
       cwd: dir,
@@ -1527,6 +1589,28 @@ describe("runAgentstack", () => {
     expect(code).toBe(1);
     expect(output.join("\n")).toContain("FAIL provider.apply.unsupported");
     expect(output.join("\n")).toContain("Fix:");
+  });
+
+  it("rejects EAS apply and Vercel production apply without executing", async () => {
+    const easCode = await runAgentstack(["provider", "apply", "--service", "eas", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor()
+    });
+    const vercelProductionCode = await runAgentstack(
+      ["provider", "apply", "--service", "vercel", "--env", "production", "--confirm-production"],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: createMockProviderExecutor()
+      }
+    );
+
+    expect(easCode).toBe(1);
+    expect(vercelProductionCode).toBe(1);
+    expect(providerExecutions).toHaveLength(0);
+    expect(output.join("\n")).toContain("EAS apply is not available in this slice");
+    expect(output.join("\n")).toContain("Vercel runtime apply supports preview deploy only");
   });
 
   it("rejects production Convex apply without confirmation", async () => {

@@ -8,7 +8,9 @@ import {
   createVercelCommandPlan,
   createProviderOperationPlan,
   executeConvexApply,
+  executeVercelPreviewApply,
   getEnabledProviderAdapterDefinitions,
+  inspectEasPreviewReadOnly,
   inspectClerkReadOnly,
   inspectConvexReadOnly,
   LocalCloudAdapter,
@@ -684,13 +686,13 @@ async function providerInspectCommand(argv: string[], io: RunIo): Promise<number
   const service = readRequiredStringOption(options.service, "service", fix);
   const environment = readProviderRuntimeEnvironmentOption(options.env, fix);
 
-  if (service !== "clerk" && service !== "convex") {
+  if (service !== "clerk" && service !== "convex" && service !== "eas") {
     io.write(
       formatDiagnostic({
         severity: "fail",
         code: "provider.service.unsupported",
         path: service,
-        message: "Only Clerk and Convex provider inspect are available in this slice.",
+        message: "Only Clerk, Convex, and EAS preview provider inspect are available in this slice.",
         fix,
         blocks: ["provider inspect"]
       })
@@ -737,12 +739,18 @@ async function providerInspectCommand(argv: string[], io: RunIo): Promise<number
           operations: providerOperationPlan.operations,
           includeBootstrap: false
         })
-      : createConvexCommandPlan({
-          manifest: validation.context.manifest,
-          environment,
-          operations: providerOperationPlan.operations,
-          includeDeploy: false
-        });
+      : service === "convex"
+        ? createConvexCommandPlan({
+            manifest: validation.context.manifest,
+            environment,
+            operations: providerOperationPlan.operations,
+            includeDeploy: false
+          })
+        : createEasCommandPlan({
+            environment,
+            operations: providerOperationPlan.operations,
+            includeBuild: true
+          });
 
   if (service === "clerk") {
     results = await inspectClerkReadOnly({
@@ -763,9 +771,40 @@ async function providerInspectCommand(argv: string[], io: RunIo): Promise<number
     });
   }
 
+  if (service === "eas") {
+    try {
+      results = await inspectEasPreviewReadOnly({
+        environment,
+        executor: resolveProviderExecutor(io),
+        cwd: io.cwd,
+        secretValues
+      });
+    } catch (error) {
+      io.write(
+        formatDiagnostic({
+          severity: "fail",
+          code: "provider.inspect.unsupported",
+          path: `${service}.${environment}`,
+          message: error instanceof Error ? error.message : String(error),
+          fix: "Run agentstack provider inspect --service eas --env preview.",
+          blocks: ["provider inspect"]
+        })
+      );
+      await recordCommandEvent(io, {
+        name: "agentstack.provider.inspect.completed",
+        environment,
+        journey: "provider-inspect",
+        command: ["provider", "inspect", ...argv].join(" "),
+        status: "fail",
+        state: { service, reason: "unsupported-environment" }
+      });
+      return 1;
+    }
+  }
+
   const failed = results.some((result) => result.status === "failed");
   const pending = providerOperationPlan.operations.some((operation) => operation.service === service);
-  const commandCount = service === "clerk" ? results.length : plan.commands.length;
+  const commandCount = service === "clerk" || service === "eas" ? results.length : plan.commands.length;
   io.write(`${failed || pending ? "WARN" : "PASS"} provider inspect ${service} ${environment}`);
   io.write(`Target: ${formatProviderPlanTarget(plan.target)}`);
   io.write(`Required env: ${formatList(plan.target.requiredEnv)}`);
@@ -818,13 +857,35 @@ async function providerApplyCommand(argv: string[], io: RunIo): Promise<number> 
     return 1;
   }
 
-  if (service !== "convex") {
+  if (service === "eas") {
+    io.write(
+      formatDiagnostic({
+        severity: "fail",
+        code: "provider.apply.unsupported",
+        path: service,
+        message: "EAS apply is not available in this slice; EAS runtime execution is inspect-only.",
+        fix: "Run agentstack provider inspect --service eas --env preview.",
+        blocks: ["provider apply"]
+      })
+    );
+    await recordCommandEvent(io, {
+      name: "agentstack.provider.apply.completed",
+      environment,
+      journey: "provider-apply",
+      command: ["provider", "apply", ...argv].join(" "),
+      status: "fail",
+      state: { service, reason: "unsupported-service" }
+    });
+    return 1;
+  }
+
+  if (service !== "convex" && service !== "vercel") {
     io.write(
       formatDiagnostic({
         severity: "fail",
         code: "provider.service.unsupported",
         path: service,
-        message: "Only Convex provider apply is available in this slice.",
+        message: "Only Convex and Vercel preview provider apply are available in this slice.",
         fix,
         blocks: ["provider apply"]
       })
@@ -836,6 +897,29 @@ async function providerApplyCommand(argv: string[], io: RunIo): Promise<number> 
       command: ["provider", "apply", ...argv].join(" "),
       status: "fail",
       state: { service, reason: "unsupported-service" }
+    });
+    return 1;
+  }
+
+  if (service === "vercel" && environment !== "preview") {
+    io.write(
+      formatDiagnostic({
+        severity: "fail",
+        code: "provider.apply.unsupported",
+        path: `${service}.${environment}`,
+        message:
+          "Vercel runtime apply supports preview deploy only. Production apply and env mutation execution are not available in this slice.",
+        fix: "Run agentstack provider apply --service vercel --env preview.",
+        blocks: ["provider apply"]
+      })
+    );
+    await recordCommandEvent(io, {
+      name: "agentstack.provider.apply.completed",
+      environment,
+      journey: "provider-apply",
+      command: ["provider", "apply", ...argv].join(" "),
+      status: "fail",
+      state: { service, reason: "unsupported-environment" }
     });
     return 1;
   }
@@ -881,33 +965,55 @@ async function providerApplyCommand(argv: string[], io: RunIo): Promise<number> 
     envValues: validation.envValues
   });
   const providerOperationPlan = createProviderOperationPlan(cloudReport);
-  const operations = providerOperationPlan.operations.filter((operation) => operation.service === "convex");
-  const plan = createConvexCommandPlan({
-    manifest: validation.context.manifest,
-    environment,
-    operations,
-    includeDeploy: true
-  });
-  const secretValues = collectSecretValues(validation.envValues, environment, "convex");
-  const results = await executeConvexApply({
-    manifest: validation.context.manifest,
-    environment,
-    operations,
-    includeDeploy: true,
-    executor: resolveProviderExecutor(io),
-    cwd: io.cwd,
-    confirmProduction: options["confirm-production"] === true,
-    stdinByCommandId: buildConvexStdinByCommandId(operations, validation.envValues, environment),
-    secretValues
-  });
+  const operations = providerOperationPlan.operations.filter((operation) => operation.service === service);
+  const secretValues =
+    service === "convex"
+      ? collectSecretValues(validation.envValues, environment, "convex")
+      : collectEnvironmentSecretValues(validation.envValues, environment);
+  const executor = resolveProviderExecutor(io);
+  const plan =
+    service === "convex"
+      ? createConvexCommandPlan({
+          manifest: validation.context.manifest,
+          environment,
+          operations,
+          includeDeploy: true
+        })
+      : createVercelCommandPlan({
+          environment,
+          operations,
+          includeDeploy: true
+        });
+  const results =
+    service === "convex"
+      ? await executeConvexApply({
+          manifest: validation.context.manifest,
+          environment,
+          operations,
+          includeDeploy: true,
+          executor,
+          cwd: io.cwd,
+          confirmProduction: options["confirm-production"] === true,
+          stdinByCommandId: buildConvexStdinByCommandId(operations, validation.envValues, environment),
+          secretValues
+        })
+      : await executeVercelPreviewApply({
+          environment,
+          operations,
+          includeDeploy: true,
+          executor,
+          cwd: io.cwd,
+          secretValues
+        });
   const failed = results.some((result) => result.status === "failed");
   const label = results.length > 0 ? "APPLIED" : "PASS";
+  const commandCount = service === "vercel" ? results.length : plan.commands.length;
 
-  io.write(`${label} provider convex ${environment}`);
+  io.write(`${label} provider ${service} ${environment}`);
   io.write(`Target: ${formatProviderPlanTarget(plan.target)}`);
   io.write(`Required env: ${formatList(plan.target.requiredEnv)}`);
   io.write(`Operations: ${operations.length}`);
-  io.write(`Commands: ${plan.commands.length}`);
+  io.write(`Commands: ${commandCount}`);
   io.write(`Results: ${results.length}`);
   writeProviderExecutionDiagnostics(io, results);
 
@@ -920,7 +1026,7 @@ async function providerApplyCommand(argv: string[], io: RunIo): Promise<number> 
     state: {
       service,
       operations: operations.length,
-      commands: plan.commands.length,
+      commands: commandCount,
       results: results.length
     }
   });

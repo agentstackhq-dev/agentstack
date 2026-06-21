@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { createVercelCommandPlan, createVercelTarget } from "./vercel.js";
+import {
+  createVercelCommandPlan,
+  createVercelTarget,
+  executeVercelPreviewApply
+} from "./vercel.js";
 
 describe("vercel command planner", () => {
   it("plans preview and production deploy targets", () => {
@@ -115,5 +119,70 @@ describe("vercel command planner", () => {
       "preview"
     ]);
     expect(JSON.stringify(plan)).not.toContain("sk-");
+  });
+
+  it("executes only preview deploy for Vercel apply and redacts provider output", async () => {
+    const executions: Array<{ command: string; args: string[] }> = [];
+    const results = await executeVercelPreviewApply({
+      environment: "preview",
+      operations: [
+        {
+          id: "preview.vercel.env.set.web.API_TOKEN",
+          environment: "preview",
+          service: "vercel",
+          kind: "env.set",
+          scope: "web",
+          target: "env:API_TOKEN",
+          source: "env.missing",
+          summary: "Set API_TOKEN for vercel web in preview.",
+          secret: true,
+          requiresConfirmation: false
+        }
+      ],
+      executor: {
+        async execute(command, args) {
+          executions.push({ command, args });
+          return {
+            exitCode: 0,
+            stdout: "preview deployed with VERCEL_TOKEN=secret-token",
+            stderr: "",
+            durationMs: 8
+          };
+        }
+      }
+    });
+
+    expect(executions).toEqual([
+      { command: "pnpm", args: ["exec", "vercel", "deploy", "--target=preview"] }
+    ]);
+    expect(results).toEqual([
+      expect.objectContaining({
+        service: "vercel",
+        environment: "preview",
+        commandKind: "web.deploy",
+        status: "success",
+        outputRedacted: true
+      })
+    ]);
+    expect(results[0]?.stdoutSummary).toBe("<redacted provider stdout: 1 line, 47 bytes>");
+    expect(JSON.stringify(results)).not.toContain("secret-token");
+  });
+
+  it("rejects Vercel production apply without executing", async () => {
+    const executions: string[] = [];
+
+    await expect(
+      executeVercelPreviewApply({
+        environment: "production",
+        operations: [],
+        executor: {
+          async execute(command) {
+            executions.push(command);
+            return { exitCode: 0, stdout: "", stderr: "", durationMs: 1 };
+          }
+        }
+      })
+    ).rejects.toThrow("Vercel runtime apply supports preview deploy only.");
+    expect(executions).toEqual([]);
   });
 });
