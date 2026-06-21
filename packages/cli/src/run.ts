@@ -1489,9 +1489,13 @@ function formatProviderInventoryRow(row: ProviderInventoryRow): string {
     fields.push(
       `live=${row.liveStatus ?? "not-checked"}`,
       `identity=${row.identityMatch ?? "not-checked"}`,
+      `identity-scope=${row.identityScope ?? "not-checked"}`,
       `permission=${row.permissionSummary ?? "not-checked"}`,
       `drift=${row.driftSummary ?? "not-checked"}`
     );
+    if (row.facts && row.facts.length > 0) {
+      fields.push(`facts=${row.facts.join(",")}`);
+    }
   }
   return fields.join(" ");
 }

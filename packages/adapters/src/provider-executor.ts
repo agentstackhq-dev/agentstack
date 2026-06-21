@@ -25,6 +25,13 @@ export interface ProviderCommandExecutor {
 export type ProviderExecutionStatus = "success" | "failed";
 
 export type ProviderFailureClass = "auth" | "timeout" | "not-found" | "rate-limit" | "unknown";
+export type ProviderLiveIdentityConfidence = "none" | "partial" | "exact";
+export type ProviderLiveFactLabel = "expected-env-names" | "preview-environment" | "env-list-read";
+
+export type ProviderLiveIdentityFacts = {
+  identityConfidence: ProviderLiveIdentityConfidence;
+  facts: ProviderLiveFactLabel[];
+};
 
 export type ProviderExecutionResult = {
   service: ServiceName | string;
@@ -42,6 +49,7 @@ export type ProviderExecutionResult = {
   outputRedacted: boolean;
   resourceNames?: string[];
   providerResourceId?: string;
+  liveIdentityFacts?: ProviderLiveIdentityFacts;
   failureClass?: ProviderFailureClass;
 };
 
@@ -59,6 +67,7 @@ export type ProviderExecutionResultInput = {
   result: ProviderCommandResult;
   secretValues?: string[];
   providerResourceId?: string;
+  liveIdentityFacts?: ProviderLiveIdentityFacts;
   captureOutput?: "redacted-summary" | "redacted-text";
 };
 
@@ -111,6 +120,12 @@ export function createProviderExecutionResult(
     resourceNames: inferResourceNames(input.command.args),
     providerResourceId: input.providerResourceId
       ? redactProviderText(input.providerResourceId, { secretValues: input.secretValues })
+      : undefined,
+    liveIdentityFacts: input.liveIdentityFacts
+      ? {
+          identityConfidence: input.liveIdentityFacts.identityConfidence,
+          facts: [...input.liveIdentityFacts.facts]
+        }
       : undefined
   };
 

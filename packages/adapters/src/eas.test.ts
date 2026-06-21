@@ -176,7 +176,7 @@ describe("eas command planner", () => {
           executions.push({ command, args });
           return {
             exitCode: 0,
-            stdout: "SENTRY_AUTH_TOKEN=secret-token",
+            stdout: "Environment: preview\nSENTRY_AUTH_TOKEN=secret-token",
             stderr: "",
             durationMs: 6
           };
@@ -194,9 +194,33 @@ describe("eas command planner", () => {
         environment: "preview",
         commandKind: "mobile.env.list",
         status: "success",
+        liveIdentityFacts: {
+          identityConfidence: "partial",
+          facts: ["expected-env-names", "preview-environment", "env-list-read"]
+        },
         outputRedacted: true
       })
     ]);
+    expect(JSON.stringify(results)).not.toContain("secret-token");
+  });
+
+  it("keeps EAS inspect ambiguous when preview env-list output lacks environment proof", async () => {
+    const results = await inspectEasPreviewReadOnly({
+      environment: "preview",
+      executor: {
+        async execute() {
+          return {
+            exitCode: 0,
+            stdout: "SENTRY_AUTH_TOKEN=secret-token",
+            stderr: "",
+            durationMs: 6
+          };
+        }
+      },
+      secretValues: ["secret-token"]
+    });
+
+    expect(results[0]?.liveIdentityFacts).toBeUndefined();
     expect(JSON.stringify(results)).not.toContain("secret-token");
   });
 

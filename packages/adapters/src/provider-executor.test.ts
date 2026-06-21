@@ -87,6 +87,37 @@ describe("provider executor artifacts", () => {
     expect(JSON.stringify(result)).not.toContain("sk_live_not_known_locally");
   });
 
+  it("stores only sanitized live identity fact labels", () => {
+    const result = createProviderExecutionResult({
+      service: "vercel",
+      environment: "preview",
+      commandKind: "env.list",
+      command: {
+        id: "preview.vercel.env.list",
+        args: ["pnpm", "exec", "vercel", "env", "ls", "preview"],
+        secret: false
+      },
+      result: {
+        exitCode: 0,
+        stdout: "NEXT_PUBLIC_APP_URL=https://preview-secret.example.test\nProject ID prj_secret",
+        stderr: "",
+        durationMs: 13
+      },
+      liveIdentityFacts: {
+        identityConfidence: "partial",
+        facts: ["expected-env-names", "preview-environment", "env-list-read"]
+      }
+    });
+
+    expect(result.liveIdentityFacts).toEqual({
+      identityConfidence: "partial",
+      facts: ["expected-env-names", "preview-environment", "env-list-read"]
+    });
+    expect(JSON.stringify(result)).not.toContain("NEXT_PUBLIC_APP_URL");
+    expect(JSON.stringify(result)).not.toContain("https://preview-secret.example.test");
+    expect(JSON.stringify(result)).not.toContain("prj_secret");
+  });
+
   it("classifies timeout failures", () => {
     expect(classifyProviderFailure({ exitCode: 124, stdout: "", stderr: "command timed out" })).toBe(
       "timeout"

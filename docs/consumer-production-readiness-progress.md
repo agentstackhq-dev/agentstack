@@ -6,11 +6,11 @@ This file is the canonical resume and progress artifact for Agentstack consumer 
 
 ## Current State
 
-Current phase: live provider inventory source is the latest substantive implementation checkpoint, building on Vercel preview provider live-read inspect plus failure-diagnostic redaction hardening and provider inventory/link/adopt; this file intentionally avoids self-referencing its containing commit hash. Use `git log --oneline -n 5` for exact HEAD.
+Current phase: sanitized partial live inventory identity facts are the latest substantive implementation checkpoint, building on bounded live provider inventory, Vercel preview provider live-read inspect, failure-diagnostic redaction hardening, and provider inventory/link/adopt; this file intentionally avoids self-referencing its containing commit hash. Use `git log --oneline -n 5` for exact HEAD.
 
 Overall status: not complete. Agentstack is about 38-40% of the way toward consumer production readiness from a consumer perspective. The current product state is a local command-contract and rehearsal prototype with credible local telemetry and provider boundaries, not a consumer-ready production framework.
 
-Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI routing, local env graph rehearsal, structural validation, generated guidance/skills, local wide-event telemetry, OTLP-shaped local export, provider command plans for Clerk/Convex/Vercel/EAS, Clerk/Convex/Vercel preview/EAS preview live-read inspect, ledger-gated Convex and Vercel preview apply, local provider inventory/link/adopt, and explicit bounded live provider inventory via `--source live` or `--live`. It still lacks a truthful live validation runner, broad provider discovery/adoption, broad real provider provisioning, a real generated SaaS runtime, real OTel/network/hosted observability, preview deploy/build smoke evidence, production release gates, hosted control-plane state, and public package installability.
+Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI routing, local env graph rehearsal, structural validation, generated guidance/skills, local wide-event telemetry, OTLP-shaped local export, provider command plans for Clerk/Convex/Vercel/EAS, Clerk/Convex/Vercel preview/EAS preview live-read inspect, ledger-gated Convex and Vercel preview apply, local provider inventory/link/adopt, explicit bounded live provider inventory via `--source live` or `--live`, and sanitized partial live identity facts for Vercel preview and EAS preview env-list reads. It still lacks a truthful live validation runner, broad provider discovery/adoption, broad real provider provisioning, a real generated SaaS runtime, real OTel/network/hosted observability, preview deploy/build smoke evidence, production release gates, hosted control-plane state, and public package installability.
 
 ## Recent Completed Commits
 
@@ -47,7 +47,7 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 ## Latest Truth
 
 - Provider inventory defaults to local-control-plane only. It derives rows from the manifest, `.agentstack/provider-links.json`, and matching provider ledger rows. Local inventory writes no files, does not call provider CLIs, and does not treat `.agentstack/local-cloud.json` as external provider truth.
-- Live provider inventory is explicit with `--source live` or `--live`. It starts from local inventory, calls only existing read-only inspect primitives, prints `Evidence: live-read-inventory`, `Mutation: none`, command/result counts, and redacted live-read fields. Provider command success is treated as read evidence, not exact existence proof; rows are `unknown`/`ambiguous` unless a future provider-specific parser can prove identity. Provider read failures print `FAIL provider inventory <service> <env>` and return nonzero while preserving summary and row diagnostics. Vercel and EAS production live inventory fail before executor use.
+- Live provider inventory is explicit with `--source live` or `--live`. It starts from local inventory, calls only existing read-only inspect primitives, prints `Evidence: live-read-inventory`, `Mutation: none`, command/result counts, and redacted live-read fields. Provider command success is treated as read evidence, not exact existence proof. Vercel preview `env ls preview` and EAS preview `env:list --environment preview` can now produce sanitized partial proof labels (`identity-scope=partial`, `facts=expected-env-names,preview-environment,env-list-read`) while still keeping `identity=ambiguous`; actual env names, provider IDs, URLs, tokens, raw output snippets, ledger row IDs, and exact project/app identity are not printed or stored in inventory. Generic Clerk/Convex successful reads remain `identity-scope=none` and ambiguous. Provider read failures print `FAIL provider inventory <service> <env>` and return nonzero while preserving summary and row diagnostics. Vercel and EAS production live inventory fail before executor use.
 - Provider link is local state only. It requires a matching `planned` or `active` ledger row and writes only `.agentstack/provider-links.json`. It does not mutate providers, telemetry, local-cloud state, or `docs/provider-resource-ledger.md`.
 - Provider adopt is print-only. It prints a redacted ledger proposal and writes no files.
 - Provider plan prints `Evidence: provider-command-plan`.
@@ -78,6 +78,9 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 - Updated generated Agentstack docs in both template mirrors to describe local default inventory and explicit bounded live inventory.
 - Corrected live inventory failure semantics so failed provider read results now print `FAIL provider inventory <service> <env>` and return nonzero while keeping redacted evidence, summary counts, and row diagnostics visible.
 - Review outcome: spec review of `f86d510` passed; quality review found the P1 live-read failure exit-code issue above; fix commit `8db8a6e` passed re-review.
+- Added sanitized partial live identity facts for Vercel preview and EAS preview env-list success when expected env-name and preview-environment proof can be observed from the existing read-only command output.
+- Kept partial facts explicitly non-exact: inventory rows use `live=found identity=ambiguous identity-scope=partial permission=read-ok drift=unknown facts=...`, not matched/exact identity.
+- Added regression coverage that generic successful Clerk/Convex-style inspect remains ambiguous with no partial facts, failed live reads keep `identity-scope=none`, production Vercel/EAS live inventory still rejects before executor use, and raw provider output/IDs/URLs/tokens/ledger IDs do not appear in inventory or CLI output.
 
 ## Current Blockers And Gaps
 
@@ -96,7 +99,7 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 
 1. Finish provider integration gaps first:
    - Expand Vercel live-read beyond bounded preview env-list only when production read semantics are explicitly designed.
-   - Expand live inventory with provider-specific parsers only where exact identity matching can be proven without leaking identifiers.
+  - Expand live inventory with provider-specific exact identity parsers only where exact identity matching can be proven without leaking identifiers.
    - Add live-safe link/adopt identity confirmation without writing secrets.
    - Keep all mutation paths ledger-gated and evidence-labeled.
 2. Build the truthful validation runner:

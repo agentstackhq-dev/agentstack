@@ -1,7 +1,11 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { AgentstackManifest } from "@agentstack/core";
-import type { ProviderExecutionResult } from "./provider-executor.js";
+import type {
+  ProviderExecutionResult,
+  ProviderLiveFactLabel,
+  ProviderLiveIdentityConfidence
+} from "./provider-executor.js";
 import {
   enforceProviderLedgerResource,
   type ProviderLedgerDecision,
@@ -19,6 +23,7 @@ export type ProviderInventoryLiveStatus = "not-checked" | "found" | "not-found" 
 export type ProviderInventoryIdentityMatch = "not-checked" | "matched" | "mismatched" | "ambiguous";
 export type ProviderInventoryPermissionSummary = "not-checked" | "read-ok" | "read-failed";
 export type ProviderInventoryDriftSummary = "not-checked" | "none" | "possible" | "unknown";
+export type ProviderInventoryIdentityScope = ProviderLiveIdentityConfidence;
 export type ProviderLinkLedgerStatus = Extract<ProviderLedgerStatus, "planned" | "active">;
 
 export type ProviderLinkState = {
@@ -61,8 +66,10 @@ export type ProviderInventoryRow = {
   externalIdSummary: "none" | "redacted";
   liveStatus?: ProviderInventoryLiveStatus;
   identityMatch?: ProviderInventoryIdentityMatch;
+  identityScope?: ProviderInventoryIdentityScope;
   permissionSummary?: ProviderInventoryPermissionSummary;
   driftSummary?: ProviderInventoryDriftSummary;
+  facts?: ProviderLiveFactLabel[];
 };
 
 export type ProviderInventoryLiveReadSummary = {
@@ -157,13 +164,16 @@ export async function createLiveProviderInventory(input: LiveProviderInventoryIn
   const failed = input.readResults.some((result) => result.status === "failed");
   const authFailed = input.readResults.some((result) => result.failureClass === "auth");
   const notFound = input.readResults.some((result) => result.failureClass === "not-found");
+  const liveFacts = summarizeLiveIdentityFacts(input.readResults);
   const liveStatus: ProviderInventoryLiveStatus = authFailed
     ? "auth-failed"
     : notFound
       ? "not-found"
       : failed
         ? "unknown"
-        : "unknown";
+        : liveFacts.identityScope === "none"
+          ? "unknown"
+          : "found";
   const permissionSummary: ProviderInventoryPermissionSummary = failed ? "read-failed" : "read-ok";
 
   return {
@@ -174,10 +184,38 @@ export async function createLiveProviderInventory(input: LiveProviderInventoryIn
       ...row,
       liveStatus,
       identityMatch: "ambiguous",
+      identityScope: liveFacts.identityScope,
       permissionSummary,
-      driftSummary: "unknown"
+      driftSummary: "unknown",
+      facts: liveFacts.facts.length > 0 ? liveFacts.facts : undefined
     }))
   };
+}
+
+function summarizeLiveIdentityFacts(readResults: ProviderExecutionResult[]): {
+  identityScope: ProviderInventoryIdentityScope;
+  facts: ProviderLiveFactLabel[];
+} {
+  const facts = new Set<ProviderLiveFactLabel>();
+  let identityScope: ProviderInventoryIdentityScope = "none";
+
+  for (const result of readResults) {
+    if (result.status !== "success" || !result.liveIdentityFacts) {
+      continue;
+    }
+
+    if (result.liveIdentityFacts.identityConfidence === "exact") {
+      identityScope = "exact";
+    } else if (result.liveIdentityFacts.identityConfidence === "partial" && identityScope !== "exact") {
+      identityScope = "partial";
+    }
+
+    for (const fact of result.liveIdentityFacts.facts) {
+      facts.add(fact);
+    }
+  }
+
+  return { identityScope, facts: [...facts].sort() };
 }
 
 export async function linkLedgerBackedProviderResource(input: ProviderLinkInput): Promise<ProviderLinkResult> {

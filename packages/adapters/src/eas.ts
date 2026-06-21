@@ -3,7 +3,8 @@ import type { EnvironmentName } from "@agentstack/core";
 import {
   createProviderExecutionResult,
   type ProviderCommandExecutor,
-  type ProviderExecutionResult
+  type ProviderExecutionResult,
+  type ProviderLiveIdentityFacts
 } from "./provider-executor.js";
 import type { ProviderOperation } from "./provider-operations.js";
 
@@ -168,12 +169,30 @@ export async function inspectEasPreviewReadOnly(
         commandKind: command.kind,
         command,
         result,
-        secretValues: options.secretValues
+        secretValues: options.secretValues,
+        liveIdentityFacts: parseEasPreviewEnvListFacts(result.stdout, result.exitCode)
       })
     );
   }
 
   return results;
+}
+
+function parseEasPreviewEnvListFacts(stdout: string, exitCode: number): ProviderLiveIdentityFacts | undefined {
+  if (exitCode !== 0) {
+    return undefined;
+  }
+
+  const hasExpectedEnvName = /\b(?:EXPO_PUBLIC_APP_URL|SENTRY_AUTH_TOKEN|API_TOKEN)\b/.test(stdout);
+  const hasPreviewEnvironment = /\bpreview\b/i.test(stdout);
+  if (!hasExpectedEnvName || !hasPreviewEnvironment) {
+    return undefined;
+  }
+
+  return {
+    identityConfidence: "partial",
+    facts: ["expected-env-names", "preview-environment", "env-list-read"]
+  };
 }
 
 function operationCommand(operation: ProviderOperation, target: EasTarget): EasCliCommand[] {

@@ -155,12 +155,58 @@ describe("provider control plane", () => {
     expect(inventory.rows[0]).toMatchObject({
       liveStatus: "unknown",
       identityMatch: "ambiguous",
+      identityScope: "none",
       permissionSummary: "read-ok",
       driftSummary: "unknown",
       externalIdSummary: "none"
     });
+    expect(inventory.rows[0]?.facts).toBeUndefined();
     expect(inventory.liveReadSummary).toEqual({ commands: 1, results: 1, succeeded: 1, failed: 0 });
     expect(JSON.stringify(inventory)).not.toContain("raw-provider-id-should-not-leak");
+  });
+
+  it("maps sanitized partial live facts without exact identity claims", async () => {
+    const inventory = await createLiveProviderInventory({
+      localInventory: await createProviderInventory({
+        cwd: "/tmp/no-state",
+        manifest: createDefaultManifest("acme-crm"),
+        service: "vercel",
+        environment: "preview",
+        ledgerRows: []
+      }),
+      readResults: [
+        {
+          service: "vercel",
+          environment: "preview",
+          commandKind: "env.list",
+          status: "success",
+          exitCode: 0,
+          durationMs: 12,
+          stdoutSummary: "<redacted provider stdout: 3 lines, 120 bytes>",
+          stderrSummary: "",
+          stdoutLines: 3,
+          stderrLines: 0,
+          stdoutBytes: 120,
+          stderrBytes: 0,
+          outputRedacted: true,
+          liveIdentityFacts: {
+            identityConfidence: "partial",
+            facts: ["expected-env-names", "preview-environment", "env-list-read"]
+          }
+        }
+      ]
+    });
+
+    expect(inventory.rows[0]).toMatchObject({
+      liveStatus: "found",
+      identityMatch: "ambiguous",
+      identityScope: "partial",
+      permissionSummary: "read-ok",
+      driftSummary: "unknown",
+      facts: ["env-list-read", "expected-env-names", "preview-environment"]
+    });
+    expect(JSON.stringify(inventory)).not.toContain("NEXT_PUBLIC_APP_URL");
+    expect(JSON.stringify(inventory)).not.toContain("raw-provider-output");
   });
 
   it("maps auth-failed live reads to auth-failed and read-failed without exposing raw diagnostics", async () => {
@@ -195,9 +241,11 @@ describe("provider control plane", () => {
     expect(inventory.rows[0]).toMatchObject({
       liveStatus: "auth-failed",
       identityMatch: "ambiguous",
+      identityScope: "none",
       permissionSummary: "read-failed",
       driftSummary: "unknown"
     });
+    expect(inventory.rows[0]?.facts).toBeUndefined();
     expect(inventory.liveReadSummary).toEqual({ commands: 1, results: 1, succeeded: 0, failed: 1 });
   });
 

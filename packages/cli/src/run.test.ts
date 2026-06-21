@@ -2203,7 +2203,7 @@ describe("runAgentstack", () => {
     expect(output).toContain("Mutation: none");
     expect(output.join("\n")).toContain("Commands: 1");
     expect(output.join("\n")).toContain("Results: 1");
-    expect(output.join("\n")).toContain("live=unknown identity=ambiguous permission=read-ok drift=unknown");
+    expect(output.join("\n")).toContain("live=unknown identity=ambiguous identity-scope=none permission=read-ok drift=unknown");
     expect(output.join("\n")).not.toContain(rowId);
     expect(output.join("\n")).not.toContain(externalId);
     expect(output.join("\n")).not.toContain("raw-secret-provider-id");
@@ -2217,6 +2217,52 @@ describe("runAgentstack", () => {
       code: "ENOENT"
     });
     expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
+  });
+
+  it("renders sanitized partial Vercel preview live identity facts without leaking raw output", async () => {
+    const code = await runAgentstack(["provider", "inventory", "--service", "vercel", "--env", "preview", "--source", "live"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor(
+        "NEXT_PUBLIC_APP_URL=https://preview-secret.example.test\nAPI_TOKEN=secret-vercel-token\nProject: prj_secret"
+      )
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS provider inventory vercel preview");
+    expect(output.join("\n")).toContain(
+      "live=found identity=ambiguous identity-scope=partial permission=read-ok drift=unknown facts=env-list-read,expected-env-names,preview-environment"
+    );
+    expect(output.join("\n")).not.toContain("NEXT_PUBLIC_APP_URL");
+    expect(output.join("\n")).not.toContain("API_TOKEN");
+    expect(output.join("\n")).not.toContain("https://preview-secret.example.test");
+    expect(output.join("\n")).not.toContain("prj_secret");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec vercel env ls preview"
+    ]);
+  });
+
+  it("renders sanitized partial EAS preview live identity facts without exact identity", async () => {
+    const code = await runAgentstack(["provider", "inventory", "--service", "eas", "--env", "preview", "--source", "live"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor(
+        "Environment: preview\nSENTRY_AUTH_TOKEN=secret-eas-token\nProject ID: eas-secret-project-id"
+      )
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS provider inventory eas preview");
+    expect(output.join("\n")).toContain(
+      "live=found identity=ambiguous identity-scope=partial permission=read-ok drift=unknown facts=env-list-read,expected-env-names,preview-environment"
+    );
+    expect(output.join("\n")).not.toContain("SENTRY_AUTH_TOKEN");
+    expect(output.join("\n")).not.toContain("secret-eas-token");
+    expect(output.join("\n")).not.toContain("eas-secret-project-id");
+    expect(output.join("\n")).not.toContain("identity=matched");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec eas env:list --environment preview"
+    ]);
   });
 
   it("supports --live as provider inventory shorthand", async () => {
@@ -2260,7 +2306,7 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("Commands: 3");
     expect(output.join("\n")).toContain("Results: 3");
     expect(output.join("\n")).toContain("Failed: 3");
-    expect(output.join("\n")).toContain("live=auth-failed identity=ambiguous permission=read-failed drift=unknown");
+    expect(output.join("\n")).toContain("live=auth-failed identity=ambiguous identity-scope=none permission=read-failed drift=unknown");
     expect(output.join("\n")).not.toContain("sk_live_secret_should_not_leak");
   });
 

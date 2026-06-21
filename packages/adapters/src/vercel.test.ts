@@ -157,12 +157,34 @@ describe("vercel command planner", () => {
         environment: "preview",
         commandKind: "env.list",
         status: "success",
+        liveIdentityFacts: {
+          identityConfidence: "partial",
+          facts: ["expected-env-names", "preview-environment", "env-list-read"]
+        },
         outputRedacted: true
       })
     ]);
     expect(results[0]?.stdoutSummary).toBe("<redacted provider stdout: 2 lines, 74 bytes>");
     expect(JSON.stringify(results)).not.toContain("provider-secret");
     expect(JSON.stringify(results)).not.toContain("https://preview.example.test");
+  });
+
+  it("keeps Vercel inspect ambiguous when env-list output has no expected env proof", async () => {
+    const results = await inspectVercelPreviewReadOnly({
+      environment: "preview",
+      executor: {
+        async execute() {
+          return {
+            exitCode: 0,
+            stdout: "Linked project is ready",
+            stderr: "",
+            durationMs: 9
+          };
+        }
+      }
+    });
+
+    expect(results[0]?.liveIdentityFacts).toBeUndefined();
   });
 
   it("executes only preview deploy for Vercel apply and redacts provider output", async () => {

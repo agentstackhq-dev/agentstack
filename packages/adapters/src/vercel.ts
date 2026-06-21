@@ -3,7 +3,8 @@ import type { EnvironmentName } from "@agentstack/core";
 import {
   createProviderExecutionResult,
   type ProviderCommandExecutor,
-  type ProviderExecutionResult
+  type ProviderExecutionResult,
+  type ProviderLiveIdentityFacts
 } from "./provider-executor.js";
 import type { ProviderOperation } from "./provider-operations.js";
 
@@ -150,12 +151,29 @@ export async function inspectVercelPreviewReadOnly(
         commandKind: command.kind,
         command,
         result,
-        secretValues: options.secretValues
+        secretValues: options.secretValues,
+        liveIdentityFacts: parseVercelPreviewEnvListFacts(result.stdout, result.exitCode)
       })
     );
   }
 
   return results;
+}
+
+function parseVercelPreviewEnvListFacts(stdout: string, exitCode: number): ProviderLiveIdentityFacts | undefined {
+  if (exitCode !== 0) {
+    return undefined;
+  }
+
+  const hasExpectedEnvName = /\b(?:NEXT_PUBLIC_APP_URL|PUBLIC_API_URL|API_TOKEN|SENTRY_AUTH_TOKEN)\b/.test(stdout);
+  if (!hasExpectedEnvName) {
+    return undefined;
+  }
+
+  return {
+    identityConfidence: "partial",
+    facts: ["expected-env-names", "preview-environment", "env-list-read"]
+  };
 }
 
 export async function executeVercelPreviewApply(
