@@ -14,6 +14,7 @@ Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI rou
 
 ## Recent Completed Commits
 
+- `4a64cdd` feat: add provider exact identity decision contract.
 - `1343a04` docs: record provider identity checkpoint.
 - `9cb2a67` feat: add provider identity read plans.
 - `9632379` feat: add provider proof drift evidence.
@@ -210,10 +211,10 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 
 ## Last Known Verification Evidence
 
-Most recent final verification for the provider exact identity decision contract slice:
+Most recent final orchestrator verification for committed slice `4a64cdd` (`feat: add provider exact identity decision contract`):
 
 - Spec compliance review initially found stale control-plane missing-proof expectations; the worker aligned them to the read-plan blocker contract and spec re-review passed.
-- Code-quality review initially found one more stale Convex missing-proof expectation plus stale plan snippets; the worker aligned the test and plan. A fresh quality subagent re-review could not complete because the subagent service hit a usage limit, so final quality checks were completed directly in the orchestration context.
+- Code-quality review initially found one more stale Convex missing-proof expectation plus stale plan snippets; the worker aligned the test and plan. A fresh quality subagent re-review could not complete because the subagent service hit a usage limit, so final quality checks were completed directly by the orchestrator.
 - `pnpm exec vitest run packages/adapters/src/provider-executor.test.ts packages/adapters/src/provider-proof-contracts.test.ts packages/adapters/src/provider-control-plane.test.ts` passed: 3 files / 44 tests.
 - `pnpm exec vitest run packages/cli/src/run.test.ts -t "provider proof|provider inventory|provider link|provider adopt|validate --live|exact identity"` passed: 1 file / 30 selected tests, 180 skipped.
 - `git diff -- docs/provider-resource-ledger.md templates/b2b-saas/docs/provider-resource-ledger.md packages/create-agent-stack/templates/b2b-saas/docs/provider-resource-ledger.md` passed with no output.
