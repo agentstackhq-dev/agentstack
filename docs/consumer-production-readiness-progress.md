@@ -14,6 +14,7 @@ Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI rou
 
 ## Recent Completed Commits
 
+- `07f824a` feat: add sanitized live inventory identity facts.
 - `04bbbbf` fix: redact vercel inspect failure diagnostics.
 - `4fb2881` fix: classify vercel inspect failures truthfully.
 - `661d108` feat: add vercel provider live inspect.
@@ -99,7 +100,7 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 
 1. Finish provider integration gaps first:
    - Expand Vercel live-read beyond bounded preview env-list only when production read semantics are explicitly designed.
-  - Expand live inventory with provider-specific exact identity parsers only where exact identity matching can be proven without leaking identifiers.
+   - Expand live inventory with provider-specific exact identity parsers only where exact identity matching can be proven without leaking identifiers.
    - Add live-safe link/adopt identity confirmation without writing secrets.
    - Keep all mutation paths ledger-gated and evidence-labeled.
 2. Build the truthful validation runner:
@@ -112,13 +113,14 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 
 ## Last Known Verification Evidence
 
-Most recent final orchestrator verification after `8db8a6e`:
+Most recent final orchestrator verification after `07f824a`:
 
-- `pnpm vitest run packages/cli/src/run.test.ts -t "provider inventory|live inventory|live-read-inventory"` passed: 1 file / 7 selected tests.
-- `git diff --check && git diff -- docs/provider-resource-ledger.md && diff -ru templates/b2b-saas/docs/agentstack packages/create-agent-stack/templates/b2b-saas/docs/agentstack` passed with no output.
-- `pnpm vitest run packages/adapters/src/provider-control-plane.test.ts packages/cli/src/run.test.ts` passed: 2 files / 170 tests.
+- `pnpm vitest run packages/adapters/src/provider-control-plane.test.ts packages/adapters/src/provider-executor.test.ts packages/adapters/src/vercel.test.ts packages/adapters/src/eas.test.ts packages/cli/src/run.test.ts packages/create-agent-stack/src/generate.test.ts` passed: 6 files / 201 tests.
 - `pnpm typecheck` passed.
-- `pnpm test` passed: 27 files / 351 tests.
+- `pnpm test` passed: 27 files / 357 tests.
+- `diff -ru templates/b2b-saas/docs/agentstack packages/create-agent-stack/templates/b2b-saas/docs/agentstack` passed with no output.
+- `git diff --check` passed with no output.
+- `git diff -- docs/provider-resource-ledger.md` passed with no output.
 - `git status --short --branch` showed only `## agentstack-prototype`; worktree clean.
 
 ## Worktree State Expectation
