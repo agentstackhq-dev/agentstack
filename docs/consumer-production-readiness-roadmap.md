@@ -33,9 +33,9 @@ The consumer-facing truth is:
 | Local validation | Partial | `agentstack validate` checks manifest/env/guidance/theme/source-secret/generated anchors. | It does not run lint, format, typecheck, tests, Convex checks, or full runtime validation. |
 | `validate --cloud` | Misleading-risk | It truthfully labels `Evidence: local-rehearsal` and checks local-cloud state only. | Needs a real live validation runner or a stronger split between local rehearsal and provider-backed validation. |
 | Provider command plans | Partial | Clerk/Convex/Vercel/EAS command plans exist with redacted output and evidence labels. | Plans do not yet cover full create/provision/reconcile/apply lifecycle. |
-| Live provider reads | Partial | Clerk, Convex, and EAS preview have live-read paths; Vercel live-read is missing. | Inventory/discovery must reach live providers and prove identity, scope, drift, and permissions. |
+| Live provider reads | Partial | Clerk, Convex, Vercel preview, and EAS preview have live-read inspect paths. | Production and broad provider reads are still limited; identity, scope, drift, and permissions are not yet proven across the full provider surface. |
 | Live provider mutation | Partial | Only ledger-gated Convex apply and Vercel preview deploy apply exist. | Clerk create/update, Convex full provisioning, Vercel env/domain/production, and EAS init/env/build/release are missing. |
-| Provider inventory | Partial | Local inventory reads manifest expectations, `.agentstack/provider-links.json`, and matching ledger rows; it writes no files and performs no provider CLI calls. | Needs live discovery/inventory for Clerk, Convex, Vercel, and EAS. |
+| Provider inventory | Partial | Inventory defaults to local manifest/link/ledger evidence. Explicit bounded live inventory via `--source live` or `--live` reuses read-only inspect primitives and reports redacted live-read evidence without adoption, provisioning, reconciliation, or broad discovery. | Needs provider-specific identity parsers, live-safe link/adopt confirmation, full discovery/provisioning, and broad production reads. |
 | Provider link | Partial | Link is ledger-gated and writes only `.agentstack/provider-links.json`; it does not mutate providers, telemetry, local-cloud state, or the ledger. | Needs live identity confirmation and drift-safe reconciliation into the future hosted/resource registry. |
 | Provider adopt | Partial | Adopt prints a redacted ledger proposal only and writes no files. | Needs operator-reviewed ledger workflow plus eventual live adoption confirmation. |
 | Generated SaaS runtime | Missing | The only real vertical is local workspace-status. | Needs Clerk auth, orgs, memberships, billing, webhooks, entitlements, audit, and protected Convex data paths. |
@@ -56,9 +56,11 @@ The consumer-facing truth is:
 - Local validation for Agentstack-owned structural contracts: manifest, environment declarations, generated anchors, docs/guidance, theme/source-secret boundaries, and generated guidance alignment.
 - Local env graph rehearsal through `.agentstack/local-cloud.json`, with explicit `Evidence: local-rehearsal` semantics.
 - Provider command plans for Clerk, Convex, Vercel, and EAS with redacted, agent-readable diagnostics.
+- Read-only live inspect paths for Clerk, Convex, Vercel preview, and EAS preview, with production and broad-read limitations still explicit.
 - Ledger-gated supported live mutations for Convex apply and Vercel preview deploy apply.
-- Local provider inventory/link/adopt:
-  - inventory writes no files and does not call provider CLIs;
+- Provider inventory/link/adopt:
+  - inventory defaults to local manifest, provider-link, and ledger evidence, writes no files, and does not call provider CLIs;
+  - explicit live inventory via `--source live` or `--live` is bounded read-only evidence that calls only existing inspect primitives, prints `Evidence: live-read-inventory` and `Mutation: none`, and remains neither adoption, provisioning, reconciliation, nor broad discovery;
   - link writes only `.agentstack/provider-links.json` and does not mutate telemetry, local-cloud state, providers, or the ledger;
   - adopt prints a safe ledger proposal only and writes no files.
 - Local wide-event telemetry in JSONL with observe inspection modes and OTLP-shaped local export artifacts.
@@ -70,7 +72,7 @@ A consumer path from `npx create-agent-stack` to real production environments st
 
 1. Public package installability: versioned npm packages, clean-machine `npx create-agent-stack` smoke tests, generated scripts that do not depend on prototype source paths, and release provenance.
 2. Truthful validation: `agentstack validate` must run local quality gates, and live validation must clearly prove provider state or refuse with actionable connection diagnostics.
-3. Live provider inventory/discovery: Clerk, Convex, Vercel, and EAS resources must be discoverable with identity, environment, permissions, drift, and redacted evidence.
+3. Provider identity and discovery: provider-specific identity parsers, live-safe adoption/link confirmation, full discovery/provisioning, and broad production reads are still missing.
 4. Safe link/adopt/create: existing resources must be linked or adopted before mutation, and new resources must be planned, ledger-tracked, created, inspected, and cleaned up through explicit commands.
 5. Real provider provisioning: Clerk auth/org/billing/webhooks, Convex deployments/env/schema/functions, Vercel projects/env/domains/deploys, and EAS projects/env/build profiles/builds/releases.
 6. Generated SaaS runtime: Clerk-backed auth, orgs, users, memberships, billing, webhooks, entitlements, audit events, protected Convex queries/mutations, and matching web/mobile behavior.
@@ -87,7 +89,8 @@ A consumer path from `npx create-agent-stack` to real production environments st
 
 Strict discipline:
 
-- Inventory is local-control-plane only today. It can read manifest expectations, local provider links, and ledger rows, but it writes no files and does not prove external existence.
+- Inventory defaults to local-control-plane evidence. It can read manifest expectations, local provider links, and ledger rows, but it writes no files and does not prove external existence.
+- Explicit live inventory via `--source live` or `--live` is read-only evidence collection. It calls existing inspect primitives, reports redacted command/result counts and live-read fields, and must not be treated as adoption, provisioning, reconciliation, or resource management.
 - Link is local state only. It requires a matching `planned` or `active` ledger row and writes only `.agentstack/provider-links.json`.
 - Adopt is print-only. It produces a redacted proposal that an operator can review before manually updating the ledger.
 - Supported live mutation is explicit through provider apply commands and must remain ledger-gated.
@@ -111,9 +114,10 @@ Goal: turn the local provider control-plane prototype into live, accountable pro
 
 Deliver:
 
-- Live inventory/discovery for Clerk, Convex, Vercel, and EAS.
-- Vercel live-read parity with the current Clerk/Convex/EAS preview live-read shape.
-- Ledger-aware live link/adopt confirmation that proves provider identity without writing secrets.
+- Provider-specific live identity parsers for the bounded live inventory paths that can prove exact matches without leaking provider identifiers.
+- Ledger-aware, live-safe link/adopt confirmation that proves provider identity without writing secrets.
+- Truthful live validation that distinguishes read evidence from identity proof, drift proof, reconciliation, and mutation readiness.
+- Preview reconciliation plans for Clerk, Convex, Vercel, and EAS before expanding apply coverage.
 - Provider create/provision/update/no-op plans for all four services.
 - Expanded apply coverage only after ledger rows and evidence contracts exist.
 - Provider-specific smoke evidence for preview resources.
@@ -212,7 +216,7 @@ Acceptance evidence:
 
 ## Immediate Next Actions
 
-1. Finish provider integration gaps first: live Vercel read, live inventory/discovery for all providers, and live-safe link/adopt identity confirmation.
+1. Finish provider integration gaps first: provider-specific live identity parsers, live-safe link/adopt confirmation, truthful live validation, and preview reconciliation plans.
 2. Build the truthful validation runner and split local rehearsal from live provider validation wherever the command output could be misunderstood.
 3. Start the real generated SaaS runtime only after provider identity and validation semantics are hard enough to support real environments.
 
