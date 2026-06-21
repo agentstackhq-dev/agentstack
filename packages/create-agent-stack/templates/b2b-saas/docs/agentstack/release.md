@@ -13,9 +13,9 @@ Expected output includes `PLAN deploy preview` for the plan step and `APPLIED de
 
 Mobile build rehearsal output includes `PLAN mobile build preview` and `APPLIED mobile build preview`. Apply writes `.agentstack/builds/mobile-preview.json` and records `agentstack.mobile.build.completed` telemetry on the `mobile-build` journey.
 
-This rehearsal does not deploy to real providers or submit EAS builds. Real provider mutation/apply automation, Stripe integration, and hosted telemetry-provider adapters are future work.
+This rehearsal does not deploy to real providers or submit EAS builds. Direct provider execution, live Stripe integration, hosted/network telemetry export, provider dashboards, and retention are outside the current generated framework boundary.
 
-Run release validation before any future production apply so environment sync, provider readiness, and generated boundaries are checked together.
+Run release validation before production release rehearsal so environment sync, provider readiness, and generated boundaries are checked together.
 
 ## Local Production Release Rehearsal
 

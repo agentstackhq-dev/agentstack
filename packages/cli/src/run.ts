@@ -40,13 +40,18 @@ import {
   type SurfaceName
 } from "@agentstack/core";
 import {
-  compareEventCountsByEnvironment,
+  buildTelemetryCompareInspection,
+  buildTelemetryErrorInspection,
+  buildTelemetryJourneyInspection,
+  buildTelemetryTimelineInspection,
   createWideEvent,
   groupErrorEvents,
   isErrorEvent,
   JsonlTelemetryStore,
   parseSinceWindow,
   wideEventsToOtlpLogsRequest,
+  type TelemetryInspection,
+  type TelemetryTimelineEntry,
   type TelemetryEnvironment,
   type TelemetryQuery,
   type TelemetrySurface,
@@ -1737,6 +1742,14 @@ async function observeCommand(argv: string[], io: RunIo): Promise<number> {
   if (mode === "query" || mode === "timeline") {
     const events = mode === "timeline" ? await store.timeline(query) : await store.query(query);
 
+    if (mode === "timeline") {
+      const inspection = buildTelemetryTimelineInspection(events, { includeState: false });
+      io.write(`PASS observe timeline ${inspection.summary.eventCount}`);
+      writeTelemetryInspection(io, inspection, { includeState: false });
+      await recordObserveCompleted(io, argv, query.environment, mode, events.length);
+      return 0;
+    }
+
     io.write(`PASS observe ${mode} ${events.length}`);
     writeObservedEvents(io, events, { includeState: true });
     await recordObserveCompleted(io, argv, query.environment, mode, events.length);
@@ -1769,8 +1782,18 @@ async function observeCommand(argv: string[], io: RunIo): Promise<number> {
       ...query,
       journeyId: id
     });
-    io.write(`PASS observe journey ${events.length}`);
-    writeObservedEvents(io, events, { includeState: Boolean(options["include-state"]) });
+    const format = readString(options.format);
+    const inspection = buildTelemetryJourneyInspection(events, id, {
+      includeState: format === "json" || Boolean(options["include-state"])
+    });
+    if (format === "json") {
+      io.write(JSON.stringify(inspection, null, 2));
+      await recordObserveCompleted(io, argv, query.environment, mode, events.length);
+      return 0;
+    }
+
+    io.write(`PASS observe journey ${inspection.summary.eventCount}`);
+    writeTelemetryInspection(io, inspection, { includeState: Boolean(options["include-state"]) });
     await recordObserveCompleted(io, argv, query.environment, mode, events.length);
     return 0;
   }
@@ -1781,13 +1804,18 @@ async function observeCommand(argv: string[], io: RunIo): Promise<number> {
       ...query,
       environment
     })).filter(isErrorEvent);
-    io.write(`PASS observe errors ${events.length}`);
-    if (readString(options["group-by"]) === "component") {
-      for (const [component, count] of countErrorGroupsByComponent(events)) {
-        io.write(`group component ${component} events=${count}`);
-      }
+    const inspection = buildTelemetryErrorInspection(events, { includeState: true });
+    if (readString(options.format) === "json") {
+      io.write(JSON.stringify(inspection, null, 2));
+      await recordObserveCompleted(io, argv, environment, mode, events.length);
+      return 0;
     }
-    writeObservedEvents(io, events, { includeState: true });
+
+    io.write(`PASS observe errors ${inspection.summary.eventCount}`);
+    if (readString(options["group-by"]) === "component") {
+      writeErrorGroupsByComponent(io, events);
+    }
+    writeTelemetryInspection(io, inspection, { includeState: true });
     await recordObserveCompleted(io, argv, environment, mode, events.length);
     return 0;
   }
@@ -1853,16 +1881,9 @@ async function observeCommand(argv: string[], io: RunIo): Promise<number> {
     const events = (await store.timeline({ ...query, journey })).filter(
       (event) => environments.includes(event.environment)
     );
-    io.write(`PASS observe compare ${journey} ${events.length}`);
-    const counts = compareEventCountsByEnvironment(events, {
-      environments,
-      journey,
-      event: query.event
-    });
-    for (const { environment, count } of counts) {
-      const environmentEvents = events.filter((event) => event.environment === environment);
-      io.write(`${environment} events=${count} errors=${environmentEvents.filter(isErrorEvent).length}`);
-    }
+    const inspection = buildTelemetryCompareInspection(events, environments, { includeState: false });
+    io.write(`PASS observe compare ${journey} ${inspection.summary.eventCount}`);
+    writeTelemetryInspection(io, inspection, { includeState: false, includeCompare: true });
     await recordObserveCompleted(io, argv, environments[0], mode, events.length);
     return 0;
   }
@@ -1900,6 +1921,109 @@ function writeObservedEvents(
       io.write(JSON.stringify(event.state));
     }
   }
+}
+
+function writeTelemetryInspection(
+  io: RunIo,
+  inspection: TelemetryInspection,
+  options: { includeState: boolean; includeCompare?: boolean }
+): void {
+  const summary = inspection.summary;
+  io.write(
+    `Summary: events=${summary.eventCount} errors=${summary.errorCount} environments=${formatList(
+      summary.environments
+    )} surfaces=${formatList(summary.surfaces)} journeys=${formatList(summary.journeys)}`
+  );
+  if (summary.firstTimestamp || summary.lastTimestamp) {
+    io.write(`Window: first=${summary.firstTimestamp ?? "none"} last=${summary.lastTimestamp ?? "none"}`);
+  }
+
+  io.write("Timeline:");
+  if (inspection.timeline.length === 0) {
+    io.write("- none");
+  } else {
+    inspection.timeline.forEach((entry) => writeTelemetryTimelineEntry(io, entry, options));
+  }
+
+  io.write("Risks:");
+  if (inspection.risks.length === 0) {
+    io.write("- none");
+  } else {
+    for (const risk of inspection.risks) {
+      const context = [
+        risk.eventName ? `event=${risk.eventName}` : undefined,
+        risk.timestamp ? `timestamp=${risk.timestamp}` : undefined
+      ]
+        .filter(Boolean)
+        .join(" ");
+      io.write(`- ${risk.severity} ${risk.code}: ${risk.message}${context ? ` ${context}` : ""}`);
+    }
+  }
+
+  io.write("Pivots:");
+  io.write(`- traces=${formatList(inspection.pivots.traceIds)}`);
+  io.write(`- correlations=${formatList(inspection.pivots.correlationIds)}`);
+  io.write(`- journeys=${formatList(inspection.pivots.journeyIds)}`);
+  io.write(`- components=${formatList(inspection.pivots.components)}`);
+  io.write(`- releases=${formatList(inspection.pivots.releases)}`);
+
+  if (options.includeCompare && inspection.compare) {
+    io.write("Compare:");
+    for (const environment of inspection.compare) {
+      io.write(
+        `- ${environment.environment} events=${environment.eventCount} errors=${environment.errorCount} eventDelta=${formatSignedNumber(
+          environment.eventDelta
+        )} errorDelta=${formatSignedNumber(environment.errorDelta)}`
+      );
+    }
+  }
+
+  io.write("Next queries:");
+  if (inspection.nextQueries.length === 0) {
+    io.write("- none");
+  } else {
+    inspection.nextQueries.forEach((query) => io.write(`- ${query}`));
+  }
+}
+
+function writeTelemetryTimelineEntry(
+  io: RunIo,
+  entry: TelemetryTimelineEntry,
+  options: { includeState: boolean }
+): void {
+  const attributes = [
+    entry.status ? `status=${entry.status}` : undefined,
+    entry.component ? `component=${entry.component}` : undefined,
+    entry.traceId ? `trace=${entry.traceId}` : undefined,
+    entry.correlationId ? `correlation=${entry.correlationId}` : undefined,
+    entry.journeyId ? `journeyId=${entry.journeyId}` : undefined,
+    entry.releaseId ? `release=${entry.releaseId}` : undefined,
+    entry.isError ? "error=yes" : "error=no"
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const suffix = attributes ? ` ${attributes}` : "";
+  io.write(`- ${entry.timestamp} ${entry.environment} ${entry.surface} ${entry.name}${suffix}`);
+  if (options.includeState && entry.state) {
+    io.write(`  state=${JSON.stringify(entry.state)}`);
+  }
+}
+
+function writeErrorGroupsByComponent(io: RunIo, events: WideEvent[]): void {
+  io.write("Component pivots:");
+  const groups = countErrorGroupsByComponent(events);
+  if (groups.length === 0) {
+    io.write("- none");
+    return;
+  }
+
+  for (const [component, count] of groups) {
+    io.write(`- component=${component} errors=${count}`);
+  }
+}
+
+function formatSignedNumber(value: number): string {
+  return value > 0 ? `+${value}` : String(value);
 }
 
 function readSinceOption(value: string | boolean | undefined): Date | undefined {

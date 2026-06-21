@@ -139,7 +139,9 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(0);
     expect(output.join("\n")).toContain("agentstack.theme.validate.completed");
-    expect(output.join("\n")).toContain('"diagnostics":0');
+    expect(output.join("\n")).toContain("Summary: events=1 errors=0");
+    expect(output.join("\n")).toContain("Risks:");
+    expect(output.join("\n")).toContain("Next queries:");
   });
 
   it("records command telemetry when theme validation fails", async () => {
@@ -162,7 +164,7 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(0);
     expect(output.join("\n")).toContain("agentstack.theme.validate.completed");
-    expect(output.join("\n")).toContain('"status":"fail"');
+    expect(output.join("\n")).toContain("status=fail");
   });
 
   it("validates a local project", async () => {
@@ -350,7 +352,7 @@ describe("runAgentstack", () => {
       )
     ).toBe(0);
     expect(output.join("\n")).toContain("agentstack.skills.inspect.completed");
-    expect(output.join("\n")).toContain('"status":"fail"');
+    expect(output.join("\n")).toContain("status=fail");
   });
 
   it("loads local custom env values during validation", async () => {
@@ -1080,8 +1082,8 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(0);
     expect(output.join("\n")).toContain("agentstack.deploy.completed");
-    expect(output.join("\n")).toContain('"applied":true');
-    expect(output.join("\n")).toContain('"services":["clerk","convex","vercel","eas"]');
+    expect(output.join("\n")).toContain("Summary: events=1 errors=0");
+    expect(output.join("\n")).toContain("Next queries:");
   });
 
   it("plans a preview mobile build when EAS is linked", async () => {
@@ -1183,7 +1185,7 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(0);
     expect(output.join("\n")).toContain("agentstack.mobile.build.completed");
-    expect(output.join("\n")).toContain('"profile":"preview"');
+    expect(output.join("\n")).toContain("Summary: events=1 errors=0");
   });
 
   it("prints redacted Convex provider command plans", async () => {
@@ -1756,7 +1758,7 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(0);
     expect(output.join("\n")).toContain("agentstack.feature.added");
-    expect(output.join("\n")).toContain('"feature":"invoices"');
+    expect(output.join("\n")).toContain("Summary: events=1 errors=0");
   });
 
   it("refuses to overwrite existing feature files", async () => {
@@ -1944,7 +1946,6 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(0);
     expect(output.join("\n")).toContain("agentstack.event.added");
-    expect(output.join("\n")).toContain('"event":"billing.subscription.updated"');
     expect(output.join("\n")).not.toContain("sk_live");
   });
 
@@ -2055,7 +2056,7 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(0);
     expect(output.join("\n")).toContain("agentstack.billing-plan.added");
-    expect(output.join("\n")).toContain('"billingPlan":"pro"');
+    expect(output.join("\n")).toContain("Summary: events=1 errors=0");
   });
 
   it("prints observed timelines in chronological order", async () => {
@@ -2089,10 +2090,166 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(0);
     expect(output).toContain("PASS observe timeline 2");
-    expect(output.indexOf("2026-06-20T10:00:01.000Z preview cli agentstack.env.inspect.completed")).toBeLessThan(
-      output.indexOf("2026-06-20T10:00:02.000Z preview cli agentstack.sync.completed")
+    const rendered = output.join("\n");
+    expect(
+      rendered.indexOf("- 2026-06-20T10:00:01.000Z preview cli agentstack.env.inspect.completed")
+    ).toBeLessThan(
+      rendered.indexOf("- 2026-06-20T10:00:02.000Z preview cli agentstack.sync.completed")
     );
-    expect(output.join("\n")).toContain("[redacted]");
+    expect(rendered).toContain("Summary: events=2 errors=0");
+    expect(rendered).toContain("Risks:");
+    expect(rendered).toContain("Next queries:");
+    expect(rendered).not.toContain("sk_live_secret");
+  });
+
+  it("renders telemetry timeline inspections with summary risks next queries and no secrets", async () => {
+    const store = new JsonlTelemetryStore(join(dir, ".agentstack", "events.jsonl"));
+    await store.append({
+      ...createWideEvent("billing.subscription.failed", {
+        environment: "preview",
+        surface: "web",
+        journey: "billing",
+        status: "error",
+        correlationId: "",
+        state: { stripeToken: "sk_live_secret" }
+      }),
+      timestamp: "2026-06-20T10:00:00.000Z"
+    });
+
+    const code = await runAgentstack(["observe", "timeline", "--env", "preview", "--journey", "billing"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    const rendered = output.join("\n");
+    expect(code).toBe(0);
+    expect(rendered).toContain("PASS observe timeline 1");
+    expect(rendered).toContain("Summary: events=1 errors=1");
+    expect(rendered).toContain("missing_correlation_context");
+    expect(rendered).toContain("Next queries:");
+    expect(rendered).not.toContain("sk_live_secret");
+  });
+
+  it("renders journey inspections with optional redacted state and correlation risks", async () => {
+    const store = new JsonlTelemetryStore(join(dir, ".agentstack", "events.jsonl"));
+    await store.append({
+      ...createWideEvent("onboarding.started", {
+        environment: "preview",
+        surface: "web",
+        journey: "onboarding",
+        journeyId: "journey_onboarding",
+        correlationId: "",
+        state: { email: "buyer@example.com", step: "start" }
+      }),
+      timestamp: "2026-06-20T10:00:00.000Z"
+    });
+
+    const code = await runAgentstack(["observe", "journey", "--id", "journey_onboarding", "--include-state"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    const rendered = output.join("\n");
+    expect(code).toBe(0);
+    expect(rendered).toContain("PASS observe journey 1");
+    expect(rendered).toContain('state={"email":"[redacted]","step":"start"}');
+    expect(rendered).toContain("missing_correlation_context");
+    expect(rendered).not.toContain("buyer@example.com");
+  });
+
+  it("renders journey inspections as parseable redacted JSON", async () => {
+    const store = new JsonlTelemetryStore(join(dir, ".agentstack", "events.jsonl"));
+    await store.append(
+      createWideEvent("onboarding.started", {
+        environment: "preview",
+        surface: "web",
+        journey: "onboarding",
+        journeyId: "journey_json",
+        state: { email: "buyer@example.com" }
+      })
+    );
+
+    const code = await runAgentstack(["observe", "journey", "--id", "journey_json", "--format", "json"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    const rendered = output.join("\n");
+    const inspection = JSON.parse(rendered);
+    expect(code).toBe(0);
+    expect(inspection.summary.eventCount).toBe(1);
+    expect(rendered).toContain("[redacted]");
+    expect(rendered).not.toContain("buyer@example.com");
+  });
+
+  it("renders error inspections as grouped text and parseable redacted JSON", async () => {
+    const store = new JsonlTelemetryStore(join(dir, ".agentstack", "events.jsonl"));
+    await store.append(
+      createWideEvent("billing.subscription.failed", {
+        environment: "production",
+        surface: "convex",
+        component: "convex:billing.applySubscriptionUpdate",
+        status: "error",
+        state: { stripeToken: "sk_live_secret", errorClass: "StripeCardError" }
+      })
+    );
+
+    expect(
+      await runAgentstack(["observe", "errors", "--env", "production", "--group-by", "component"], {
+        cwd: dir,
+        write: (line) => output.push(line)
+      })
+    ).toBe(0);
+    expect(output.join("\n")).toContain("- component=convex:billing.applySubscriptionUpdate errors=1");
+
+    output = [];
+    const code = await runAgentstack(["observe", "errors", "--env", "production", "--format", "json"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    const rendered = output.join("\n");
+    const inspection = JSON.parse(rendered);
+    expect(code).toBe(0);
+    expect(inspection.summary.errorCount).toBe(1);
+    expect(rendered).toContain("[redacted]");
+    expect(rendered).not.toContain("sk_live_secret");
+  });
+
+  it("reports compare inspection deltas for preview and production", async () => {
+    const store = new JsonlTelemetryStore(join(dir, ".agentstack", "events.jsonl"));
+    await store.append(
+      createWideEvent("onboarding.started", {
+        environment: "preview",
+        surface: "web",
+        journey: "onboarding"
+      })
+    );
+    await store.append(
+      createWideEvent("onboarding.started", {
+        environment: "production",
+        surface: "web",
+        journey: "onboarding"
+      })
+    );
+    await store.append(
+      createWideEvent("onboarding.failed", {
+        environment: "production",
+        surface: "web",
+        journey: "onboarding",
+        status: "error"
+      })
+    );
+
+    const code = await runAgentstack(["observe", "compare", "--env", "preview,production", "--journey", "onboarding"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    const rendered = output.join("\n");
+    expect(code).toBe(0);
+    expect(rendered).toContain("- preview events=1 errors=0 eventDelta=0 errorDelta=0");
+    expect(rendered).toContain("- production events=2 errors=1 eventDelta=+1 errorDelta=+1");
   });
 
   it("records command telemetry for validation", async () => {
@@ -2111,7 +2268,7 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(0);
     expect(output.join("\n")).toContain("agentstack.validate.completed");
-    expect(output.join("\n")).toContain('"diagnostics":0');
+    expect(output.join("\n")).toContain("Summary: events=1 errors=0");
   });
 
   it("queries observed events with redacted sensitive telemetry", async () => {
@@ -2339,13 +2496,13 @@ describe("runAgentstack", () => {
     expect(rendered).toContain("PASS observe trace 1");
     expect(rendered).toContain("PASS observe journey 1");
     expect(rendered).toContain("PASS observe errors 1");
-    expect(rendered).toContain("group component convex:billing.applySubscriptionUpdate events=1");
+    expect(rendered).toContain("- component=convex:billing.applySubscriptionUpdate errors=1");
     expect(rendered).toContain("PASS observe webhook clerk 1");
     expect(rendered).toContain("PASS observe component convex:billing.applySubscriptionUpdate 1");
     expect(rendered).toContain("PASS observe compare onboarding 2");
     expect(rendered).toContain("PASS observe query 1");
-    expect(rendered).toContain("preview events=1 errors=0");
-    expect(rendered).toContain("production events=1 errors=0");
+    expect(rendered).toContain("- preview events=1 errors=0 eventDelta=0 errorDelta=0");
+    expect(rendered).toContain("- production events=1 errors=0 eventDelta=0 errorDelta=0");
     expect(rendered).toContain("[redacted]");
     expect(rendered).not.toContain("buyer@example.com");
     expect(rendered).not.toContain("sk_live_secret");

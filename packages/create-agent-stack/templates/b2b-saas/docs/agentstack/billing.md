@@ -23,7 +23,7 @@ Use the generated anchors as the source for plan metadata before adding surface-
 
 Use `agentstackBillingPlans` and `planHasEntitlement(plan, entitlement)` from `packages/domain/src/saas-spine.ts` as the shared source for plan-gated behavior. Keep subscription sync and webhook metadata aligned with `convex/saasSpine.ts`.
 
-Clerk Billing webhook support is beta. Treat the Clerk provider plan as inspection and coordination for auth, billing webhook, and env command shapes until a future Clerk provider apply layer exists. Review Clerk dashboard billing/webhook settings before relying on automated subscription state.
+Clerk Billing webhook support is beta. Treat the Clerk provider plan as inspection and coordination for auth, billing webhook, and env command shapes; direct provider execution stays bounded to wrappers and rehearsals. Review Clerk dashboard billing/webhook settings before relying on automated subscription state.
 
 Before applying provider changes, run:
 

@@ -80,7 +80,7 @@ const scenarios = {
     title: "Narrow an incident from local events",
     command: "agentstack observe errors --env production --since 2h --group-by component",
     result: "PASS observe errors / grouped by component",
-    detail: "Start broad with query or timeline, then pivot into trace, journey, errors, webhook, component, or compare. These commands inspect redacted .agentstack/events.jsonl evidence and are shaped for future adapters without claiming hosted telemetry today.",
+    detail: "Start broad with query or timeline, then pivot into trace, journey, errors, webhook, component, or compare. These commands inspect redacted .agentstack/events.jsonl evidence through the current local telemetry boundary; hosted/network export, provider dashboards, and retention are outside the generated framework boundary.",
     files: ["templates/b2b-saas/docs/agentstack/observability.md", "packages/telemetry/src/store.ts", "packages/cli/src/run.ts"]
   }
 };
@@ -151,7 +151,7 @@ const concerns = {
   },
   gaps: {
     title: "Current progress and gaps",
-    summary: "The slice proves the local command contract and provider boundaries, but real provider apply automation, real app servers, hosted telemetry export, Stripe adapter coverage, and store submission flows remain future work.",
+    summary: "The slice proves the local command contract and provider boundaries. Direct provider execution, real app servers, hosted/network telemetry export, provider dashboards, retention, live Stripe integration, and store submission flows are outside the current generated framework boundary.",
     commands: ["pnpm run preview:deploy", "pnpm run preview:deploy:apply", "pnpm run prod:deploy"],
     files: ["README.md", "tests/e2e/prototype.test.ts", "templates/b2b-saas/docs/agentstack/release.md"]
   }

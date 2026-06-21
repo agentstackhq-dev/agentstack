@@ -1,7 +1,7 @@
 # Agent Rules
 
 - This generated app is green-field. There are no pre-existing users or compatibility contracts.
-- Do not add legacy support, backward-compatibility fallbacks, deprecated aliases, migration shims, or old/new dual paths unless the user explicitly approves that work.
+- Do not preserve retired behavior, deprecated aliases, or old/new dual paths unless the user explicitly approves that work.
 - When an Agentstack pattern changes, replace the old path coherently across app code, docs, tests, and generated guidance instead of preserving it just in case.
 - Start by running `pnpm run inspect` to read the generated app shape, anchors, services, and preview local-cloud state before editing.
 - Run `pnpm run skills:inspect` when agent guidance changes or before delegating work across agents.
@@ -13,7 +13,7 @@
 - Style UI through `@app/theme` token roles and `@app/ui` primitives before adding surface-specific components.
 - Treat `workspace status` as the reference runnable slice: shared domain model, Convex boundary, web/mobile rendering, unstyled UI primitives, and local docs.
 - Use framework package scripts and generated docs instead of provider dashboards.
-- Treat preview commands as local-cloud preview state only; real provider adapters are future work.
+- Treat preview commands as local-cloud preview state only. Agentstack records and inspects local JSONL telemetry plus local OTLP-shaped artifacts; hosted/network provider telemetry is outside the current generated framework boundary.
 - Use telemetry primitives for product events and operational traces.
 - Add typed product telemetry with `agentstack add event <name> --journey <journey> --surfaces web,mobile,convex --state key:type`.
 - Start billing plan work with `agentstack add billing-plan <name>` before adding surface-specific gating code.
@@ -21,7 +21,7 @@
 - Use `packages/domain/src/saas-spine.ts` for roles, permissions, billing plans, entitlements, webhook types, and audit event types.
 - `convex/saasSpine.ts` carries the current SaaS spine metadata for Clerk, org, billing, and audit concepts.
 - `convex/schema.ts` materializes the current generated runtime schema, including the workspace-status table.
-- Add new SaaS tables as a current coherent product slice across schema, functions, domain, docs, and tests, not as legacy support.
+- Add new SaaS tables as a current coherent product slice across schema, functions, domain, docs, and tests, not as preserved retired behavior.
 - Do not edit generated vendor glue directly.
 - Add custom env values through `agentstack.config.json`.
 - For source-prototype smoke runs, set `AGENTSTACK_CLI_BIN` and `AGENTSTACK_TSX_BIN` before running generated package scripts.

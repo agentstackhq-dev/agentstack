@@ -9,6 +9,6 @@ Expected shape:
 - Web renders the status path from the shared contract.
 - Mobile renders the same status path from the shared contract.
 - `@app/ui` contributes unstyled primitive metadata for status presentation states.
-- Docs explain the path so future generated features can copy the shape.
+- Docs explain the path as the current generated app pattern for additional workspace-status-adjacent surfaces.
 
 This vertical is local generated app behavior. Preview deploys, production deploys, provider command plans, EAS builds, hosted telemetry export, and provider mutations remain rehearsals in this slice.

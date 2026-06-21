@@ -121,7 +121,7 @@
           <section class="section">
             <h2>What is deliberately local</h2>
             <table class="table">
-              <thead><tr><th>Area</th><th>Prototype behavior</th><th>Future real adapter behavior</th></tr></thead>
+              <thead><tr><th>Area</th><th>Prototype behavior</th><th>Current provider boundary</th></tr></thead>
               <tbody>
                 <tr>
                   <td>Cloud providers</td>
@@ -131,7 +131,7 @@
                 <tr>
                   <td>Env values</td>
                   <td><code>.agentstack/env-values.json</code> satisfies required custom env declarations locally.</td>
-                  <td>Provider env operations expose surface scope and variable names only. Command plans label values as coming from <code>.agentstack/env-values.json</code>, Clerk Dashboard, or provider-owned env commands; values and hashes stay out of operation IDs, inspect output, and command output. Vercel plans require <code>VERCEL_TOKEN</code>, EAS plans require <code>EXPO_TOKEN</code>, and production command plans mark confirmation where future apply flows will need it.</td>
+                  <td>Provider env operations expose surface scope and variable names only. Command plans label values as coming from <code>.agentstack/env-values.json</code>, Clerk Dashboard, or provider-owned env commands; values and hashes stay out of operation IDs, inspect output, and command output. Vercel plans require <code>VERCEL_TOKEN</code>, EAS plans require <code>EXPO_TOKEN</code>, and production command plans mark confirmation while provider execution remains bounded to wrapper and rehearsal surfaces.</td>
                 </tr>
                 <tr>
                   <td>Telemetry</td>
@@ -183,8 +183,8 @@
                 <p>
                   The repo already models provider intent, required tokens, production confirmation,
                   env resource scope, and operation IDs. It intentionally stops before remote mutation.
-                  That means local validation and command plans can be reviewed today, while future
-                  provider apply automation can reuse the same normalized contract.
+                  That means local validation and command plans can be reviewed today, while direct
+                  provider execution stays bounded to provider wrappers and rehearsals.
                 </p>
               </div>
             </div>
@@ -199,7 +199,7 @@
                 <tr><td>How does an agent run the workflow?</td><td><code>@agentstack/cli</code> and generated scripts</td><td>Inspect, doctor, dev preflight, validate, env inspect/set, sync, deploy, build mobile, observe.</td></tr>
                 <tr><td>Where is provider state?</td><td><code>@agentstack/adapters</code></td><td><code>.agentstack/local-cloud.json</code> plus redacted command-plan operations for provider CLIs.</td></tr>
                 <tr><td>Where is incident evidence?</td><td><code>@agentstack/telemetry</code></td><td><code>.agentstack/events.jsonl</code> and local <code>OTLP-shaped JSON</code> exports.</td></tr>
-                <tr><td>What is still a gap?</td><td>Future adapters/runtime work</td><td>Remote provider apply, hosted telemetry ingestion, real servers, Stripe adapter, app-store submission.</td></tr>
+                <tr><td>What is still a gap?</td><td>Outside the current boundary</td><td>Remote provider mutation, hosted telemetry ingestion, production servers, Stripe provider execution, app-store submission.</td></tr>
               </tbody>
             </table>
           </section>

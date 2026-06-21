@@ -26,7 +26,7 @@ Useful feature workflow:
 - Use `pnpm run dev` when you need the next local product commands; treat it as a preflight checklist, not a server supervisor.
 - Set required local-cloud preview environment values through the CLI, for example `agentstack env set --env preview --surface convex --name STRIPE_MODE --value sandbox`; do not hand-edit `.agentstack/env-values.json`.
 - If the feature changes provider state or environment bindings, run `pnpm run env:inspect`, `pnpm run preview:plan`, and `pnpm run preview:apply` as needed before cloud validation.
-- Use `docs/agentstack/preview.md` for the full local preview deploy rehearsal. The generated preview deploy scripts do not deploy to real providers; real provider mutation/apply automation is future work.
+- Use `docs/agentstack/preview.md` for the full local preview deploy rehearsal. The generated preview deploy scripts do not deploy to real providers; direct provider execution is outside the current generated framework boundary.
 - Inspect billing generation with `node scripts/agentstack.mjs observe timeline --env development --journey billing`.
 
 For source-prototype smoke runs, set `AGENTSTACK_CLI_BIN` and `AGENTSTACK_TSX_BIN` as described in `docs/agentstack/validation.md`.

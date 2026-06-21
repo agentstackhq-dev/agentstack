@@ -11,7 +11,7 @@ pnpm run mobile:build:production
 
 Expected preview output includes `PLAN mobile build preview` for the plan step and `APPLIED mobile build preview` for the apply step. Apply writes `.agentstack/builds/mobile-preview.json` and records `agentstack.mobile.build.completed` telemetry on the `mobile-build` journey.
 
-This is a local mobile build rehearsal. It does not submit builds to Expo, EAS, Apple, or Google. The local artifact is the handoff contract for agents and future provider apply adapters.
+This is a local mobile build rehearsal. It does not submit builds to Expo, EAS, Apple, or Google. The local artifact is the handoff contract for agents inside the current bounded provider rehearsal surface.
 
 The Expo config in `apps/mobile/app.config.ts` reads `agentstack.config.json`, so app name, slug, environments, and EAS service settings stay tied to the Agentstack manifest. The EAS profiles live in `apps/mobile/eas.json`:
 
@@ -43,6 +43,6 @@ The EAS provider plan includes `eas project:init --non-interactive`, `eas env:li
 
 EAS server env values must exist in EAS for EAS Build. Local `.env` files and CI variables are useful for local workflows, but they are not a replacement for EAS server env values used by build workers.
 
-App-store submission remains future provider coverage. This slice plans builds only and does not run `eas submit`.
+App-store submission is outside the current generated framework boundary. This slice plans builds only and does not run `eas submit`.
 
 Keep generated mobile build files under source control. Do not commit `.agentstack/builds/` artifacts.

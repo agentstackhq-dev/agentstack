@@ -168,4 +168,4 @@ agentstack.deploy.completed
 - It does not prove production readiness.
 - It does not replace provider credentials, real CI/CD, app builds, smoke tests, or production release approval.
 
-Use this runbook to rehearse the framework path before enabling real provider apply automation in future Agentstack releases.
+Use this runbook to rehearse the framework path where direct provider execution is not implemented; provider behavior stays bounded to wrappers, command plans, and local telemetry artifacts.

@@ -75,7 +75,7 @@
               <div class="card"><h3>Lifecycle scripts</h3><p><code>inspect</code>, <code>doctor</code>, and <code>dev</code> help agents read project state, run preflight checks, and enter the local workspace-status flow before provider-facing work.</p></div>
               <div class="card"><h3>Scripts</h3><p><code>validate</code>, <code>env:inspect</code>, <code>preview:plan</code>, <code>preview:apply</code>, <code>validate:cloud</code>, <code>preview:deploy</code>, <code>prod:prepare</code>, <code>prod:provision</code>, <code>prod:validate</code>, <code>prod:deploy</code>, and <code>observe:timeline</code> delegate to an installed CLI or explicit source-prototype env vars.</p></div>
               <div class="card"><h3>Provider env rehearsal</h3><p><code>agentstack env set</code> writes local validation values only. <code>sync --env preview</code> refuses missing or invalid values before planning or applying provider env resources; applied sync stores hash-only metadata in <code>.agentstack/local-cloud.json</code>.</p></div>
-              <div class="card"><h3>Observability inspection</h3><p><code>docs/agentstack/observability.md</code> teaches <code>trace</code>, <code>journey</code>, <code>errors</code>, <code>webhook</code>, <code>component</code>, and <code>compare</code> workflows over redacted local JSONL.</p></div>
+              <div class="card"><h3>Observability inspection</h3><p><code>docs/agentstack/observability.md</code> teaches <code>agentstack observe</code> workflows over redacted local JSONL, including timeline, journey, errors, and compare inspection objects.</p></div>
               <div class="card"><h3>Telemetry export</h3><p><code>telemetry:export:preview</code> and <code>telemetry:export:production</code> write an <code>OTLP-shaped JSON</code> local export artifact from redacted store query output without configuring network export or a hosted provider.</p></div>
               <div class="card"><h3>Preview runbook</h3><p><code>docs/agentstack/preview.md</code> documents exact local rehearsal commands, expected output, files written, and non-goals. It states the workflow is not real provider deployment.</p></div>
               <div class="card"><h3>Mobile build profiles</h3><p><code>apps/mobile/eas.json</code> and <code>apps/mobile/app.config.ts</code> define generated EAS/Expo anchors. Root and mobile package scripts route through <code>agentstack build mobile</code>.</p></div>
@@ -108,6 +108,14 @@ convex/workspaceStatus.ts                  Convex status query/action anchor
 apps/web/src/index.ts                      web status rendering entry
 apps/mobile/src/index.ts                   mobile status rendering entry
 docs/agentstack/workspace-status.md        agent-readable local vertical contract</code></pre>
+            <p class="lede">
+              Add product telemetry where behavior crosses a real product boundary: web interaction
+              handlers in <code>apps/web</code>, mobile screen/action handlers in <code>apps/mobile</code>,
+              and Convex queries, mutations, or actions in <code>convex</code>. Follow the workspace-status
+              pattern by importing generated event definitions, attaching actor, org, journey, trace,
+              surface, and component context through <code>createAppTelemetry(runtime).identify(...)</code>,
+              and emitting only redacted state snapshots.
+            </p>
           </section>
 
           <section class="section">
@@ -140,7 +148,7 @@ pnpm run validate                       Clerk identity, Clerk webhooks, billing,
               <thead><tr><th>Mode</th><th>How scripts find the CLI</th><th>Why</th></tr></thead>
               <tbody>
                 <tr>
-                  <td>Installed future package</td>
+                  <td>Installed package</td>
                   <td>Runs <code>agentstack</code> from local <code>node_modules/.bin</code> or PATH.</td>
                   <td>Generated projects should not contain a machine-specific repo path.</td>
                 </tr>
@@ -152,7 +160,7 @@ pnpm run validate                       Clerk identity, Clerk webhooks, billing,
                 <tr>
                   <td>Lifecycle preflight</td>
                   <td>Run <code>inspect</code>, <code>doctor</code>, then <code>dev</code> before provider-facing work.</td>
-                  <td><code>dev</code> prints next commands only; real web, mobile, Convex, Expo, and provider servers are future work.</td>
+                  <td><code>dev</code> runs the local workspace-status preflight; provider execution remains bounded by command-plan and rehearsal surfaces where direct provider mutation is not implemented.</td>
                 </tr>
                 <tr>
                   <td>Agent guidance</td>
@@ -184,8 +192,8 @@ pnpm run validate                       Clerk identity, Clerk webhooks, billing,
               Web, mobile, and Convex anchors import generated event definitions and call
               <code>createAppTelemetry(runtime).event(...)</code>. The helper creates typed local
               envelopes only. Local JSONL remains the source for inspection, and export scripts write
-              an <code>OTLP-shaped JSON</code> local export artifact without sending app events to a
-              hosted provider.
+              an <code>OTLP-shaped JSON</code> local export artifact without sending app events over the
+              network or configuring provider ingestion.
             </p>
             <pre><code>packages/telemetry/package.json
 packages/telemetry/src/events.ts

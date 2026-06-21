@@ -18,7 +18,10 @@
           <a data-page="generated" href="generated-app.html">Generated App</a>
           <a data-page="theme" href="theme-ui.html">Theme & UI</a>
           <a data-page="telemetry" href="telemetry.html">Telemetry</a>
-          <a data-page="timeline" href="timeline.html">Implementation Timeline</a>
+          <a
+            data-page="timeline"
+            href="timeline.html"
+          >Implementation Plan</a>
           <a data-page="lab" href="lab.html">Deep Dive Lab</a>
         </nav>
       </aside>
@@ -132,7 +135,8 @@ node scripts/agentstack.mjs observe timeline \
             <p class="lede">
               Use <code>query</code> and <code>timeline</code> for discovery, then switch to the
               mode that answers the incident question. Every mode below reads the same redacted
-              <code>.agentstack/events.jsonl</code> stream in this prototype.
+              <code>.agentstack/events.jsonl</code> stream in this prototype, and every agent-facing
+              inspection command stays under the <code>agentstack observe</code> namespace.
             </p>
             <div class="inspection-grid">
               <div class="inspection-card"><span>trace</span><strong>One request path</strong><code>agentstack observe trace --id trace_123 --env production</code></div>
@@ -141,6 +145,104 @@ node scripts/agentstack.mjs observe timeline \
               <div class="inspection-card"><span>webhook</span><strong>Provider callback intake</strong><code>agentstack observe webhook clerk --env production --since 24h</code></div>
               <div class="inspection-card"><span>component</span><strong>Boundary-specific history</strong><code>agentstack observe component convex:billing.applySubscriptionUpdate --env production</code></div>
               <div class="inspection-card"><span>compare</span><strong>Preview vs production drift</strong><code>agentstack observe compare --env preview,production --journey onboarding</code></div>
+            </div>
+          </section>
+
+          <section class="section">
+            <h2>Structured inspector contract</h2>
+            <p class="lede">
+              Timeline, journey, errors, and compare inspection return structured findings for
+              agent handoff. Human output stays concise, while JSON rendering is scoped to
+              <code>agentstack observe journey --format json</code> and
+              <code>agentstack observe errors --format json</code>.
+            </p>
+            <div class="grid two">
+              <pre><code>{
+  "summary": {
+    "eventCount": 3,
+    "errorCount": 2,
+    "firstTimestamp": "2026-06-21T09:14:02.100Z",
+    "lastTimestamp": "2026-06-21T09:16:44.250Z",
+    "environments": ["production"],
+    "surfaces": ["web", "convex"],
+    "journeys": ["billing"],
+    "components": ["convex:billing.applySubscriptionUpdate"],
+    "releases": ["web-2026.06.21.1"]
+  },
+  "timeline": [
+    {
+      "timestamp": "2026-06-21T09:14:02.100Z",
+      "environment": "production",
+      "surface": "web",
+      "name": "billing.webhook.received",
+      "component": "stripe:webhook",
+      "traceId": "trace_123",
+      "correlationId": "corr_123",
+      "journeyId": "billing",
+      "releaseId": "web-2026.06.21.1",
+      "status": "received",
+      "isError": false,
+      "state": { "eventType": "customer.subscription.updated" }
+    },
+    {
+      "timestamp": "2026-06-21T09:16:44.250Z",
+      "environment": "production",
+      "surface": "convex",
+      "name": "billing.subscription.apply_failed",
+      "component": "convex:billing.applySubscriptionUpdate",
+      "traceId": "trace_123",
+      "correlationId": "corr_123",
+      "journeyId": "billing",
+      "releaseId": "web-2026.06.21.1",
+      "status": "failed",
+      "isError": true,
+      "state": { "plan": "team" }
+    },
+    {
+      "timestamp": "2026-06-21T09:16:48.900Z",
+      "environment": "production",
+      "surface": "convex",
+      "name": "billing.subscription.apply_failed",
+      "component": "convex:billing.applySubscriptionUpdate",
+      "traceId": "trace_123",
+      "correlationId": "corr_123",
+      "journeyId": "billing",
+      "releaseId": "web-2026.06.21.1",
+      "status": "failed",
+      "isError": true,
+      "state": { "plan": "team" }
+    }
+  ],
+  "pivots": {
+    "traceIds": ["trace_123"],
+    "correlationIds": ["corr_123"],
+    "journeyIds": ["billing"],
+    "components": ["convex:billing.applySubscriptionUpdate"],
+    "releases": ["web-2026.06.21.1"]
+  },
+  "risks": [
+    {
+      "code": "error_cluster",
+      "severity": "error",
+      "message": "2 errors for billing.subscription.apply_failed in production/convex."
+    }
+  ],
+  "nextQueries": [
+    "agentstack observe timeline --trace trace_123",
+    "agentstack observe timeline --correlation corr_123",
+    "agentstack observe journey --id billing",
+    "agentstack observe errors --env production --component convex:billing.applySubscriptionUpdate"
+  ]
+}</code></pre>
+              <div class="card">
+                <h3>Inspector fields</h3>
+                <p>
+                  <code>summary</code> explains the finding, <code>timeline</code> carries redacted
+                  state snapshots plus correlation fields, <code>pivots</code> names the useful trace,
+                  journey, component, or environment pivots, <code>risks</code> records uncertainty,
+                  and <code>nextQueries</code> gives agents safe follow-up commands.
+                </p>
+              </div>
             </div>
           </section>
 
@@ -163,7 +265,7 @@ agentstack observe compare --env preview,production --journey billing</code></pr
             <h2>Query filters</h2>
             <div class="grid three">
               <div class="card"><h3>Environment</h3><p><code>--env preview</code> scopes incidents to the deployed context.</p></div>
-              <div class="card"><h3>Surface</h3><p><code>--surface web</code> separates web, mobile, convex, cli, and provider surfaces.</p></div>
+              <div class="card"><h3>Surface</h3><p><code>--surface web</code> separates web, mobile, convex, cli, and control-plane surfaces.</p></div>
               <div class="card"><h3>Event family</h3><p><code>--event billing.*</code> uses wildcard matching for families of events.</p></div>
               <div class="card"><h3>Journey</h3><p><code>--journey onboarding</code> reconstructs user journeys.</p></div>
               <div class="card"><h3>Trace</h3><p><code>--trace trace_123</code> can follow request-level context.</p></div>
@@ -187,7 +289,7 @@ agentstack observe compare --env preview,production --journey billing</code></pr
                   redacts sensitive fields before query output, including email/token/key-like fields.
                   Local export artifacts are redacted because they are built from the same redacted
                   store query output. Network export, hosted providers, and retention controls are
-                  future adapter work.
+                  outside the current generated framework boundary.
                 </p>
               </div>
             </div>
