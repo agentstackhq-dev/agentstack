@@ -309,11 +309,16 @@ async function validateCommand(argv: string[], io: RunIo): Promise<number> {
     return 0;
   }
 
+  const liveEnvironment =
+    options.live === undefined
+      ? undefined
+      : readValidateLiveOptions(options.live, options.env, "Run agentstack validate --live --env preview.");
+
   const { context, diagnostics, envValues } = await runLocalValidationGate(io.cwd);
   diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
 
   if (diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
-    if (options.quality) {
+    if (options.quality || options.live) {
       return 1;
     }
     await recordCommandEvent(io, {
@@ -342,6 +347,10 @@ async function validateCommand(argv: string[], io: RunIo): Promise<number> {
     }
     io.write("PASS validate --quality");
     return 0;
+  }
+
+  if (liveEnvironment) {
+    return await liveValidationCommand(io, { context, envValues }, liveEnvironment);
   }
 
   if (options.cloud) {
@@ -1359,6 +1368,145 @@ async function providerInventoryCommand(argv: string[], io: RunIo): Promise<numb
   return hasFailedLiveRead ? 1 : 0;
 }
 
+async function liveValidationCommand(
+  io: RunIo,
+  validation: {
+    context: Awaited<ReturnType<typeof loadProjectContext>>;
+    envValues: EnvValueState;
+  },
+  environment: "preview" | "production"
+): Promise<number> {
+  io.write("Evidence: live-validation");
+  io.write("Scope: bounded read-only provider inventory; no local-cloud writes; no provider mutations");
+  io.write("Mutation: none");
+
+  const services = getEnabledProviderAdapterDefinitions(validation.context.manifest).map(
+    (definition) => definition.service
+  );
+  const unsupportedServices = services.filter(
+    (service) => (service === "vercel" || service === "eas") && environment !== "preview"
+  );
+  if (unsupportedServices.length > 0) {
+    for (const service of unsupportedServices) {
+      io.write(
+        formatDiagnostic({
+          severity: "fail",
+          code: "provider.live-validation.unsupported",
+          path: `${service}.${environment}`,
+          message: `${service === "vercel" ? "Vercel" : "EAS"} live validation supports preview read-only inspect only.`,
+          fix: "Run agentstack validate --live --env preview.",
+          blocks: ["validate --live"]
+        })
+      );
+    }
+    io.write("FAIL validate --live");
+    io.write("Readiness: refused");
+    io.write("Reason: live-validation-unsupported");
+    return 1;
+  }
+
+  let ledgerRows: ReturnType<typeof parseProviderLedger> = [];
+  try {
+    ledgerRows = await readProviderLedgerRowsIfPresent(io.cwd);
+  } catch (error) {
+    io.write(
+      providerInventoryLedgerDiagnostic({
+        ok: false,
+        reason: "invalid",
+        path: providerLedgerPath,
+        message: redactProviderText(error instanceof Error ? error.message : String(error))
+      })
+    );
+    io.write("FAIL validate --live");
+    io.write("Readiness: refused");
+    io.write("Reason: live-read-failed");
+    return 1;
+  }
+
+  let hasFailedLiveRead = false;
+  let hasIdentityAmbiguity = false;
+  const inventories: ProviderInventory[] = [];
+
+  for (const service of services) {
+    const secretValues =
+      service === "convex"
+        ? collectSecretValues(validation.envValues, environment, "convex")
+        : collectEnvironmentSecretValues(validation.envValues, environment);
+    let inventory = await createProviderInventory({
+      cwd: io.cwd,
+      manifest: validation.context.manifest,
+      service,
+      environment,
+      ledgerRows
+    });
+
+    try {
+      const liveResults = await readLiveProviderInventory({
+        service,
+        environment,
+        manifest: validation.context.manifest,
+        executor: resolveProviderExecutor(io),
+        cwd: io.cwd,
+        secretValues
+      });
+      inventory = await createLiveProviderInventory({ localInventory: inventory, readResults: liveResults });
+    } catch (error) {
+      io.write(
+        formatDiagnostic({
+          severity: "fail",
+          code: "provider.live-validation.execution",
+          path: `${service}.${environment}`,
+          message: redactProviderText(error instanceof Error ? error.message : String(error), { secretValues }),
+          fix: "Run agentstack validate --live --env preview.",
+          blocks: ["validate --live"]
+        })
+      );
+      hasFailedLiveRead = true;
+    }
+
+    inventories.push(inventory);
+    if ((inventory.liveReadSummary?.failed ?? 0) > 0) {
+      hasFailedLiveRead = true;
+    }
+    if (!confirmLiveProviderInventoryIdentity(inventory).ok) {
+      hasIdentityAmbiguity = true;
+    }
+    writeLiveValidationInventory(io, inventory);
+  }
+
+  io.write("FAIL validate --live");
+  io.write("Readiness: refused");
+  if (hasFailedLiveRead) {
+    io.write("Reason: live-read-failed");
+  } else if (hasIdentityAmbiguity) {
+    io.write("Reason: identity-ambiguous");
+  } else {
+    io.write("Reason: identity-ambiguous");
+  }
+  writeLiveValidationIdentityProofRequirements(io, inventories);
+  return 1;
+}
+
+function writeLiveValidationInventory(io: RunIo, inventory: ProviderInventory): void {
+  io.write(`Evidence: ${inventory.evidence}`);
+  if (inventory.liveReadSummary) {
+    io.write(`Commands: ${inventory.liveReadSummary.commands}`);
+    io.write(`Results: ${inventory.liveReadSummary.results}`);
+    io.write(`Succeeded: ${inventory.liveReadSummary.succeeded}`);
+    io.write(`Failed: ${inventory.liveReadSummary.failed}`);
+  }
+  inventory.rows.forEach((row) => io.write(formatProviderInventoryRow(row)));
+}
+
+function writeLiveValidationIdentityProofRequirements(io: RunIo, inventories: ProviderInventory[]): void {
+  const labels = normalizeProviderIdentityProofLabels(
+    inventories.flatMap((inventory) => inventory.rows.flatMap((row) => row.missingProof ?? []))
+  );
+  if (labels.length > 0) {
+    io.write(`Identity proof requirements: ${labels.join(",")}`);
+  }
+}
+
 async function providerLinkCommand(argv: string[], io: RunIo): Promise<number> {
   const options = parseOptions(argv);
   const fix =
@@ -1748,6 +1896,24 @@ function readProviderRuntimeEnvironmentOption(
       `Fix: ${fix}`
     ].join("\n")
   );
+}
+
+function readValidateLiveOptions(
+  live: string | boolean,
+  environment: string | boolean | undefined,
+  fix: string
+): "preview" | "production" {
+  if (live !== true) {
+    throw new Error(
+      [
+        "FAIL validate.live.validation",
+        "Invalid --live value. Use --live without a value.",
+        `Fix: ${fix}`
+      ].join("\n")
+    );
+  }
+
+  return readProviderRuntimeEnvironmentOption(environment, fix);
 }
 
 function readProviderControlPlaneServiceOption(

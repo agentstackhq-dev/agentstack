@@ -17,6 +17,7 @@
     "test": "node scripts/agentstack.mjs theme validate",
     "validate": "node scripts/agentstack.mjs validate",
     "validate:quality": "node scripts/agentstack.mjs validate --quality",
+    "validate:live:preview": "node scripts/agentstack.mjs validate --live --env preview",
     "init:cloud": "node scripts/agentstack.mjs init cloud",
     "env:inspect": "node scripts/agentstack.mjs env inspect --env preview",
     "preview:plan": "node scripts/agentstack.mjs sync --env preview",

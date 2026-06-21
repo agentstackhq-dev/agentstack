@@ -2457,6 +2457,166 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).not.toContain("sk_live_secret_should_not_leak");
   });
 
+  it("runs live validation preview as aggregate read-only inventory and refuses ambiguous readiness", async () => {
+    await writeProviderLedger([]);
+    const ledgerPath = join(dir, "docs", "provider-resource-ledger.md");
+    const ledgerBefore = await readFile(ledgerPath, "utf8");
+    const code = await runAgentstack(["validate", "--live", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("PUBLIC_API_URL=provider-secret\nProject: prj_secret")
+    });
+
+    const rendered = output.join("\n");
+    expect(code).toBe(1);
+    expect(output).toContain("Evidence: live-validation");
+    expect(output).toContain(
+      "Scope: bounded read-only provider inventory; no local-cloud writes; no provider mutations"
+    );
+    expect(output).toContain("Mutation: none");
+    expect(output).toContain("FAIL validate --live");
+    expect(output).toContain("Readiness: refused");
+    expect(output).toContain("Reason: identity-ambiguous");
+    expect(output).toContain("Evidence: live-read-inventory");
+    expect(rendered).toContain("Resource: clerk preview application");
+    expect(rendered).toContain("Resource: convex preview deployment");
+    expect(rendered).toContain("Resource: vercel preview project");
+    expect(rendered).toContain("Resource: eas preview project");
+    expect(rendered).toContain("Identity proof requirements:");
+    expect(rendered).toContain("identity=ambiguous");
+    expect(rendered).not.toContain("identity=matched");
+    expect(rendered).not.toContain("Evidence: live-read\n");
+    expect(rendered).not.toContain("provider-secret");
+    expect(rendered).not.toContain("prj_secret");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec clerk doctor --mode agent",
+      "exec clerk env pull --mode agent",
+      "exec clerk config pull --mode agent",
+      "exec convex env --deployment <preview-deployment-name> list",
+      "exec vercel env ls preview",
+      "exec eas env:list --environment preview"
+    ]);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
+  });
+
+  it("stops live validation on local structural failure before provider executor use or writes", async () => {
+    await writeProviderLedger([]);
+    const ledgerPath = join(dir, "docs", "provider-resource-ledger.md");
+    const ledgerBefore = await readFile(ledgerPath, "utf8");
+    await rm(join(dir, "convex/schema.ts"));
+
+    const code = await runAgentstack(["validate", "--live", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("live-read should not run")
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL template.anchor.missing");
+    expect(output.join("\n")).toContain("Path: convex/schema.ts");
+    expect(output.join("\n")).not.toContain("Evidence: live-validation");
+    expect(providerExecutions).toEqual([]);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
+  });
+
+  it("refuses unsupported Vercel and EAS production live validation before executor use", async () => {
+    await writeProviderLedger([]);
+    const ledgerPath = join(dir, "docs", "provider-resource-ledger.md");
+    const ledgerBefore = await readFile(ledgerPath, "utf8");
+    const code = await runAgentstack(["validate", "--live", "--env", "production"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("live-read should not run")
+    });
+
+    expect(code).toBe(1);
+    expect(output).toContain("Evidence: live-validation");
+    expect(output).toContain("FAIL validate --live");
+    expect(output).toContain("Readiness: refused");
+    expect(output).toContain("Reason: live-validation-unsupported");
+    expect(output.join("\n")).toContain("FAIL provider.live-validation.unsupported");
+    expect(output.join("\n")).toContain("Vercel live validation supports preview read-only inspect only");
+    expect(output.join("\n")).toContain("EAS live validation supports preview read-only inspect only");
+    expect(providerExecutions).toEqual([]);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
+  });
+
+  it("fails live validation on live read failure with redacted diagnostics and no writes", async () => {
+    await writeProviderLedger([]);
+    const ledgerPath = join(dir, "docs", "provider-resource-ledger.md");
+    const ledgerBefore = await readFile(ledgerPath, "utf8");
+    const code = await runAgentstack(["validate", "--live", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: {
+        async execute(command, args) {
+          providerExecutions.push({ command, args });
+          return {
+            exitCode: 1,
+            stdout: "raw stdout CLERK_SECRET_KEY=sk_live_secret_should_not_leak",
+            stderr: "unauthorized sk_live_secret_should_not_leak",
+            durationMs: 5
+          };
+        }
+      }
+    });
+
+    const rendered = output.join("\n");
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL validate --live");
+    expect(output).toContain("Readiness: refused");
+    expect(output).toContain("Reason: live-read-failed");
+    expect(output).toContain("Evidence: live-read-inventory");
+    expect(rendered).toContain("missing=successful-live-read");
+    expect(rendered).toContain("live=auth-failed");
+    expect(rendered).not.toContain("sk_live_secret_should_not_leak");
+    expect(providerExecutions.length).toBeGreaterThan(0);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
+  });
+
+  it("requires explicit environment for live validation before executor use", async () => {
+    const code = await runAgentstack(["validate", "--live"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("live-read should not run")
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL cli.option.missing");
+    expect(output.join("\n")).toContain("--env requires a value.");
+    expect(output.join("\n")).toContain("Fix: Run agentstack validate --live --env preview.");
+    expect(providerExecutions).toHaveLength(0);
+  });
+
+  it("rejects malformed live validation values before executor use", async () => {
+    for (const value of ["false", "unexpected"]) {
+      output = [];
+      providerExecutions = [];
+      const code = await runAgentstack(["validate", "--live", value, "--env", "preview"], {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: createMockProviderExecutor("live-read should not run")
+      });
+
+      expect(code).toBe(1);
+      expect(output.join("\n")).toContain("FAIL validate.live.validation");
+      expect(output.join("\n")).toContain("Invalid --live value. Use --live without a value.");
+      expect(providerExecutions).toHaveLength(0);
+    }
+  });
+
   it("rejects unsupported provider inventory source values before executor use", async () => {
     const code = await runAgentstack(["provider", "inventory", "--service", "convex", "--env", "preview", "--source", "remote"], {
       cwd: dir,

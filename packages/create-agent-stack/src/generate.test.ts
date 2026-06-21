@@ -105,6 +105,7 @@ describe("generateProject", () => {
         test: "node scripts/agentstack.mjs theme validate",
         validate: "node scripts/agentstack.mjs validate",
         "validate:quality": "node scripts/agentstack.mjs validate --quality",
+        "validate:live:preview": "node scripts/agentstack.mjs validate --live --env preview",
         "env:inspect": "node scripts/agentstack.mjs env inspect --env preview",
         "preview:plan": "node scripts/agentstack.mjs sync --env preview",
         "preview:apply": "node scripts/agentstack.mjs sync --env preview --apply",
@@ -235,6 +236,9 @@ describe("generateProject", () => {
       expect(generatedEnvironmentDocs).toContain("Evidence: local-inventory");
       expect(generatedEnvironmentDocs).toContain("Evidence: ledger-local-inventory");
       expect(generatedEnvironmentDocs).toContain("does not call provider CLIs");
+      expect(generatedEnvironmentDocs).toContain("validate --live --env <preview|production>");
+      expect(generatedEnvironmentDocs).toContain("Evidence: live-validation");
+      expect(generatedEnvironmentDocs).toContain("Readiness: refused");
       expect(generatedEnvironmentDocs).toContain("Local mutation: .agentstack/provider-links.json");
       expect(generatedEnvironmentDocs).toContain("Provider mutation: none");
       expect(generatedEnvironmentDocs).toContain("Ledger mutation: none");
@@ -255,6 +259,12 @@ describe("generateProject", () => {
       expect(generatedWorkflowDocs).toContain("simulator state");
       expect(generatedWorkflowDocs).toContain("not proof of external provider existence");
       expect(generatedWorkflowDocs).toContain("sanitized `missing=` identity proof labels");
+      expect(generatedWorkflowDocs).toContain("pnpm run validate:live:preview");
+      expect(generatedWorkflowDocs).toContain("live validation refuses readiness");
+      const generatedValidationDocs = await readFile(join(targetDir, "docs/agentstack/validation.md"), "utf8");
+      expect(generatedValidationDocs).toContain("pnpm run validate:live:preview");
+      expect(generatedValidationDocs).toContain("Evidence: live-validation");
+      expect(generatedValidationDocs).toContain("identity-ambiguous");
       await expect(readFile(join(targetDir, "docs/provider-resource-ledger.md"), "utf8")).resolves.toContain(
         "## Ledger"
       );

@@ -6,11 +6,11 @@ This file is the canonical resume and progress artifact for Agentstack consumer 
 
 ## Current State
 
-Current phase: sanitized live identity proof requirements are the latest substantive implementation checkpoint, building on truthful local quality validation, live-safe provider link/adopt confirmation modes, sanitized partial live inventory identity facts, bounded live provider inventory, Vercel preview provider live-read inspect, failure-diagnostic redaction hardening, and provider inventory/link/adopt; this file intentionally avoids self-referencing its containing commit hash. Use `git log --oneline -n 5` for exact HEAD.
+Current phase: first aggregate live validation truthful refusal is the latest substantive implementation checkpoint, building on sanitized live identity proof requirements, truthful local quality validation, live-safe provider link/adopt confirmation modes, sanitized partial live inventory identity facts, bounded live provider inventory, Vercel preview provider live-read inspect, failure-diagnostic redaction hardening, and provider inventory/link/adopt; this file intentionally avoids self-referencing its containing commit hash. Use `git log --oneline -n 5` for exact HEAD.
 
 Overall status: not complete. Agentstack is about 38-40% of the way toward consumer production readiness from a consumer perspective. The current product state is a local command-contract and rehearsal prototype with credible local telemetry and provider boundaries, not a consumer-ready production framework.
 
-Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI routing, local env graph rehearsal, structural validation, local package quality validation via `agentstack validate --quality`, generated guidance/skills, local wide-event telemetry, OTLP-shaped local export, provider command plans for Clerk/Convex/Vercel/EAS, Clerk/Convex/Vercel preview/EAS preview live-read inspect, ledger-gated Convex and Vercel preview apply, local provider inventory/link/adopt, explicit bounded live provider inventory via `--source live` or `--live`, sanitized partial live identity facts and missing-proof labels for Vercel preview and EAS preview env-list reads, and live-safe refusal modes for provider link/adopt via `--source live` with sanitized identity proof requirement summaries. It still lacks exact live identity proof, a truthful live validation runner, broad provider discovery/adoption, broad real provider provisioning, a real generated SaaS runtime, real OTel/network/hosted observability, preview deploy/build smoke evidence, production release gates, hosted control-plane state, and public package installability.
+Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI routing, local env graph rehearsal, structural validation, local package quality validation via `agentstack validate --quality`, generated guidance/skills, local wide-event telemetry, OTLP-shaped local export, provider command plans for Clerk/Convex/Vercel/EAS, Clerk/Convex/Vercel preview/EAS preview live-read inspect, ledger-gated Convex and Vercel preview apply, local provider inventory/link/adopt, explicit bounded live provider inventory via `--source live` or `--live`, sanitized partial live identity facts and missing-proof labels for Vercel preview and EAS preview env-list reads, and live-safe refusal modes for provider link/adopt via `--source live` with sanitized identity proof requirement summaries. It still lacks exact live identity proof and exact live readiness proof for the read-only live validation runner, broad provider discovery/adoption, broad real provider provisioning, a real generated SaaS runtime, real OTel/network/hosted observability, preview deploy/build smoke evidence, production release gates, hosted control-plane state, and public package installability.
 
 ## Recent Completed Commits
 
@@ -67,11 +67,16 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 - `agentstack validate` validates manifest/env/guidance/theme/source-secret/generated anchors and prints `Evidence: local-structure`. It does not run package quality commands or imply live provider/readiness proof.
 - `agentstack validate --quality` runs structural validation plus configured local package quality commands, currently `pnpm typecheck` and `pnpm test`. It prints `Evidence: local-quality` and scope text saying it uses local filesystem and package commands only, with no local-cloud writes, no provider executor, and no live provider reads. Command failures print command id/name, command, exit code, and redacted/truncated stdout/stderr tails. This mode intentionally writes no local-cloud state and no `.agentstack/events.jsonl` telemetry.
 - `agentstack validate --cloud` is honest local rehearsal. It checks local-cloud state and prints `Evidence: local-rehearsal` plus `Scope: local-cloud state only; no live provider reads`; it is not live provider validation and does not call the provider executor.
+- `agentstack validate --live --env <preview|production>` is honest aggregate live validation. It runs local validation first and stops before provider executor use or telemetry/local-cloud/provider-links writes when local validation fails. On the live path it prints `Evidence: live-validation`, bounded read-only scope, `Mutation: none`, and per-provider `Evidence: live-read-inventory` rows using the same read-only inventory primitives. It currently always returns nonzero: successful ambiguous reads refuse with `Readiness: refused` and `Reason: identity-ambiguous`; live read failures use `Reason: live-read-failed`; Vercel/EAS production use `Reason: live-validation-unsupported` before executor use. It does not create, mutate, adopt, link, delete, or prove exact provider resources.
 - Local telemetry is a redacted wide-event JSONL store with observe query/timeline/trace/journey/errors/webhook/component/compare/export commands and OTLP-shaped local export artifacts. There is no real OTel SDK/network exporter, hosted indexing, provider log join, or production observability platform.
 - The generated runtime has one real vertical: workspace-status. Web and mobile do not use Clerk or Convex runtime SDKs for production SaaS flows. Convex schema only materializes `workspaceStatuses`. `packages/ui` is primitive metadata, not a functional UI component library.
 
 ## Completed Work This Documentation Turn
 
+- Added `agentstack validate --live --env <preview|production>` as the first truthful aggregate live validation command. It reuses bounded read-only provider inventory, preserves `live-validation` versus `live-read-inventory` versus provider inspect `live-read` evidence labels, and refuses readiness until exact identity proof exists.
+- Added CLI regression coverage for successful ambiguous preview reads, local validation short-circuit before executor use, Vercel/EAS production unsupported refusal before executor use, live read failure redaction, no telemetry/local-cloud/provider-links writes, and distinct evidence labels.
+- Updated both template mirrors with `validate:live:preview` and generated AGENTS/docs/skills guidance that live validation is non-mutating read evidence plus readiness refusal, not production readiness.
+- Updated the consumer readiness roadmap to mark live validation as a truthful refusal/read-only command rather than a missing command or a readiness pass.
 - Refreshed `docs/consumer-production-readiness-roadmap.md` from the authoritative source spec and current committed state.
 - Updated the readiness estimate to 38-40% and described the product as a local command-contract/rehearsal prototype, not consumer production-ready.
 - Added a source-spec capability matrix with implemented, partial, missing, and misleading-risk statuses.
@@ -114,7 +119,7 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 
 ## Current Blockers And Gaps
 
-- No truthful live validation runner exists yet. The current new validation runner is local quality only.
+- No exact live readiness proof exists yet. `validate --live` is a truthful read-only refusal, not a readiness pass.
 - Broad provider discovery/adoption is not implemented; live inventory is bounded read-only evidence and not discovery, provisioning, adoption, or reconciliation.
 - Vercel live-read is bounded to preview env-list inspect; production Vercel live-read remains unavailable.
 - Provider live mutation is limited to ledger-gated Convex apply and Vercel preview deploy apply.
@@ -134,7 +139,7 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
    - Keep all mutation paths ledger-gated and evidence-labeled.
 2. Extend validation beyond the local quality slice:
    - Add lint, format, Convex checks, generated-boundary checks, telemetry checks, and richer runtime checks as explicit local quality commands when those tools exist.
-   - Design a separate truthful live validation command/evidence category rather than overloading structural, quality, or local-cloud rehearsal validation.
+   - Add exact readiness proof to the existing truthful live validation command/evidence category without overloading structural, quality, or local-cloud rehearsal validation.
    - Keep local rehearsal separate from live provider validation where command names or output could mislead consumers.
 3. Start the real generated SaaS runtime after provider identity and validation semantics are credible:
    - Clerk auth/orgs, Convex protected data, billing/webhooks, entitlements, audit, web/mobile parity, and functional unstyled UI primitives.
@@ -143,7 +148,19 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 
 ## Last Known Verification Evidence
 
-Most recent final orchestrator verification for the sanitized live identity proof requirements slice:
+Most recent final orchestrator verification for the first aggregate live validation truthful refusal slice:
+
+- Spec and quality review findings were fixed: `validate --live` now requires explicit `--env <preview|production>`, malformed `--live` values fail before provider executor use, and the progress docs no longer describe live validation as missing.
+- Focused re-review passed with no blocking issues and confirmed missing `--env`, malformed `--live`, unsupported Vercel/EAS production, local structural failure, live-read failure, and ambiguous preview success all preserve the intended no-write/readiness-refusal boundary.
+- `pnpm vitest run packages/cli/src/run.test.ts --testNamePattern "live validation|validate --live|live-read"` passed: 1 file / 6 selected tests.
+- `diff -qr templates/b2b-saas packages/create-agent-stack/templates/b2b-saas` passed with no output.
+- `git diff -- docs/provider-resource-ledger.md` was empty.
+- `git diff --check` passed with no output.
+- `pnpm typecheck` passed.
+- `pnpm test` passed: 27 files / 383 tests.
+- No provider CLIs were run directly, and no real provider resources were created, mutated, adopted, linked, or deleted.
+
+Previous final orchestrator verification for the sanitized live identity proof requirements slice:
 
 - Spec review passed with no blocking issues and confirmed the slice keeps live rows ambiguous, adds no exact/matched identity path, and keeps live link/adopt refusal before write paths.
 - Quality review passed after one P2 cleanup: row-level `missing=` output is now normalized at the print boundary with a formatter regression test.
