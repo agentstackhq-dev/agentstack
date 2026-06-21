@@ -166,7 +166,8 @@ function parseVercelPreviewEnvListFacts(stdout: string, exitCode: number): Provi
   }
 
   const hasExpectedEnvName = /\b(?:NEXT_PUBLIC_APP_URL|PUBLIC_API_URL|API_TOKEN|SENTRY_AUTH_TOKEN)\b/.test(stdout);
-  if (!hasExpectedEnvName) {
+  const hasPreviewEnvironment = /\bpreview\b/i.test(stdout);
+  if (!hasExpectedEnvName || !hasPreviewEnvironment) {
     return undefined;
   }
 

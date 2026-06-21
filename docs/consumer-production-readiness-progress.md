@@ -14,6 +14,7 @@ Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI rou
 
 ## Recent Completed Commits
 
+- `b8a316f` docs: record identity facts checkpoint.
 - `07f824a` feat: add sanitized live inventory identity facts.
 - `04bbbbf` fix: redact vercel inspect failure diagnostics.
 - `4fb2881` fix: classify vercel inspect failures truthfully.
@@ -82,6 +83,7 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 - Added sanitized partial live identity facts for Vercel preview and EAS preview env-list success when expected env-name and preview-environment proof can be observed from the existing read-only command output.
 - Kept partial facts explicitly non-exact: inventory rows use `live=found identity=ambiguous identity-scope=partial permission=read-ok drift=unknown facts=...`, not matched/exact identity.
 - Added regression coverage that generic successful Clerk/Convex-style inspect remains ambiguous with no partial facts, failed live reads keep `identity-scope=none`, production Vercel/EAS live inventory still rejects before executor use, and raw provider output/IDs/URLs/tokens/ledger IDs do not appear in inventory or CLI output.
+- Quality review found two blocking issues in the identity-facts slice: unsupported exact confidence was still type/runtime reachable, and Vercel preview facts could be emitted without preview proof in provider output. The follow-up fix removes exact from the supported confidence model, drops malformed exact runtime facts, and requires both expected env-name evidence and preview-environment evidence before Vercel emits partial facts.
 
 ## Current Blockers And Gaps
 
@@ -113,15 +115,15 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 
 ## Last Known Verification Evidence
 
-Most recent final orchestrator verification after `07f824a`:
+Most recent worker verification for the identity-facts quality fix follow-up:
 
-- `pnpm vitest run packages/adapters/src/provider-control-plane.test.ts packages/adapters/src/provider-executor.test.ts packages/adapters/src/vercel.test.ts packages/adapters/src/eas.test.ts packages/cli/src/run.test.ts packages/create-agent-stack/src/generate.test.ts` passed: 6 files / 201 tests.
+- `pnpm vitest run packages/adapters/src/provider-control-plane.test.ts packages/adapters/src/provider-executor.test.ts packages/adapters/src/vercel.test.ts packages/adapters/src/eas.test.ts packages/cli/src/run.test.ts` passed: 5 files / 194 tests.
 - `pnpm typecheck` passed.
-- `pnpm test` passed: 27 files / 357 tests.
+- `pnpm test` passed: 27 files / 360 tests.
 - `diff -ru templates/b2b-saas/docs/agentstack packages/create-agent-stack/templates/b2b-saas/docs/agentstack` passed with no output.
 - `git diff --check` passed with no output.
 - `git diff -- docs/provider-resource-ledger.md` passed with no output.
-- `git status --short --branch` showed only `## agentstack-prototype`; worktree clean.
+- `git status --short --branch` showed only the intended follow-up edits before commit.
 
 ## Worktree State Expectation
 

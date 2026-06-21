@@ -204,9 +204,7 @@ function summarizeLiveIdentityFacts(readResults: ProviderExecutionResult[]): {
       continue;
     }
 
-    if (result.liveIdentityFacts.identityConfidence === "exact") {
-      identityScope = "exact";
-    } else if (result.liveIdentityFacts.identityConfidence === "partial" && identityScope !== "exact") {
+    if (result.liveIdentityFacts.identityConfidence === "partial") {
       identityScope = "partial";
     }
 

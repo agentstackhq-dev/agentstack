@@ -25,7 +25,7 @@ export interface ProviderCommandExecutor {
 export type ProviderExecutionStatus = "success" | "failed";
 
 export type ProviderFailureClass = "auth" | "timeout" | "not-found" | "rate-limit" | "unknown";
-export type ProviderLiveIdentityConfidence = "none" | "partial" | "exact";
+export type ProviderLiveIdentityConfidence = "none" | "partial";
 export type ProviderLiveFactLabel = "expected-env-names" | "preview-environment" | "env-list-read";
 
 export type ProviderLiveIdentityFacts = {
@@ -121,12 +121,7 @@ export function createProviderExecutionResult(
     providerResourceId: input.providerResourceId
       ? redactProviderText(input.providerResourceId, { secretValues: input.secretValues })
       : undefined,
-    liveIdentityFacts: input.liveIdentityFacts
-      ? {
-          identityConfidence: input.liveIdentityFacts.identityConfidence,
-          facts: [...input.liveIdentityFacts.facts]
-        }
-      : undefined
+    liveIdentityFacts: normalizeLiveIdentityFacts(input.liveIdentityFacts)
   };
 
   if (status === "failed") {
@@ -134,6 +129,19 @@ export function createProviderExecutionResult(
   }
 
   return artifact;
+}
+
+function normalizeLiveIdentityFacts(
+  facts: ProviderLiveIdentityFacts | undefined
+): ProviderLiveIdentityFacts | undefined {
+  if (!facts || facts.identityConfidence !== "partial") {
+    return undefined;
+  }
+
+  return {
+    identityConfidence: "partial",
+    facts: [...facts.facts]
+  };
 }
 
 export function classifyProviderFailure(

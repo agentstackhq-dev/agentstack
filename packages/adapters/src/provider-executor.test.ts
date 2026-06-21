@@ -118,6 +118,32 @@ describe("provider executor artifacts", () => {
     expect(JSON.stringify(result)).not.toContain("prj_secret");
   });
 
+  it("drops unsupported exact live identity facts from malformed runtime input", () => {
+    const result = createProviderExecutionResult({
+      service: "vercel",
+      environment: "preview",
+      commandKind: "env.list",
+      command: {
+        id: "preview.vercel.env.list",
+        args: ["pnpm", "exec", "vercel", "env", "ls", "preview"],
+        secret: false
+      },
+      result: {
+        exitCode: 0,
+        stdout: "preview NEXT_PUBLIC_APP_URL=https://preview-secret.example.test",
+        stderr: "",
+        durationMs: 13
+      },
+      liveIdentityFacts: {
+        identityConfidence: "exact",
+        facts: ["expected-env-names", "preview-environment", "env-list-read"]
+      } as never
+    });
+
+    expect(result.liveIdentityFacts).toBeUndefined();
+    expect(JSON.stringify(result)).not.toContain("exact");
+  });
+
   it("classifies timeout failures", () => {
     expect(classifyProviderFailure({ exitCode: 124, stdout: "", stderr: "command timed out" })).toBe(
       "timeout"

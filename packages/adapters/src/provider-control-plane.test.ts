@@ -209,6 +209,48 @@ describe("provider control plane", () => {
     expect(JSON.stringify(inventory)).not.toContain("raw-provider-output");
   });
 
+  it("does not promote unsupported exact live identity facts", async () => {
+    const inventory = await createLiveProviderInventory({
+      localInventory: await createProviderInventory({
+        cwd: "/tmp/no-state",
+        manifest: createDefaultManifest("acme-crm"),
+        service: "vercel",
+        environment: "preview",
+        ledgerRows: []
+      }),
+      readResults: [
+        {
+          service: "vercel",
+          environment: "preview",
+          commandKind: "env.list",
+          status: "success",
+          exitCode: 0,
+          durationMs: 12,
+          stdoutSummary: "<redacted provider stdout: 1 line, 42 bytes>",
+          stderrSummary: "",
+          stdoutLines: 1,
+          stderrLines: 0,
+          stdoutBytes: 42,
+          stderrBytes: 0,
+          outputRedacted: true,
+          liveIdentityFacts: {
+            identityConfidence: "exact",
+            facts: ["expected-env-names", "preview-environment", "env-list-read"]
+          }
+        } as never
+      ]
+    });
+
+    expect(inventory.rows[0]).toMatchObject({
+      liveStatus: "unknown",
+      identityMatch: "ambiguous",
+      identityScope: "none",
+      permissionSummary: "read-ok",
+      driftSummary: "unknown"
+    });
+    expect(JSON.stringify(inventory)).not.toContain("identityScope\":\"exact");
+  });
+
   it("maps auth-failed live reads to auth-failed and read-failed without exposing raw diagnostics", async () => {
     const inventory = await createLiveProviderInventory({
       localInventory: await createProviderInventory({
