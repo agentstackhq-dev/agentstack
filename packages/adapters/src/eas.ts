@@ -183,9 +183,10 @@ function parseEasPreviewEnvListFacts(stdout: string, exitCode: number): Provider
     return undefined;
   }
 
-  const hasExpectedEnvName = /\b(?:EXPO_PUBLIC_APP_URL|SENTRY_AUTH_TOKEN|API_TOKEN)\b/.test(stdout);
-  const hasPreviewEnvironment = /\bpreview\b/i.test(stdout);
-  if (!hasExpectedEnvName || !hasPreviewEnvironment) {
+  const hasExpectedPreviewEnvRow = parseEasEnvListRows(stdout).some(
+    (row) => isExpectedEasEnvName(row.name) && row.environments.includes("preview")
+  );
+  if (!hasExpectedPreviewEnvRow) {
     return undefined;
   }
 
@@ -193,6 +194,68 @@ function parseEasPreviewEnvListFacts(stdout: string, exitCode: number): Provider
     identityConfidence: "partial",
     facts: ["expected-env-names", "preview-environment", "env-list-read"]
   };
+}
+
+function parseEasEnvListRows(stdout: string): Array<{ name: string; environments: string[] }> {
+  const lines = stdout
+    .split(/\r\n|\r|\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !isTableBorder(line));
+  const headerIndex = lines.findIndex((line) => {
+    const columns = parseTableColumns(line).map((column) => normalizeHeader(column));
+    return columns.includes("name") && (columns.includes("environment") || columns.includes("environments"));
+  });
+  if (headerIndex === -1) {
+    return [];
+  }
+
+  const headerColumns = parseTableColumns(lines[headerIndex] ?? "").map((column) => normalizeHeader(column));
+  const environmentIndex = headerColumns.findIndex(
+    (column) => column === "environment" || column === "environments"
+  );
+  const nameIndex = headerColumns.findIndex((column) => column === "name");
+  if (nameIndex === -1 || environmentIndex === -1) {
+    return [];
+  }
+
+  return lines.slice(headerIndex + 1).flatMap((line) => {
+    const columns = parseTableColumns(line);
+    const name = columns[nameIndex] ?? "";
+    const environment = columns[environmentIndex] ?? "";
+    if (!name || !environment) {
+      return [];
+    }
+
+    return [{ name, environments: environment.split(",").map((value) => value.trim().toLowerCase()) }];
+  });
+}
+
+function parseTableColumns(line: string): string[] {
+  if (line.includes("|")) {
+    return line
+      .split("|")
+      .map((column) => column.trim())
+      .filter(Boolean);
+  }
+
+  const spacedColumns = line.split(/\s{2,}/).map((column) => column.trim()).filter(Boolean);
+  if (spacedColumns.length > 1) {
+    return spacedColumns;
+  }
+
+  return line.split(/\s+/).map((column) => column.trim()).filter(Boolean);
+}
+
+function normalizeHeader(column: string): string {
+  return column.toLowerCase().replace(/[^a-z]/g, "");
+}
+
+function isTableBorder(line: string): boolean {
+  return /^[+\-|=\s]+$/.test(line);
+}
+
+function isExpectedEasEnvName(name: string): boolean {
+  return /^(?:EXPO_PUBLIC_APP_URL|SENTRY_AUTH_TOKEN|API_TOKEN)$/.test(name);
 }
 
 function operationCommand(operation: ProviderOperation, target: EasTarget): EasCliCommand[] {

@@ -2590,7 +2590,11 @@ describe("runAgentstack", () => {
       cwd: dir,
       write: (line) => output.push(line),
       providerExecutor: createMockProviderExecutor(
-        "Environment: preview\nSENTRY_AUTH_TOKEN=secret-eas-token\nProject ID: eas-secret-project-id"
+        [
+          "Name              Value             Environment",
+          "SENTRY_AUTH_TOKEN  secret-eas-token  preview",
+          "Project ID        eas-secret-project-id production"
+        ].join("\n")
       )
     });
 
@@ -2603,6 +2607,27 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).not.toContain("secret-eas-token");
     expect(output.join("\n")).not.toContain("eas-secret-project-id");
     expect(output.join("\n")).not.toContain("identity=matched");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec eas env:list --environment preview"
+    ]);
+  });
+
+  it("keeps EAS preview live identity ambiguous for loose env-list prose", async () => {
+    const code = await runAgentstack(["provider", "inventory", "--service", "eas", "--env", "preview", "--source", "live"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor(
+        "Environment: preview\nSENTRY_AUTH_TOKEN=secret-eas-token\nProject ID: eas-secret-project-id"
+      )
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS provider inventory eas preview");
+    expect(output.join("\n")).not.toContain("identity-scope=partial");
+    expect(output.join("\n")).not.toContain("preview-environment");
+    expect(output.join("\n")).not.toContain("SENTRY_AUTH_TOKEN");
+    expect(output.join("\n")).not.toContain("secret-eas-token");
+    expect(output.join("\n")).not.toContain("eas-secret-project-id");
     expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
       "exec eas env:list --environment preview"
     ]);
@@ -3368,7 +3393,11 @@ describe("runAgentstack", () => {
         cwd: dir,
         write: (line) => output.push(line),
         providerExecutor: createMockProviderExecutor(
-          "Environment: preview\nSENTRY_AUTH_TOKEN=secret-eas-token\nProject ID: eas-secret-project-id"
+          [
+            "Name              Value             Environment",
+            "SENTRY_AUTH_TOKEN  secret-eas-token  preview",
+            "Project ID        eas-secret-project-id production"
+          ].join("\n")
         )
       }
     );

@@ -176,7 +176,11 @@ describe("eas command planner", () => {
           executions.push({ command, args });
           return {
             exitCode: 0,
-            stdout: "Environment: preview\nSENTRY_AUTH_TOKEN=secret-token",
+            stdout: [
+              "Name              Value             Environment",
+              "SENTRY_AUTH_TOKEN  Encrypted         preview",
+              "API_TOKEN         Encrypted         development"
+            ].join("\n"),
             stderr: "",
             durationMs: 6
           };
@@ -204,14 +208,86 @@ describe("eas command planner", () => {
     expect(JSON.stringify(results)).not.toContain("secret-token");
   });
 
-  it("keeps EAS inspect ambiguous when preview env-list output lacks environment proof", async () => {
+  it("parses EAS preview env-list partial facts from pipe-delimited table rows", async () => {
     const results = await inspectEasPreviewReadOnly({
       environment: "preview",
       executor: {
         async execute() {
           return {
             exitCode: 0,
-            stdout: "SENTRY_AUTH_TOKEN=secret-token",
+            stdout: [
+              "+---------------------+-----------+-------------+",
+              "| Name                | Value     | Environment |",
+              "+---------------------+-----------+-------------+",
+              "| EXPO_PUBLIC_APP_URL | Plaintext | preview     |",
+              "+---------------------+-----------+-------------+"
+            ].join("\n"),
+            stderr: "",
+            durationMs: 6
+          };
+        }
+      }
+    });
+
+    expect(results[0]?.liveIdentityFacts).toEqual({
+      identityConfidence: "partial",
+      facts: ["expected-env-names", "preview-environment", "env-list-read"]
+    });
+  });
+
+  it("parses EAS preview env-list partial facts from single-space table rows", async () => {
+    const results = await inspectEasPreviewReadOnly({
+      environment: "preview",
+      executor: {
+        async execute() {
+          return {
+            exitCode: 0,
+            stdout: ["Name Value Environment", "API_TOKEN Encrypted preview"].join("\n"),
+            stderr: "",
+            durationMs: 6
+          };
+        }
+      }
+    });
+
+    expect(results[0]?.liveIdentityFacts).toEqual({
+      identityConfidence: "partial",
+      facts: ["expected-env-names", "preview-environment", "env-list-read"]
+    });
+  });
+
+  it("parses EAS preview env-list partial facts from comma-separated environment cells", async () => {
+    const results = await inspectEasPreviewReadOnly({
+      environment: "preview",
+      executor: {
+        async execute() {
+          return {
+            exitCode: 0,
+            stdout: [
+              "Name              Value             Environments",
+              "SENTRY_AUTH_TOKEN  Encrypted         development,preview"
+            ].join("\n"),
+            stderr: "",
+            durationMs: 6
+          };
+        }
+      }
+    });
+
+    expect(results[0]?.liveIdentityFacts).toEqual({
+      identityConfidence: "partial",
+      facts: ["expected-env-names", "preview-environment", "env-list-read"]
+    });
+  });
+
+  it("keeps EAS inspect ambiguous when loose env output mentions preview and an expected name", async () => {
+    const results = await inspectEasPreviewReadOnly({
+      environment: "preview",
+      executor: {
+        async execute() {
+          return {
+            exitCode: 0,
+            stdout: "Environment: preview\nSENTRY_AUTH_TOKEN=secret-token",
             stderr: "",
             durationMs: 6
           };
@@ -222,6 +298,99 @@ describe("eas command planner", () => {
 
     expect(results[0]?.liveIdentityFacts).toBeUndefined();
     expect(JSON.stringify(results)).not.toContain("secret-token");
+    expect(JSON.stringify(results)).not.toContain("preview-environment");
+  });
+
+  it("keeps EAS inspect ambiguous when expected env names lack preview proof", async () => {
+    const results = await inspectEasPreviewReadOnly({
+      environment: "preview",
+      executor: {
+        async execute() {
+          return {
+            exitCode: 0,
+            stdout: [
+              "Name              Value             Environment",
+              "SENTRY_AUTH_TOKEN  Encrypted         production"
+            ].join("\n"),
+            stderr: "",
+            durationMs: 6
+          };
+        }
+      },
+      secretValues: ["secret-token"]
+    });
+
+    expect(results[0]?.liveIdentityFacts).toBeUndefined();
+    expect(JSON.stringify(results)).not.toContain("secret-token");
+    expect(JSON.stringify(results)).not.toContain("preview-environment");
+  });
+
+  it("keeps EAS inspect ambiguous when preview appears only in prose or values", async () => {
+    const results = await inspectEasPreviewReadOnly({
+      environment: "preview",
+      executor: {
+        async execute() {
+          return {
+            exitCode: 0,
+            stdout: [
+              "Preview environment variables are available at https://preview.example.test",
+              "Name              Value                         Environment",
+              "SENTRY_AUTH_TOKEN  https://preview.example.test production"
+            ].join("\n"),
+            stderr: "",
+            durationMs: 6
+          };
+        }
+      }
+    });
+
+    expect(results[0]?.liveIdentityFacts).toBeUndefined();
+    expect(JSON.stringify(results)).not.toContain("preview-environment");
+    expect(JSON.stringify(results)).not.toContain("https://preview.example.test");
+  });
+
+  it("keeps EAS inspect ambiguous when preview rows contain only unexpected env names", async () => {
+    const results = await inspectEasPreviewReadOnly({
+      environment: "preview",
+      executor: {
+        async execute() {
+          return {
+            exitCode: 0,
+            stdout: [
+              "Name              Value             Environment",
+              "UNEXPECTED_TOKEN  Encrypted         preview"
+            ].join("\n"),
+            stderr: "",
+            durationMs: 6
+          };
+        }
+      }
+    });
+
+    expect(results[0]?.liveIdentityFacts).toBeUndefined();
+    expect(JSON.stringify(results)).not.toContain("preview-environment");
+  });
+
+  it("keeps EAS inspect ambiguous when env-list exits nonzero", async () => {
+    const results = await inspectEasPreviewReadOnly({
+      environment: "preview",
+      executor: {
+        async execute() {
+          return {
+            exitCode: 1,
+            stdout: [
+              "Name              Value             Environment",
+              "SENTRY_AUTH_TOKEN Encrypted         preview"
+            ].join("\n"),
+            stderr: "read failed",
+            durationMs: 6
+          };
+        }
+      }
+    });
+
+    expect(results[0]?.liveIdentityFacts).toBeUndefined();
+    expect(JSON.stringify(results)).not.toContain("preview-environment");
   });
 
   it("rejects EAS production inspect without executing", async () => {
