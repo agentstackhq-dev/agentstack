@@ -123,10 +123,10 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 - Added the provider exact identity decision contract slice: `packages/adapters/src/provider-executor.ts` now has a separate sanitized `exactIdentityProof` artifact boundary, distinct from partial `liveIdentityFacts`.
 - Added `evaluateProviderExactIdentityProof` in `packages/adapters/src/provider-proof-contracts.ts`. It fails closed on failed reads, keeps successful reads without parser artifacts ambiguous, and returns exact only for sanitized synthetic proof artifacts with parser evidence plus every required exact-proof label.
 - Threaded the exact decision into live provider inventory, live link/adopt confirmation, provider proof reporting, and `validate --live` inventory rows through the shared control-plane path.
-- Kept current real Clerk/Convex/Vercel/EAS adapters exact-proof-free. With current adapter outputs, provider proof remains refused, live inventory can pass read evidence but remains identity ambiguous, live link/adopt remain blocked, and `validate --live` remains refused.
+- For that exact decision-contract slice, kept the then-current real Clerk/Convex/Vercel/EAS adapters exact-proof-free. Since the later Clerk exact parser slice, exact identity exists only for the narrow Clerk preview application provider-proof path after strict apps-list JSON plus manifest/ledger comparison gates; Convex/Vercel/EAS, live inventory, live link/adopt, and `validate --live` remain ambiguous, candidate-only, blocked, or refused without exact-confirmed identity.
 - Preserved the no-external-resource boundary: no real provider resources were created, mutated, adopted, linked, or deleted, and `docs/provider-resource-ledger.md` remains unchanged.
 - Added the provider identity read-plan contract slice: `packages/adapters/src/provider-proof-contracts.ts` now exposes provider-specific identity read-plan metadata through `getProviderIdentityReadPlan` for Clerk, Convex, Vercel, and EAS.
-- Added fail-closed `evaluateProviderIdentityProof` behavior that returns only unavailable or ambiguous proof states today. It never returns exact identity and does not promote provider-shaped output into identity evidence.
+- Added fail-closed `evaluateProviderIdentityProof` behavior for the provider identity read-plan slice; at that checkpoint it returned only unavailable or ambiguous proof states and did not promote provider-shaped output into identity evidence. Since the later Clerk exact parser slice, the only exact return path is the narrow Clerk preview application provider-proof path after strict apps-list JSON plus manifest/ledger comparison gates.
 - Updated proof output semantics so exact proof unavailability is reported with sanitized lines: `Exact identity evidence: unavailable` and `Exact identity evaluator: unavailable`.
 - Represented Vercel/EAS `provider-environment-scope` and project-link proof as missing requirements, keeping exact provider identity unavailable and readiness refused at roughly 40-42%.
 - Added regression coverage so provider-shaped and secret-shaped labels such as `dashboard.clerk.com`, `prj-secret-project`, and `sk-live-secret` cannot become accepted or emitted identity evidence.
@@ -307,7 +307,7 @@ Previous final orchestrator verification for the Convex preview identity candida
 - `git diff --check` passed.
 - `pnpm typecheck` passed.
 - `pnpm test` passed: 28 files / 469 tests.
-- Current real Convex adapter can emit sanitized preview `identityCandidates` with only `provider-environment-scope` from structured preview env-list evidence, but current real Clerk/Convex/Vercel/EAS adapters still do not emit exact proof artifacts. Candidate proof can reduce missing-proof guidance only; it does not produce `identity=matched`, exact readiness, provider mutation, link/adopt confirmation, or production readiness.
+- Current real Convex adapter can emit sanitized preview `identityCandidates` with only `provider-environment-scope` from structured preview env-list evidence. Exact identity now exists only for the narrow Clerk preview application provider-proof path after strict apps-list JSON plus manifest/ledger comparison gates; Convex remains candidate/read evidence only, and candidate proof can reduce missing-proof guidance only. It does not produce `identity=matched`, exact readiness, provider mutation, link/adopt confirmation, or production readiness.
 - No real provider CLIs were run directly, and no real provider resources were created, mutated, adopted, linked, or deleted.
 
 Previous final orchestrator verification for the Vercel preview identity candidate slice:
@@ -324,7 +324,7 @@ Previous final orchestrator verification for the Vercel preview identity candida
 - `pnpm exec vitest run packages/create-agent-stack/src/generate.test.ts` passed: 1 file / 10 tests.
 - `pnpm typecheck` passed.
 - `pnpm test` passed: 28 files / 464 tests.
-- Current real Vercel adapter can emit sanitized `identityCandidates` from structured preview env-list evidence and valid local `.vercel/project.json` link state, but current real Clerk/Convex/Vercel/EAS adapters still do not emit exact proof artifacts. Candidate proof can reduce missing-proof guidance only; it does not produce `identity=matched`, exact readiness, provider mutation, or production readiness.
+- Current real Vercel adapter can emit sanitized `identityCandidates` from structured preview env-list evidence and valid local `.vercel/project.json` link state. Exact identity now exists only for the narrow Clerk preview application provider-proof path after strict apps-list JSON plus manifest/ledger comparison gates; Vercel remains candidate/read and local link-state evidence only, and candidate proof can reduce missing-proof guidance only. It does not produce `identity=matched`, exact readiness, provider mutation, or production readiness.
 - No real provider CLIs were run directly, and no real provider resources were created, mutated, adopted, linked, or deleted.
 
 Previous final orchestrator verification for the sanitized Clerk identity candidate artifact slice:
@@ -339,7 +339,7 @@ Previous final orchestrator verification for the sanitized Clerk identity candid
 - `git diff --check` passed.
 - `pnpm typecheck` passed.
 - `pnpm test` passed: 28 files / 460 tests.
-- Current real Clerk adapter can emit sanitized `identityCandidates` from conservative `apps list --json` fixtures, but current real Clerk/Convex/Vercel/EAS adapters still do not emit exact proof artifacts. Candidate proof can reduce missing-proof guidance only; it does not produce `identity=matched`, exact readiness, provider mutation, or production readiness.
+- At this earlier Clerk candidate checkpoint, the real Clerk adapter could emit only sanitized `identityCandidates` from conservative `apps list --json` fixtures. Since the later Clerk exact parser slice, exact identity exists only for the narrow Clerk preview application provider-proof path after strict apps-list JSON plus manifest/ledger comparison gates; Convex/Vercel/EAS and other surfaces remain candidate-only, ambiguous, or refused. Candidate proof can reduce missing-proof guidance only; it does not produce exact readiness, provider mutation, or production readiness.
 - No real provider CLIs were run directly, and no real provider resources were created, mutated, adopted, linked, or deleted.
 
 Most recent final orchestrator verification for committed slice `4a64cdd` (`feat: add provider exact identity decision contract`):
@@ -353,7 +353,7 @@ Most recent final orchestrator verification for committed slice `4a64cdd` (`feat
 - `git diff --check` passed.
 - `pnpm typecheck` passed.
 - `pnpm test` passed: 28 files / 449 tests.
-- Current real Clerk/Convex/Vercel/EAS adapters do not emit exact proof artifacts; only tests supply sanitized synthetic `exactIdentityProof` artifacts.
+- At the `4a64cdd` exact decision-contract checkpoint, real Clerk/Convex/Vercel/EAS adapters did not emit exact proof artifacts; only tests supplied sanitized synthetic `exactIdentityProof` artifacts. Since `a3287ee`, exact identity exists only for narrow Clerk preview application provider proof after strict apps-list JSON plus manifest/ledger comparison gates; Convex/Vercel/EAS, live inventory, live link/adopt, and `validate --live` remain without exact-confirmed identity.
 - No provider CLIs were run directly, and no real provider resources were created, mutated, adopted, linked, or deleted.
 
 Previous final orchestrator verification for the provider identity read-plan slice:
