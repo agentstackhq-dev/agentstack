@@ -29,11 +29,11 @@
 - Modify: `packages/cli/src/run.test.ts`
   - Adds CLI contract tests for inventory/link/adopt, invalid service/env handling, no provider executor calls, redacted output, root ledger unchanged, and no stale aliases.
 - Modify: `templates/b2b-saas/package.json`
-  - Adds generated package scripts for provider inventory/link/adopt preview and production workflows.
+  - Adds generated package scripts for provider inventory/link preview and production workflows. Adopt remains direct-command documentation only because it requires operator-specific ledger fields.
 - Modify: `packages/create-agent-stack/templates/b2b-saas/package.json`
   - Mirrors the root template package scripts exactly.
 - Modify: `templates/b2b-saas/apps/mobile/package.json`
-  - Adds EAS-focused mobile provider inventory/link/adopt scripts where the existing mobile template already exposes EAS provider plan/inspect scripts.
+  - Adds EAS-focused mobile provider inventory/link scripts where the existing mobile template already exposes EAS provider plan/inspect scripts. EAS adopt remains direct-command documentation only.
 - Modify: `packages/create-agent-stack/templates/b2b-saas/apps/mobile/package.json`
   - Mirrors the root mobile template package scripts exactly.
 - Modify: `templates/b2b-saas/docs/agentstack/environments.md`
@@ -62,14 +62,14 @@ New commands:
 ```bash
 agentstack provider inventory --service <clerk|convex|vercel|eas> --env <preview|production>
 agentstack provider link --service <clerk|convex|vercel|eas> --env <preview|production> --resource-type <type> --name <name>
-agentstack provider adopt --service <clerk|convex|vercel|eas> --env <preview|production> --resource-type <type> --name <name> --external-id <id-or-url>
+agentstack provider adopt --service <clerk|convex|vercel|eas> --env <preview|production> --resource-type <type> --name <name> --external-id <id-or-url> --owner <owner> --purpose <purpose> --created-by <name> --created-at <yyyy-mm-dd> --cleanup <procedure> --cleanup-trigger <trigger-or-date> --evidence <path-or-url>
 ```
 
 `inventory` is read-only and writes no files. It prints `Evidence: local-inventory` when derived from manifest and local state only, and `Evidence: ledger-local-inventory` when a matching ledger row contributes evidence. It never prints `Evidence: live-read`.
 
 `link` writes only `.agentstack/provider-links.json` after a matching `planned` or `active` ledger row is found. It does not call provider CLIs, create resources, mutate the root ledger, or treat `.agentstack/local-cloud.json` `sync` links as proof of existence.
 
-`adopt` is print-only in this slice. It prints a safe ledger proposal for an operator to review and manually add to `docs/provider-resource-ledger.md`; it does not write the root ledger, local provider-link state, telemetry files, or any other files. Do not record command telemetry from `providerAdoptCommand` in this first slice.
+`adopt` is print-only in this slice. It prints a safe ledger proposal for an operator to review and manually add to `docs/provider-resource-ledger.md`; it does not write the root ledger, local provider-link state, telemetry files, or any other files. Do not record command telemetry from `providerAdoptCommand` in this first slice. Generated package scripts intentionally omit adopt because no generic script can supply the required external-id, owner, purpose, created-by, created-at, cleanup, cleanup-trigger, and evidence fields.
 
 Output must not contain raw secrets, values that look like `sk_...`, `pk_...`, `..._secret_...`, or raw provider ledger row IDs. Ledger status may be printed, but row IDs and secret-like external IDs must be redacted.
 
@@ -699,16 +699,12 @@ In `packages/create-agent-stack/src/generate.test.ts`, extend the root package s
 ```ts
         "provider:clerk:inventory:preview": "node scripts/agentstack.mjs provider inventory --service clerk --env preview",
         "provider:clerk:link:preview": "node scripts/agentstack.mjs provider link --service clerk --env preview --resource-type application --name __APP_SLUG__-preview",
-        "provider:clerk:adopt:preview": "node scripts/agentstack.mjs provider adopt --service clerk --env preview --resource-type application --name __APP_SLUG__-preview",
         "provider:convex:inventory:preview": "node scripts/agentstack.mjs provider inventory --service convex --env preview",
         "provider:convex:link:preview": "node scripts/agentstack.mjs provider link --service convex --env preview --resource-type deployment --name __APP_SLUG__-preview",
-        "provider:convex:adopt:preview": "node scripts/agentstack.mjs provider adopt --service convex --env preview --resource-type deployment --name __APP_SLUG__-preview",
         "provider:vercel:inventory:preview": "node scripts/agentstack.mjs provider inventory --service vercel --env preview",
         "provider:vercel:link:preview": "node scripts/agentstack.mjs provider link --service vercel --env preview --resource-type project --name __APP_SLUG__",
-        "provider:vercel:adopt:preview": "node scripts/agentstack.mjs provider adopt --service vercel --env preview --resource-type project --name __APP_SLUG__",
         "provider:eas:inventory:preview": "node scripts/agentstack.mjs provider inventory --service eas --env preview",
-        "provider:eas:link:preview": "node scripts/agentstack.mjs provider link --service eas --env preview --resource-type project --name __APP_SLUG__",
-        "provider:eas:adopt:preview": "node scripts/agentstack.mjs provider adopt --service eas --env preview --resource-type project --name __APP_SLUG__"
+        "provider:eas:link:preview": "node scripts/agentstack.mjs provider link --service eas --env preview --resource-type project --name __APP_SLUG__"
 ```
 
 Also assert generated docs contain the key invariants:
@@ -749,50 +745,40 @@ Run:
 pnpm vitest run packages/create-agent-stack/src/generate.test.ts
 ```
 
-Expected: FAIL because template scripts and docs do not yet contain inventory/link/adopt guidance.
+Expected: FAIL because template scripts and docs do not yet contain the corrected inventory/link scripts and direct-command adopt guidance.
 
 - [ ] **Step 3: Update root and package-local root package scripts**
 
-In both `templates/b2b-saas/package.json` and `packages/create-agent-stack/templates/b2b-saas/package.json`, add scripts with tokenized names where the generator can replace `__APP_SLUG__`:
+In both `templates/b2b-saas/package.json` and `packages/create-agent-stack/templates/b2b-saas/package.json`, add inventory/link scripts with tokenized names where the generator can replace `__APP_SLUG__`. Do not add adopt scripts; adopt requires external-id, owner, purpose, created-by, created-at, cleanup, cleanup-trigger, and evidence fields:
 
 ```json
 "provider:clerk:inventory:preview": "node scripts/agentstack.mjs provider inventory --service clerk --env preview",
 "provider:clerk:link:preview": "node scripts/agentstack.mjs provider link --service clerk --env preview --resource-type application --name __APP_SLUG__-preview",
-"provider:clerk:adopt:preview": "node scripts/agentstack.mjs provider adopt --service clerk --env preview --resource-type application --name __APP_SLUG__-preview",
 "provider:clerk:inventory:production": "node scripts/agentstack.mjs provider inventory --service clerk --env production",
 "provider:clerk:link:production": "node scripts/agentstack.mjs provider link --service clerk --env production --resource-type application --name __APP_SLUG__-production",
-"provider:clerk:adopt:production": "node scripts/agentstack.mjs provider adopt --service clerk --env production --resource-type application --name __APP_SLUG__-production",
 "provider:convex:inventory:preview": "node scripts/agentstack.mjs provider inventory --service convex --env preview",
 "provider:convex:link:preview": "node scripts/agentstack.mjs provider link --service convex --env preview --resource-type deployment --name __APP_SLUG__-preview",
-"provider:convex:adopt:preview": "node scripts/agentstack.mjs provider adopt --service convex --env preview --resource-type deployment --name __APP_SLUG__-preview",
 "provider:convex:inventory:production": "node scripts/agentstack.mjs provider inventory --service convex --env production",
 "provider:convex:link:production": "node scripts/agentstack.mjs provider link --service convex --env production --resource-type deployment --name prod",
-"provider:convex:adopt:production": "node scripts/agentstack.mjs provider adopt --service convex --env production --resource-type deployment --name prod",
 "provider:vercel:inventory:preview": "node scripts/agentstack.mjs provider inventory --service vercel --env preview",
 "provider:vercel:link:preview": "node scripts/agentstack.mjs provider link --service vercel --env preview --resource-type project --name __APP_SLUG__",
-"provider:vercel:adopt:preview": "node scripts/agentstack.mjs provider adopt --service vercel --env preview --resource-type project --name __APP_SLUG__",
 "provider:vercel:inventory:production": "node scripts/agentstack.mjs provider inventory --service vercel --env production",
 "provider:vercel:link:production": "node scripts/agentstack.mjs provider link --service vercel --env production --resource-type project --name __APP_SLUG__",
-"provider:vercel:adopt:production": "node scripts/agentstack.mjs provider adopt --service vercel --env production --resource-type project --name __APP_SLUG__",
 "provider:eas:inventory:preview": "node scripts/agentstack.mjs provider inventory --service eas --env preview",
 "provider:eas:link:preview": "node scripts/agentstack.mjs provider link --service eas --env preview --resource-type project --name __APP_SLUG__",
-"provider:eas:adopt:preview": "node scripts/agentstack.mjs provider adopt --service eas --env preview --resource-type project --name __APP_SLUG__",
 "provider:eas:inventory:production": "node scripts/agentstack.mjs provider inventory --service eas --env production",
-"provider:eas:link:production": "node scripts/agentstack.mjs provider link --service eas --env production --resource-type project --name __APP_SLUG__",
-"provider:eas:adopt:production": "node scripts/agentstack.mjs provider adopt --service eas --env production --resource-type project --name __APP_SLUG__"
+"provider:eas:link:production": "node scripts/agentstack.mjs provider link --service eas --env production --resource-type project --name __APP_SLUG__"
 ```
 
 - [ ] **Step 4: Update mobile EAS scripts in both template mirrors**
 
-In both `templates/b2b-saas/apps/mobile/package.json` and `packages/create-agent-stack/templates/b2b-saas/apps/mobile/package.json`, add:
+In both `templates/b2b-saas/apps/mobile/package.json` and `packages/create-agent-stack/templates/b2b-saas/apps/mobile/package.json`, add inventory/link scripts only:
 
 ```json
 "provider:eas:inventory:preview": "node ../../scripts/agentstack.mjs provider inventory --service eas --env preview",
 "provider:eas:link:preview": "node ../../scripts/agentstack.mjs provider link --service eas --env preview --resource-type project --name __APP_SLUG__",
-"provider:eas:adopt:preview": "node ../../scripts/agentstack.mjs provider adopt --service eas --env preview --resource-type project --name __APP_SLUG__",
 "provider:eas:inventory:production": "node ../../scripts/agentstack.mjs provider inventory --service eas --env production",
-"provider:eas:link:production": "node ../../scripts/agentstack.mjs provider link --service eas --env production --resource-type project --name __APP_SLUG__",
-"provider:eas:adopt:production": "node ../../scripts/agentstack.mjs provider adopt --service eas --env production --resource-type project --name __APP_SLUG__"
+"provider:eas:link:production": "node ../../scripts/agentstack.mjs provider link --service eas --env production --resource-type project --name __APP_SLUG__"
 ```
 
 - [ ] **Step 5: Update generated docs in both template mirrors**
@@ -806,7 +792,7 @@ Use `agentstack provider inventory --service <clerk|convex|vercel|eas> --env <pr
 
 Use `agentstack provider link --service <service> --env <env> --resource-type <type> --name <name>` only after the root provider ledger has a matching `planned` or `active` row. Link writes `.agentstack/provider-links.json` in the local project and does not mutate providers or `docs/provider-resource-ledger.md`. Output redacts provider ledger row IDs and external IDs.
 
-Use `agentstack provider adopt --service <service> --env <env> --resource-type <type> --name <name> --external-id <id-or-url> --owner <owner> --purpose <purpose> --created-by <name> --created-at <yyyy-mm-dd> --cleanup <procedure> --cleanup-trigger <trigger> --evidence <path>` to print a safe ledger proposal. Adopt is print-only in this slice; it does not write the root ledger and does not write local link state.
+Use `agentstack provider adopt --service <service> --env <env> --resource-type <type> --name <name> --external-id <id-or-url> --owner <owner> --purpose <purpose> --created-by <name> --created-at <yyyy-mm-dd> --cleanup <procedure> --cleanup-trigger <trigger> --evidence <path>` to print a safe ledger proposal. Adopt is print-only direct-command documentation only in this slice; it does not write the root ledger and does not write local link state. Generated package scripts intentionally omit adopt because a generic script cannot provide the required ledger fields.
 ```
 
 Add preview usage to `docs/agentstack/preview.md` in both template trees:
@@ -828,14 +814,14 @@ pnpm run provider:convex:link:preview
 Print an adoption proposal for an existing provider resource without changing the root ledger:
 
 ```bash
-pnpm run provider:convex:adopt:preview -- --external-id <redacted> --owner <owner> --purpose "preview deployment" --created-by <name> --created-at 2026-06-21 --cleanup "delete through provider dashboard" --cleanup-trigger "project retirement" --evidence docs/evidence/convex-preview.md
+node scripts/agentstack.mjs provider adopt --service convex --env preview --resource-type deployment --name __APP_SLUG__-preview --external-id <id-or-url> --owner <owner> --purpose "preview deployment" --created-by <name> --created-at 2026-06-21 --cleanup "delete through provider dashboard" --cleanup-trigger "project retirement" --evidence docs/evidence/convex-preview.md
 ```
 ```
 
 Add the workflow invariant to `docs/agentstack/workflows.md` in both template trees:
 
 ```md
-Provider inventory/link/adopt are separate from sync. Sync local service links are not proof of external provider existence; `.agentstack/local-cloud.json` is simulator state for rehearsal. Use `provider inventory` for the local control-plane view, `provider link` only for ledger-backed known resources, and `provider adopt` to print a proposal for manual ledger review.
+Provider inventory/link/adopt are separate from sync. Sync local service links are not proof of external provider existence; `.agentstack/local-cloud.json` is simulator state for rehearsal. Use generated `provider:*:inventory:*` scripts for the local control-plane view and generated `provider:*:link:*` scripts only for ledger-backed known resources. Use direct `agentstack provider adopt ...` commands with all required ledger fields to print a proposal for manual ledger review.
 ```
 
 - [ ] **Step 6: Run generator test to verify GREEN**

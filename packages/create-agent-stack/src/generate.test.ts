@@ -144,6 +144,26 @@ describe("generateProject", () => {
       expect(packageManifest.scripts["provider:eas:production"]).toBe(
         "node scripts/agentstack.mjs provider plan --service eas --env production"
       );
+      expect(packageManifest.scripts).toMatchObject({
+        "provider:clerk:inventory:preview": "node scripts/agentstack.mjs provider inventory --service clerk --env preview",
+        "provider:clerk:inventory:production": "node scripts/agentstack.mjs provider inventory --service clerk --env production",
+        "provider:clerk:link:preview": "node scripts/agentstack.mjs provider link --service clerk --env preview --resource-type application --name acme-crm-preview",
+        "provider:clerk:link:production": "node scripts/agentstack.mjs provider link --service clerk --env production --resource-type application --name acme-crm-production",
+        "provider:convex:inventory:preview": "node scripts/agentstack.mjs provider inventory --service convex --env preview",
+        "provider:convex:inventory:production": "node scripts/agentstack.mjs provider inventory --service convex --env production",
+        "provider:convex:link:preview": "node scripts/agentstack.mjs provider link --service convex --env preview --resource-type deployment --name acme-crm-preview",
+        "provider:convex:link:production": "node scripts/agentstack.mjs provider link --service convex --env production --resource-type deployment --name prod",
+        "provider:vercel:inventory:preview": "node scripts/agentstack.mjs provider inventory --service vercel --env preview",
+        "provider:vercel:inventory:production": "node scripts/agentstack.mjs provider inventory --service vercel --env production",
+        "provider:vercel:link:preview": "node scripts/agentstack.mjs provider link --service vercel --env preview --resource-type project --name acme-crm",
+        "provider:vercel:link:production": "node scripts/agentstack.mjs provider link --service vercel --env production --resource-type project --name acme-crm",
+        "provider:eas:inventory:preview": "node scripts/agentstack.mjs provider inventory --service eas --env preview",
+        "provider:eas:inventory:production": "node scripts/agentstack.mjs provider inventory --service eas --env production",
+        "provider:eas:link:preview": "node scripts/agentstack.mjs provider link --service eas --env preview --resource-type project --name acme-crm",
+        "provider:eas:link:production": "node scripts/agentstack.mjs provider link --service eas --env production --resource-type project --name acme-crm"
+      });
+      expectNoProviderAliasScripts(packageManifest.scripts);
+      expectNoProviderAdoptScripts(packageManifest.scripts);
       expect(manifest.generated.requiredAnchors).toEqual(
         expect.arrayContaining([
           "apps/mobile/app.config.ts",
@@ -169,8 +189,14 @@ describe("generateProject", () => {
         "build:preview:apply": "node ../../scripts/agentstack.mjs build mobile --env preview --apply",
         "build:production": "node ../../scripts/agentstack.mjs build mobile --env production",
         "provider:eas:preview": "node ../../scripts/agentstack.mjs provider plan --service eas --env preview",
-        "provider:eas:production": "node ../../scripts/agentstack.mjs provider plan --service eas --env production"
+        "provider:eas:production": "node ../../scripts/agentstack.mjs provider plan --service eas --env production",
+        "provider:eas:inventory:preview": "node ../../scripts/agentstack.mjs provider inventory --service eas --env preview",
+        "provider:eas:inventory:production": "node ../../scripts/agentstack.mjs provider inventory --service eas --env production",
+        "provider:eas:link:preview": "node ../../scripts/agentstack.mjs provider link --service eas --env preview --resource-type project --name acme-crm",
+        "provider:eas:link:production": "node ../../scripts/agentstack.mjs provider link --service eas --env production --resource-type project --name acme-crm"
       });
+      expectNoProviderAliasScripts(mobilePackageManifest.scripts);
+      expectNoProviderAdoptScripts(mobilePackageManifest.scripts);
       await expect(readFile(join(targetDir, "apps/mobile/eas.json"), "utf8")).resolves.toContain(
         '"developmentClient": true'
       );
@@ -195,6 +221,25 @@ describe("generateProject", () => {
       await expect(readFile(join(targetDir, "docs/agentstack/preview.md"), "utf8")).resolves.toContain(
         "local preview deploy rehearsal"
       );
+      const generatedEnvironmentDocs = await readFile(
+        join(targetDir, "docs/agentstack/environments.md"),
+        "utf8"
+      );
+      expect(generatedEnvironmentDocs).toContain("Evidence: local-inventory");
+      expect(generatedEnvironmentDocs).toContain("Evidence: ledger-local-inventory");
+      expect(generatedEnvironmentDocs).toContain("does not call provider CLIs");
+      expect(generatedEnvironmentDocs).toContain("writes only `.agentstack/provider-links.json`");
+      expect(generatedEnvironmentDocs).toContain("Adopt is print-only");
+      expect(generatedEnvironmentDocs).toContain("not proof of external provider existence");
+      expect(generatedEnvironmentDocs).toContain("ledger-gated through supported provider apply commands");
+      const generatedPreviewDocs = await readFile(join(targetDir, "docs/agentstack/preview.md"), "utf8");
+      expect(generatedPreviewDocs).toContain("provider inventory --service convex --env preview");
+      expect(generatedPreviewDocs).toContain("provider link --service convex --env preview");
+      expect(generatedPreviewDocs).toContain("provider adopt --service convex --env preview");
+      expect(generatedPreviewDocs).toContain("does not mutate the root provider ledger");
+      const generatedWorkflowDocs = await readFile(join(targetDir, "docs/agentstack/workflows.md"), "utf8");
+      expect(generatedWorkflowDocs).toContain("simulator state");
+      expect(generatedWorkflowDocs).toContain("not proof of external provider existence");
       await expect(readFile(join(targetDir, "docs/provider-resource-ledger.md"), "utf8")).resolves.toContain(
         "## Ledger"
       );
@@ -581,6 +626,32 @@ async function expectGeneratedAnchors(directory: string): Promise<void> {
       });
     })
   );
+}
+
+function expectNoProviderAliasScripts(scripts: Record<string, string>): void {
+  const staleAliases = ["import", "connect", "attach", "discover", "resources"];
+
+  for (const scriptName of Object.keys(scripts)) {
+    for (const alias of staleAliases) {
+      expect(scriptName).not.toMatch(new RegExp(`(^|:)${alias}(:|$)`));
+    }
+  }
+
+  for (const scriptCommand of Object.values(scripts)) {
+    for (const alias of staleAliases) {
+      expect(scriptCommand).not.toContain(` provider ${alias} `);
+    }
+  }
+}
+
+function expectNoProviderAdoptScripts(scripts: Record<string, string>): void {
+  for (const scriptName of Object.keys(scripts)) {
+    expect(scriptName).not.toMatch(/(^|:)adopt(:|$)/);
+  }
+
+  for (const scriptCommand of Object.values(scripts)) {
+    expect(scriptCommand).not.toContain(" provider adopt ");
+  }
 }
 
 function sourceCliEnv(): NodeJS.ProcessEnv {

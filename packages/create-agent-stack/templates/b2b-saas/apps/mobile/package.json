@@ -19,6 +19,10 @@
     "build:preview:apply": "node ../../scripts/agentstack.mjs build mobile --env preview --apply",
     "build:production": "node ../../scripts/agentstack.mjs build mobile --env production",
     "provider:eas:preview": "node ../../scripts/agentstack.mjs provider plan --service eas --env preview",
-    "provider:eas:production": "node ../../scripts/agentstack.mjs provider plan --service eas --env production"
+    "provider:eas:production": "node ../../scripts/agentstack.mjs provider plan --service eas --env production",
+    "provider:eas:inventory:preview": "node ../../scripts/agentstack.mjs provider inventory --service eas --env preview",
+    "provider:eas:inventory:production": "node ../../scripts/agentstack.mjs provider inventory --service eas --env production",
+    "provider:eas:link:preview": "node ../../scripts/agentstack.mjs provider link --service eas --env preview --resource-type project --name __APP_SLUG__",
+    "provider:eas:link:production": "node ../../scripts/agentstack.mjs provider link --service eas --env production --resource-type project --name __APP_SLUG__"
   }
 }
