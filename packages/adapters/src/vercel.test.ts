@@ -229,6 +229,25 @@ describe("vercel command planner", () => {
     expect(JSON.stringify(results)).not.toContain("preview-environment");
   });
 
+  it("keeps Vercel inspect ambiguous when preview is a bare value token without an environment header", async () => {
+    const results = await inspectVercelPreviewReadOnly({
+      environment: "preview",
+      executor: {
+        async execute() {
+          return {
+            exitCode: 0,
+            stdout: "NEXT_PUBLIC_APP_URL preview",
+            stderr: "",
+            durationMs: 9
+          };
+        }
+      }
+    });
+
+    expect(results[0]?.liveIdentityFacts).toBeUndefined();
+    expect(JSON.stringify(results)).not.toContain("preview-environment");
+  });
+
   it("executes only preview deploy for Vercel apply and redacts provider output", async () => {
     const executions: Array<{ command: string; args: string[] }> = [];
     const results = await executeVercelPreviewApply({

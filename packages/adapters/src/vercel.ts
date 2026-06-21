@@ -165,12 +165,9 @@ function parseVercelPreviewEnvListFacts(stdout: string, exitCode: number): Provi
     return undefined;
   }
 
-  const hasExpectedPreviewEnvRow = stdout
-    .split(/\r\n|\r|\n/)
-    .some((line) =>
-      /\b(?:NEXT_PUBLIC_APP_URL|PUBLIC_API_URL|API_TOKEN|SENTRY_AUTH_TOKEN)\b/.test(line) &&
-      /(?:^|\s)preview(?:\s|$)/i.test(line)
-    );
+  const hasExpectedPreviewEnvRow = parseVercelEnvListRows(stdout).some(
+    (row) => isExpectedVercelEnvName(row.name) && row.environments.includes("preview")
+  );
   if (!hasExpectedPreviewEnvRow) {
     return undefined;
   }
@@ -179,6 +176,44 @@ function parseVercelPreviewEnvListFacts(stdout: string, exitCode: number): Provi
     identityConfidence: "partial",
     facts: ["expected-env-names", "preview-environment", "env-list-read"]
   };
+}
+
+function parseVercelEnvListRows(stdout: string): Array<{ name: string; environments: string[] }> {
+  const lines = stdout
+    .split(/\r\n|\r|\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const headerIndex = lines.findIndex((line) => {
+    const columns = line.split(/\s+/).map((column) => column.toLowerCase());
+    return columns.includes("name") && (columns.includes("environment") || columns.includes("environments"));
+  });
+  if (headerIndex === -1) {
+    return [];
+  }
+
+  const headerColumns = lines[headerIndex]?.split(/\s+/).map((column) => column.toLowerCase()) ?? [];
+  const environmentIndex = headerColumns.findIndex(
+    (column) => column === "environment" || column === "environments"
+  );
+  const nameIndex = headerColumns.findIndex((column) => column === "name");
+  if (nameIndex === -1 || environmentIndex === -1) {
+    return [];
+  }
+
+  return lines.slice(headerIndex + 1).flatMap((line) => {
+    const columns = line.split(/\s+/);
+    const name = columns[nameIndex] ?? "";
+    const environment = columns[environmentIndex] ?? "";
+    if (!name || !environment) {
+      return [];
+    }
+
+    return [{ name, environments: environment.split(",").map((value) => value.toLowerCase()) }];
+  });
+}
+
+function isExpectedVercelEnvName(name: string): boolean {
+  return /^(?:NEXT_PUBLIC_APP_URL|PUBLIC_API_URL|API_TOKEN|SENTRY_AUTH_TOKEN)$/.test(name);
 }
 
 export async function executeVercelPreviewApply(

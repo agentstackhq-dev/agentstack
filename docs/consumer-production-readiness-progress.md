@@ -14,6 +14,7 @@ Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI rou
 
 ## Recent Completed Commits
 
+- `dec24b2` fix: require structured vercel preview evidence.
 - `d7aa7e5` fix: constrain live inventory identity facts.
 - `b8a316f` docs: record identity facts checkpoint.
 - `07f824a` feat: add sanitized live inventory identity facts.
@@ -86,6 +87,7 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 - Added regression coverage that generic successful Clerk/Convex-style inspect remains ambiguous with no partial facts, failed live reads keep `identity-scope=none`, production Vercel/EAS live inventory still rejects before executor use, and raw provider output/IDs/URLs/tokens/ledger IDs do not appear in inventory or CLI output.
 - Quality review found two blocking issues in the identity-facts slice: unsupported exact confidence was still type/runtime reachable, and Vercel preview facts could be emitted without preview proof in provider output. The follow-up fix removes exact from the supported confidence model, drops malformed exact runtime facts, and requires both expected env-name evidence and preview-environment evidence before Vercel emits partial facts.
 - Quality re-review found that Vercel preview proof still accepted incidental `preview` text inside URLs or values. The follow-up fix requires preview as a separate field on an expected-env output row before Vercel emits `preview-environment` or partial facts.
+- Quality re-review found that Vercel preview proof still accepted `preview` as a bare value token on an env-name line. The follow-up fix now requires a recognizable `environment` or `environments` table header and `preview` in that column for the same expected-env row.
 
 ## Current Blockers And Gaps
 
@@ -117,11 +119,11 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 
 ## Last Known Verification Evidence
 
-Most recent worker verification for the structured Vercel preview evidence follow-up:
+Most recent worker verification for the Vercel environment-column evidence follow-up:
 
-- `pnpm vitest run packages/adapters/src/provider-control-plane.test.ts packages/adapters/src/provider-executor.test.ts packages/adapters/src/vercel.test.ts packages/adapters/src/eas.test.ts packages/cli/src/run.test.ts` passed: 5 files / 195 tests.
+- `pnpm vitest run packages/adapters/src/provider-control-plane.test.ts packages/adapters/src/provider-executor.test.ts packages/adapters/src/vercel.test.ts packages/adapters/src/eas.test.ts packages/cli/src/run.test.ts` passed: 5 files / 196 tests.
 - `pnpm typecheck` passed.
-- `pnpm test` passed: 27 files / 361 tests.
+- `pnpm test` passed: 27 files / 362 tests.
 - `diff -ru templates/b2b-saas/docs/agentstack packages/create-agent-stack/templates/b2b-saas/docs/agentstack` passed with no output.
 - `git diff --check` passed with no output.
 - `git diff -- docs/provider-resource-ledger.md` passed with no output.
