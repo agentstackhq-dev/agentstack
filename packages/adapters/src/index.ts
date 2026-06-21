@@ -3,6 +3,7 @@ export * from "./local-cloud.js";
 export * from "./provider-operations.js";
 export * from "./provider-executor.js";
 export * from "./provider-ledger.js";
+export * from "./provider-control-plane.js";
 export * from "./convex.js";
 export * from "./clerk.js";
 export * from "./vercel.js";
