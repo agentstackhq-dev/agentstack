@@ -15,7 +15,7 @@
 - Style UI through `@app/theme` token roles and `@app/ui` primitives before adding surface-specific components.
 - Treat `workspace status` as the reference runnable slice: shared domain model, Convex boundary, web/mobile rendering, unstyled UI primitives, and local docs.
 - Use framework package scripts and generated docs before provider dashboards.
-- Use `provider plan` for deterministic provider command plans. Use `provider inspect` for explicit Clerk/Convex diagnostics plus Vercel and EAS preview env-list inspection. Use apply only for explicit Convex execution or Vercel preview deploy execution.
+- Use `provider plan` for deterministic provider command plans. Use `pnpm run provider:preview:plan` for the aggregate preview plan; it is plan-only, prints `Readiness: not-claimed`, and must not be treated as live readiness. Use `provider inspect` for explicit Clerk/Convex diagnostics plus Vercel and EAS preview env-list inspection. Use apply only for explicit Convex execution or Vercel preview deploy execution.
 - Treat live provider inventory identity as ambiguous. Sanitized `missing=` labels and `Identity proof requirements:` summaries explain what proof is absent; they are not exact provider identity and must not justify link/adopt writes.
 - Development provider inspect/apply is rejected. Clerk apply, EAS apply, Vercel production inspect, and Vercel production apply are unavailable. Convex production apply requires `--confirm-production`.
 - Treat preview commands as local-cloud preview state only. Agentstack records and inspects local JSONL telemetry plus local OTLP-shaped artifacts; hosted/network provider telemetry is outside the current generated framework boundary.

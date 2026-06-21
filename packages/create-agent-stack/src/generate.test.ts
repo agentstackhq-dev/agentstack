@@ -112,6 +112,7 @@ describe("generateProject", () => {
         "preview:validate": "node scripts/agentstack.mjs validate --cloud --env preview",
         "preview:deploy": "node scripts/agentstack.mjs deploy --env preview",
         "preview:deploy:apply": "node scripts/agentstack.mjs deploy --env preview --apply",
+        "provider:preview:plan": "node scripts/agentstack.mjs provider plan --env preview --all",
         "provider:clerk:preview": "node scripts/agentstack.mjs provider plan --service clerk --env preview",
         "provider:clerk:production": "node scripts/agentstack.mjs provider plan --service clerk --env production",
         "provider:convex:preview": "node scripts/agentstack.mjs provider plan --service convex --env preview",

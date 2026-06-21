@@ -12,6 +12,7 @@ import {
 export type ProjectContext = {
   cwd: string;
   manifest: AgentstackManifest;
+  serviceOrder: string[];
 };
 
 export async function loadProjectContext(cwd: string): Promise<ProjectContext> {
@@ -39,7 +40,20 @@ export async function loadProjectContext(cwd: string): Promise<ProjectContext> {
     throw new Error(parsed.diagnostics.map(formatDiagnostic).join("\n"));
   }
 
-  return { cwd, manifest: parsed.value };
+  return { cwd, manifest: parsed.value, serviceOrder: readRawServiceOrder(parsedJson) };
+}
+
+function readRawServiceOrder(parsedJson: unknown): string[] {
+  if (typeof parsedJson !== "object" || parsedJson === null || !("services" in parsedJson)) {
+    return [];
+  }
+
+  const services = (parsedJson as { services?: unknown }).services;
+  if (typeof services !== "object" || services === null || Array.isArray(services)) {
+    return [];
+  }
+
+  return Object.keys(services);
 }
 
 export async function loadLocalEnvValues(cwd: string): Promise<EnvValueState> {

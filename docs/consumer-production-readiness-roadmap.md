@@ -53,7 +53,7 @@ The consumer-facing truth is:
 ## What We Have Now
 
 - A generated monorepo shape with `apps/web`, `apps/mobile`, `convex`, shared packages, `docs/agentstack`, generated skills, and `agentstack.config.json`.
-- A broad CLI router and generated package scripts for inspection, validation, env, sync, provider plan/inspect/apply/inventory/link/adopt, preview rehearsal, production rehearsal, mobile build rehearsal, and observability.
+- A broad CLI router and generated package scripts for inspection, validation, env, sync, aggregate preview provider planning, provider plan/inspect/apply/inventory/link/adopt, preview rehearsal, production rehearsal, mobile build rehearsal, and observability.
 - Local validation for Agentstack-owned structural contracts: manifest, environment declarations, generated anchors, docs/guidance, theme/source-secret boundaries, and generated guidance alignment.
 - Local env graph rehearsal through `.agentstack/local-cloud.json`, with explicit `Evidence: local-rehearsal` semantics.
 - Provider command plans for Clerk, Convex, Vercel, and EAS with redacted, agent-readable diagnostics.

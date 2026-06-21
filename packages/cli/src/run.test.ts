@@ -1364,6 +1364,204 @@ describe("runAgentstack", () => {
     expect(providerExecutions).toHaveLength(0);
   });
 
+  it("prints aggregate preview provider command plans for all enabled services without provider execution", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.environments = ["preview"];
+    manifest.surfaces = ["web", "mobile", "convex"];
+    manifest.env.custom.OPENAI_API_KEY = {
+      surfaces: ["convex"],
+      environments: ["preview"],
+      required: true,
+      secret: true,
+      providerTargets: convexPreviewTarget
+    };
+    manifest.env.custom.PUBLIC_URL = {
+      surfaces: ["web"],
+      environments: ["preview"],
+      required: true,
+      secret: false,
+      providerTargets: vercelPreviewTarget
+    };
+    manifest.env.custom.EXPO_PUBLIC_API_URL = {
+      surfaces: ["mobile"],
+      environments: ["preview"],
+      required: true,
+      secret: false,
+      providerTargets: easPreviewTarget
+    };
+    manifest.env.custom.CLERK_SECRET_KEY = {
+      surfaces: ["web"],
+      environments: ["preview"],
+      required: true,
+      secret: true,
+      providerTargets: clerkPreviewTarget
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    await writeLocalEnvValues({
+      preview: {
+        web: {
+          PUBLIC_URL: "https://preview.example.test",
+          CLERK_SECRET_KEY: "sk_test_local_should_not_print"
+        },
+        convex: { OPENAI_API_KEY: "sk-local-provider-value" },
+        mobile: { EXPO_PUBLIC_API_URL: "https://api.example.test" }
+      }
+    });
+
+    const code = await runAgentstack(["provider", "plan", "--env", "preview", "--all"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor()
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PLAN provider preview all");
+    expect(output).toContain("Evidence: provider-command-plan");
+    expect(output).toContain("Provider execution: none");
+    expect(output).toContain("Mutation: none");
+    expect(output).toContain("Readiness: not-claimed");
+    expect(output.join("\n")).toMatch(/Service: clerk[\s\S]*Service: convex[\s\S]*Service: vercel[\s\S]*Service: eas/);
+    expect(output.join("\n")).toContain("Service: clerk");
+    expect(output.join("\n")).toContain("Service: convex");
+    expect(output.join("\n")).toContain("Service: vercel");
+    expect(output.join("\n")).toContain("Service: eas");
+    expect(output.join("\n")).toContain("Target: <clerk-development-application>");
+    expect(output.join("\n")).toContain("Target: <preview-deployment-name>");
+    expect(output.join("\n")).toContain("Target: preview");
+    expect(output.join("\n")).toContain("Operations:");
+    expect(output.join("\n")).toContain("Commands:");
+    expect(output.join("\n")).toContain("pnpm exec clerk init -y");
+    expect(output.join("\n")).toContain("pnpm exec convex deploy --preview-name acme-crm-preview");
+    expect(output.join("\n")).toContain("pnpm exec vercel deploy --target=preview");
+    expect(output.join("\n")).toContain("pnpm exec eas build -p all -e preview --json --non-interactive");
+    expect(output.join("\n")).not.toContain("sk-local-provider-value");
+    expect(output.join("\n")).not.toContain("sk_test_local_should_not_print");
+    expect(output.join("\n")).not.toContain("https://preview.example.test");
+    expect(output.join("\n")).not.toContain("https://api.example.test");
+    expect(providerExecutions).toHaveLength(0);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+  });
+
+  it("prints aggregate preview provider command plans in manifest service order", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.services = {
+      eas: manifest.services.eas,
+      vercel: manifest.services.vercel,
+      convex: manifest.services.convex,
+      clerk: manifest.services.clerk
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+
+    const code = await runAgentstack(["provider", "plan", "--env", "preview", "--all"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output.join("\n")).toMatch(/Service: eas[\s\S]*Service: vercel[\s\S]*Service: convex[\s\S]*Service: clerk/);
+  });
+
+  it("prints aggregate preview ledger statuses without leaking row ids or external ids", async () => {
+    const convexRowId = "sk-aggregate-convex-row-id-12345";
+    const vercelRowId = "sk-aggregate-vercel-row-id-12345";
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: convexRowId,
+        provider: "convex",
+        resourceType: "deployment",
+        environment: "preview",
+        name: "acme-crm-preview",
+        status: "planned",
+        externalId: "https://convex.example/not-for-output",
+        cleanupCommand: "pnpm exec convex deploy --preview-name acme-crm-preview",
+        evidence: "docs/evidence/convex-preview.md"
+      }),
+      providerLedgerRow({
+        id: vercelRowId,
+        provider: "vercel",
+        resourceType: "project",
+        environment: "preview",
+        name: "acme-crm",
+        status: "active",
+        externalId: "prj_secret_not_for_output",
+        cleanupCommand: "pnpm exec vercel remove acme-crm",
+        evidence: "docs/evidence/vercel-preview.md"
+      })
+    ]);
+
+    const code = await runAgentstack(["provider", "plan", "--env", "preview", "--all"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output.join("\n")).toContain("Service: convex");
+    expect(output.join("\n")).toContain("Ledger: planned");
+    expect(output.join("\n")).toContain("Service: vercel");
+    expect(output.join("\n")).toContain("Ledger: active");
+    expect(output.join("\n")).not.toContain(convexRowId);
+    expect(output.join("\n")).not.toContain(vercelRowId);
+    expect(output.join("\n")).not.toContain("https://convex.example/not-for-output");
+    expect(output.join("\n")).not.toContain("prj_secret_not_for_output");
+  });
+
+  it("refuses aggregate provider plan when local validation fails before printing service plans", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.generated.requiredAnchors = ["missing-required-anchor.md"];
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+
+    const code = await runAgentstack(["provider", "plan", "--env", "preview", "--all"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor()
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL template.anchor.missing");
+    expect(output.join("\n")).not.toContain("PLAN provider preview all");
+    expect(output.join("\n")).not.toContain("Service: clerk");
+    expect(providerExecutions).toHaveLength(0);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+  });
+
+  it("rejects aggregate provider plan with an explicit service before provider executor use", async () => {
+    const code = await runAgentstack(["provider", "plan", "--service", "convex", "--env", "preview", "--all"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor()
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL provider.plan.all.service-ambiguous");
+    expect(output.join("\n")).toContain("Use either --all or --service, not both.");
+    expect(output.join("\n")).not.toContain("PLAN provider convex preview");
+    expect(providerExecutions).toHaveLength(0);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+  });
+
+  it("rejects aggregate production provider plan before provider executor use", async () => {
+    const code = await runAgentstack(["provider", "plan", "--env", "production", "--all"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor()
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL provider.plan.all.env-unsupported");
+    expect(output.join("\n")).toContain("Aggregate provider planning is preview-only in this slice.");
+    expect(output.join("\n")).not.toContain("PLAN provider production all");
+    expect(providerExecutions).toHaveLength(0);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+  });
+
   it("prints invalid ledger advisory for incomplete provider plan decisions", async () => {
     const secretLikeRowId = "sk-plan-incomplete-row-id-12345";
     await writeProviderEnvManifest();

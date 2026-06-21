@@ -610,11 +610,45 @@ async function deployCommand(argv: string[], io: RunIo): Promise<number> {
 async function providerPlanCommand(argv: string[], io: RunIo): Promise<number> {
   const options = parseOptions(argv);
   const fix = "Run agentstack provider plan --service clerk --env preview.";
-  const service = readRequiredStringOption(options.service, "service", fix);
   const environment = readEnvironmentOption(options.env, {
     flag: "env",
     fix
   });
+  const allServices = options.all === true;
+
+  if (allServices && options.service !== undefined) {
+    io.write(
+      formatDiagnostic({
+        severity: "fail",
+        code: "provider.plan.all.service-ambiguous",
+        path: "provider plan --all --service",
+        message: "Use either --all or --service, not both.",
+        fix: "Run agentstack provider plan --env preview --all.",
+        blocks: ["provider plan"]
+      })
+    );
+    return 1;
+  }
+
+  if (allServices && environment !== "preview") {
+    io.write(
+      formatDiagnostic({
+        severity: "fail",
+        code: "provider.plan.all.env-unsupported",
+        path: environment,
+        message: "Aggregate provider planning is preview-only in this slice.",
+        fix: "Run agentstack provider plan --env preview --all.",
+        blocks: ["provider plan"]
+      })
+    );
+    return 1;
+  }
+
+  if (allServices) {
+    return await providerPlanAllCommand(argv, io, environment);
+  }
+
+  const service = readRequiredStringOption(options.service, "service", fix);
 
   if (service !== "clerk" && service !== "convex" && service !== "vercel" && service !== "eas") {
     io.write(
@@ -657,31 +691,12 @@ async function providerPlanCommand(argv: string[], io: RunIo): Promise<number> {
     envValues: validation.envValues
   });
   const providerOperationPlan = createProviderOperationPlan(cloudReport);
-  const plan =
-    service === "clerk"
-      ? createClerkCommandPlan({
-          environment,
-          operations: providerOperationPlan.operations,
-          includeBootstrap: true
-        })
-      : service === "convex"
-        ? createConvexCommandPlan({
-            manifest: validation.context.manifest,
-            environment,
-            operations: providerOperationPlan.operations,
-            includeDeploy: true
-          })
-        : service === "vercel"
-          ? createVercelCommandPlan({
-              environment,
-              operations: providerOperationPlan.operations,
-              includeDeploy: true
-            })
-          : createEasCommandPlan({
-              environment,
-              operations: providerOperationPlan.operations,
-              includeBuild: true
-            });
+  const plan = createProviderPlanForService(
+    service,
+    environment,
+    validation.context.manifest,
+    providerOperationPlan.operations
+  );
 
   io.write(`PLAN provider ${plan.service} ${environment}`);
   io.write("Evidence: provider-command-plan");
@@ -698,12 +713,7 @@ async function providerPlanCommand(argv: string[], io: RunIo): Promise<number> {
     plan.target.warnings.forEach((warning) => io.write(`- ${warning}`));
   }
   io.write("Commands:");
-  plan.commands.forEach((command) => {
-    const targetLabel = formatProviderCommandTargetLabel(command.kind, command.args, command.id);
-    const confirmationLabel = command.requiresConfirmation ? " [requires-confirmation]" : "";
-    const valuePrefix = command.stdinLabel ? ` ${targetLabel}: ${command.stdinLabel} |` : "";
-    io.write(`- ${command.kind}${confirmationLabel}${valuePrefix} ${command.args.join(" ")}`);
-  });
+  plan.commands.forEach((command) => writeProviderCommandPlanLine(io, command));
 
   await recordCommandEvent(io, {
     name: "agentstack.provider.plan.completed",
@@ -725,6 +735,83 @@ async function providerPlanCommand(argv: string[], io: RunIo): Promise<number> {
     }
   });
   return 0;
+}
+
+async function providerPlanAllCommand(argv: string[], io: RunIo, environment: EnvironmentName): Promise<number> {
+  const validation = await runLocalValidationGate(io.cwd);
+  validation.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
+  if (validation.diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
+    return 1;
+  }
+
+  const adapter = new LocalCloudAdapter(io.cwd) as EnvAwareLocalCloudAdapter;
+  const cloudReport = await adapter.inspect(validation.context.manifest, environment, {
+    envValues: validation.envValues
+  });
+  const providerOperationPlan = createProviderOperationPlan(cloudReport);
+  const enabledServices = validation.context.serviceOrder
+    .filter(isProviderControlPlaneService)
+    .filter((service) => validation.context.manifest.services[service].enabled);
+  const plans = enabledServices.map((service) => ({
+    service,
+    operations: providerOperationPlan.operations.filter((operation) => operation.service === service),
+    plan: createProviderPlanForService(service, environment, validation.context.manifest, providerOperationPlan.operations)
+  }));
+
+  io.write("PLAN provider preview all");
+  io.write("Evidence: provider-command-plan");
+  io.write("Provider execution: none");
+  io.write("Mutation: none");
+  io.write("Readiness: not-claimed");
+  for (const { service, operations, plan } of plans) {
+    io.write(`Service: ${service}`);
+    io.write(`Target: ${formatProviderPlanTarget(plan.target)}`);
+    const ledgerMatch = providerApplyLedgerMatch(service, environment, validation.context.manifest);
+    if (ledgerMatch !== undefined) {
+      io.write(`Ledger: ${formatProviderPlanLedgerStatus(await enforceProviderLedgerResource(io.cwd, ledgerMatch))}`);
+    }
+    io.write(`Operations: ${operations.length}`);
+    io.write(`Commands: ${plan.commands.length}`);
+    plan.commands.forEach((command) => writeProviderCommandPlanLine(io, command));
+  }
+
+  return 0;
+}
+
+function isProviderControlPlaneService(service: string): service is ProviderControlPlaneService {
+  return service === "clerk" || service === "convex" || service === "vercel" || service === "eas";
+}
+
+function createProviderPlanForService(
+  service: ProviderControlPlaneService,
+  environment: EnvironmentName,
+  manifest: AgentstackManifest,
+  operations: ProviderOperation[]
+) {
+  return service === "clerk"
+    ? createClerkCommandPlan({
+        environment,
+        operations,
+        includeBootstrap: true
+      })
+    : service === "convex"
+      ? createConvexCommandPlan({
+          manifest,
+          environment,
+          operations,
+          includeDeploy: true
+        })
+      : service === "vercel"
+        ? createVercelCommandPlan({
+            environment,
+            operations,
+            includeDeploy: true
+          })
+        : createEasCommandPlan({
+            environment,
+            operations,
+            includeBuild: true
+          });
 }
 
 export function providerApplyLedgerMatch(
@@ -810,6 +897,16 @@ function formatProviderCommandTargetLabel(kind: string, args: string[], id: stri
   }
 
   return kind;
+}
+
+function writeProviderCommandPlanLine(
+  io: RunIo,
+  command: ReturnType<typeof createProviderPlanForService>["commands"][number]
+): void {
+  const targetLabel = formatProviderCommandTargetLabel(command.kind, command.args, command.id);
+  const confirmationLabel = command.requiresConfirmation ? " [requires-confirmation]" : "";
+  const valuePrefix = command.stdinLabel ? ` ${targetLabel}: ${command.stdinLabel} |` : "";
+  io.write(`- ${command.kind}${confirmationLabel}${valuePrefix} ${command.args.join(" ")}`);
 }
 
 function flagValue(args: string[], flag: string): string | undefined {
