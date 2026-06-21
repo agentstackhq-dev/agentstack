@@ -165,9 +165,13 @@ function parseVercelPreviewEnvListFacts(stdout: string, exitCode: number): Provi
     return undefined;
   }
 
-  const hasExpectedEnvName = /\b(?:NEXT_PUBLIC_APP_URL|PUBLIC_API_URL|API_TOKEN|SENTRY_AUTH_TOKEN)\b/.test(stdout);
-  const hasPreviewEnvironment = /\bpreview\b/i.test(stdout);
-  if (!hasExpectedEnvName || !hasPreviewEnvironment) {
+  const hasExpectedPreviewEnvRow = stdout
+    .split(/\r\n|\r|\n/)
+    .some((line) =>
+      /\b(?:NEXT_PUBLIC_APP_URL|PUBLIC_API_URL|API_TOKEN|SENTRY_AUTH_TOKEN)\b/.test(line) &&
+      /(?:^|\s)preview(?:\s|$)/i.test(line)
+    );
+  if (!hasExpectedPreviewEnvRow) {
     return undefined;
   }
 

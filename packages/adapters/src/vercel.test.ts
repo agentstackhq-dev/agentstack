@@ -139,7 +139,11 @@ describe("vercel command planner", () => {
           executions.push({ command, args });
           return {
             exitCode: 0,
-            stdout: "API_TOKEN=provider-secret\nNEXT_PUBLIC_APP_URL=https://preview.example.test",
+            stdout: [
+              "name value environments",
+              "API_TOKEN Encrypted preview",
+              "NEXT_PUBLIC_APP_URL https://redacted.example.test preview"
+            ].join("\n"),
             stderr: "",
             durationMs: 9
           };
@@ -164,7 +168,7 @@ describe("vercel command planner", () => {
         outputRedacted: true
       })
     ]);
-    expect(results[0]?.stdoutSummary).toBe("<redacted provider stdout: 2 lines, 74 bytes>");
+    expect(results[0]?.stdoutSummary).toBe("<redacted provider stdout: 3 lines, 109 bytes>");
     expect(JSON.stringify(results)).not.toContain("provider-secret");
     expect(JSON.stringify(results)).not.toContain("https://preview.example.test");
   });
@@ -195,6 +199,25 @@ describe("vercel command planner", () => {
           return {
             exitCode: 0,
             stdout: "NEXT_PUBLIC_APP_URL https://example.test",
+            stderr: "",
+            durationMs: 9
+          };
+        }
+      }
+    });
+
+    expect(results[0]?.liveIdentityFacts).toBeUndefined();
+    expect(JSON.stringify(results)).not.toContain("preview-environment");
+  });
+
+  it("keeps Vercel inspect ambiguous when preview only appears inside a value", async () => {
+    const results = await inspectVercelPreviewReadOnly({
+      environment: "preview",
+      executor: {
+        async execute() {
+          return {
+            exitCode: 0,
+            stdout: "NEXT_PUBLIC_APP_URL https://preview-secret.example.test",
             stderr: "",
             durationMs: 9
           };

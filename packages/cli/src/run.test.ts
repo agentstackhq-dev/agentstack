@@ -2224,7 +2224,12 @@ describe("runAgentstack", () => {
       cwd: dir,
       write: (line) => output.push(line),
       providerExecutor: createMockProviderExecutor(
-        "NEXT_PUBLIC_APP_URL=https://preview-secret.example.test\nAPI_TOKEN=secret-vercel-token\nProject: prj_secret"
+        [
+          "name value environments",
+          "NEXT_PUBLIC_APP_URL https://redacted.example.test preview",
+          "API_TOKEN Encrypted preview",
+          "Project: prj_secret"
+        ].join("\n")
       )
     });
 
@@ -2235,7 +2240,7 @@ describe("runAgentstack", () => {
     );
     expect(output.join("\n")).not.toContain("NEXT_PUBLIC_APP_URL");
     expect(output.join("\n")).not.toContain("API_TOKEN");
-    expect(output.join("\n")).not.toContain("https://preview-secret.example.test");
+    expect(output.join("\n")).not.toContain("https://redacted.example.test");
     expect(output.join("\n")).not.toContain("prj_secret");
     expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
       "exec vercel env ls preview"
