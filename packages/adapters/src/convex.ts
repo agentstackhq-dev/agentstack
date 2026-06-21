@@ -1,0 +1,172 @@
+import type { AgentstackManifest, EnvironmentName } from "@agentstack/core";
+
+import type { ProviderOperation } from "./provider-operations.js";
+
+export type ConvexCommandKind = "backend.deploy" | "env.set" | "env.remove";
+
+export type ConvexCliCommand = {
+  id: string;
+  kind: ConvexCommandKind;
+  environment: EnvironmentName;
+  summary: string;
+  args: string[];
+  valueSource?: "stdin";
+  stdinLabel?: string;
+  secret: boolean;
+  requiresConfirmation: boolean;
+};
+
+export type ConvexTarget = {
+  environment: EnvironmentName;
+  deploymentSelector: string;
+  previewName?: string;
+  envScopeArgs: string[];
+  deployCommand: ConvexCliCommand;
+  requiredEnv: string[];
+  warnings: string[];
+  requiresConfirmation: boolean;
+};
+
+export type ConvexCommandPlanInput = {
+  manifest: AgentstackManifest;
+  environment: EnvironmentName;
+  operations: ProviderOperation[];
+  includeDeploy?: boolean;
+};
+
+export type ConvexCommandPlan = {
+  service: "convex";
+  environment: EnvironmentName;
+  target: ConvexTarget;
+  commands: ConvexCliCommand[];
+};
+
+export function createConvexTarget(
+  manifest: AgentstackManifest,
+  environment: EnvironmentName
+): ConvexTarget {
+  if (environment === "preview") {
+    const previewName = `${manifest.app.slug}-preview`;
+
+    return {
+      environment,
+      deploymentSelector: "<preview-deployment-name>",
+      previewName,
+      envScopeArgs: ["--deployment", "<preview-deployment-name>"],
+      deployCommand: deployCommand(
+        environment,
+        ["pnpm", "exec", "convex", "deploy", "--preview-name", previewName],
+        false
+      ),
+      requiredEnv: ["CONVEX_DEPLOY_KEY"],
+      warnings: [
+        "Set CONVEX_DEPLOY_KEY to a Convex preview deploy key before running preview deploy commands.",
+        "Replace <preview-deployment-name> after the preview deployment exists."
+      ],
+      requiresConfirmation: false
+    };
+  }
+
+  if (environment === "production") {
+    return {
+      environment,
+      deploymentSelector: "prod",
+      envScopeArgs: ["--prod"],
+      deployCommand: deployCommand(environment, ["pnpm", "exec", "convex", "deploy"], true),
+      requiredEnv: ["CONVEX_DEPLOY_KEY"],
+      warnings: [
+        "Set CONVEX_DEPLOY_KEY to a Convex production deploy key before running production commands."
+      ],
+      requiresConfirmation: true
+    };
+  }
+
+  return {
+    environment,
+    deploymentSelector: "dev",
+    envScopeArgs: ["--deployment", "dev"],
+    deployCommand: deployCommand(environment, ["pnpm", "exec", "convex", "dev"], false),
+    requiredEnv: [],
+    warnings: ["Development uses the developer's Convex login or local CONVEX_DEPLOYMENT state."],
+    requiresConfirmation: false
+  };
+}
+
+export function createConvexCommandPlan(input: ConvexCommandPlanInput): ConvexCommandPlan {
+  const target = createConvexTarget(input.manifest, input.environment);
+  const commands = [
+    ...(input.includeDeploy ? [target.deployCommand] : []),
+    ...input.operations
+      .filter((operation) => operation.service === "convex")
+      .flatMap((operation) => operationCommand(operation, target))
+  ];
+
+  return {
+    service: "convex",
+    environment: input.environment,
+    target,
+    commands
+  };
+}
+
+function operationCommand(operation: ProviderOperation, target: ConvexTarget): ConvexCliCommand[] {
+  const name = envName(operation.target);
+
+  if (!name) {
+    return [];
+  }
+
+  if (operation.kind === "env.set") {
+    return [
+      {
+        id: operation.id,
+        kind: "env.set",
+        environment: operation.environment,
+        summary: operation.summary,
+        args: ["pnpm", "exec", "convex", "env", ...target.envScopeArgs, "set", name],
+        valueSource: "stdin",
+        stdinLabel: operation.secret
+          ? "<secret from .agentstack/env-values.json>"
+          : "<value from .agentstack/env-values.json>",
+        secret: operation.secret,
+        requiresConfirmation: operation.requiresConfirmation
+      }
+    ];
+  }
+
+  if (operation.kind === "env.remove") {
+    return [
+      {
+        id: operation.id,
+        kind: "env.remove",
+        environment: operation.environment,
+        summary: operation.summary,
+        args: ["pnpm", "exec", "convex", "env", ...target.envScopeArgs, "remove", name],
+        secret: operation.secret,
+        requiresConfirmation: operation.requiresConfirmation
+      }
+    ];
+  }
+
+  return [];
+}
+
+function deployCommand(
+  environment: EnvironmentName,
+  args: string[],
+  requiresConfirmation: boolean
+): ConvexCliCommand {
+  return {
+    id: `${environment}.convex.backend.deploy`,
+    kind: "backend.deploy",
+    environment,
+    summary: `Deploy Convex backend for ${environment}.`,
+    args,
+    secret: false,
+    requiresConfirmation
+  };
+}
+
+function envName(target: string): string | undefined {
+  return target.startsWith("env:") ? target.slice("env:".length) : undefined;
+}

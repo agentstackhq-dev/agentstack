@@ -71,7 +71,7 @@ describe("provider operations", () => {
   it("defines provider adapter capabilities for the default services", () => {
     expect(Object.keys(providerAdapterDefinitions)).toEqual(["clerk", "convex", "vercel", "eas"]);
     expect(providerAdapterDefinitions.clerk.realAdapterStatus).toBe("contract-only");
-    expect(providerAdapterDefinitions.convex.realAdapterStatus).toBe("contract-only");
+    expect(providerAdapterDefinitions.convex.realAdapterStatus).toBe("command-plan");
     expect(providerAdapterDefinitions.vercel.realAdapterStatus).toBe("contract-only");
     expect(providerAdapterDefinitions.eas.realAdapterStatus).toBe("contract-only");
     expect(providerAdapterDefinitions.clerk.capabilities).toEqual(

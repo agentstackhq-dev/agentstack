@@ -19,7 +19,7 @@ const providerAdapters: LifecycleProviderAdapterSummary[] = [
     service: "convex",
     displayName: "Convex",
     capabilities: ["service.lifecycle", "env.sync", "backend.deploy"],
-    realAdapterStatus: "contract-only"
+    realAdapterStatus: "command-plan"
   }
 ];
 

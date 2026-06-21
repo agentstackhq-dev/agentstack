@@ -1,6 +1,7 @@
 import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import {
+  createConvexCommandPlan,
   createProviderOperationPlan,
   getEnabledProviderAdapterDefinitions,
   LocalCloudAdapter,
@@ -144,6 +145,10 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
 
     if (command === "deploy") {
       return await deployCommand(argv.slice(1), io);
+    }
+
+    if (command === "provider" && subcommand === "plan") {
+      return await providerPlanCommand(rest, io);
     }
 
     if (command === "prod") {
@@ -493,6 +498,109 @@ async function deployCommand(argv: string[], io: RunIo): Promise<number> {
     }
   });
   return 0;
+}
+
+async function providerPlanCommand(argv: string[], io: RunIo): Promise<number> {
+  const options = parseOptions(argv);
+  const fix = "Run agentstack provider plan --service convex --env preview.";
+  const service = readRequiredStringOption(options.service, "service", fix);
+  const environment = readEnvironmentOption(options.env, {
+    flag: "env",
+    fix
+  });
+
+  if (service !== "convex") {
+    io.write(
+      formatDiagnostic({
+        severity: "fail",
+        code: "provider.service.unsupported",
+        path: String(options.service ?? "missing"),
+        message: "Only the Convex provider command planner is available in this slice.",
+        fix,
+        blocks: ["provider plan"]
+      })
+    );
+    await recordCommandEvent(io, {
+      name: "agentstack.provider.plan.completed",
+      environment,
+      journey: "provider-plan",
+      command: ["provider", "plan", ...argv].join(" "),
+      status: "fail",
+      state: { service, reason: "unsupported-service" }
+    });
+    return 1;
+  }
+
+  const validation = await runLocalValidationGate(io.cwd);
+  validation.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
+  if (validation.diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
+    await recordCommandEvent(io, {
+      name: "agentstack.provider.plan.completed",
+      environment,
+      journey: "provider-plan",
+      command: ["provider", "plan", ...argv].join(" "),
+      status: "fail",
+      state: { service, diagnostics: validation.diagnostics.length }
+    });
+    return 1;
+  }
+
+  const adapter = new LocalCloudAdapter(io.cwd) as EnvAwareLocalCloudAdapter;
+  const cloudReport = await adapter.inspect(validation.context.manifest, environment, {
+    envValues: validation.envValues
+  });
+  const providerOperationPlan = createProviderOperationPlan(cloudReport);
+  const plan = createConvexCommandPlan({
+    manifest: validation.context.manifest,
+    environment,
+    operations: providerOperationPlan.operations,
+    includeDeploy: true
+  });
+
+  io.write(`PLAN provider convex ${environment}`);
+  io.write(`Target: ${plan.target.deploymentSelector}`);
+  io.write(`Required env: ${formatList(plan.target.requiredEnv)}`);
+  io.write(`Requires confirmation: ${plan.target.requiresConfirmation ? "yes" : "no"}`);
+  if (plan.target.warnings.length > 0) {
+    io.write("Warnings:");
+    plan.target.warnings.forEach((warning) => io.write(`- ${warning}`));
+  }
+  io.write("Commands:");
+  plan.commands.forEach((command) => {
+    const targetLabel = formatConvexCommandTargetLabel(command.kind, command.args);
+    const confirmationLabel = command.requiresConfirmation ? " [requires-confirmation]" : "";
+    const valuePrefix = command.stdinLabel ? ` ${targetLabel}: ${command.stdinLabel} |` : "";
+    io.write(`- ${command.kind}${confirmationLabel}${valuePrefix} ${command.args.join(" ")}`);
+  });
+
+  await recordCommandEvent(io, {
+    name: "agentstack.provider.plan.completed",
+    environment,
+    journey: "provider-plan",
+    command: ["provider", "plan", ...argv].join(" "),
+    status: "ok",
+    state: {
+      service: plan.service,
+      target: plan.target.deploymentSelector,
+      requiredEnv: plan.target.requiredEnv,
+      warnings: plan.target.warnings.length,
+      commands: plan.commands.map((command) => ({
+        kind: command.kind,
+        valueSource: command.valueSource,
+        secret: command.secret,
+        requiresConfirmation: command.requiresConfirmation
+      }))
+    }
+  });
+  return 0;
+}
+
+function formatConvexCommandTargetLabel(kind: string, args: string[]): string {
+  if ((kind === "env.set" || kind === "env.remove") && args[3] === "env") {
+    return args.at(-1) ?? kind;
+  }
+
+  return kind;
 }
 
 async function prodCommand(argv: string[], io: RunIo): Promise<number> {

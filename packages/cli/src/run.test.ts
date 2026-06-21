@@ -188,7 +188,7 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("Environment: preview");
     expect(output.join("\n")).toContain("Generated anchors:");
     expect(output.join("\n")).toContain(
-      "Provider adapters: clerk:contract-only,convex:contract-only,vercel:contract-only,eas:contract-only"
+      "Provider adapters: clerk:contract-only,convex:command-plan,vercel:contract-only,eas:contract-only"
     );
     expect(output.join("\n")).toContain("Provider operations: none");
     expect(output.join("\n")).toContain("Cloud missing: none");
@@ -203,7 +203,7 @@ describe("runAgentstack", () => {
     expect(code).toBe(0);
     expect(output).toContain("WARN inspect acme-crm");
     expect(output.join("\n")).toContain(
-      "Provider adapters: clerk:contract-only,convex:contract-only,vercel:contract-only,eas:contract-only"
+      "Provider adapters: clerk:contract-only,convex:command-plan,vercel:contract-only,eas:contract-only"
     );
     expect(output.join("\n")).toContain("preview.clerk.service.link");
     expect(output.join("\n")).toContain("preview.convex.service.link");
@@ -1183,6 +1183,50 @@ describe("runAgentstack", () => {
     expect(code).toBe(0);
     expect(output.join("\n")).toContain("agentstack.mobile.build.completed");
     expect(output.join("\n")).toContain('"profile":"preview"');
+  });
+
+  it("prints redacted Convex provider command plans", async () => {
+    await writeProviderEnvManifest();
+    await writeLocalEnvValues({
+      preview: { convex: { OPENAI_API_KEY: "sk-local-provider-value" } }
+    });
+
+    const code = await runAgentstack(["provider", "plan", "--service", "convex", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PLAN provider convex preview");
+    expect(output.join("\n")).toContain("Required env: CONVEX_DEPLOY_KEY");
+    expect(output.join("\n")).toContain("pnpm exec convex deploy --preview-name acme-crm-preview");
+    expect(output.join("\n")).toContain(
+      "pnpm exec convex env --deployment <preview-deployment-name> set OPENAI_API_KEY"
+    );
+    expect(output.join("\n")).toContain("<secret from .agentstack/env-values.json>");
+    expect(output.join("\n")).not.toContain("sk-local-provider-value");
+  });
+
+  it("prints explicit confirmation requirements for production Convex provider plans", async () => {
+    const code = await runAgentstack(["provider", "plan", "--service", "convex", "--env", "production"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PLAN provider convex production");
+    expect(output.join("\n")).toContain("Requires confirmation: yes");
+    expect(output.join("\n")).toContain("- backend.deploy [requires-confirmation] pnpm exec convex deploy");
+  });
+
+  it("rejects provider plan for unsupported services", async () => {
+    const code = await runAgentstack(["provider", "plan", "--service", "vercel", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL provider.service.unsupported");
   });
 
   it("fails cloud validation when cloud state is missing", async () => {

@@ -16,8 +16,10 @@ export type ProviderAdapterDefinition = {
   service: ServiceName;
   displayName: string;
   capabilities: ProviderAdapterCapability[];
-  realAdapterStatus: "contract-only" | "available";
+  realAdapterStatus: ProviderAdapterStatus;
 };
+
+export type ProviderAdapterStatus = "contract-only" | "command-plan" | "available";
 
 export type ProviderOperationKind = "service.link" | "service.unlink" | "env.set" | "env.remove";
 
@@ -51,7 +53,7 @@ export const providerAdapterDefinitions: Record<ServiceName, ProviderAdapterDefi
     service: "convex",
     displayName: "Convex",
     capabilities: ["service.lifecycle", "env.sync", "backend.deploy"],
-    realAdapterStatus: "contract-only"
+    realAdapterStatus: "command-plan"
   },
   vercel: {
     service: "vercel",

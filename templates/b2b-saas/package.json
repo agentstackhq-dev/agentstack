@@ -3,6 +3,9 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@9.15.4",
+  "devDependencies": {
+    "convex": "^1.41.0"
+  },
   "scripts": {
     "inspect": "node scripts/agentstack.mjs inspect --env preview",
     "doctor": "node scripts/agentstack.mjs doctor --env preview",
@@ -16,6 +19,8 @@
     "preview:validate": "node scripts/agentstack.mjs validate --cloud --env preview",
     "preview:deploy": "node scripts/agentstack.mjs deploy --env preview",
     "preview:deploy:apply": "node scripts/agentstack.mjs deploy --env preview --apply",
+    "provider:convex:preview": "node scripts/agentstack.mjs provider plan --service convex --env preview",
+    "provider:convex:production": "node scripts/agentstack.mjs provider plan --service convex --env production",
     "prod:prepare": "node scripts/agentstack.mjs prod prepare",
     "prod:provision": "node scripts/agentstack.mjs prod provision",
     "prod:provision:apply": "node scripts/agentstack.mjs prod provision --apply",

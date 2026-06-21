@@ -2,6 +2,8 @@
 
 This is a local preview deploy rehearsal. It exercises Agentstack planning, local-cloud preview state, validation, deployment artifact writing, and deployment telemetry without deploying to real Convex, Clerk, Vercel, EAS, Stripe, or telemetry-provider APIs.
 
+Convex also has a command-plan surface. `convex:command-plan` means Agentstack knows the current Convex CLI deploy and env command shapes and can print the commands an operator would run, but this slice still does not execute provider mutations. Generated projects include the Convex package so `pnpm exec convex` resolves locally.
+
 ## Commands
 
 Plan preview service sync:
@@ -62,6 +64,21 @@ PLAN deploy preview
 - planned release preview.eas
 ```
 
+Plan real Convex preview commands without running them:
+
+```bash
+pnpm run provider:convex:preview
+```
+
+Expected output includes the preview deploy key requirement and the planned deploy command:
+
+```text
+CONVEX_DEPLOY_KEY
+pnpm exec convex deploy --preview-name __APP_SLUG__-preview
+```
+
+Convex env set/remove commands are printed with redacted values. Secret and non-secret values use `.agentstack/env-values.json` as the value source label, not the raw value. Preview env commands use `convex env --deployment <preview-deployment-name> set/remove ...` until `pnpm exec convex deploy --preview-name __APP_SLUG__-preview` has created a concrete Convex preview deployment name.
+
 Apply the local preview deploy rehearsal:
 
 ```bash
@@ -99,7 +116,7 @@ agentstack.deploy.completed
 ## Non-Goals
 
 - This is not a real provider deployment.
-- It does not create or mutate Convex, Clerk, Vercel, EAS, Stripe, or telemetry-provider resources.
+- It does not create or mutate Convex, Clerk, Vercel, EAS, Stripe, or telemetry-provider resources. Convex command planning prints real CLI command shapes only.
 - It does not prove production readiness.
 - It does not replace provider credentials, real CI/CD, app builds, smoke tests, or production release approval.
 

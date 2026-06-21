@@ -7,7 +7,7 @@ export type LifecycleProviderAdapterSummary = {
   service: ServiceName | string;
   displayName: string;
   capabilities: string[];
-  realAdapterStatus: "contract-only" | "available";
+  realAdapterStatus: "contract-only" | "command-plan" | "available";
 };
 
 export type LifecycleProviderOperationSummary = {
