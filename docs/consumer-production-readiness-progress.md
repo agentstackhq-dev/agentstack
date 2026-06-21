@@ -14,6 +14,7 @@ Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI rou
 
 ## Recent Completed Commits
 
+- `4709145` fix: parse vercel preview evidence structurally.
 - `dec24b2` fix: require structured vercel preview evidence.
 - `d7aa7e5` fix: constrain live inventory identity facts.
 - `b8a316f` docs: record identity facts checkpoint.
