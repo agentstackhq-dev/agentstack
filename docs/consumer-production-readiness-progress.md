@@ -14,6 +14,7 @@ Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI rou
 
 ## Recent Completed Commits
 
+- `efdc973` feat: gate provider link on live confirmation.
 - `610bde5` docs: record structured vercel evidence checkpoint.
 - `4709145` fix: parse vercel preview evidence structurally.
 - `dec24b2` fix: require structured vercel preview evidence.
@@ -111,7 +112,7 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 1. Finish provider integration gaps first:
    - Expand Vercel live-read beyond bounded preview env-list only when production read semantics are explicitly designed.
    - Expand live inventory with provider-specific exact identity parsers only where exact identity matching can be proven without leaking identifiers.
-  - Expand live-safe link/adopt identity confirmation only after exact provider identity can be proven without leaking identifiers.
+   - Expand live-safe link/adopt identity confirmation only after exact provider identity can be proven without leaking identifiers.
    - Keep all mutation paths ledger-gated and evidence-labeled.
 2. Build the truthful validation runner:
    - Make `agentstack validate` run lint, format, typecheck, tests, Convex checks, generated-boundary checks, theme checks, telemetry checks, secret scanning, and manifest validation.
@@ -123,15 +124,16 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 
 ## Last Known Verification Evidence
 
-Most recent final orchestrator verification after `610bde5`:
+Most recent final orchestrator verification after `efdc973`:
 
-- `pnpm vitest run packages/adapters/src/provider-control-plane.test.ts packages/adapters/src/provider-executor.test.ts packages/adapters/src/vercel.test.ts packages/adapters/src/eas.test.ts packages/cli/src/run.test.ts` passed: 5 files / 196 tests.
+- `pnpm vitest run packages/adapters/src/provider-control-plane.test.ts packages/cli/src/run.test.ts packages/create-agent-stack/src/generate.test.ts` passed: 3 files / 194 tests.
 - `pnpm typecheck` passed.
-- `pnpm test` passed: 27 files / 362 tests.
-- `diff -ru templates/b2b-saas/docs/agentstack packages/create-agent-stack/templates/b2b-saas/docs/agentstack && git diff --check` passed with no output.
+- `pnpm test` passed: 27 files / 372 tests.
+- `diff -ru templates/b2b-saas/docs/agentstack packages/create-agent-stack/templates/b2b-saas/docs/agentstack` passed with no output.
+- `git diff --check` passed with no output.
 - `git status --short --branch` showed only `## agentstack-prototype`.
 - `git diff -- docs/provider-resource-ledger.md` was empty.
-- Re-review passed all parser/code checks after `4709145`; the only remaining issue was progress commit-list omission, which `610bde5` addressed.
+- The live-safe link/adopt slice committed as `efdc973` with no provider ledger diff and no real provider resource interaction.
 
 ## Worktree State Expectation
 
