@@ -138,6 +138,7 @@ export type ProviderExecutionResultInput = {
   result: ProviderCommandResult;
   secretValues?: string[];
   providerResourceId?: string;
+  resourceNames?: string[];
   liveIdentityFacts?: ProviderLiveIdentityFacts;
   identityCandidates?: ProviderIdentityCandidatesArtifact;
   exactIdentityProof?: ProviderExactIdentityProofArtifact;
@@ -190,7 +191,7 @@ export function createProviderExecutionResult(
     exitCode: input.result.exitCode,
     durationMs: input.result.durationMs,
     ...output,
-    resourceNames: inferResourceNames(input.command.args),
+    resourceNames: input.resourceNames ?? inferResourceNames(input.command.args),
     providerResourceId: input.providerResourceId
       ? redactProviderText(input.providerResourceId, { secretValues: input.secretValues })
       : undefined,

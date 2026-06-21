@@ -3,7 +3,8 @@ import type { AgentstackManifest, EnvironmentName } from "@agentstack/core";
 import {
   createProviderExecutionResult,
   type ProviderCommandExecutor,
-  type ProviderExecutionResult
+  type ProviderExecutionResult,
+  type ProviderIdentityCandidatesArtifact
 } from "./provider-executor.js";
 import type { ProviderOperation } from "./provider-operations.js";
 
@@ -208,6 +209,8 @@ export async function inspectConvexReadOnly(
         command,
         result,
         secretValues: options.secretValues,
+        resourceNames: [],
+        identityCandidates: identityCandidatesForConvexRead(options.environment, result),
         liveIdentityFacts:
           result.exitCode === 0 ? { identityConfidence: "partial", facts: ["provider-env-read"] } : undefined
       })
@@ -215,6 +218,48 @@ export async function inspectConvexReadOnly(
   }
 
   return results;
+}
+
+function identityCandidatesForConvexRead(
+  environment: EnvironmentName,
+  result: { exitCode: number; stdout: string }
+): ProviderIdentityCandidatesArtifact | undefined {
+  if (environment !== "preview" || result.exitCode !== 0 || !hasStructuredExpectedConvexEnvRow(result.stdout)) {
+    return undefined;
+  }
+
+  return {
+    kind: "provider-identity-candidates",
+    evaluator: "provider-specific-identity-candidate-parser",
+    labels: ["provider-environment-scope"]
+  };
+}
+
+const expectedConvexEnvNames = new Set([
+  "OPENAI_API_KEY",
+  "STRIPE_SECRET_KEY",
+  "STRIPE_WEBHOOK_SECRET",
+  "STRIPE_MODE"
+]);
+
+function hasStructuredExpectedConvexEnvRow(stdout: string): boolean {
+  const lines = stdout
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  const headerIndex = lines.findIndex((line) => {
+    const columns = line.split(/\s{2,}|\t+/).filter(Boolean);
+    return columns.length >= 2 && /^name$/i.test(columns[0] ?? "") && /^value$/i.test(columns[1] ?? "");
+  });
+
+  if (headerIndex === -1) {
+    return false;
+  }
+
+  return lines.slice(headerIndex + 1).some((line) => {
+    const columns = line.split(/\s{2,}|\t+/).filter(Boolean);
+    return columns.length >= 2 && expectedConvexEnvNames.has(columns[0] ?? "");
+  });
 }
 
 function operationCommand(operation: ProviderOperation, target: ConvexTarget): ConvexCliCommand[] {

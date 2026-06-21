@@ -251,7 +251,9 @@ describe("generateProject", () => {
       expect(generatedEnvironmentDocs).toContain("Ledger mutation: none");
       expect(generatedEnvironmentDocs).toContain("Local adopt is the default source mode");
       expect(generatedEnvironmentDocs).toContain("FAIL provider.link.identity-ambiguous");
-      expect(generatedEnvironmentDocs).toContain("missing=ledger-comparable-identity,stable-provider-identity");
+      expect(generatedEnvironmentDocs).toContain(
+        "Successful structured Convex preview env-list evidence may reduce missing-proof guidance with sanitized `provider-environment-scope`"
+      );
       expect(generatedEnvironmentDocs).toContain("Identity proof requirements:");
       expect(generatedEnvironmentDocs).toContain("There is no `--live` shorthand for adopt");
       expect(generatedEnvironmentDocs).toContain("not proof of external provider existence");

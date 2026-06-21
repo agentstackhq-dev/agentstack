@@ -552,6 +552,49 @@ describe("provider proof contracts", () => {
     expect(result.missing).not.toContain("provider-environment-scope");
   });
 
+  it("uses Convex candidates to remove only environment-scope missing labels", () => {
+    const result = evaluateProviderIdentityCandidateProof("convex", [
+      {
+        service: "convex",
+        environment: "preview",
+        commandKind: "env.list",
+        status: "success",
+        exitCode: 0,
+        durationMs: 5,
+        stdoutSummary: "<redacted provider stdout: 2 lines, 90 bytes>",
+        stderrSummary: "",
+        stdoutLines: 2,
+        stderrLines: 0,
+        stdoutBytes: 90,
+        stderrBytes: 0,
+        outputRedacted: true,
+        identityCandidates: {
+          kind: "provider-identity-candidates",
+          evaluator: "provider-specific-identity-candidate-parser",
+          labels: ["provider-environment-scope"]
+        }
+      }
+    ]);
+
+    expect(result).toEqual({
+      proof: "ambiguous",
+      evaluator: "provider-specific-identity-candidate-parser",
+      labels: ["provider-environment-scope"],
+      missing: [
+        "provider-specific-identity-parser",
+        "stable-provider-identity",
+        "ledger-comparable-identity",
+        "manifest-resource-name-match",
+        "ledger-external-id-match",
+        "provider-owner-identity",
+        "provider-resource-id"
+      ]
+    });
+    expect(result.missing).not.toContain("provider-environment-scope");
+    expect(result.missing).not.toContain("provider-project-link-proof");
+    expect(JSON.stringify(result)).not.toContain("exact");
+  });
+
   it("keeps identity candidates unavailable for failed or empty read results", () => {
     expect(evaluateProviderIdentityCandidateProof("clerk", [])).toEqual({
       proof: "unavailable",

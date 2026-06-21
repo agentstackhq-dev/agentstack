@@ -239,6 +239,90 @@ describe("convex command planner", () => {
     expect(JSON.stringify(results)).not.toContain("sk_live_");
   });
 
+  it("attaches only sanitized preview identity candidates from structured expected env-list rows", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    const results = await inspectConvexReadOnly({
+      manifest,
+      environment: "preview",
+      executor: {
+        async execute() {
+          return {
+            exitCode: 0,
+            stdout: "Name               Value\nOPENAI_API_KEY     hidden-by-provider\nSTRIPE_MODE        test",
+            stderr: "",
+            durationMs: 9
+          };
+        }
+      },
+      secretValues: ["hidden-by-provider"]
+    });
+
+    expect(results[0]?.identityCandidates).toEqual({
+      kind: "provider-identity-candidates",
+      evaluator: "provider-specific-identity-candidate-parser",
+      labels: ["provider-environment-scope"]
+    });
+    expect(results[0]?.exactIdentityProof).toBeUndefined();
+    expect(JSON.stringify(results)).not.toContain("hidden-by-provider");
+    expect(JSON.stringify(results)).not.toContain("acme-crm-preview");
+    expect(JSON.stringify(results)).not.toContain("<preview-deployment-name>");
+    expect(JSON.stringify(results)).not.toContain("https://");
+  });
+
+  it("does not attach Convex identity candidates for failed reads, prose, unexpected names, or malformed rows", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    const outputs = [
+      { exitCode: 1, stdout: "OPENAI_API_KEY     hidden-by-provider" },
+      { exitCode: 0, stdout: "OPENAI_API_KEY is configured for preview" },
+      { exitCode: 0, stdout: "UNEXPECTED_KEY     hidden-by-provider" },
+      { exitCode: 0, stdout: "OPENAI_API_KEY" }
+    ];
+
+    for (const output of outputs) {
+      const results = await inspectConvexReadOnly({
+        manifest,
+        environment: "preview",
+        executor: {
+          async execute() {
+            return {
+              exitCode: output.exitCode,
+              stdout: output.stdout,
+              stderr: output.exitCode === 0 ? "" : "not found",
+              durationMs: 9
+            };
+          }
+        },
+        secretValues: ["hidden-by-provider"]
+      });
+
+      expect(results[0]?.identityCandidates).toBeUndefined();
+      expect(results[0]?.exactIdentityProof).toBeUndefined();
+      expect(JSON.stringify(results)).not.toContain("hidden-by-provider");
+    }
+  });
+
+  it("does not attach Convex identity candidates outside preview", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    const results = await inspectConvexReadOnly({
+      manifest,
+      environment: "production",
+      executor: {
+        async execute() {
+          return {
+            exitCode: 0,
+            stdout: "Name               Value\nOPENAI_API_KEY     hidden-by-provider",
+            stderr: "",
+            durationMs: 9
+          };
+        }
+      },
+      secretValues: ["hidden-by-provider"]
+    });
+
+    expect(results[0]?.identityCandidates).toBeUndefined();
+    expect(results[0]?.exactIdentityProof).toBeUndefined();
+  });
+
   it("does not attach Convex live identity facts to failed env list reads", async () => {
     const manifest = createDefaultManifest("acme-crm");
     const results = await inspectConvexReadOnly({
