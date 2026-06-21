@@ -6,7 +6,7 @@ This file is the canonical resume and progress artifact for Agentstack consumer 
 
 ## Current State
 
-Current phase: aggregate live validation provider-proof summaries are the latest in-progress implementation checkpoint, building on narrow Clerk preview application provider-proof app-list live-coherence partial drift evidence, Clerk preview exact identity parsing, shared exact identity comparison hardening, EAS preview identity candidate guidance, Convex preview identity candidate guidance, Vercel preview identity candidate guidance, sanitized provider identity candidate artifacts, provider exact identity decision contracts, provider identity read-plan contracts, provider proof drift evidence, the provider proof-contract command, aggregate preview provider reconciliation plan artifacts, sanitized Clerk/Convex command-level partial live-read facts, structurally parsed EAS/Vercel preview partial-proof evidence, aggregate preview provider planning, first aggregate live validation truthful refusal, sanitized live identity proof requirements, truthful local quality validation, live-safe provider link/adopt confirmation modes, bounded live provider inventory, Vercel preview provider live-read inspect, failure-diagnostic redaction hardening, and provider inventory/link/adopt; this implementation is currently uncommitted, so do not infer a commit hash from this file. If a commit identity is needed after parent commits land, read it from `git log --oneline -n 5`.
+Current phase: aggregate live validation provider-proof summaries are the latest substantive checkpoint, building on narrow Clerk preview application provider-proof app-list live-coherence partial drift evidence, Clerk preview exact identity parsing, shared exact identity comparison hardening, EAS preview identity candidate guidance, Convex preview identity candidate guidance, Vercel preview identity candidate guidance, sanitized provider identity candidate artifacts, provider exact identity decision contracts, provider identity read-plan contracts, provider proof drift evidence, the provider proof-contract command, aggregate preview provider reconciliation plan artifacts, sanitized Clerk/Convex command-level partial live-read facts, structurally parsed EAS/Vercel preview partial-proof evidence, aggregate preview provider planning, first aggregate live validation truthful refusal, sanitized live identity proof requirements, truthful local quality validation, live-safe provider link/adopt confirmation modes, bounded live provider inventory, Vercel preview provider live-read inspect, failure-diagnostic redaction hardening, and provider inventory/link/adopt; this file avoids self-referencing its containing commit. Use `git log --oneline -n 5` for exact current HEAD.
 
 Overall status: not complete. Agentstack is about 40-42% of the way toward consumer production readiness from a consumer perspective. The current product state is a local command-contract and rehearsal prototype with credible local telemetry and provider boundaries, not a consumer-ready production framework.
 
@@ -14,6 +14,7 @@ Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI rou
 
 ## Recent Completed Commits
 
+- `73f7a30` feat: add live validation proof summaries.
 - `0c013ee` feat: add clerk app-list coherence proof.
 - `7065bcb` docs: repair exact proof progress history.
 - `afba0da` docs: record clerk exact proof checkpoint.
@@ -101,11 +102,11 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 
 ## Completed Work This Documentation Turn
 
-- Added the current uncommitted aggregate `validate --live --env preview` proof-summary slice. Live validation remains read-only and non-mutating: it writes no telemetry, local-cloud state, provider-links, provider ledger state, or provider resources; it prints per-provider live inventory plus per-service proof summaries.
+- Added the committed aggregate `validate --live --env preview` proof-summary checkpoint in feature commit `73f7a30` (`feat: add live validation proof summaries`). Live validation remains read-only and non-mutating: it writes no telemetry, local-cloud state, provider-links, provider ledger state, or provider resources; it prints per-provider live inventory plus per-service proof summaries.
 - For Clerk preview only, exact proof context is now passed after manifest resource and planned/active ledger gates. Matching strict apps-list evidence can surface exact identity plus partial Clerk app-list drift diagnostics, but successful live reads still refuse readiness with `Reason: proof-incomplete`; live-read failures and unsupported production keep their existing refusal reasons.
 - This slice is diagnostic only: it does not prove exact drift/live coherence, live readiness, link/adopt confirmation, mutation authorization, or production readiness.
 - Delegation outcome: scouts recommended this live-validation proof-summary slice over Vercel exact proof; the implementation worker completed it; spec and quality reviews passed; and a test-only worker added a direct blocked-ledger regression.
-- Final parent verification evidence for this uncommitted slice: `pnpm vitest run packages/cli/src/run.test.ts -t "live validation"` passed with 1 file, 9 selected tests, and 206 skipped; `pnpm vitest run packages/cli/src/run.test.ts packages/create-agent-stack/src/generate.test.ts` passed with 2 files and 225 tests; `git diff --check` passed; touched template mirror diffs passed; provider ledger diff was empty; `.agentstack` state was absent; overclaim search found only denial/guard wording and tests asserting no pass/readiness; `pnpm typecheck` passed; and `pnpm test` passed with 28 files and 490 tests.
+- Final parent verification evidence for this committed feature slice: `pnpm vitest run packages/cli/src/run.test.ts -t "live validation"` passed with 1 file, 9 selected tests, and 206 skipped; `pnpm vitest run packages/cli/src/run.test.ts packages/create-agent-stack/src/generate.test.ts` passed with 2 files and 225 tests; `git diff --check` passed; touched template mirror diffs passed; provider ledger diff was empty; `.agentstack` state was absent; overclaim search found only denial/guard wording and tests asserting no pass/readiness; `pnpm typecheck` passed; and `pnpm test` passed with 28 files and 490 tests.
 - No provider CLIs were run directly and no real provider resources were created, mutated, adopted, linked, deleted, or otherwise touched.
 - Added narrow Clerk preview application provider-proof app-list live-coherence partial drift evidence.
 - `evaluateProviderDriftProof` now can return partial via `clerk-apps-list-preview` only when the read set has no failures, the service/env/command shape is Clerk preview `auth.apps.list`, output is redacted, exact proof exists, required proof labels and matched comparisons are present, and sanitized app-list facts (`apps-list-read`, `expected-resource-shape`, `preview-environment`) are present.
@@ -259,9 +260,9 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 
 ## Last Known Verification Evidence
 
-Most recent final orchestrator verification for the uncommitted aggregate live validation proof-summary slice:
+Most recent final orchestrator verification for the aggregate live validation proof-summary slice:
 
-- Implementation is uncommitted at this checkpoint. Do not invent a commit hash; if needed, read the commit from `git log` after parent commits land.
+- Feature commit `73f7a30` (`feat: add live validation proof summaries`).
 - Behavior verified: `validate --live --env preview` remains read-only/non-mutating, prints per-provider live inventory and per-service proof summaries, can pass Clerk preview exact proof context only after manifest resource and planned/active ledger gates, and still refuses successful live reads with `Reason: proof-incomplete`.
 - Diagnostic boundary verified: no exact drift/live coherence, no live readiness, no link/adopt confirmation, no mutation authorization, and no production readiness were claimed.
 - Delegation outcome: scouts recommended this slice over Vercel exact proof; implementation completed; spec and quality reviews passed; a test-only worker added a direct blocked-ledger regression.
