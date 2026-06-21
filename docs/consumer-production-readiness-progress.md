@@ -63,6 +63,9 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 - Documented strict provider-resource tracking discipline and cleanup flow.
 - Re-prioritized the finish plan around provider integration gaps first, then truthful validation, runtime completeness, library/UI completeness, preview evidence, production/hosted platform, and public release hardening.
 - Committed and aligned docs/template clarifications that provider inventory writes no files, provider link writes only `.agentstack/provider-links.json`, and provider adopt writes no files.
+- Corrected Vercel preview inspect failure classification so preview executor failures are reported as execution failures instead of unsupported-environment failures, while Vercel production inspect remains unavailable before executor use.
+- Added regression coverage that Vercel preview inspect leaves `docs/provider-resource-ledger.md` byte-for-byte unchanged.
+- Updated generated release docs to state that Clerk inspect, Vercel preview inspect, and EAS preview inspect are read-only, with Vercel production inspect/apply still unavailable.
 
 ## Current Blockers And Gaps
 
@@ -101,6 +104,7 @@ Most recent final verification recorded before this progress wording update:
 - `git diff -- docs/provider-resource-ledger.md` returned no diff.
 - `pnpm typecheck` passed.
 - `pnpm test` passed: 27 files / 339 tests.
+- `pnpm vitest run packages/cli/src/run.test.ts -t "Vercel|provider inspect"` passed: 11 selected tests.
 
 ## Worktree State Expectation
 

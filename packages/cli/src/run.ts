@@ -790,6 +790,29 @@ async function providerInspectCommand(argv: string[], io: RunIo): Promise<number
     return 1;
   }
 
+  if (service === "vercel" && environment !== "preview") {
+    io.write(
+      formatDiagnostic({
+        severity: "fail",
+        code: "provider.inspect.unsupported",
+        path: `${service}.${environment}`,
+        message:
+          "Vercel runtime inspect supports preview env-list only. Production inspect, deploy, and env mutation execution are not available in this slice.",
+        fix: "Run agentstack provider inspect --service vercel --env preview.",
+        blocks: ["provider inspect"]
+      })
+    );
+    await recordCommandEvent(io, {
+      name: "agentstack.provider.inspect.completed",
+      environment,
+      journey: "provider-inspect",
+      command: ["provider", "inspect", ...argv].join(" "),
+      status: "fail",
+      state: { service, reason: "unsupported-environment" }
+    });
+    return 1;
+  }
+
   const validation = await runLocalValidationGate(io.cwd);
   validation.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
   if (validation.diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
@@ -902,7 +925,7 @@ async function providerInspectCommand(argv: string[], io: RunIo): Promise<number
       io.write(
         formatDiagnostic({
           severity: "fail",
-          code: "provider.inspect.unsupported",
+          code: "provider.inspect.execution",
           path: `${service}.${environment}`,
           message: error instanceof Error ? error.message : String(error),
           fix: "Run agentstack provider inspect --service vercel --env preview.",
@@ -915,7 +938,7 @@ async function providerInspectCommand(argv: string[], io: RunIo): Promise<number
         journey: "provider-inspect",
         command: ["provider", "inspect", ...argv].join(" "),
         status: "fail",
-        state: { service, reason: "unsupported-environment" }
+        state: { service, reason: "provider-execution-failed" }
       });
       return 1;
     }

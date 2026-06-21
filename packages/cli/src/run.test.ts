@@ -1637,6 +1637,90 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).not.toContain("vercel-token-secret");
   });
 
+  it("does not classify Vercel preview inspect executor failures as unsupported", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.environments = ["preview"];
+    manifest.surfaces = ["web"];
+    manifest.env.custom.PUBLIC_API_URL = {
+      surfaces: ["web"],
+      environments: ["preview"],
+      required: true,
+      secret: true,
+      providerTargets: vercelPreviewTarget
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    await writeLocalEnvValues({
+      preview: { web: { PUBLIC_API_URL: "local-vercel-secret" } }
+    });
+
+    const vercelCode = await runAgentstack(
+      ["provider", "inspect", "--service", "vercel", "--env", "preview"],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: {
+          async execute(command, args) {
+            providerExecutions.push({ command, args });
+            throw new Error("vercel cli unavailable");
+          }
+        }
+      }
+    );
+
+    expect(vercelCode).toBe(1);
+    expect(output.join("\n")).not.toContain("provider.inspect.unsupported");
+    expect(output.join("\n")).not.toContain("unsupported environment");
+    expect(output.join("\n")).not.toContain("unsupported-environment");
+    expect(output.join("\n")).toContain("FAIL provider.inspect.execution");
+    expect(output.join("\n")).toContain("vercel cli unavailable");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec vercel env ls preview"
+    ]);
+  });
+
+  it("does not mutate the provider ledger during Vercel preview inspect", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.environments = ["preview"];
+    manifest.surfaces = ["web"];
+    manifest.env.custom.PUBLIC_API_URL = {
+      surfaces: ["web"],
+      environments: ["preview"],
+      required: true,
+      secret: true,
+      providerTargets: vercelPreviewTarget
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    await writeLocalEnvValues({
+      preview: { web: { PUBLIC_API_URL: "local-vercel-secret" } }
+    });
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: "vercel-preview-web",
+        provider: "vercel",
+        resourceType: "project",
+        environment: "preview",
+        name: "acme-crm-preview",
+        status: "planned",
+        cleanupCommand: "vercel remove acme-crm-preview",
+        evidence: "docs/evidence/vercel-preview.md"
+      })
+    ]);
+    const ledgerPath = join(dir, "docs", "provider-resource-ledger.md");
+    const before = await readFile(ledgerPath);
+
+    const vercelCode = await runAgentstack(
+      ["provider", "inspect", "--service", "vercel", "--env", "preview"],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: createMockProviderExecutor("PUBLIC_API_URL=provider-vercel-secret")
+      }
+    );
+
+    expect(vercelCode).toBe(0);
+    await expect(readFile(ledgerPath)).resolves.toEqual(before);
+  });
+
   it("rejects Vercel production inspect without executing", async () => {
     const vercelCode = await runAgentstack(
       ["provider", "inspect", "--service", "vercel", "--env", "production"],
