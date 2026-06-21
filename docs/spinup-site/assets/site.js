@@ -8,7 +8,7 @@ for (const link of document.querySelectorAll(".nav a")) {
 const scenarios = {
   lifecycleInspector: {
     title: "Lifecycle preflight",
-    command: "pnpm run inspect && pnpm run skills:inspect && pnpm run sync:preview:apply && pnpm run doctor && pnpm run dev",
+    command: "pnpm run inspect && pnpm run skills:inspect && pnpm run preview:apply && pnpm run doctor && pnpm run dev",
     result: "PASS inspect acme-crm / PASS skills inspect / PASS doctor preview / PASS dev preflight preview",
     detail: "Inspect summarizes generated anchors, services, and preview local-cloud state. Skills inspect verifies versioned repo-local guidance without MCP. Doctor runs validation plus selected-environment local-cloud checks. Dev is a preflight only: it prints next validation, env, sync, web, and mobile commands without starting real servers.",
     files: ["packages/core/src/lifecycle.ts", "packages/core/src/guidance.ts", "packages/cli/src/run.ts", "templates/b2b-saas/skills/agentstack/SKILL.md"]
@@ -128,7 +128,7 @@ const concerns = {
   workflow: {
     title: "Workflow orchestration",
     summary: "Generated apps expose scripts that route through scripts/agentstack.mjs. In source-prototype mode the wrapper uses AGENTSTACK_CLI_BIN and AGENTSTACK_TSX_BIN; in an installed package it resolves the agentstack bin without embedding local machine paths.",
-    commands: ["pnpm run inspect", "pnpm run doctor", "pnpm run dev", "pnpm run sync:preview:apply"],
+    commands: ["pnpm run inspect", "pnpm run doctor", "pnpm run dev", "pnpm run preview:apply"],
     files: ["templates/b2b-saas/package.json", "templates/b2b-saas/scripts/agentstack.mjs", "packages/cli/src/context.ts"]
   },
   providers: {

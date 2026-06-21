@@ -28,8 +28,8 @@ Clerk Billing webhook support is beta. Treat the Clerk provider plan as inspecti
 Before applying provider changes, run:
 
 ```sh
-pnpm run sync:preview
-pnpm run sync:preview:apply
+pnpm run preview:plan
+pnpm run preview:apply
 pnpm run validate:cloud
 pnpm run observe:timeline
 ```

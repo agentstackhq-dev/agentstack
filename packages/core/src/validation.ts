@@ -45,6 +45,7 @@ export function getRequiredGeneratedAnchors(manifest: AgentstackManifest): strin
     "docs/agentstack/generated-boundaries.md",
     "docs/agentstack/release.md",
     "docs/agentstack/theming.md",
+    "scripts/agentstack.mjs",
     "packages/domain/src/index.ts",
     "packages/theme/package.json",
     "packages/theme/tokens.json",
@@ -57,10 +58,13 @@ export function getRequiredGeneratedAnchors(manifest: AgentstackManifest): strin
 
   if (manifest.surfaces.includes("web")) {
     anchors.push("apps/web/package.json");
+    anchors.push("apps/web/src/index.ts");
   }
 
   if (manifest.surfaces.includes("mobile")) {
     anchors.push("apps/mobile/package.json");
+    anchors.push("apps/mobile/App.tsx");
+    anchors.push("apps/mobile/src/index.ts");
     anchors.push("apps/mobile/app.config.ts");
     anchors.push("apps/mobile/eas.json");
     anchors.push("docs/agentstack/mobile.md");
@@ -68,6 +72,7 @@ export function getRequiredGeneratedAnchors(manifest: AgentstackManifest): strin
 
   if (manifest.surfaces.includes("convex")) {
     anchors.push("convex/schema.ts");
+    anchors.push("convex/agentstack.ts");
   }
 
   if (manifest.telemetry.enabled) {

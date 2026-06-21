@@ -82,7 +82,7 @@
 - Modify: `packages/create-agent-stack/templates/b2b-saas/**`
 - Modify tests: `packages/create-agent-stack/src/generate.test.ts`
 
-- [ ] Add generated root scripts for `env:inspect`, `sync:preview`, `sync:preview:apply`, and `observe:timeline`.
+- [ ] Add generated root scripts for `env:inspect`, `preview:plan`, `preview:apply`, and `observe:timeline`.
 - [ ] Add `.env.example`, `docs/agentstack/auth.md`, `docs/agentstack/billing.md`, and richer docs for env inspect, sync plan/apply, and telemetry timelines.
 - [ ] Add package anchors for `packages/config`, `packages/ui`, and `packages/agentstack-runtime`.
 - [ ] Add minimal source anchors for web, mobile, and Convex so agents see where real product code belongs.

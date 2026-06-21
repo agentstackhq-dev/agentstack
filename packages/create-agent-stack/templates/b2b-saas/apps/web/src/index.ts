@@ -1,6 +1,9 @@
 import { createAppTelemetry, createRuntimeContext } from "../../../packages/agentstack-runtime/src/index.js";
 import { appConfig } from "../../../packages/config/src/index.js";
-import { onboardingStepCompletedEvent } from "../../../packages/telemetry/src/index.js";
+import {
+  getWorkspaceStatusChecklistProgress,
+  getWorkspaceStatusSeed
+} from "../../../packages/domain/src/index.js";
 
 export const webRuntime = createRuntimeContext({
   appSlug: appConfig.slug,
@@ -13,22 +16,31 @@ export const webTelemetry = createAppTelemetry(webRuntime);
 export const webTelemetryForDemoActor = webTelemetry.identify({
   actorId: "demo-user",
   orgId: "demo-org",
-  journeyId: "journey_onboarding_demo"
+  journeyId: "journey_workspace_status_demo"
 });
 
-export const webOnboardingTelemetryAnchor = webTelemetryForDemoActor.event(onboardingStepCompletedEvent, {
-  step: "workspace-created",
-  workspaceId: "demo-workspace"
+const webWorkspaceStatus = getWorkspaceStatusSeed();
+const webWorkspaceStatusProgress = getWorkspaceStatusChecklistProgress(webWorkspaceStatus);
+
+export const webWorkspaceStatusSpanAnchor = webTelemetryForDemoActor.span("web.workspace_status.render", {
+  screen: "workspace-status",
+  completed: webWorkspaceStatusProgress.completed,
+  total: webWorkspaceStatusProgress.total
 });
 
-export const webOnboardingSpanAnchor = webTelemetryForDemoActor.span("web.onboarding.render", {
-  screen: "onboarding"
-});
-
-export const webOnboardingJourneyAnchor = webTelemetryForDemoActor.journey(
-  "onboarding",
-  "workspace-created",
-  { workspaceId: "demo-workspace", email: "founder@example.com" }
+export const webWorkspaceStatusJourneyAnchor = webTelemetryForDemoActor.journey(
+  "workspace-status",
+  "rendered",
+  {
+    workspaceId: webWorkspaceStatus.workspaceId,
+    phase: webWorkspaceStatus.phase,
+    requiredRemaining: webWorkspaceStatusProgress.requiredRemaining
+  }
 );
 
-export const webAnchor = "Add web product routes and components here.";
+export const webWorkspaceStatusAnchor = {
+  status: webWorkspaceStatus,
+  progress: webWorkspaceStatusProgress
+};
+
+export const webAnchor = "Vite React workspace status route renders the generated runnable vertical.";

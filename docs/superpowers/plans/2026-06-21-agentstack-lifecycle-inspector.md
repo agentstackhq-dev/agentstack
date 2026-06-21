@@ -55,7 +55,7 @@
 
 - Runs the same preflight as `doctor`, but never mutates cloud state or starts real servers in this prototype.
 - Prints `PASS dev preflight <env>` when local validation passes.
-- Prints concrete commands an agent should run next, such as `pnpm run validate`, `pnpm run env:inspect`, `pnpm run sync:preview:apply`, `pnpm --filter @app/web dev`, and `pnpm --filter @app/mobile dev`.
+- Prints concrete commands an agent should run next, such as `pnpm run validate`, `pnpm run env:inspect`, `pnpm run preview:apply`, `pnpm --filter @app/web dev`, and `pnpm --filter @app/mobile dev`.
 - Prints `WARN dev cloud <env>` when local validation passes but local-cloud links are missing, with the sync command.
 - Emits `agentstack.dev.preflight.completed` on the `agent-command` journey.
 
@@ -434,7 +434,7 @@ Update generated docs to tell agents:
 - start with `pnpm run inspect`;
 - use `pnpm run doctor` before provider, env, build, or deploy work;
 - use `pnpm run dev` as a local preflight command that prints next commands but does not start real servers in the prototype;
-- keep using `validate`, `env:inspect`, `sync:preview`, and `observe` for deeper checks.
+- keep using `validate`, `env:inspect`, `preview:plan`, and `observe` for deeper checks.
 
 Update README and spin-up pages with the lifecycle command story and a small scenario in `site.js`.
 

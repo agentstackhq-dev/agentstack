@@ -1,3 +1,4 @@
+import type { WorkspaceStatus, WorkspaceStatusChecklistItem } from "@app/domain";
 import { tokenRoles, type TokenRole } from "@app/theme";
 
 export type UiPrimitiveName =
@@ -14,7 +15,9 @@ export type UiPrimitiveName =
   | "errorState"
   | "commandSearch"
   | "mobileList"
-  | "navigationShell";
+  | "navigationShell"
+  | "workspaceStatus"
+  | "statusChecklist";
 
 export type UiPrimitiveState = "idle" | "loading" | "empty" | "error" | "disabled" | "selected";
 
@@ -59,7 +62,9 @@ export const uiPrimitives = {
   },
   commandSearch: primitive("commandSearch", ["idle", "loading", "empty", "selected"]),
   mobileList: primitive("mobileList", ["idle", "loading", "empty", "error", "selected"]),
-  navigationShell: primitive("navigationShell", ["idle", "loading", "selected"])
+  navigationShell: primitive("navigationShell", ["idle", "loading", "selected"]),
+  workspaceStatus: primitive("workspaceStatus", ["idle", "loading", "error"]),
+  statusChecklist: primitive("statusChecklist", ["idle", "empty", "selected"])
 } satisfies Record<UiPrimitiveName, UiPrimitiveDefinition>;
 
 export function primitive(
@@ -74,5 +79,34 @@ export function primitive(
       keyboard: true,
       labelledByRequired: true
     }
+  };
+}
+
+export type WorkspaceStatusPrimitive = UiPrimitiveDefinition & {
+  status: WorkspaceStatus;
+  progressLabel: string;
+};
+
+export type StatusChecklistPrimitive = UiPrimitiveDefinition & {
+  items: WorkspaceStatusChecklistItem[];
+};
+
+export function createWorkspaceStatusPrimitive(
+  status: WorkspaceStatus,
+  progressLabel: string
+): WorkspaceStatusPrimitive {
+  return {
+    ...uiPrimitives.workspaceStatus,
+    status,
+    progressLabel
+  };
+}
+
+export function createStatusChecklistPrimitive(
+  items: WorkspaceStatusChecklistItem[]
+): StatusChecklistPrimitive {
+  return {
+    ...uiPrimitives.statusChecklist,
+    items
   };
 }

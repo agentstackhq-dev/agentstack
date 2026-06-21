@@ -1,13 +1,17 @@
 # Agent Rules
 
+- This generated app is green-field. There are no pre-existing users or compatibility contracts.
+- Do not add legacy support, backward-compatibility fallbacks, deprecated aliases, migration shims, or old/new dual paths unless the user explicitly approves that work.
+- When an Agentstack pattern changes, replace the old path coherently across app code, docs, tests, and generated guidance instead of preserving it just in case.
 - Start by running `pnpm run inspect` to read the generated app shape, anchors, services, and preview local-cloud state before editing.
 - Run `pnpm run skills:inspect` when agent guidance changes or before delegating work across agents.
 - Use `skills/agentstack/SKILL.md` as the entrypoint for Agentstack workflow, guardrail, and observability guidance.
 - Run `pnpm run doctor` before provider, environment, build, sync, or deploy work; it prints repair commands when local validation or preview local-cloud checks fail.
-- Use `pnpm run dev` as a local preflight only. In this prototype it prints the next web, mobile, validation, env, and sync commands but does not start real servers or mutate provider state.
+- Use `pnpm run dev` as a local preflight for the generated workspace-status vertical. It must not mutate provider state.
 - Run `pnpm run validate` before completion.
 - Validate theme changes with `pnpm run theme:validate`; normal `pnpm run validate` also checks token shape.
 - Style UI through `@app/theme` token roles and `@app/ui` primitives before adding surface-specific components.
+- Treat `workspace status` as the reference runnable slice: shared domain model, Convex boundary, web/mobile rendering, unstyled UI primitives, and local docs.
 - Use framework package scripts and generated docs instead of provider dashboards.
 - Treat preview commands as local-cloud preview state only; real provider adapters are future work.
 - Use telemetry primitives for product events and operational traces.
@@ -15,7 +19,9 @@
 - Start billing plan work with `agentstack add billing-plan <name>` before adding surface-specific gating code.
 - Create app telemetry envelopes with `createAppTelemetry(runtime).event(definition, state)`; this does not export to a provider.
 - Use `packages/domain/src/saas-spine.ts` for roles, permissions, billing plans, entitlements, webhook types, and audit event types.
-- Keep Convex SaaS table and webhook anchors in `convex/saasSpine.ts` and `convex/schema.ts` metadata-only until real provider adapters are added.
+- `convex/saasSpine.ts` carries the current SaaS spine metadata for Clerk, org, billing, and audit concepts.
+- `convex/schema.ts` materializes the current generated runtime schema, including the workspace-status table.
+- Add new SaaS tables as a current coherent product slice across schema, functions, domain, docs, and tests, not as legacy support.
 - Do not edit generated vendor glue directly.
 - Add custom env values through `agentstack.config.json`.
 - For source-prototype smoke runs, set `AGENTSTACK_CLI_BIN` and `AGENTSTACK_TSX_BIN` before running generated package scripts.

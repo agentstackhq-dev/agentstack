@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@app/domain": "workspace:*",
     "@app/theme": "workspace:*"
   },
   "exports": {

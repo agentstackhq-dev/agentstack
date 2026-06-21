@@ -88,7 +88,7 @@ type EnvAwareLocalCloudAdapter = LocalCloudAdapter & {
 };
 
 const environmentValues = ["development", "preview", "production"] as const;
-const environmentOptionValues = ["development", "preview", "production", "prod"] as const;
+const environmentOptionValues = ["development", "preview", "production"] as const;
 const surfaceValues = ["web", "mobile", "convex"] as const;
 const telemetrySurfaceValues = [
   "web",
@@ -211,7 +211,7 @@ async function validateCommand(argv: string[], io: RunIo): Promise<number> {
   if (options.release !== undefined) {
     const environment = readReleaseEnvironmentOption(options.release, {
       flag: "release",
-      fix: "Run agentstack validate --release prod."
+        fix: "Run agentstack validate --release production."
     });
     const result = await runReleaseValidationGate(io, argv, environment);
     result.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
@@ -678,7 +678,7 @@ async function prodPrepareCommand(argv: string[], io: RunIo): Promise<number> {
   result.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
   writeNextCommands(io, [
     "agentstack prod provision --apply",
-    "agentstack validate --release prod",
+    "agentstack validate --release production",
     "agentstack deploy --env production"
   ]);
 
@@ -950,7 +950,7 @@ function writeNextCommands(io: RunIo, commands: string[]): void {
 function writeDevNextCommands(io: RunIo, environment: EnvironmentName, commands: string[]): void {
   const syncCommand =
     environment === "preview"
-      ? "pnpm run sync:preview:apply"
+      ? "pnpm run preview:apply"
       : `node scripts/agentstack.mjs sync --env ${environment} --apply`;
   const devCommands = new Set([
     "pnpm run validate",
@@ -2048,9 +2048,8 @@ function readEnvironmentOption(
     );
   }
 
-  const environment = normalizeEnvironmentName(value);
-  if (environment) {
-    return environment;
+  if (isEnvironment(value)) {
+    return value;
   }
 
   throw new Error(
@@ -2060,18 +2059,6 @@ function readEnvironmentOption(
       `Fix: ${options.fix}`
     ].join("\n")
   );
-}
-
-function normalizeEnvironmentName(value: string): EnvironmentName | undefined {
-  if (value === "prod") {
-    return "production";
-  }
-
-  if (isEnvironment(value)) {
-    return value;
-  }
-
-  return undefined;
 }
 
 function readLifecycleEnvironmentOption(
@@ -2094,7 +2081,7 @@ function readReleaseEnvironmentOption(
       [
         "FAIL cli.option.missing",
         `--${options.flag} requires a value.`,
-        "Expected one of: preview, prod, production.",
+        "Expected one of: preview, production.",
         `Fix: ${options.fix}`
       ].join("\n")
     );
@@ -2108,7 +2095,7 @@ function readReleaseEnvironmentOption(
   throw new Error(
     [
       "FAIL cli.option.invalid",
-      `Invalid --${options.flag} value: ${value}. Expected one of: preview, prod, production.`,
+      `Invalid --${options.flag} value: ${value}. Expected one of: preview, production.`,
       `Fix: ${options.fix}`
     ].join("\n")
   );

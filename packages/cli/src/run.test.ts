@@ -588,7 +588,7 @@ describe("runAgentstack", () => {
   });
 
   it("fails production release validation before production cloud is synced", async () => {
-    const code = await runAgentstack(["validate", "--release", "prod"], {
+    const code = await runAgentstack(["validate", "--release", "production"], {
       cwd: dir,
       write: (line) => output.push(line)
     });
@@ -616,7 +616,7 @@ describe("runAgentstack", () => {
       }
     });
 
-    const code = await runAgentstack(["validate", "--release", "prod"], {
+    const code = await runAgentstack(["validate", "--release", "production"], {
       cwd: dir,
       write: (line) => output.push(line)
     });
@@ -724,7 +724,7 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).not.toContain("FAIL cloud.service.missing");
     expect(output.join("\n")).toContain("Next commands:");
     expect(output.join("\n")).toContain("agentstack prod provision --apply");
-    expect(output.join("\n")).toContain("agentstack validate --release prod");
+    expect(output.join("\n")).toContain("agentstack validate --release production");
   });
 
   it("fails production prepare when release policy is not locally ready", async () => {
@@ -945,7 +945,7 @@ describe("runAgentstack", () => {
   it("plans production deploy after release validation passes", async () => {
     await runAgentstack(["prod", "provision", "--apply"], { cwd: dir, write: () => undefined });
 
-    const code = await runAgentstack(["deploy", "--env", "prod"], {
+    const code = await runAgentstack(["deploy", "--env", "production"], {
       cwd: dir,
       write: (line) => output.push(line)
     });
@@ -959,15 +959,16 @@ describe("runAgentstack", () => {
     });
   });
 
-  it("accepts prod as a production environment alias for sync", async () => {
+  it("rejects prod as a production environment alias for sync", async () => {
     const code = await runAgentstack(["sync", "--env", "prod"], {
       cwd: dir,
       write: (line) => output.push(line)
     });
 
-    expect(code).toBe(0);
-    expect(output).toContain("PLAN production");
-    expect(output).toContain("- link production.clerk");
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL cli.option.invalid");
+    expect(output.join("\n")).toContain("Expected one of: development, preview, production.");
+    expect(output.join("\n")).not.toContain("PLAN production");
   });
 
   it("requires explicit confirmation before applying production deploys", async () => {
@@ -2427,7 +2428,7 @@ describe("runAgentstack", () => {
     expect(code).toBe(1);
     expect(output.join("\n")).toContain("FAIL cli.option.missing");
     expect(output.join("\n")).toContain("--env requires a value.");
-    expect(output.join("\n")).toContain("Expected one of: development, preview, production, prod.");
+    expect(output.join("\n")).toContain("Expected one of: development, preview, production.");
     expect(output.join("\n")).toContain("Fix: Run agentstack sync --env preview --apply.");
   });
 });
@@ -2458,9 +2459,13 @@ async function writeGeneratedAnchors(): Promise<void> {
     "docs/agentstack/generated-boundaries.md",
     "docs/agentstack/release.md",
     "docs/agentstack/theming.md",
+    "scripts/agentstack.mjs",
     "docs/agentstack/saas-spine.md",
     "apps/web/package.json",
+    "apps/web/src/index.ts",
     "apps/mobile/package.json",
+    "apps/mobile/App.tsx",
+    "apps/mobile/src/index.ts",
     "apps/mobile/app.config.ts",
     "apps/mobile/eas.json",
     "docs/agentstack/mobile.md",
@@ -2470,6 +2475,7 @@ async function writeGeneratedAnchors(): Promise<void> {
     "skills/agentstack/references/guardrails.md",
     "skills/agentstack/references/observability.md",
     "convex/schema.ts",
+    "convex/agentstack.ts",
     "convex/saasSpine.ts",
     "packages/domain/src/index.ts",
     "packages/domain/src/saas-spine.ts",

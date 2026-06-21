@@ -13,17 +13,16 @@ Use `packages/domain/src/saas-spine.ts` for literal shared contracts:
 
 ## Convex Metadata
 
-Use `convex/saasSpine.ts` and `convex/schema.ts` as metadata-only anchors. They identify the expected SaaS tables without importing Convex schema APIs:
+Use `convex/saasSpine.ts` for current SaaS spine metadata. It identifies the framework-owned domains without importing Convex schema APIs:
 
-- `users`
-- `identities`
-- `orgs`
-- `memberships`
-- `roles`
-- `billingSubscriptions`
-- `entitlements`
-- `webhookEvents`
-- `auditEvents`
+- identity
+- authorization
+- billing
+- entitlements
+- webhook ingestion
+- audit events
+
+`convex/schema.ts` currently materializes the runnable `workspaceStatuses` table for the generated workspace-status vertical.
 
 Convex functions should enforce membership and entitlement checks server-side. Web and mobile checks are product affordances only.
 

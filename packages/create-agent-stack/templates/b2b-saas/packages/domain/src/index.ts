@@ -6,3 +6,4 @@ export type Entitlement = {
 };
 
 export * from "./saas-spine.js";
+export * from "./workspace-status.js";

@@ -6,7 +6,10 @@ export const agentstackPermissions = [
   "members.manage",
   "billing.manage",
   "feature.use",
-  "audit.read"
+  "audit.read",
+  "workspace.read",
+  "workspace.update",
+  "workspace.checklist.manage"
 ] as const;
 export type AgentstackPermission = (typeof agentstackPermissions)[number];
 
@@ -32,14 +35,26 @@ export const agentstackAuditEventTypes = [
   "auth.user.linked",
   "org.member.added",
   "billing.subscription.synced",
-  "entitlement.granted"
+  "entitlement.granted",
+  "workspace.status.viewed",
+  "workspace.status.seeded",
+  "workspace.checklist.updated"
 ] as const;
 export type AgentstackAuditEventType = (typeof agentstackAuditEventTypes)[number];
 
 const rolePermissions: Record<AgentstackRole, readonly AgentstackPermission[]> = {
-  owner: ["org.manage", "members.manage", "billing.manage", "feature.use", "audit.read"],
-  admin: ["members.manage", "feature.use", "audit.read"],
-  member: ["feature.use"]
+  owner: [
+    "org.manage",
+    "members.manage",
+    "billing.manage",
+    "feature.use",
+    "audit.read",
+    "workspace.read",
+    "workspace.update",
+    "workspace.checklist.manage"
+  ],
+  admin: ["members.manage", "feature.use", "audit.read", "workspace.read", "workspace.update"],
+  member: ["feature.use", "workspace.read"]
 };
 
 const planEntitlements: Record<AgentstackBillingPlan, readonly AgentstackEntitlement[]> = {
@@ -56,4 +71,8 @@ export function planHasEntitlement(
   entitlement: AgentstackEntitlement
 ): boolean {
   return planEntitlements[plan].includes(entitlement);
+}
+
+export function planAllowsTeamChecklist(plan: AgentstackBillingPlan): boolean {
+  return plan === "pro";
 }

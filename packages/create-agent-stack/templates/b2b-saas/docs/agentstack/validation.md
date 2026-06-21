@@ -8,7 +8,7 @@ Run `pnpm run validate` for local checks before completion.
 
 Run `pnpm run doctor` before provider, environment, build, sync, or deploy work. It runs local validation plus preview local-cloud checks and prints repair commands before you open a provider workflow.
 
-Run `pnpm run dev` as a local preflight when you need the next commands for product work. In this prototype it does not start real web, mobile, Convex, Expo, or provider servers; it prints validation, env, sync, web, and mobile commands to run next.
+Run `pnpm run dev` as a local preflight when you need the next commands for product work. It should point you toward the generated workspace-status web, mobile, and Convex surfaces plus validation, env, and sync commands. It must not mutate provider state.
 
 Run `pnpm run theme:validate` when editing `packages/theme/tokens.json` or `packages/theme/src/index.ts`. The normal local validation gate also includes theme diagnostics and blocks completion when required token paths are missing or invalid.
 

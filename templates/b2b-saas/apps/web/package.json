@@ -2,8 +2,21 @@
   "name": "@app/web",
   "private": true,
   "type": "module",
+  "dependencies": {
+    "@app/domain": "workspace:*",
+    "@app/theme": "workspace:*",
+    "@app/ui": "workspace:*",
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^6.0.7",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  },
   "scripts": {
-    "dev": "echo web dev",
-    "build": "echo web build"
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0"
   }
 }

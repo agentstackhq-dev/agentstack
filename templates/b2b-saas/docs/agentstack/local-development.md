@@ -1,12 +1,12 @@
 # Local Development
 
-The generated app starts as framework-shaped anchors, not a full React, Expo, or Convex install. Add product dependencies only when a surface needs real runtime code.
+The generated app includes one small runnable local vertical: `workspace status` across shared domain, Convex, web, mobile, and unstyled `@app/ui` primitives. It is not a full React, Expo, or Convex product yet. Add broader product dependencies only when a surface needs more runtime code.
 
 Useful root scripts:
 
 - `pnpm run inspect` summarizes the generated app, anchors, services, and preview local-cloud state before you edit.
 - `pnpm run doctor` runs local validation plus preview local-cloud checks and prints exact repair commands when something blocks provider, env, build, or deploy work.
-- `pnpm run dev` runs the local dev preflight. When local validation passes, it prints the next validation, env, sync, web, and mobile commands; it does not start real web, mobile, Convex, Expo, or provider servers in this prototype.
+- `pnpm run dev` runs the local dev preflight. When local validation passes, it points to the local workspace-status web, mobile, and Convex surfaces plus validation, env, and sync commands; it does not mutate providers.
 - `pnpm run validate` checks the manifest, docs, package anchors, and local environment declarations.
 - `pnpm run env:inspect` prints expected preview services and environment bindings.
 - `pnpm run preview:plan` plans local-cloud preview service changes without writing state.
@@ -14,14 +14,13 @@ Useful root scripts:
 - `pnpm run preview:validate` checks local-cloud preview readiness.
 - `pnpm run preview:deploy` plans the local preview deploy rehearsal.
 - `pnpm run preview:deploy:apply` writes the local preview deployment artifact.
-- `pnpm run sync:preview` remains as a compatibility alias for planning local-cloud preview service changes.
-- `pnpm run sync:preview:apply` remains as a compatibility alias for applying local-cloud preview service changes.
 - `pnpm run observe:timeline` prints a redacted preview journey timeline.
 
 Useful feature workflow:
 
 - `agentstack add feature <name> --surfaces web,mobile --backend convex` creates coordinated domain, Convex, web, mobile, telemetry, and feature-doc anchors.
 - `agentstack add billing-plan pro --entitlements feature.auditLog,feature.advancedReports --seats 10` creates coordinated billing-plan anchors before surface-specific gating code is added.
+- Use the generated `workspace status` files as the reference shape for small cross-surface behavior: shared domain first, Convex boundary second, then web/mobile rendering through `@app/ui` primitive metadata.
 - Generated feature files are product code. Fill them in, then run `pnpm run validate`.
 - Before opening provider, environment, build, sync, or deploy work, run `pnpm run doctor` and follow any repair commands it prints.
 - Use `pnpm run dev` when you need the next local product commands; treat it as a preflight checklist, not a server supervisor.

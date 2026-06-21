@@ -30,8 +30,8 @@ pnpm run inspect
 pnpm run skills:inspect
 pnpm run validate
 pnpm run env:inspect
-pnpm run sync:preview
-pnpm run sync:preview:apply
+pnpm run preview:plan
+pnpm run preview:apply
 pnpm run validate:cloud
 pnpm run doctor
 pnpm run dev
@@ -112,18 +112,19 @@ agentstack.event.added
 ## Prototype Commands
 
 - `create-agent-stack <app-name>` copies the B2B SaaS template into a new project directory.
+- Generated apps now carry a runnable local `workspace status` vertical across shared domain, Convex, web, mobile, and unstyled `@app/ui` primitives. This is intentionally small product behavior, not only metadata anchors.
 - Generated apps include a typed SaaS spine in `packages/domain/src/saas-spine.ts`, `convex/saasSpine.ts`, and `docs/agentstack/saas-spine.md` for roles, memberships, billing plans, entitlements, Clerk webhooks, and audit events.
 - `agentstack add billing-plan <name> --entitlements <keys> --seats <count>` creates coordinated billing-plan anchors across domain, Convex, web, mobile, telemetry, and docs.
 - `agentstack add event <name> --journey <journey> --surfaces web,mobile,convex --state key:type` creates typed app telemetry event definitions and local event docs.
 - `pnpm run inspect` summarizes app identity, framework and guidance versions, generated anchor counts, enabled services, preview local-cloud state, provider adapter contract status, and pending provider operation IDs.
 - `pnpm run skills:inspect` checks the versioned repo-local skill pack, prints required guidance anchors, and confirms there is no MCP dependency.
 - `pnpm run doctor` runs local validation plus preview local-cloud checks and prints repair commands before provider, env, build, sync, or deploy work.
-- `pnpm run dev` is a local preflight only. It prints next commands such as validation, env inspection, sync, web dev, and mobile dev; this prototype does not start real web, mobile, Convex, Expo, or provider servers.
+- `pnpm run dev` is a local preflight for the generated app. It keeps provider mutation out of scope and points agents at validation plus the local web, mobile, and Convex workspace-status surfaces.
 - `pnpm run validate` checks the local Agentstack manifest, generated anchors, env value shape, telemetry policy, and source-secret policy through an installed `agentstack` CLI, or through `AGENTSTACK_CLI_BIN` for local source prototypes.
 - `.agentstack/env-values.json` can satisfy required custom env declarations for `validate` and `validate:cloud` using the environment -> surface -> variable JSON shape. It is local validation state, not provider state.
 - `pnpm run env:inspect` prints expected preview services and declared environment bindings.
-- `pnpm run sync:preview` plans preview local-cloud changes without writing state.
-- `pnpm run sync:preview:apply` applies preview local-cloud state, including local provider env resource rehearsal, through the same CLI delegation path.
+- `pnpm run preview:plan` plans preview local-cloud changes without writing state.
+- `pnpm run preview:apply` applies preview local-cloud state, including local provider env resource rehearsal, through the same CLI delegation path.
 - `pnpm run validate:cloud` compares the project manifest with local-cloud state for the preview environment, including linked services and provider env resource presence or drift.
 - `pnpm run preview:deploy` plans the local preview deploy rehearsal without writing `.agentstack/deployments/preview.json`.
 - `pnpm run preview:deploy:apply` applies the local preview deploy rehearsal, writes `.agentstack/deployments/preview.json`, and records `agentstack.deploy.completed` telemetry.

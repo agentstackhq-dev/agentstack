@@ -28,10 +28,13 @@ const generatedAnchorFiles = [
   "docs/agentstack/preview.md",
   "docs/agentstack/saas-spine.md",
   "docs/agentstack/skills.md",
+  "docs/agentstack/workspace-status.md",
   "skills/agentstack/SKILL.md",
   "skills/agentstack/references/workflows.md",
   "skills/agentstack/references/guardrails.md",
   "skills/agentstack/references/observability.md",
+  "packages/domain/package.json",
+  "packages/domain/src/workspace-status.ts",
   "packages/config/package.json",
   "packages/config/src/index.ts",
   "packages/telemetry/package.json",
@@ -46,11 +49,18 @@ const generatedAnchorFiles = [
   "packages/agentstack-runtime/package.json",
   "packages/agentstack-runtime/src/index.ts",
   "apps/mobile/app.config.ts",
+  "apps/mobile/App.tsx",
   "apps/mobile/eas.json",
+  "apps/mobile/src/App.tsx",
+  "apps/web/index.html",
+  "apps/web/src/App.tsx",
+  "apps/web/src/main.tsx",
   "apps/web/src/index.ts",
   "apps/mobile/src/index.ts",
   "convex/agentstack.ts",
   "convex/saasSpine.ts",
+  "convex/schema.ts",
+  "convex/workspaceStatus.ts",
   "packages/domain/src/saas-spine.ts"
 ];
 
@@ -96,23 +106,23 @@ describe("generateProject", () => {
         "prod:prepare": "node scripts/agentstack.mjs prod prepare",
         "prod:provision": "node scripts/agentstack.mjs prod provision",
         "prod:provision:apply": "node scripts/agentstack.mjs prod provision --apply",
-        "prod:validate": "node scripts/agentstack.mjs validate --release prod",
+        "prod:validate": "node scripts/agentstack.mjs validate --release production",
         "prod:deploy": "node scripts/agentstack.mjs deploy --env production",
         "prod:deploy:apply": "node scripts/agentstack.mjs deploy --env production --apply --confirm-production",
         "mobile:build:development": "node scripts/agentstack.mjs build mobile --env development",
         "mobile:build:preview": "node scripts/agentstack.mjs build mobile --env preview",
         "mobile:build:preview:apply": "node scripts/agentstack.mjs build mobile --env preview --apply",
         "mobile:build:production": "node scripts/agentstack.mjs build mobile --env production",
-        "mobile:build:plan": "node scripts/agentstack.mjs build mobile --env preview",
-        "mobile:build:apply": "node scripts/agentstack.mjs build mobile --env preview --apply",
         "theme:validate": "node scripts/agentstack.mjs theme validate",
         "skills:inspect": "node scripts/agentstack.mjs skills inspect",
-        "sync:preview": "node scripts/agentstack.mjs sync --env preview",
-        "sync:preview:apply": "node scripts/agentstack.mjs sync --env preview --apply",
         "observe:timeline": "node scripts/agentstack.mjs observe timeline --journey smoke --env preview",
         "telemetry:export:preview": "node scripts/agentstack.mjs observe export --env preview --format otlp-json",
         "telemetry:export:production": "node scripts/agentstack.mjs observe export --env production --format otlp-json"
       });
+      expect(packageManifest.scripts).not.toHaveProperty("sync:preview");
+      expect(packageManifest.scripts).not.toHaveProperty("sync:preview:apply");
+      expect(packageManifest.scripts).not.toHaveProperty("mobile:build:plan");
+      expect(packageManifest.scripts).not.toHaveProperty("mobile:build:apply");
       expect(packageManifest.devDependencies).toMatchObject({
         clerk: expect.any(String),
         convex: "^1.41.0",
@@ -131,6 +141,9 @@ describe("generateProject", () => {
           "apps/mobile/eas.json",
           "docs/agentstack/mobile.md",
           "packages/domain/src/saas-spine.ts",
+          "apps/web/src/index.ts",
+          "apps/mobile/src/index.ts",
+          "convex/agentstack.ts",
           "convex/saasSpine.ts",
           "docs/agentstack/saas-spine.md"
         ])
@@ -139,7 +152,9 @@ describe("generateProject", () => {
         await readFile(join(targetDir, "apps/mobile/package.json"), "utf8")
       );
       expect(mobilePackageManifest.scripts).toMatchObject({
-        "dev-client": "node ../../scripts/agentstack.mjs build mobile --env development",
+        dev: "expo start --lan",
+        start: "expo start --lan",
+        "dev-client": "expo start --dev-client --lan",
         "build:development": "node ../../scripts/agentstack.mjs build mobile --env development",
         "build:preview": "node ../../scripts/agentstack.mjs build mobile --env preview",
         "build:preview:apply": "node ../../scripts/agentstack.mjs build mobile --env preview --apply",
@@ -179,6 +194,33 @@ describe("generateProject", () => {
       );
       await expect(readFile(join(targetDir, "packages/domain/src/index.ts"), "utf8")).resolves.toContain(
         './saas-spine.js'
+      );
+      await expect(readFile(join(targetDir, "packages/domain/src/index.ts"), "utf8")).resolves.toContain(
+        './workspace-status.js'
+      );
+      await expect(readFile(join(targetDir, "apps/web/src/index.ts"), "utf8")).resolves.toContain(
+        "workspace-status"
+      );
+      await expect(readFile(join(targetDir, "apps/mobile/src/index.ts"), "utf8")).resolves.toContain(
+        "mobileWorkspaceStatusAnchor"
+      );
+      await expect(readFile(join(targetDir, "apps/web/src/App.tsx"), "utf8")).resolves.toContain(
+        "Workspace status"
+      );
+      await expect(readFile(join(targetDir, "apps/mobile/src/App.tsx"), "utf8")).resolves.toContain(
+        "Workspace status"
+      );
+      await expect(readFile(join(targetDir, "apps/mobile/App.tsx"), "utf8")).resolves.toContain(
+        './src/App'
+      );
+      await expect(readFile(join(targetDir, "convex/agentstack.ts"), "utf8")).resolves.toContain(
+        "convexRuntime"
+      );
+      await expect(readFile(join(targetDir, "convex/schema.ts"), "utf8")).resolves.toContain(
+        "workspaceStatuses"
+      );
+      await expect(readFile(join(targetDir, "convex/workspaceStatus.ts"), "utf8")).resolves.toContain(
+        "checklistProgress"
       );
       await expect(readFile(join(targetDir, "convex/saasSpine.ts"), "utf8")).resolves.toContain(
         "agentstackSaasTables"
@@ -260,16 +302,16 @@ describe("generateProject", () => {
         "redact(state"
       );
       await expect(readFile(join(targetDir, "apps/web/src/index.ts"), "utf8")).resolves.toContain(
-        "webOnboardingSpanAnchor"
+        "webWorkspaceStatusSpanAnchor"
       );
       await expect(readFile(join(targetDir, "apps/web/src/index.ts"), "utf8")).resolves.toContain(
-        "webOnboardingJourneyAnchor"
+        "webWorkspaceStatusJourneyAnchor"
       );
       await expect(readFile(join(targetDir, "apps/mobile/src/index.ts"), "utf8")).resolves.toContain(
-        "mobileAuthenticationSpanAnchor"
+        "mobileWorkspaceStatusSpanAnchor"
       );
       await expect(readFile(join(targetDir, "convex/agentstack.ts"), "utf8")).resolves.toContain(
-        "convexBillingJourneyAnchor"
+        "convexWorkspaceStatusJourneyAnchor"
       );
       await expectGeneratedAnchors(targetDir);
       await expectNoTemplateTokens(targetDir);
@@ -350,8 +392,8 @@ describe("generateProject", () => {
       const files = [
         join(targetDir, "packages/domain/src/index.ts"),
         join(targetDir, "packages/domain/src/saas-spine.ts"),
-        join(targetDir, "convex/saasSpine.ts"),
-        join(targetDir, "convex/schema.ts")
+        join(targetDir, "packages/domain/src/workspace-status.ts"),
+        join(targetDir, "convex/saasSpine.ts")
       ];
 
       await expect(

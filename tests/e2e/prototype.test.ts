@@ -29,10 +29,25 @@ describe("Agentstack executable prototype workflow", () => {
 
     expect(manifest.generated.requiredAnchors).toEqual(
       expect.arrayContaining([
+        "apps/web/src/index.ts",
+        "apps/mobile/src/index.ts",
+        "convex/agentstack.ts",
         "packages/domain/src/saas-spine.ts",
         "convex/saasSpine.ts",
         "docs/agentstack/saas-spine.md"
       ])
+    );
+    await expect(readFile(join(appDir, "apps/web/src/index.ts"), "utf8")).resolves.toContain(
+      "webWorkspaceStatusAnchor"
+    );
+    await expect(readFile(join(appDir, "apps/mobile/src/index.ts"), "utf8")).resolves.toContain(
+      "mobileWorkspaceStatusAnchor"
+    );
+    await expect(readFile(join(appDir, "convex/agentstack.ts"), "utf8")).resolves.toContain(
+      "convexWorkspaceStatusSpanAnchor"
+    );
+    await expect(readFile(join(appDir, "convex/schema.ts"), "utf8")).resolves.toContain(
+      "agentstackSaasSchemaTables"
     );
     await expect(readFile(join(appDir, "packages/domain/src/saas-spine.ts"), "utf8")).resolves.toContain(
       "agentstackBillingPlans"
@@ -143,13 +158,13 @@ describe("Agentstack executable prototype workflow", () => {
       '"environment": "preview"'
     );
     expect(await runAgentstack(["prod", "prepare"], { cwd: appDir, write })).toBe(0);
-    expect(await runAgentstack(["validate", "--release", "prod"], { cwd: appDir, write })).toBe(1);
+    expect(await runAgentstack(["validate", "--release", "production"], { cwd: appDir, write })).toBe(1);
     expect(output.join("\n")).toContain("production.convex");
     expect(await runAgentstack(["prod", "provision"], { cwd: appDir, write })).toBe(0);
     expect(await runAgentstack(["prod", "provision", "--apply"], { cwd: appDir, write })).toBe(0);
-    expect(await runAgentstack(["validate", "--release", "prod"], { cwd: appDir, write })).toBe(0);
+    expect(await runAgentstack(["validate", "--release", "production"], { cwd: appDir, write })).toBe(0);
     expect(await runAgentstack(["prod", "prepare"], { cwd: appDir, write })).toBe(0);
-    expect(await runAgentstack(["deploy", "--env", "prod"], { cwd: appDir, write })).toBe(0);
+    expect(await runAgentstack(["deploy", "--env", "production"], { cwd: appDir, write })).toBe(0);
     expect(
       await runAgentstack(["deploy", "--env", "production", "--apply", "--confirm-production"], {
         cwd: appDir,

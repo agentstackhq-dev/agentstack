@@ -284,7 +284,7 @@ Also export `agentstackAuditEventTypes` and `agentstackSaasSpine` metadata that 
 
 Modify `convex/agentstack.ts` to import and expose `agentstackSaasSpine`.
 
-Modify `convex/schema.ts` to export `agentstackSaasSchemaTables` with the same table names. Keep it metadata-only in this slice; do not introduce real Convex schema imports until provider adapters are implemented.
+Modify `convex/schema.ts` to export `agentstackSaasSchemaTables` with the same table names. Superseded: `convex/schema.ts` now materializes the runnable workspace-status slice and current generated runtime schema.
 
 - [ ] **Step 5: Add generated docs and manifest anchors**
 

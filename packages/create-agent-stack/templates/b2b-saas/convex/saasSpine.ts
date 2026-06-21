@@ -7,7 +7,8 @@ export const agentstackSaasTables = [
   "billingSubscriptions",
   "entitlements",
   "webhookEvents",
-  "auditEvents"
+  "auditEvents",
+  "workspaceStatuses"
 ] as const;
 
 export const clerkWebhookTypes = [
@@ -17,17 +18,25 @@ export const clerkWebhookTypes = [
   "clerk.billing.subscription.updated"
 ] as const;
 
+export const workspaceStatusFunctionTypes = [
+  "workspaceStatus.get",
+  "workspaceStatus.seed",
+  "workspaceStatus.checklistProgress"
+] as const;
+
 export const agentstackAuditEventTypes = [
   "auth.user.linked",
   "org.member.added",
   "billing.subscription.synced",
-  "entitlement.granted"
+  "entitlement.granted",
+  "workspace.status.seeded"
 ] as const;
 
 export const agentstackSaasSpine = {
   purpose:
-    "Metadata anchors for Clerk identity, Convex authorization, billing state, entitlements, webhook ingestion, and audit events.",
+    "Metadata anchors for Clerk identity, Convex authorization, billing state, entitlements, workspace status, webhook ingestion, and audit events.",
   tables: agentstackSaasTables,
   clerkWebhookTypes,
+  functionTypes: workspaceStatusFunctionTypes,
   auditEventTypes: agentstackAuditEventTypes
 } as const;

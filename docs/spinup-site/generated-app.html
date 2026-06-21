@@ -27,9 +27,10 @@
           <div>
             <h1>The generated app is a bounded playground.</h1>
             <p>
-              It is not a full SaaS product yet. It is a minimal, typed, agent-readable shell that
-              proves the framework can own project shape, feature anchors, scripts, safety defaults,
-              docs, and validation.
+              It is not a full SaaS product yet. It is a minimal, typed, agent-readable shell with
+              a runnable local workspace-status vertical that proves the framework can own project
+              shape, feature anchors, scripts, safety defaults, docs, validation, and one small
+              product path.
             </p>
           </div>
           <div class="diagram hero-art">
@@ -61,8 +62,9 @@
             <h2>Generated project contents</h2>
             <div class="grid three">
               <div class="card"><h3>App identity</h3><p><code>agentstack.config.json</code> contains app slug/name, environments, surfaces, enabled services, env declarations, and telemetry policy.</p></div>
-              <div class="card"><h3>Surfaces</h3><p>Web, mobile, and Convex anchors exist so validation can detect accidental deletion or malformed project shape.</p></div>
-              <div class="card"><h3>Shared packages</h3><p><code>domain</code>, <code>theme</code>, <code>config</code>, <code>ui</code>, <code>telemetry</code>, and runtime anchors establish where future type-safe shared code belongs.</p></div>
+              <div class="card"><h3>Surfaces</h3><p>Web, mobile, and Convex now include a small local workspace-status path so validation checks more than file presence.</p></div>
+              <div class="card"><h3>Shared packages</h3><p><code>domain</code>, <code>theme</code>, <code>config</code>, <code>ui</code>, <code>telemetry</code>, and runtime packages carry the shared status contract, tokens, unstyled primitives, and telemetry helpers.</p></div>
+              <div class="card"><h3>Workspace status</h3><p>The generated local app path reads a shared workspace-status domain model, exposes Convex status data, renders web and mobile status views, and uses unstyled <code>@app/ui</code> primitive metadata.</p></div>
               <div class="card"><h3>SaaS spine</h3><p><code>packages/domain/src/saas-spine.ts</code>, <code>convex/saasSpine.ts</code>, and <code>docs/agentstack/saas-spine.md</code> define roles, memberships, billing plans, entitlements, Clerk webhooks, and audit events.</p></div>
               <div class="card"><h3>Theme contract</h3><p><code>packages/theme/tokens.json</code> is the source of truth. <code>@app/theme</code> imports it, and <code>@app/ui</code> uses token roles instead of hardcoded colors.</p></div>
               <div class="card"><h3>Feature workflow</h3><p><code>agentstack add feature &lt;name&gt; --surfaces web,mobile --backend convex</code> creates coordinated product anchors before surface code diverges.</p></div>
@@ -70,8 +72,8 @@
               <div class="card"><h3>Agent docs</h3><p><code>AGENTS.md</code>, <code>docs/agentstack/</code>, and <code>skills/agentstack/</code> teach agents the local workflow, feature-first generation, and boundaries.</p></div>
               <div class="card"><h3>Guidance skill pack</h3><p><code>skills/agentstack/SKILL.md</code> gives installable-skill-aware agents deeper workflows while <code>pnpm run skills:inspect</code> verifies version and file presence. There is no MCP dependency.</p></div>
               <div class="card"><h3>Safety defaults</h3><p>Generated <code>.gitignore</code> protects <code>.agentstack/</code>, <code>.env</code>, and <code>.env.*</code>.</p></div>
-              <div class="card"><h3>Lifecycle scripts</h3><p><code>inspect</code>, <code>doctor</code>, and <code>dev</code> help agents read project state, run preflight checks, and list next commands before editing. <code>dev</code> does not start real servers in this prototype.</p></div>
-              <div class="card"><h3>Scripts</h3><p><code>validate</code>, <code>env:inspect</code>, <code>sync:preview</code>, <code>validate:cloud</code>, <code>preview:deploy</code>, <code>prod:prepare</code>, <code>prod:provision</code>, <code>prod:validate</code>, <code>prod:deploy</code>, and <code>observe:timeline</code> delegate to an installed CLI or explicit source-prototype env vars.</p></div>
+              <div class="card"><h3>Lifecycle scripts</h3><p><code>inspect</code>, <code>doctor</code>, and <code>dev</code> help agents read project state, run preflight checks, and enter the local workspace-status flow before provider-facing work.</p></div>
+              <div class="card"><h3>Scripts</h3><p><code>validate</code>, <code>env:inspect</code>, <code>preview:plan</code>, <code>preview:apply</code>, <code>validate:cloud</code>, <code>preview:deploy</code>, <code>prod:prepare</code>, <code>prod:provision</code>, <code>prod:validate</code>, <code>prod:deploy</code>, and <code>observe:timeline</code> delegate to an installed CLI or explicit source-prototype env vars.</p></div>
               <div class="card"><h3>Provider env rehearsal</h3><p><code>agentstack env set</code> writes local validation values only. <code>sync --env preview</code> refuses missing or invalid values before planning or applying provider env resources; applied sync stores hash-only metadata in <code>.agentstack/local-cloud.json</code>.</p></div>
               <div class="card"><h3>Observability inspection</h3><p><code>docs/agentstack/observability.md</code> teaches <code>trace</code>, <code>journey</code>, <code>errors</code>, <code>webhook</code>, <code>component</code>, and <code>compare</code> workflows over redacted local JSONL.</p></div>
               <div class="card"><h3>Telemetry export</h3><p><code>telemetry:export:preview</code> and <code>telemetry:export:production</code> write an <code>OTLP-shaped JSON</code> local export artifact from redacted store query output without configuring network export or a hosted provider.</p></div>
@@ -85,11 +87,27 @@
             <div class="flow-row" aria-label="Generated app topology">
               <div class="flow-step"><strong>Manifest</strong><span>Declares app identity, envs, surfaces, services, telemetry, generated anchors.</span><code>agentstack.config.json</code></div>
               <div class="flow-step"><strong>Scripts</strong><span>Expose stable commands for agents and humans without committing local source paths.</span><code>package.json</code></div>
-              <div class="flow-step"><strong>Surfaces</strong><span>Web, mobile, and Convex package anchors prove where runtime code will land.</span><code>apps/* convex/*</code></div>
-              <div class="flow-step"><strong>Shared packages</strong><span>Domain, config, telemetry, theme, UI, runtime, and SaaS-spine contracts.</span><code>packages/*</code></div>
+              <div class="flow-step"><strong>Surfaces</strong><span>Web, mobile, and Convex carry the local workspace-status path.</span><code>apps/* convex/*</code></div>
+              <div class="flow-step"><strong>Shared packages</strong><span>Domain, config, telemetry, theme, UI primitives, runtime, and SaaS-spine contracts.</span><code>packages/*</code></div>
               <div class="flow-step"><strong>Agent docs</strong><span>Workflow, validation, env, release, observability, generated-boundary, and skill guidance.</span><code>docs/agentstack</code></div>
               <div class="flow-step"><strong>Local state</strong><span>Gitignored env values, local-cloud rehearsal, deploy/build artifacts, and events.</span><code>.agentstack/*</code></div>
             </div>
+          </section>
+
+          <section class="section">
+            <h2>Runnable Workspace Status</h2>
+            <p class="lede">
+              The generated app now includes one intentionally small vertical slice. It is local
+              product behavior across shared domain, Convex, web, mobile, and unstyled UI
+              primitives. It does not make preview deploys, production deploys, EAS builds, or
+              provider mutation real.
+            </p>
+            <pre><code>packages/domain/src/workspace-status.ts     shared status model and fixture
+packages/ui/src/index.ts                   unstyled status primitive metadata
+convex/workspaceStatus.ts                  Convex status query/action anchor
+apps/web/src/index.ts                      web status rendering entry
+apps/mobile/src/index.ts                   mobile status rendering entry
+docs/agentstack/workspace-status.md        agent-readable local vertical contract</code></pre>
           </section>
 
           <section class="section">

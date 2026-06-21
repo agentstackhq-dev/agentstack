@@ -2,9 +2,18 @@
   "name": "@app/mobile",
   "private": true,
   "type": "module",
+  "dependencies": {
+    "@app/domain": "workspace:*",
+    "@app/theme": "workspace:*",
+    "@app/ui": "workspace:*",
+    "expo": "^52.0.23",
+    "react": "^19.0.0",
+    "react-native": "^0.76.5"
+  },
   "scripts": {
-    "dev": "node ../../scripts/agentstack.mjs build mobile --env development",
-    "dev-client": "node ../../scripts/agentstack.mjs build mobile --env development",
+    "dev": "expo start --lan",
+    "start": "expo start --lan",
+    "dev-client": "expo start --dev-client --lan",
     "build:development": "node ../../scripts/agentstack.mjs build mobile --env development",
     "build:preview": "node ../../scripts/agentstack.mjs build mobile --env preview",
     "build:preview:apply": "node ../../scripts/agentstack.mjs build mobile --env preview --apply",

@@ -4,10 +4,6 @@ import type { AgentstackManifest, EnvironmentName, ServiceName } from "./manifes
 export type ReleaseEnvironment = "preview" | "production";
 
 export function normalizeReleaseEnvironment(value: string): ReleaseEnvironment | undefined {
-  if (value === "prod") {
-    return "production";
-  }
-
   if (value === "preview" || value === "production") {
     return value;
   }
@@ -26,7 +22,7 @@ export function validateReleasePolicy(
         code: "release.environment.unsupported",
         path: "development",
         message: "Development is not a supported release environment.",
-        fix: "Run agentstack validate --release prod.",
+        fix: "Run agentstack validate --release production.",
         blocks: ["validate --release", "deploy"]
       }
     ];

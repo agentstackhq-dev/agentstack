@@ -7,13 +7,13 @@ agentstack add feature invoices --surfaces web,mobile --backend convex
 agentstack add billing-plan pro --entitlements feature.auditLog,feature.advancedReports --seats 10
 ```
 
-The commands create coordinated anchors across domain, Convex, web, mobile, telemetry, and `docs/agentstack/`. Start there instead of manually creating disconnected files in each surface.
+The commands create coordinated anchors across domain, Convex, web, mobile, telemetry, and `docs/agentstack/`. Start there instead of manually creating disconnected files in each surface. For runnable behavior, mirror the generated `workspace status` path: shared domain contract, Convex boundary, web/mobile surfaces, and unstyled `@app/ui` primitive metadata.
 
 Use a tight validation loop after generation and while changing product code:
 
 1. Add the feature with `agentstack add feature <name> --surfaces web,mobile --backend convex`.
 2. Add plan anchors with `agentstack add billing-plan pro --entitlements feature.auditLog,feature.advancedReports --seats 10` before writing surface-specific gating code.
-3. Fill in the generated domain, backend, surface, telemetry, feature-doc, and billing-plan anchors.
+3. Fill in the generated domain, backend, surface, telemetry, feature-doc, and billing-plan anchors. Use `workspace status` as the smallest accepted vertical-slice shape.
 4. Run `pnpm run validate`.
 5. Run `pnpm run env:inspect` when provider state or environment bindings are involved.
 6. Use `agentstack env set --env preview --surface <surface> --name <name> --value <value>` for local validation state only when required custom env values are missing.

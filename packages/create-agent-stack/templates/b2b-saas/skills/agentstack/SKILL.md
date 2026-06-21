@@ -7,7 +7,7 @@ description: Use for generated Agentstack app work, including local workflows, g
 
 No MCP dependency. This skill is local repository guidance for agents working in the generated app.
 
-Start with `pnpm run inspect` and `pnpm run skills:inspect` to understand app anchors and available guidance. Use package scripts before provider dashboards, and keep changes inside generated ownership boundaries unless the task says otherwise.
+Start with `pnpm run inspect` and `pnpm run skills:inspect` to understand app anchors, the generated workspace-status vertical, and available guidance. Use package scripts before provider dashboards, and keep changes inside generated ownership boundaries unless the task says otherwise.
 
 Open these references as needed:
 

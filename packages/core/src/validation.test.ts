@@ -66,6 +66,21 @@ describe("local validation", () => {
     );
   });
 
+  it("requires runtime anchors for the workspace status vertical slice", () => {
+    expect(getRequiredGeneratedAnchors(createDefaultManifest("acme-crm"))).toEqual(
+      expect.arrayContaining([
+        "package.json",
+        "scripts/agentstack.mjs",
+        "packages/domain/src/index.ts",
+        "apps/web/src/index.ts",
+        "apps/mobile/App.tsx",
+        "apps/mobile/src/index.ts",
+        "convex/schema.ts",
+        "convex/agentstack.ts"
+      ])
+    );
+  });
+
   it("includes Agentstack guidance generated anchors in required anchors", () => {
     expect(getRequiredGeneratedAnchors(createDefaultManifest("acme-crm"))).toEqual(
       expect.arrayContaining([
@@ -118,6 +133,45 @@ describe("local validation", () => {
       expect.objectContaining({
         code: "template.anchor.missing",
         path: "docs/agentstack/auth.md"
+      })
+    ]);
+  });
+
+  it("fails generated anchor validation for missing runtime anchors", () => {
+    const manifest = createDefaultManifest("acme-crm");
+
+    const result = validateGeneratedAnchors({
+      manifest,
+      missingPaths: [
+        "apps/web/src/index.ts",
+        "apps/mobile/App.tsx",
+        "apps/mobile/src/index.ts",
+        "convex/agentstack.ts",
+        "packages/domain/src/index.ts"
+      ]
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.diagnostics).toEqual([
+      expect.objectContaining({
+        code: "template.anchor.missing",
+        path: "apps/web/src/index.ts"
+      }),
+      expect.objectContaining({
+        code: "template.anchor.missing",
+        path: "apps/mobile/App.tsx"
+      }),
+      expect.objectContaining({
+        code: "template.anchor.missing",
+        path: "apps/mobile/src/index.ts"
+      }),
+      expect.objectContaining({
+        code: "template.anchor.missing",
+        path: "convex/agentstack.ts"
+      }),
+      expect.objectContaining({
+        code: "template.anchor.missing",
+        path: "packages/domain/src/index.ts"
       })
     ]);
   });

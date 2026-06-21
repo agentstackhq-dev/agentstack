@@ -1,6 +1,9 @@
 import { createAppTelemetry, createRuntimeContext } from "../packages/agentstack-runtime/src/index.js";
 import { appConfig } from "../packages/config/src/index.js";
-import { billingSubscriptionUpdatedEvent } from "../packages/telemetry/src/index.js";
+import {
+  getWorkspaceStatusChecklistProgress,
+  getWorkspaceStatusSeed
+} from "../packages/domain/src/index.js";
 import { agentstackSaasSpine } from "./saasSpine.js";
 
 export const convexRuntime = createRuntimeContext({
@@ -14,26 +17,32 @@ export const convexTelemetry = createAppTelemetry(convexRuntime);
 export const convexTelemetryForDemoActor = convexTelemetry.identify({
   actorId: "demo-admin",
   orgId: "demo-org",
-  journeyId: "journey_billing_demo"
+  journeyId: "journey_workspace_status_demo"
 });
 
-export const convexBillingTelemetryAnchor = convexTelemetryForDemoActor.event(billingSubscriptionUpdatedEvent, {
-  plan: "team",
-  seatCount: 5
+const convexWorkspaceStatus = getWorkspaceStatusSeed();
+const convexWorkspaceStatusProgress = getWorkspaceStatusChecklistProgress(convexWorkspaceStatus);
+
+export const convexWorkspaceStatusSpanAnchor = convexTelemetryForDemoActor.span("convex.workspace_status.seed", {
+  workspaceId: convexWorkspaceStatus.workspaceId,
+  completed: convexWorkspaceStatusProgress.completed,
+  total: convexWorkspaceStatusProgress.total
 });
 
-export const convexBillingSpanAnchor = convexTelemetryForDemoActor.span("convex.billing.subscription.update", {
-  plan: "team"
-});
-
-export const convexBillingJourneyAnchor = convexTelemetryForDemoActor.journey(
-  "billing",
-  "subscription-updated",
-  { plan: "team", email: "billing@example.com" }
+export const convexWorkspaceStatusJourneyAnchor = convexTelemetryForDemoActor.journey(
+  "workspace-status",
+  "seeded",
+  {
+    workspaceId: convexWorkspaceStatus.workspaceId,
+    phase: convexWorkspaceStatus.phase,
+    requiredRemaining: convexWorkspaceStatusProgress.requiredRemaining
+  }
 );
 
 export const convexAnchor = {
   surface: "convex",
-  purpose: "Add Convex functions, auth membership checks, and schema modules here.",
+  purpose: "Convex workspace status functions and schema modules live here.",
+  workspaceStatusSeed: convexWorkspaceStatus,
+  workspaceStatusProgress: convexWorkspaceStatusProgress,
   saasSpine: agentstackSaasSpine
 };

@@ -83,8 +83,8 @@ pnpm run inspect
 pnpm run skills:inspect
 pnpm run validate
 pnpm run env:inspect
-pnpm run sync:preview
-pnpm run sync:preview:apply
+pnpm run preview:plan
+pnpm run preview:apply
 pnpm run validate:cloud
 pnpm run doctor
 pnpm run dev
@@ -108,7 +108,7 @@ node scripts/agentstack.mjs observe timeline --env development --journey telemet
               <div class="card">
                 <h3>What each command proves</h3>
                 <ol>
-                  <li><code>create-agent-stack</code> copies template anchors and replaces app tokens.</li>
+                  <li><code>create-agent-stack</code> copies the template, replaces app tokens, and includes the local workspace-status vertical.</li>
                   <li><code>add feature</code> creates coordinated domain, Convex, surface, telemetry, and feature-doc anchors.</li>
                   <li><code>add billing-plan</code> creates coordinated billing-plan anchors across domain, Convex, web, mobile, telemetry, and docs.</li>
                   <li><code>add event</code> creates typed telemetry definitions and generated event docs.</li>
@@ -117,10 +117,10 @@ node scripts/agentstack.mjs observe timeline --env development --journey telemet
                   <li><code>skills:inspect</code> confirms the versioned repo-local skill pack and no-MCP guidance contract are present.</li>
                   <li><code>validate</code> checks manifest, env, telemetry policy, and generated files.</li>
                   <li><code>env:inspect</code> prints expected preview services and env bindings.</li>
-                  <li><code>sync:preview</code> plans local-cloud repair before apply.</li>
+                  <li><code>preview:plan</code> plans local-cloud repair before <code>preview:apply</code>.</li>
                   <li><code>validate:cloud</code> confirms named cloud state matches the manifest.</li>
                   <li><code>doctor</code> runs local validation plus preview local-cloud checks before provider, env, build, sync, or deploy work.</li>
-                  <li><code>dev</code> is a preflight only; it prints next web, mobile, validation, env, and sync commands without starting real servers.</li>
+                  <li><code>dev</code> is a preflight for local product work; it points agents at workspace-status surfaces plus validation, env, and sync commands without mutating providers.</li>
                   <li><code>preview:deploy</code> prints <code>PLAN deploy preview</code> without writing a deployment artifact.</li>
                   <li><code>preview:deploy:apply</code> prints <code>APPLIED deploy preview</code>, writes <code>.agentstack/deployments/preview.json</code>, and records <code>agentstack.deploy.completed</code>.</li>
                   <li><code>prod:prepare</code> checks production release readiness and reports repair commands.</li>

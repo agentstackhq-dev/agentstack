@@ -74,7 +74,10 @@
       "docs/agentstack/local-development.md",
       "docs/agentstack/mobile.md",
       "docs/agentstack/saas-spine.md",
+      "packages/domain/package.json",
+      "packages/domain/src/index.ts",
       "packages/domain/src/saas-spine.ts",
+      "packages/domain/src/workspace-status.ts",
       "packages/config/package.json",
       "packages/config/src/index.ts",
       "packages/telemetry/package.json",
@@ -89,11 +92,18 @@
       "packages/agentstack-runtime/package.json",
       "packages/agentstack-runtime/src/index.ts",
       "apps/mobile/app.config.ts",
+      "apps/mobile/App.tsx",
       "apps/mobile/eas.json",
+      "apps/mobile/src/App.tsx",
+      "apps/web/index.html",
+      "apps/web/src/App.tsx",
+      "apps/web/src/main.tsx",
       "apps/web/src/index.ts",
       "apps/mobile/src/index.ts",
       "convex/agentstack.ts",
-      "convex/saasSpine.ts"
+      "convex/saasSpine.ts",
+      "convex/schema.ts",
+      "convex/workspaceStatus.ts"
     ]
   }
 }

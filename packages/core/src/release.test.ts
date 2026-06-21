@@ -3,8 +3,8 @@ import { createDefaultManifest } from "./manifest.js";
 import { normalizeReleaseEnvironment, validateReleasePolicy } from "./release.js";
 
 describe("release policy", () => {
-  it("normalizes production release aliases", () => {
-    expect(normalizeReleaseEnvironment("prod")).toBe("production");
+  it("normalizes canonical release environments only", () => {
+    expect(normalizeReleaseEnvironment("prod")).toBeUndefined();
     expect(normalizeReleaseEnvironment("production")).toBe("production");
     expect(normalizeReleaseEnvironment("preview")).toBe("preview");
     expect(normalizeReleaseEnvironment("development")).toBeUndefined();
@@ -20,7 +20,7 @@ describe("release policy", () => {
         severity: "fail",
         code: "release.environment.unsupported",
         path: "development",
-        fix: "Run agentstack validate --release prod."
+        fix: "Run agentstack validate --release production."
       })
     ]);
   });
