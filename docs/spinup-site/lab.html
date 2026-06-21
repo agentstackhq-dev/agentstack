@@ -103,8 +103,9 @@
                   system back toward a coherent state.
                 </p>
                 <div class="callout">
-                  The local provider is intentionally explicit: every failure and preview deploy
-                  artifact stays inside the current bounded provider rehearsal surface.
+                  Provider behavior is intentionally explicit: local rehearsals stay inside
+                  <code>.agentstack/*</code>, provider plans print command shapes only, reads are
+                  diagnostic, and supported mutations are ledger-gated before execution.
                 </div>
               </div>
 

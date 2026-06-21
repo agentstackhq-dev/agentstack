@@ -9,9 +9,9 @@ pnpm run mobile:build:preview
 pnpm run mobile:build:preview:apply
 ```
 
-Expected output includes `PLAN deploy preview` for the plan step and `APPLIED deploy preview` for the apply step. Apply writes `.agentstack/deployments/preview.json` and records `agentstack.deploy.completed` telemetry.
+Expected output includes `PLAN deploy preview` for the plan step and `APPLIED deploy preview` for the apply step. These are `Evidence: local-rehearsal` commands. Apply writes `.agentstack/deployments/preview.json` and records `agentstack.deploy.completed` telemetry.
 
-Mobile build rehearsal output includes `PLAN mobile build preview` and `APPLIED mobile build preview`. Apply writes `.agentstack/builds/mobile-preview.json` and records `agentstack.mobile.build.completed` telemetry on the `mobile-build` journey.
+Mobile build rehearsal output includes `PLAN mobile build preview` and `APPLIED mobile build preview`. These are `Evidence: local-rehearsal` commands. Apply writes `.agentstack/builds/mobile-preview.json` and records `agentstack.mobile.build.completed` telemetry on the `mobile-build` journey.
 
 This rehearsal does not deploy to Vercel or submit EAS builds. Provider execution is explicit only through `agentstack provider inspect/apply`; Clerk inspect and EAS preview inspect are read-only, Convex apply is supported, and Vercel preview apply runs only the preview deploy command. Vercel production apply, Vercel env mutation execution, EAS build/init/env mutation execution, and EAS apply are unavailable in this slice. Live Stripe integration, hosted/network telemetry export, provider dashboards, and retention are outside the current generated framework boundary.
 

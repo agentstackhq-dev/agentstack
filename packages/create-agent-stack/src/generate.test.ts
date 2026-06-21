@@ -29,6 +29,7 @@ const generatedAnchorFiles = [
   "docs/agentstack/saas-spine.md",
   "docs/agentstack/skills.md",
   "docs/agentstack/workspace-status.md",
+  "docs/provider-resource-ledger.md",
   "skills/agentstack/SKILL.md",
   "skills/agentstack/references/workflows.md",
   "skills/agentstack/references/guardrails.md",
@@ -193,6 +194,12 @@ describe("generateProject", () => {
       );
       await expect(readFile(join(targetDir, "docs/agentstack/preview.md"), "utf8")).resolves.toContain(
         "local preview deploy rehearsal"
+      );
+      await expect(readFile(join(targetDir, "docs/provider-resource-ledger.md"), "utf8")).resolves.toContain(
+        "## Ledger"
+      );
+      await expect(readFile(join(targetDir, "docs/provider-resource-ledger.md"), "utf8")).resolves.toContain(
+        "| id | provider | resource type | environment | owner account/project | name | external id/url | purpose | created by | created at | expected cleanup trigger/date | current status | cleanup command/procedure | cleaned at | evidence link/path | notes |"
       );
       await expect(readFile(join(targetDir, "packages/domain/src/saas-spine.ts"), "utf8")).resolves.toContain(
         "agentstackBillingPlans"

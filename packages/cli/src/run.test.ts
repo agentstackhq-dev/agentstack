@@ -671,6 +671,7 @@ describe("runAgentstack", () => {
 
     expect(planCode).toBe(0);
     expect(output).toContain("PLAN prod provision production");
+    expect(output).toContain("Evidence: local-rehearsal");
     expect(output).toContain("- link production.clerk");
     await expect(stat(join(dir, ".agentstack", "local-cloud.json"))).rejects.toMatchObject({
       code: "ENOENT"
@@ -684,6 +685,7 @@ describe("runAgentstack", () => {
 
     expect(applyCode).toBe(0);
     expect(output).toContain("APPLIED prod provision production");
+    expect(output).toContain("Evidence: local-rehearsal");
     expect(output).toContain("- link production.clerk");
     await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).resolves.toContain(
       '"environment": "production"'
@@ -1062,6 +1064,7 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(0);
     expect(output).toContain("PLAN deploy preview");
+    expect(output).toContain("Evidence: local-rehearsal");
     expect(output).toContain("- planned release preview.vercel");
     await expect(stat(join(dir, ".agentstack", "deployments", "preview.json"))).rejects.toMatchObject({
       code: "ENOENT"
@@ -1094,6 +1097,7 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(0);
     expect(output).toContain("APPLIED deploy preview");
+    expect(output).toContain("Evidence: local-rehearsal");
     expect(output).toContain("- applied release preview.vercel");
     await expect(readFile(join(dir, ".agentstack", "deployments", "preview.json"), "utf8")).resolves.toContain(
       '"environment": "preview"'
@@ -1132,6 +1136,7 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(0);
     expect(output).toContain("PLAN mobile build preview");
+    expect(output).toContain("Evidence: local-rehearsal");
     expect(output).toContain("- planned eas profile preview distribution internal development-client=no");
     await expect(stat(join(dir, ".agentstack", "builds", "mobile-preview.json"))).rejects.toMatchObject({
       code: "ENOENT"
@@ -1148,6 +1153,7 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(0);
     expect(output).toContain("APPLIED mobile build preview");
+    expect(output).toContain("Evidence: local-rehearsal");
     await expect(readFile(join(dir, ".agentstack", "builds", "mobile-preview.json"), "utf8")).resolves.toContain(
       '"profile": "preview"'
     );
@@ -1247,6 +1253,89 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("<secret from .agentstack/env-values.json>");
     expect(output.join("\n")).not.toContain("sk-local-provider-value");
     expect(providerExecutions).toHaveLength(0);
+  });
+
+  it("prints invalid ledger advisory for incomplete provider plan decisions", async () => {
+    const secretLikeRowId = "sk-plan-incomplete-row-id-12345";
+    await writeProviderEnvManifest();
+    await writeLocalEnvValues({
+      preview: { convex: { OPENAI_API_KEY: "sk-local-provider-value" } }
+    });
+    await writeProviderLedger([
+      `| ${secretLikeRowId} | convex | deployment | preview |  | acme-crm-preview |  | Preview backend | Agentstack | 2026-06-21 | Wave 0 complete | planned |  |  |  | |`
+    ]);
+
+    const code = await runAgentstack(["provider", "plan", "--service", "convex", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor()
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PLAN provider convex preview");
+    expect(output).toContain("Ledger: invalid");
+    expect(output.join("\n")).not.toContain(secretLikeRowId);
+    expect(output.join("\n")).not.toContain("Ledger: blocked incomplete convex-preview");
+  });
+
+  it("prints provider plan ledger status without leaking planned row ids", async () => {
+    const secretLikeRowId = "sk-plan-planned-row-id-12345";
+    await writeProviderEnvManifest();
+    await writeLocalEnvValues({
+      preview: { convex: { OPENAI_API_KEY: "sk-local-provider-value" } }
+    });
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: secretLikeRowId,
+        provider: "convex",
+        resourceType: "deployment",
+        environment: "preview",
+        name: "acme-crm-preview",
+        status: "planned",
+        cleanupCommand: "pnpm exec convex deploy --preview-name acme-crm-preview",
+        evidence: "docs/evidence/convex-preview.md"
+      })
+    ]);
+
+    const code = await runAgentstack(["provider", "plan", "--service", "convex", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor()
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("Ledger: planned");
+    expect(output.join("\n")).not.toContain(secretLikeRowId);
+  });
+
+  it("prints provider plan blocked status without leaking row ids", async () => {
+    const secretLikeRowId = "sk-plan-blocked-row-id-12345";
+    await writeProviderEnvManifest();
+    await writeLocalEnvValues({
+      preview: { convex: { OPENAI_API_KEY: "sk-local-provider-value" } }
+    });
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: secretLikeRowId,
+        provider: "convex",
+        resourceType: "deployment",
+        environment: "preview",
+        name: "acme-crm-preview",
+        status: "cleanup-pending",
+        cleanupCommand: "pnpm exec convex deploy --preview-name acme-crm-preview",
+        evidence: "docs/evidence/convex-preview.md"
+      })
+    ]);
+
+    const code = await runAgentstack(["provider", "plan", "--service", "convex", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor()
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("Ledger: blocked cleanup-pending");
+    expect(output.join("\n")).not.toContain(secretLikeRowId);
   });
 
   it("prints explicit confirmation requirements for production Convex provider plans", async () => {
@@ -1421,6 +1510,8 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(0);
     expect(output).toContain("WARN provider inspect convex preview");
+    expect(output).toContain("Evidence: live-read");
+    expect(output).toContain("Mutation: none");
     expect(output.join("\n")).toContain("Target: <preview-deployment-name>");
     expect(output.join("\n")).toContain("Required env: CONVEX_DEPLOY_KEY");
     expect(output.join("\n")).toContain("Operations: 2");
@@ -1446,6 +1537,8 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(0);
     expect(output).toContain("WARN provider inspect clerk preview");
+    expect(output).toContain("Evidence: live-read");
+    expect(output).toContain("Mutation: none");
     expect(output.join("\n")).toContain("Commands: 3");
     expect(output.join("\n")).toContain("Results: 3");
     expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
@@ -1482,6 +1575,8 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(0);
     expect(output).toContain("WARN provider inspect eas preview");
+    expect(output).toContain("Evidence: live-read");
+    expect(output).toContain("Mutation: none");
     expect(output.join("\n")).toContain("Target: preview");
     expect(output.join("\n")).toContain("Required env: EXPO_TOKEN");
     expect(output.join("\n")).toContain("Operations: 2");
@@ -1506,6 +1601,7 @@ describe("runAgentstack", () => {
 
     expect(vercelCode).toBe(1);
     expect(output.join("\n")).toContain("FAIL provider.service.unsupported");
+    expect(output.join("\n")).not.toContain("Mutation: none");
   });
 
   it("rejects development env for provider inspect and apply", async () => {
@@ -1524,11 +1620,200 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("Expected one of: preview, production.");
   });
 
+  it("blocks Convex preview apply when the provider ledger is missing the deployment row", async () => {
+    await writeProviderEnvManifest();
+    await writeLocalEnvValues({
+      preview: { convex: { OPENAI_API_KEY: "sk-local-provider-value" } }
+    });
+    await writeProviderLedger([]);
+
+    const code = await runAgentstack(["provider", "apply", "--service", "convex", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("set OPENAI_API_KEY=sk-local-provider-value")
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL provider.ledger.missing");
+    expect(output.join("\n")).toContain("Path: docs/provider-resource-ledger.md");
+    expect(output.join("\n")).toContain("Blocks: provider apply");
+    expect(output.join("\n")).toContain("convex preview deployment acme-crm-preview");
+    expect(providerExecutions).toHaveLength(0);
+  });
+
+  it("blocks Convex preview apply without leaking malformed provider ledger row contents", async () => {
+    const secretLikeValue = "sk-test-no-leak-12345";
+    const malformedRow = `| convex-preview | convex | deployment | preview | Platform | ${secretLikeValue} |`;
+    await writeProviderEnvManifest();
+    await writeLocalEnvValues({
+      preview: { convex: { OPENAI_API_KEY: "sk-local-provider-value" } }
+    });
+    await writeProviderLedger([malformedRow]);
+
+    const code = await runAgentstack(["provider", "apply", "--service", "convex", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("set OPENAI_API_KEY=sk-local-provider-value")
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL provider.ledger.invalid");
+    expect(output.join("\n")).not.toContain(secretLikeValue);
+    expect(output.join("\n")).not.toContain(malformedRow);
+    expect(providerExecutions).toHaveLength(0);
+  });
+
+  it("blocks Convex preview apply when the provider ledger row is cleanup-pending", async () => {
+    const secretLikeRowId = "sk-apply-blocked-row-id-12345";
+    await writeProviderEnvManifest();
+    await writeLocalEnvValues({
+      preview: { convex: { OPENAI_API_KEY: "sk-local-provider-value" } }
+    });
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: secretLikeRowId,
+        provider: "convex",
+        resourceType: "deployment",
+        environment: "preview",
+        name: "acme-crm-preview",
+        status: "cleanup-pending",
+        cleanupCommand: "pnpm exec convex deploy --preview-name acme-crm-preview",
+        evidence: "docs/evidence/convex-preview.md"
+      })
+    ]);
+
+    const code = await runAgentstack(["provider", "apply", "--service", "convex", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("set OPENAI_API_KEY=sk-local-provider-value")
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL provider.ledger.status-blocked");
+    expect(output.join("\n")).toContain("Status: cleanup-pending");
+    expect(output.join("\n")).toContain("Fix:");
+    expect(output.join("\n")).not.toContain(secretLikeRowId);
+    expect(providerExecutions).toHaveLength(0);
+  });
+
+  it("blocks Convex preview apply with human ledger field labels when the row is incomplete", async () => {
+    const secretLikeRowId = "sk-apply-incomplete-row-id-12345";
+    await writeProviderEnvManifest();
+    await writeLocalEnvValues({
+      preview: { convex: { OPENAI_API_KEY: "sk-local-provider-value" } }
+    });
+    await writeProviderLedger([
+      `| ${secretLikeRowId} | convex | deployment | preview |  | acme-crm-preview |  | Preview backend | Agentstack | 2026-06-21 | Wave 0 complete | planned |  |  |  | |`
+    ]);
+
+    const code = await runAgentstack(["provider", "apply", "--service", "convex", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("set OPENAI_API_KEY=sk-local-provider-value")
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL provider.ledger.incomplete");
+    expect(output.join("\n")).toContain("owner account/project");
+    expect(output.join("\n")).toContain("cleanup command/procedure");
+    expect(output.join("\n")).toContain("evidence link/path");
+    expect(output.join("\n")).not.toContain("ownerAccountOrProject");
+    expect(output.join("\n")).not.toContain("cleanupCommandOrProcedure");
+    expect(output.join("\n")).not.toContain("evidenceLinkOrPath");
+    expect(output.join("\n")).not.toContain(secretLikeRowId);
+    expect(providerExecutions).toHaveLength(0);
+  });
+
+  it("allows Convex preview apply when the provider ledger has a planned deployment row", async () => {
+    await writeProviderEnvManifest();
+    await writeLocalEnvValues({
+      preview: { convex: { OPENAI_API_KEY: "sk-local-provider-value" } }
+    });
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: "convex-preview",
+        provider: "convex",
+        resourceType: "deployment",
+        environment: "preview",
+        name: "acme-crm-preview",
+        status: "planned",
+        cleanupCommand: "pnpm exec convex deploy --preview-name acme-crm-preview",
+        evidence: "docs/evidence/convex-preview.md"
+      })
+    ]);
+
+    const code = await runAgentstack(["provider", "apply", "--service", "convex", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("set OPENAI_API_KEY=sk-local-provider-value")
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("APPLIED provider convex preview");
+    expect(output.join("\n")).toContain("Evidence: live-mutation");
+    expect(output.join("\n")).toContain("Mutation scope: bounded provider executor");
+    expect(providerExecutions).toHaveLength(2);
+  });
+
+  it("allows Vercel preview deploy when the provider ledger has a planned project row", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.surfaces = ["web"];
+    manifest.env.custom.API_TOKEN = {
+      surfaces: ["web"],
+      environments: ["preview"],
+      required: true,
+      secret: true,
+      providerTargets: vercelPreviewTarget
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    await writeLocalEnvValues({
+      preview: { web: { API_TOKEN: "local-vercel-secret" } }
+    });
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: "vercel-preview",
+        provider: "vercel",
+        resourceType: "project",
+        environment: "preview",
+        name: "acme-crm",
+        status: "planned",
+        purpose: "Preview web app",
+        cleanupCommand: "pnpm exec vercel deploy --target=preview",
+        evidence: "docs/evidence/vercel-preview.md"
+      })
+    ]);
+
+    const code = await runAgentstack(["provider", "apply", "--service", "vercel", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("deployed with API_TOKEN=provider-vercel-secret")
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("APPLIED provider vercel preview");
+    expect(output.join("\n")).toContain("Evidence: live-mutation");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec vercel deploy --target=preview"
+    ]);
+  });
+
   it("applies Convex preview through the injected executor with redacted output", async () => {
     await writeProviderEnvManifest();
     await writeLocalEnvValues({
       preview: { convex: { OPENAI_API_KEY: "sk-local-provider-value" } }
     });
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: "convex-preview",
+        provider: "convex",
+        resourceType: "deployment",
+        environment: "preview",
+        name: "acme-crm-preview",
+        status: "planned",
+        cleanupCommand: "pnpm exec convex deploy --preview-name acme-crm-preview",
+        evidence: "docs/evidence/convex-preview.md"
+      })
+    ]);
 
     const code = await runAgentstack(["provider", "apply", "--service", "convex", "--env", "preview"], {
       cwd: dir,
@@ -1560,6 +1845,19 @@ describe("runAgentstack", () => {
     await writeLocalEnvValues({
       preview: { web: { API_TOKEN: "local-vercel-secret" } }
     });
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: "vercel-preview",
+        provider: "vercel",
+        resourceType: "project",
+        environment: "preview",
+        name: "acme-crm",
+        status: "planned",
+        purpose: "Preview web app",
+        cleanupCommand: "pnpm exec vercel deploy --target=preview",
+        evidence: "docs/evidence/vercel-preview.md"
+      })
+    ]);
 
     const code = await runAgentstack(["provider", "apply", "--service", "vercel", "--env", "preview"], {
       cwd: dir,
@@ -1627,6 +1925,20 @@ describe("runAgentstack", () => {
   });
 
   it("applies production Convex with confirmation through the executor and redacts output", async () => {
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: "convex-production",
+        provider: "convex",
+        resourceType: "deployment",
+        environment: "production",
+        name: "prod",
+        status: "planned",
+        purpose: "Production backend",
+        cleanupCommand: "pnpm exec convex deploy --prod",
+        evidence: "docs/evidence/convex-production.md"
+      })
+    ]);
+
     const code = await runAgentstack(
       ["provider", "apply", "--service", "convex", "--env", "production", "--confirm-production"],
       {
@@ -1649,6 +1961,18 @@ describe("runAgentstack", () => {
     await writeLocalEnvValues({
       preview: { convex: { OPENAI_API_KEY: "sk-local-provider-value" } }
     });
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: "convex-preview",
+        provider: "convex",
+        resourceType: "deployment",
+        environment: "preview",
+        name: "acme-crm-preview",
+        status: "planned",
+        cleanupCommand: "pnpm exec convex deploy --preview-name acme-crm-preview",
+        evidence: "docs/evidence/convex-preview.md"
+      })
+    ]);
 
     expect(
       await runAgentstack(["provider", "inspect", "--service", "convex", "--env", "preview"], {
@@ -1682,6 +2006,10 @@ describe("runAgentstack", () => {
     });
 
     expect(code).toBe(1);
+    expect(output.slice(0, 2)).toEqual([
+      "Evidence: local-rehearsal",
+      "Scope: local-cloud state only; no live provider reads"
+    ]);
     expect(output.join("\n")).toContain("FAIL cloud.service.missing");
   });
 
@@ -1712,6 +2040,7 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(0);
     expect(output).toContain("APPLIED preview");
+    expect(output).toContain("Evidence: local-rehearsal");
   });
 
   it("prints a success line when cloud validation passes", async () => {
@@ -1726,6 +2055,10 @@ describe("runAgentstack", () => {
     });
 
     expect(code).toBe(0);
+    expect(output.slice(0, 2)).toEqual([
+      "Evidence: local-rehearsal",
+      "Scope: local-cloud state only; no live provider reads"
+    ]);
     expect(output).toContain("PASS validate --cloud");
   });
 
@@ -1741,6 +2074,10 @@ describe("runAgentstack", () => {
     });
 
     expect(code).toBe(0);
+    expect(output.slice(0, 2)).toEqual([
+      "Evidence: local-rehearsal",
+      "Scope: local-cloud state only; no live provider reads"
+    ]);
     expect(output).toContain("PASS validate --cloud");
     expect(output).toContain("Environment: production");
   });
@@ -3030,6 +3367,76 @@ async function writeProviderEnvManifest(): Promise<void> {
     providerTargets: convexPreviewTarget
   };
   await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+}
+
+async function writeProviderLedger(rows: string[]): Promise<void> {
+  await mkdir(join(dir, "docs"), { recursive: true });
+  await writeFile(
+    join(dir, "docs", "provider-resource-ledger.md"),
+    [
+      "# Provider Resource Ledger",
+      "",
+      "## Status Taxonomy",
+      "",
+      "| Status | Meaning |",
+      "| --- | --- |",
+      "| planned | Approved for bounded provider mutation. |",
+      "| active | Existing provider resource under management. |",
+      "| cleanup-pending | Resource must be cleaned before mutation. |",
+      "",
+      "## Required Fields",
+      "",
+      "| Field | Required for |",
+      "| --- | --- |",
+      "| Owner | planned, active |",
+      "| Purpose | planned, active |",
+      "| Cleanup Command/Procedure | planned, active |",
+      "| Evidence Link/Path | planned, active |",
+      "",
+      "## Ledger",
+      "",
+      "| id | provider | resource type | environment | owner account/project | name | external id/url | purpose | created by | created at | expected cleanup trigger/date | current status | cleanup command/procedure | cleaned at | evidence link/path | notes |",
+      "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+      ...rows,
+      ""
+    ].join("\n"),
+    "utf8"
+  );
+}
+
+function providerLedgerRow(input: {
+  id: string;
+  provider: string;
+  resourceType: string;
+  environment: string;
+  name: string;
+  status: string;
+  owner?: string;
+  purpose?: string;
+  createdBy?: string;
+  createdAt?: string;
+  expectedCleanup?: string;
+  cleanupCommand: string;
+  evidence: string;
+}): string {
+  return [
+    input.id,
+    input.provider,
+    input.resourceType,
+    input.environment,
+    input.owner ?? "Platform",
+    input.name,
+    "",
+    input.purpose ?? "Preview backend",
+    input.createdBy ?? "Agentstack",
+    input.createdAt ?? "2026-06-21",
+    input.expectedCleanup ?? "Wave 0 complete",
+    input.status,
+    input.cleanupCommand,
+    "",
+    input.evidence,
+    ""
+  ].join(" | ").replace(/^/, "| ").replace(/$/, " |");
 }
 
 async function writeLocalEnvValues(values: unknown): Promise<void> {

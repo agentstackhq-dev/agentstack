@@ -2,7 +2,9 @@
 
 This is a local preview deploy rehearsal. It exercises Agentstack planning, local-cloud preview state, validation, deployment artifact writing, and deployment telemetry without deploying to Vercel, running EAS builds, or calling Stripe or telemetry-provider APIs. Explicit provider execution is available only through `agentstack provider inspect/apply`.
 
-Clerk, Convex, Vercel, and EAS have command-plan surfaces. `clerk:command-plan`, `convex:command-plan`, `vercel:command-plan`, and `eas:command-plan` mean Agentstack knows current provider CLI command shapes and can print the commands an operator would run. `provider inspect` is explicit read/diagnostic provider interaction for Clerk, Convex, and EAS preview env listing. Apply execution is explicit and limited to Convex commands or Vercel preview deploy only, with Convex production guarded by `--confirm-production`; Clerk apply and EAS apply are unavailable. Generated projects include the Clerk, Convex, Vercel, and EAS CLI packages so `pnpm exec clerk`, `pnpm exec convex`, `pnpm exec vercel`, and `pnpm exec eas` resolve locally.
+Clerk, Convex, Vercel, and EAS have command-plan surfaces. `clerk:command-plan`, `convex:command-plan`, `vercel:command-plan`, and `eas:command-plan` mean Agentstack knows current provider CLI command shapes and can print the commands an operator would run with `Evidence: provider-command-plan`. `provider inspect` is explicit read/diagnostic provider interaction for Clerk, Convex, and EAS preview env listing with `Evidence: live-read`. Apply execution is explicit, ledger-gated, and limited to Convex commands or Vercel preview deploy only with `Evidence: live-mutation`; Convex production is guarded by `--confirm-production`, Clerk apply and EAS apply are unavailable. Generated projects include the Clerk, Convex, Vercel, and EAS CLI packages so `pnpm exec clerk`, `pnpm exec convex`, `pnpm exec vercel`, and `pnpm exec eas` resolve locally.
+
+Supported provider apply paths require a matching `planned` or `active` ledger row before the provider executor runs. Convex preview apply requires provider `convex`, env `preview`, resource type `deployment`, and name `__APP_SLUG__-preview`. Convex production apply requires provider `convex`, env `production`, resource type `deployment`, and name `prod`. Vercel preview apply requires provider `vercel`, env `preview`, resource type `project`, and name `__APP_SLUG__`. Missing, incomplete, invalid, blocked, cleanup-pending, cleaned, or abandoned-with-reason ledger rows block mutation with `FAIL provider.ledger.*` diagnostics. `provider plan` does not require or mutate the ledger, but prints `Ledger: missing`, `Ledger: planned`, `Ledger: active`, `Ledger: blocked <status>`, or `Ledger: invalid` for supported apply targets.
 
 ## Commands
 
@@ -48,6 +50,8 @@ Expected output includes:
 
 ```text
 PASS validate --cloud
+Evidence: local-rehearsal
+Scope: local-cloud state only; no live provider reads
 ```
 
 Plan the local preview deploy rehearsal:
@@ -75,6 +79,7 @@ Expected output includes the preview deploy key requirement and the planned depl
 ```text
 CONVEX_DEPLOY_KEY
 pnpm exec convex deploy --preview-name __APP_SLUG__-preview
+Evidence: provider-command-plan
 ```
 
 Convex env set/remove commands are printed with redacted values. Secret and non-secret values use `.agentstack/env-values.json` as the value source label, not the raw value. Preview env commands use `convex env --deployment <preview-deployment-name> set/remove ...` until `pnpm exec convex deploy --preview-name __APP_SLUG__-preview` has created a concrete Convex preview deployment name.
@@ -86,7 +91,7 @@ pnpm run provider:convex:inspect:preview
 pnpm run provider:convex:apply:preview
 ```
 
-Convex inspect/apply requires `CONVEX_DEPLOY_KEY`, keeps raw values out of output, and records redacted `agentstack.provider.inspect.completed` or `agentstack.provider.apply.completed` telemetry.
+Convex inspect/apply requires `CONVEX_DEPLOY_KEY`, keeps raw values out of output, prints `Evidence: live-read` for inspect or `Evidence: live-mutation` for apply, and records redacted `agentstack.provider.inspect.completed` or `agentstack.provider.apply.completed` telemetry.
 
 Plan Clerk preview commands without running them:
 
@@ -101,6 +106,7 @@ pnpm exec clerk init -y
 pnpm exec clerk doctor --mode agent
 pnpm exec clerk env pull --mode agent
 pnpm exec clerk config pull --mode agent
+Evidence: provider-command-plan
 ```
 
 Inspect explicit read-only Clerk preview diagnostics:
@@ -123,6 +129,7 @@ Expected output includes the Vercel token requirement, the linked project warnin
 VERCEL_TOKEN
 vercel link
 pnpm exec vercel deploy --target=preview
+Evidence: provider-command-plan
 ```
 
 Vercel env add/update/remove commands are printed with redacted values. Secret and non-secret values use `.agentstack/env-values.json` as the value source label, not the raw value.
@@ -133,7 +140,7 @@ Apply the explicit Vercel preview deploy:
 pnpm run provider:vercel:apply:preview
 ```
 
-This executes only `pnpm exec vercel deploy --target=preview` through the provider executor. It does not run Vercel env add/update/remove commands, and Vercel production apply is unavailable.
+This executes only `pnpm exec vercel deploy --target=preview` through the provider executor after the ledger gate passes, prints `Evidence: live-mutation`, and records redacted provider apply telemetry. It does not run Vercel env add/update/remove commands, and Vercel production apply is unavailable.
 
 Plan EAS preview commands without running them:
 
@@ -148,6 +155,7 @@ EXPO_TOKEN
 pnpm exec eas project:init --non-interactive
 pnpm exec eas env:list --environment preview
 pnpm exec eas build -p all -e preview --json --non-interactive
+Evidence: provider-command-plan
 ```
 
 EAS env create/update/delete commands are printed with redacted value placeholders. EAS Build uses server-side EAS env values, not local CI variables alone.
@@ -158,7 +166,7 @@ Inspect explicit read-only EAS preview env state:
 pnpm run provider:eas:inspect:preview
 ```
 
-This executes only `pnpm exec eas env:list --environment preview` through the provider executor. It does not run `eas project:init`, `eas build`, EAS env create/update/delete commands, production inspect, or EAS apply.
+This executes only `pnpm exec eas env:list --environment preview` through the provider executor and prints `Evidence: live-read`. It does not run `eas project:init`, `eas build`, EAS env create/update/delete commands, production inspect, or EAS apply.
 
 Apply the local preview deploy rehearsal:
 

@@ -9,7 +9,7 @@ pnpm run mobile:build:preview:apply
 pnpm run mobile:build:production
 ```
 
-Expected preview output includes `PLAN mobile build preview` for the plan step and `APPLIED mobile build preview` for the apply step. Apply writes `.agentstack/builds/mobile-preview.json` and records `agentstack.mobile.build.completed` telemetry on the `mobile-build` journey.
+Expected preview output includes `PLAN mobile build preview` for the plan step and `APPLIED mobile build preview` for the apply step. These commands print `Evidence: local-rehearsal`. Apply writes `.agentstack/builds/mobile-preview.json` and records `agentstack.mobile.build.completed` telemetry on the `mobile-build` journey.
 
 This is a local mobile build rehearsal. It does not submit builds to Expo, EAS, Apple, or Google. The local artifact is the handoff contract for agents inside the current bounded provider rehearsal surface.
 
@@ -38,11 +38,11 @@ pnpm run provider:eas:inspect:preview
 pnpm run provider:eas:production
 ```
 
-Use `pnpm run provider:eas:preview` or `pnpm run provider:eas:production` to print the EAS command plan without executing provider commands. Generated projects install `eas-cli` locally, so planned commands use `pnpm exec eas`.
+Use `pnpm run provider:eas:preview` or `pnpm run provider:eas:production` to print the EAS command plan with `Evidence: provider-command-plan` without executing provider commands. Generated projects install `eas-cli` locally, so planned commands use `pnpm exec eas`.
 
 The EAS provider plan includes `eas project:init --non-interactive`, `eas env:list --environment <env>`, and `eas build -p all -e <profile> --json --non-interactive`. Env create/update/delete commands are planned from Agentstack provider operations and label values as coming from `.agentstack/env-values.json`; raw values and secrets are not printed.
 
-Use `pnpm run provider:eas:inspect:preview` for explicit read-only EAS provider inspection. It executes only `pnpm exec eas env:list --environment preview`. It does not run EAS project initialization, builds, env create/update/delete commands, production inspect, or apply.
+Use `pnpm run provider:eas:inspect:preview` for explicit read-only EAS provider inspection with `Evidence: live-read`. It executes only `pnpm exec eas env:list --environment preview`. It does not run EAS project initialization, builds, env create/update/delete commands, production inspect, or apply.
 
 EAS server env values must exist in EAS for EAS Build. Local `.env` files and CI variables are useful for local workflows, but they are not a replacement for EAS server env values used by build workers.
 

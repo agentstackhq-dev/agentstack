@@ -6,14 +6,16 @@ This file is the canonical resume and progress artifact for Agentstack consumer 
 
 ## Current State
 
-Current phase: Wave 0: Truth, Guardrails, And Resource Ledger Enforcement.
+Current phase: Wave 0 implementation checkpoint committed: truth labels, provider ledger enforcement, and template alignment are implemented.
 
-Overall status: not complete. Agentstack is roughly 30-35% of the way toward consumer production readiness according to the roadmap. The current product state is a local command-contract and rehearsal prototype, not a consumer-ready production framework.
+Overall status: not complete. Agentstack is roughly 35-40% of the way toward consumer production readiness according to the roadmap. The current product state is a stronger command-contract and provider-boundary prototype, not a consumer-ready production framework.
 
-The prototype has a strong local command contract and rehearsal loop, but still lacks enforced provider resource accounting, truthful live validation, complete live provider reconciliation, a real generated SaaS runtime, and production-grade release gates.
+The prototype now has explicit evidence tiers in command output, ledger-gated supported provider mutations, strict provider-ledger parsing, and generated project ledger docs. It still lacks truthful live validation, complete live provider inventory/link/adopt flows, a real generated SaaS runtime, and production-grade release gates.
 
 ## Recent Completed Commits
 
+- Current checkpoint: feat: gate provider mutations with ledger evidence.
+- f38e341 docs: plan wave 0 provider readiness.
 - 1a8fd1f docs: add consumer production readiness progress.
 - e3bb39c docs: add consumer production readiness roadmap.
 - d366e33 feat: execute bounded vercel and eas provider actions.
@@ -29,59 +31,72 @@ No real external provider resources are recorded in the ledger. No external Cler
 
 ## Completed Work This Turn
 
-- Created and committed this canonical progress file as `1a8fd1f`.
-- Collected planner outputs for Wave 0 provider ledger enforcement and local/live truth labeling.
-- Completed the source-spec coverage audit against the consumer production readiness roadmap.
-- Updated the roadmap to add a source-spec capability coverage matrix and rebalance waves for manifest format, command vocabulary, telemetry manifest policy, runtime/generated package boundaries, provider inventory/link/adopt, preview/runtime observability, real SaaS runtime, UI primitives, and typed modules.
-- Created the Wave 0 plan doc at `docs/superpowers/plans/2026-06-21-agentstack-wave-0-ledger-truth.md`.
-- Reviewed and revised the Wave 0 plan doc against review findings before adoption.
-- Fixed final plan-integrity issues before commit: ledger parsing is scoped to the `## Ledger` section, manifest-format scans exclude the plan file while including the source spec, and `validate --cloud` evidence labels are required before diagnostics or early returns.
-- Updated this progress file to reflect current progress and next concrete actions.
-- Verified the docs planning package and prepared it for a single planning checkpoint commit.
-- Confirmed that no provider resources were created, changed, adopted, linked, or deleted during this docs update.
+- Implemented strict provider ledger parsing in `packages/adapters/src/provider-ledger.ts`, scoped to the `## Ledger` section and the current 16-column schema only.
+- Added provider ledger enforcement before supported live mutation executors run.
+- Added non-mutating provider-plan ledger advisory status for supported apply targets.
+- Added explicit evidence labels:
+  - `local-rehearsal` for local-cloud validation, sync, deploy rehearsal, production provision rehearsal, and mobile build rehearsal.
+  - `provider-command-plan` for provider plan.
+  - `live-read` for provider inspect.
+  - `live-mutation` for supported provider apply.
+- Updated provider apply diagnostics so missing, invalid, incomplete, and blocked ledger states fail before executor resolution.
+- Removed raw ledger row content and row IDs from CLI diagnostics/advisory output; regression tests cover secret-like row content and secret-like IDs.
+- Cleaned source-spec and docs references so the active manifest format is `agentstack.config.json`, not a TypeScript manifest path.
+- Added generated project `docs/provider-resource-ledger.md` to both the root template and package-local template mirror, with generator coverage.
+- Updated README, generated template docs, and spin-up pages to describe evidence tiers, ledger-gated mutations, and local/live boundaries truthfully.
+- Confirmed that no provider resources were created, changed, adopted, linked, or deleted during this implementation slice.
 
 ## Current Blockers And Gaps
 
-- Provider ledger enforcement is not wired at provider mutation boundaries.
-- Evidence labels are not implemented.
-- Manifest format is not enforced.
+- Provider ledger enforcement is wired only for currently supported live mutations: Convex preview/production apply and Vercel preview apply. Other provider apply paths remain unsupported.
+- Evidence labels are implemented for current command surfaces, but there is not yet a separate truthful live validation runner.
+- Manifest format cleanup is complete for this slice, but broader manifest/schema ergonomics still need production hardening.
 - The truthful validation runner has not been started.
 - Provider inventory, link, and adopt flows are not implemented.
 - The generated SaaS runtime is not real.
+- UI primitives, runtime package boundaries, hosted account connection design, and production release gates remain future roadmap work.
 
 ## In Progress And Next Concrete Actions
 
-1. Dispatch implementation subagents for Wave 0 plan Task 1 and Task 2: manifest format enforcement plus provider ledger tests.
-2. Dispatch implementation subagents for Wave 0 plan Task 3 and Task 5: provider ledger parser/gate plus non-blocking provider plan ledger status.
-3. Dispatch implementation subagents for Wave 0 plan Task 4 and Task 6: evidence labels plus root/template/spinup docs.
-4. Run spec and quality review loops for the Wave 0 implementation tasks.
+1. Start the next provider-integration slice with live provider inventory/link/adopt design and tests before broadening mutation support.
+2. Add a truthful validation runner that separates local validation, local-cloud rehearsal, live inventory, deployed runtime evidence, auth evidence, billing/webhook evidence, mobile evidence, and telemetry evidence.
+3. Keep `docs/provider-resource-ledger.md` updated before any real Clerk, Convex, Vercel, EAS, telemetry, or billing resources are created, adopted, linked, mutated, or cleaned up.
 
 ## Last Known Verification Evidence
 
-- `git diff --check` passed.
-- `rg -n "TODO|TBD|placeholder|runInBand|known project name|dual reader"` over the planning docs returned only the intentional roadmap policy hit for disallowing compatibility paths.
-- Focused plan scan confirmed the final Wave 0 plan includes ledger-section parsing, manifest-format scan scope, and pre-diagnostic `validate --cloud` evidence guidance.
+- `pnpm vitest run packages/adapters/src/provider-ledger.test.ts packages/cli/src/run.test.ts packages/create-agent-stack/src/generate.test.ts` passed: 3 files / 159 tests.
 - `pnpm typecheck` passed.
-- `pnpm test` passed: 25 files / 309 tests.
+- `pnpm test` passed: 26 files / 323 tests.
+- `git diff --check` passed.
+- `diff -ru templates/b2b-saas/docs packages/create-agent-stack/templates/b2b-saas/docs` passed.
+- `rg -n "agentstack\\.config\\.ts|TypeScript manifest|config reader fallback|fallback lookup path"` over README, source spec, templates, package template mirrors, spin-up site, and packages returned no matches.
+- `rg -n "decision\\.row\\.id|Ledger: (planned|active) <id>|Ledger: blocked <status> <id>|row IDs are printed|row ids are printed|raw ledger row IDs|raw ledger row ids"` over CLI, tests, docs, templates, and spin-up site returned no matches.
+- `git diff -- docs/provider-resource-ledger.md` returned no diff.
 
 ## Delegated-Agent Outcomes
 
-- Audits created the consumer production readiness roadmap.
-- Audits created the provider resource ledger.
-- Planner outputs for Wave 0 were collected and synthesized into the Wave 0 plan doc.
-- Source-spec coverage audit concluded that the roadmap is directionally faithful, but had underweighted early observability, UI primitives beyond auth/billing/settings, typed modules, package boundaries, hosted account connection design, final command vocabulary, and telemetry manifest policy.
-- The Wave 0 plan doc was reviewed and revised to address review findings before implementation dispatch.
-- Final narrow plan-integrity fixes were applied and checked.
+- Manifest/spec cleanup worker aligned active docs on `agentstack.config.json`.
+- Test worker added red coverage for provider ledger parsing/enforcement and apply gating.
+- Implementation workers added provider ledger parsing, provider apply gates, plan advisory status, evidence labels, and generated docs/template updates.
+- Spec reviewer initially failed on evidence-label and provider-plan status details; follow-up worker fixed those gaps.
+- Quality reviewer failed on raw invalid-row leakage and missing generated ledger docs; follow-up workers fixed both.
+- Final reviewer initially failed on raw ledger row ID leakage in plan/apply output; follow-up workers removed IDs from CLI output and docs, then added secret-like ID regressions.
+- Final verification passed after the reviewer fixes.
 - No active external provider resources are recorded.
 
 ## Worktree State Expectation
 
-After the docs planning checkpoint commit, the expected worktree state is clean. The next uncommitted work should come from Wave 0 implementation tasks, not additional planning drift.
+After the Wave 0 implementation checkpoint commit, the expected worktree state is clean. The next uncommitted work should start from provider inventory/link/adopt or truthful validation runner work, not more Wave 0 drift.
 
-The planning checkpoint covers:
+The Wave 0 implementation checkpoint covers:
 
-- `docs/superpowers/plans/2026-06-21-agentstack-wave-0-ledger-truth.md`
-- `docs/consumer-production-readiness-roadmap.md`
+- `packages/adapters/src/provider-ledger.ts`
+- `packages/adapters/src/provider-ledger.test.ts`
+- `packages/cli/src/run.ts`
+- `packages/cli/src/run.test.ts`
+- `packages/create-agent-stack/src/generate.test.ts`
+- root and package-local generated template docs
+- README and spin-up site docs
 - `docs/consumer-production-readiness-progress.md`
 
-No provider CLIs should be run for this docs update, and no external provider resources should be created, mutated, adopted, linked, or deleted.
+No provider CLIs were run for this implementation checkpoint, and no external provider resources were created, mutated, adopted, linked, or deleted.

@@ -6,6 +6,10 @@ This prototype proves the command contract: generate a project, inspect lifecycl
 
 The current cloud implementation is a filesystem-backed local-cloud adapter plus explicit provider wrappers. `agentstack inspect --env <env>` shows provider wrapper contract status and pending provider operation IDs so agents can see the current provider boundary. `provider plan` prints deterministic provider CLI command plans without executing provider commands. `provider inspect` performs explicit read/diagnostic provider interaction for Clerk, Convex, and EAS preview; development is rejected. `provider apply` performs explicit Convex provider execution in preview or production and Vercel preview deploy execution only; Convex production requires `--confirm-production`, Clerk apply is unavailable, and Vercel production apply is unavailable. Generated preview/production deploy rehearsals, EAS builds, Vercel env mutations, EAS env mutations, EAS apply/build/project initialization, and EAS production inspect remain rehearsal or unsupported surfaces. `agentstack env set` writes local validation values only. `agentstack sync --env <env>` refuses missing or invalid custom env values before planning or applying local provider env resources; it does not execute provider CLIs. Applied sync reconciles local provider env resource rehearsal into `.agentstack/local-cloud.json` with redacted/hash-only metadata, never raw env values. Provider operation IDs are stable and redacted; env operations expose variable names only, never values or hashes. Provider command output labels values as coming from `.agentstack/env-values.json`, Clerk Dashboard, or provider-owned env commands and never prints raw env values. Convex provider inspect/apply requires `CONVEX_DEPLOY_KEY`. Clerk provider inspect requires an authenticated Clerk CLI or `CLERK_SECRET_KEY`, depending on local setup. Vercel preview apply executes only `pnpm exec vercel deploy --target=preview`. EAS preview inspect executes only `pnpm exec eas env:list --environment preview`. Stripe is represented by local billing-plan anchors and validation values, not live Stripe API integration. Telemetry currently uses local JSONL inspection and local OTLP-shaped artifact export; provider inspect/apply records redacted `agentstack.provider.inspect.completed` and `agentstack.provider.apply.completed` events.
 
+Evidence tiers are explicit in command output. `local-rehearsal` means the command uses local files and `.agentstack/*` artifacts only. `provider-command-plan` means provider CLI command shapes are printed and no provider command is executed. `live-read` means bounded provider read or diagnostic commands are executed without mutation. `live-mutation` means bounded provider mutation commands are executed through the provider executor. `agentstack validate --cloud` keeps its current command name in this slice, but it reports `Evidence: local-rehearsal` and `Scope: local-cloud state only; no live provider reads`.
+
+Supported live mutations are ledger-gated before the provider executor runs. Convex preview apply requires a ledger row with provider `convex`, env `preview`, resource type `deployment`, and name `<app-slug>-preview`. Convex production apply requires provider `convex`, env `production`, resource type `deployment`, and name `prod`. Vercel preview apply requires provider `vercel`, env `preview`, resource type `project`, and the manifest app slug as the name. Missing, incomplete, invalid, blocked, cleanup-pending, cleaned, or abandoned-with-reason rows emit the relevant `FAIL provider.ledger.*` diagnostic and block mutation.
+
 ## Local Smoke
 
 From the repository root:
@@ -82,13 +86,18 @@ PASS env inspect preview
 PLAN preview
 APPLIED preview
 PASS validate --cloud
+Evidence: local-rehearsal
+Scope: local-cloud state only; no live provider reads
 PASS doctor preview
 PASS dev preflight preview
 PLAN deploy preview
 APPLIED deploy preview
 PLAN provider convex preview
+Evidence: provider-command-plan
 INSPECT provider convex preview
+Evidence: live-read
 APPLIED provider convex preview
+Evidence: live-mutation
 PLAN provider clerk preview
 INSPECT provider clerk preview
 PLAN provider vercel preview
@@ -133,12 +142,12 @@ agentstack.event.added
 - `pnpm run env:inspect` prints expected preview services and declared environment bindings.
 - `pnpm run preview:plan` plans preview local-cloud changes without writing state.
 - `pnpm run preview:apply` applies preview local-cloud state, including local provider env resource rehearsal, through the same CLI delegation path.
-- `pnpm run validate:cloud` compares the project manifest with local-cloud state for the preview environment, including linked services and provider env resource presence or drift.
+- `pnpm run validate:cloud` compares the project manifest with local-cloud state for the preview environment, including linked services and provider env resource presence or drift. It prints `Evidence: local-rehearsal` and `Scope: local-cloud state only; no live provider reads`.
 - `pnpm run preview:deploy` plans the local preview deploy rehearsal without writing `.agentstack/deployments/preview.json`.
 - `pnpm run preview:deploy:apply` applies the local preview deploy rehearsal, writes `.agentstack/deployments/preview.json`, and records `agentstack.deploy.completed` telemetry.
-- `pnpm run provider:convex:preview` prints a deterministic Convex command plan without running provider commands. Generated projects include the Convex package so `pnpm exec convex` resolves locally. Preview planning requires `CONVEX_DEPLOY_KEY`, plans `pnpm exec convex deploy --preview-name <app-slug>-preview`, labels env values as coming from `.agentstack/env-values.json`, and leaves preview env commands scoped to `convex env --deployment <preview-deployment-name>` until the preview deployment exists.
-- `pnpm run provider:convex:inspect:preview` performs explicit Convex preview read/diagnostic provider interaction and records redacted `agentstack.provider.inspect.completed` telemetry. It requires `CONVEX_DEPLOY_KEY`.
-- `pnpm run provider:convex:apply:preview` performs explicit Convex preview provider execution and records redacted `agentstack.provider.apply.completed` telemetry. It requires `CONVEX_DEPLOY_KEY`; production apply requires `--confirm-production`.
+- `pnpm run provider:convex:preview` prints a deterministic Convex command plan with `Evidence: provider-command-plan` without running provider commands. Generated projects include the Convex package so `pnpm exec convex` resolves locally. Preview planning requires `CONVEX_DEPLOY_KEY`, plans `pnpm exec convex deploy --preview-name <app-slug>-preview`, labels env values as coming from `.agentstack/env-values.json`, and leaves preview env commands scoped to `convex env --deployment <preview-deployment-name>` until the preview deployment exists. Provider plan does not require or mutate the ledger, but prints one of `Ledger: missing`, `Ledger: planned`, `Ledger: active`, `Ledger: blocked <status>`, or `Ledger: invalid` for supported apply targets.
+- `pnpm run provider:convex:inspect:preview` performs explicit Convex preview read/diagnostic provider interaction with `Evidence: live-read` and records redacted `agentstack.provider.inspect.completed` telemetry. It requires `CONVEX_DEPLOY_KEY`.
+- `pnpm run provider:convex:apply:preview` performs explicit Convex preview provider execution with `Evidence: live-mutation` and records redacted `agentstack.provider.apply.completed` telemetry. It requires `CONVEX_DEPLOY_KEY`; production apply requires `--confirm-production`. Supported apply paths require a matching `planned` or `active` ledger row before the executor runs.
 - `pnpm run provider:clerk:preview` prints a deterministic Clerk command plan without running provider commands. Generated projects include the Clerk CLI package so `pnpm exec clerk` resolves locally. Preview planning includes `clerk init -y`, `clerk doctor --mode agent`, `clerk env pull --mode agent`, and `clerk config pull --mode agent`.
 - `pnpm run provider:clerk:inspect:preview` performs explicit read-only Clerk preview diagnostics and records redacted `agentstack.provider.inspect.completed` telemetry. It requires an authenticated Clerk CLI or `CLERK_SECRET_KEY`, depending on local setup. Clerk apply is unavailable.
 - `pnpm run provider:vercel:preview` prints a deterministic Vercel command plan without running provider commands. Generated projects include the Vercel package so `pnpm exec vercel` resolves locally. Preview planning requires `VERCEL_TOKEN`, requires a linked project from `vercel link` or `.vercel/project.json`, plans `pnpm exec vercel deploy --target=preview`, and labels env values as coming from `.agentstack/env-values.json`.

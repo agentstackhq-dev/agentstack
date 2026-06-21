@@ -30,8 +30,8 @@ const scenarios = {
   providerEnvResources: {
     title: "Provider env resource rehearsal",
     command: "agentstack sync --env preview --apply && agentstack validate --cloud --env preview",
-    result: "set-env preview.convex.STRIPE_MODE / PASS validate --cloud",
-    detail: "Local-cloud sync rehearses provider env resources without calling real provider APIs. It refuses missing or invalid declared values before planning or applying, then stores redacted metadata and valueHash only so raw values such as sandbox are not copied into cloud state.",
+    result: "set-env preview.convex.STRIPE_MODE / PASS validate --cloud / Evidence: local-rehearsal / Scope: local-cloud state only; no live provider reads",
+    detail: "Local-cloud sync rehearses provider env resources without calling real provider APIs. It refuses missing or invalid declared values before planning or applying, then stores redacted metadata and valueHash only so raw values such as sandbox are not copied into local-cloud state.",
     files: ["packages/adapters/src/local-cloud.ts", "templates/b2b-saas/docs/agentstack/environments.md", "tests/e2e/prototype.test.ts"]
   },
   staleCloud: {
@@ -51,21 +51,21 @@ const scenarios = {
   previewDeploy: {
     title: "Preview deploy rehearsal",
     command: "pnpm run preview:deploy && pnpm run preview:deploy:apply",
-    result: "PLAN deploy preview / APPLIED deploy preview",
+    result: "PLAN deploy preview / APPLIED deploy preview / Evidence: local-rehearsal",
     detail: "The deploy rehearsal is local-only. Plan does not write a deployment artifact. Apply writes .agentstack/deployments/preview.json and records agentstack.deploy.completed telemetry without calling real provider APIs.",
     files: ["templates/b2b-saas/docs/agentstack/preview.md", "packages/cli/src/run.ts", "tests/e2e/prototype.test.ts"]
   },
   productionRelease: {
     title: "Production release rehearsal",
     command: "pnpm run prod:prepare && pnpm run prod:provision && pnpm run prod:provision:apply && pnpm run prod:validate && pnpm run prod:deploy && pnpm run prod:deploy:apply",
-    result: "PASS prod prepare production / PLAN prod provision production / APPLIED prod provision production / PASS validate --release production / PLAN deploy production / APPLIED deploy production",
+    result: "PASS prod prepare production / PLAN prod provision production / APPLIED prod provision production / PASS validate --release production / PLAN deploy production / APPLIED deploy production / Evidence: local-rehearsal",
     detail: "The production release rehearsal is local-only. Prepare checks readiness and reports repair commands. Provision plans and applies local production state. Validate runs release validation. Deploy plans production deploy, and deploy apply writes a local artifact only after explicit production confirmation through the script. No real provider APIs are called.",
     files: ["templates/b2b-saas/docs/agentstack/release.md", "templates/b2b-saas/package.json", "packages/create-agent-stack/src/generate.test.ts"]
   },
   mobileBuild: {
     title: "Mobile build rehearsal",
     command: "pnpm run mobile:build:preview && pnpm run mobile:build:preview:apply",
-    result: "PLAN mobile build preview / APPLIED mobile build preview",
+    result: "PLAN mobile build preview / APPLIED mobile build preview / Evidence: local-rehearsal",
     detail: "The mobile build rehearsal checks local validation and EAS readiness, then writes .agentstack/builds/mobile-preview.json only when apply is used. It records agentstack.mobile.build.completed without submitting a real EAS build.",
     files: ["packages/core/src/mobile-build.ts", "packages/cli/src/run.ts", "templates/b2b-saas/docs/agentstack/mobile.md"]
   },
@@ -133,7 +133,7 @@ const concerns = {
   },
   providers: {
     title: "Env and provider orchestration",
-    summary: "Provider work is currently a local rehearsal. Local-cloud state records linked services, provider operation IDs, env resource metadata, deployments, and mobile builds. Command-plan adapters print Clerk, Convex, Vercel, and EAS command shapes without executing remote mutations.",
+    summary: "Provider work is explicit by evidence tier. Local-cloud state records linked services, provider operation IDs, env resource metadata, deployments, and mobile builds. Command-plan adapters print Clerk, Convex, Vercel, and EAS command shapes with Evidence: provider-command-plan. Provider inspect uses Evidence: live-read. Supported provider apply uses Evidence: live-mutation and is ledger-gated before the executor runs.",
     commands: ["pnpm run env:inspect", "pnpm run provider:convex:preview", "pnpm run provider:eas:production"],
     files: ["packages/adapters/src/local-cloud.ts", "packages/adapters/src/provider-operations.ts", "packages/adapters/src/convex.ts", "packages/adapters/src/eas.ts"]
   },

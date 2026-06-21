@@ -99,8 +99,8 @@
             <p class="lede">
               The generated app now includes one intentionally small vertical slice. It is local
               product behavior across shared domain, Convex, web, mobile, and unstyled UI
-              primitives. It does not make preview deploys, production deploys, EAS builds, or
-              Vercel deploys or EAS builds real.
+              primitives. Preview deploy, production provision, production deploy, and mobile build
+              commands are local rehearsals unless an explicit ledger-gated provider apply command is run.
             </p>
             <pre><code>packages/domain/src/workspace-status.ts     shared status model and fixture
 packages/ui/src/index.ts                   unstyled status primitive metadata
@@ -169,18 +169,18 @@ pnpm run validate                       Clerk identity, Clerk webhooks, billing,
                 </tr>
                 <tr>
                   <td>Local preview deploy rehearsal</td>
-                  <td>Run <code>preview:deploy</code> for <code>PLAN deploy preview</code> and <code>preview:deploy:apply</code> for <code>APPLIED deploy preview</code>.</td>
+                  <td>Run <code>preview:deploy</code> for <code>PLAN deploy preview</code> and <code>preview:deploy:apply</code> for <code>APPLIED deploy preview</code>. Evidence: <code>local-rehearsal</code>.</td>
                   <td>Writes <code>.agentstack/deployments/preview.json</code> and telemetry locally without calling provider APIs.</td>
                 </tr>
                 <tr>
                   <td>Local provider env resource rehearsal</td>
-                  <td>Run <code>env set</code> for local validation values, then <code>sync --env preview --apply</code> and <code>validate --cloud --env preview</code>.</td>
+                  <td>Run <code>env set</code> for local validation values, then <code>sync --env preview --apply</code> and <code>validate --cloud --env preview</code>. Evidence: <code>local-rehearsal</code>; scope: local-cloud state only.</td>
                   <td>Stores redacted provider env resource metadata and <code>valueHash</code> in local-cloud state, never raw env values.</td>
                 </tr>
                 <tr>
                   <td>Local production release rehearsal</td>
                   <td>Run <code>prod:prepare</code>, <code>prod:provision</code>, <code>prod:validate</code>, <code>prod:deploy</code>, and their apply variants where available.</td>
-                  <td>Plans and applies local production state and artifacts only; <code>prod:deploy:apply</code> requires explicit production confirmation through the script and calls no provider APIs.</td>
+                  <td>Plans and applies local production state and artifacts only with <code>Evidence: local-rehearsal</code>; <code>prod:deploy:apply</code> requires explicit production confirmation through the script and calls no provider APIs.</td>
                 </tr>
               </tbody>
             </table>

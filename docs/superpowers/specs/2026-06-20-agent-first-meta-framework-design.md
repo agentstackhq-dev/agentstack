@@ -32,7 +32,9 @@ The framework has five layers.
 
 ### Manifest Layer
 
-`agentstack.config.ts` is the source of truth for app identity, environments, services, adapters, auth, billing, surfaces, deployment targets, enabled modules, custom environment values, and release policies.
+Wave 0 uses `agentstack.config.json` as the only Agentstack manifest format. Do not add TS-based manifest readers or alternate manifest discovery paths in this slice.
+
+`agentstack.config.json` is the source of truth for app identity, environments, services, adapters, auth, billing, surfaces, deployment targets, enabled modules, custom environment values, and release policies.
 
 Agents should inspect and modify declared product intent in this manifest instead of hunting through scattered `.env` files, vendor dashboards, and generated service config.
 
@@ -81,7 +83,7 @@ packages/
 docs/
   agentstack/
 AGENTS.md
-agentstack.config.ts
+agentstack.config.json
 ```
 
 The physical structure stays compatible with the underlying tools:
@@ -667,7 +669,7 @@ agentstack deploy prod
 
 Command design rules:
 
-- every command reads from `agentstack.config.ts`;
+- every command reads from `agentstack.config.json`;
 - every cloud-mutating command supports `--plan`;
 - production mutations require explicit `--apply`;
 - output is structured and agent-readable;
@@ -704,7 +706,7 @@ The first serious prototype should prove the hardest and most differentiating wo
 1. `npx create-agent-stack my-app` creates the monorepo, manifest, local docs, generated core SaaS spine, web app, mobile app, Convex backend, telemetry primitives, and theme foundations.
 2. `agentstack init cloud` provisions or links development and preview resources across Convex, Clerk, Vercel, and EAS.
 3. `agentstack validate` runs a fast local gate.
-4. `agentstack validate --cloud` checks real service coherence and reports repair commands.
+4. `agentstack validate --cloud` currently checks local-cloud rehearsal state and reports repair commands; future provider adapters can extend this into live service coherence validation.
 5. `agentstack add feature <name>` generates a typed feature across Convex, domain, web, and mobile.
 6. `agentstack observe timeline --journey onboarding --env preview` proves correlated, redacted journey inspection works across the generated app.
 7. `agentstack deploy preview` deploys the web/backend preview and prepares the matching mobile preview path.

@@ -14,11 +14,14 @@ import {
   inspectClerkReadOnly,
   inspectConvexReadOnly,
   LocalCloudAdapter,
+  enforceProviderLedgerResource,
   redactProviderText,
   type InspectEnvResource,
   type ProviderAdapterDefinition,
   type ProviderCommandExecutor,
   type ProviderExecutionResult,
+  type ProviderLedgerDecision,
+  type ProviderLedgerExpectedMatch,
   type ProviderOperation
 } from "@agentstack/adapters";
 import {
@@ -278,6 +281,8 @@ async function validateCommand(argv: string[], io: RunIo): Promise<number> {
   }
 
   if (options.cloud) {
+    io.write("Evidence: local-rehearsal");
+    io.write("Scope: local-cloud state only; no live provider reads");
     const environment =
       options.env === undefined
         ? "preview"
@@ -507,6 +512,7 @@ async function deployCommand(argv: string[], io: RunIo): Promise<number> {
     envValues
   });
   io.write(`${deployPlan.applied ? "APPLIED" : "PLAN"} deploy ${deployPlan.environment}`);
+  io.write("Evidence: local-rehearsal");
   deployPlan.steps.forEach((step) =>
     io.write(`- ${step.status} ${step.action} ${step.environment}.${step.service}`)
   );
@@ -603,6 +609,12 @@ async function providerPlanCommand(argv: string[], io: RunIo): Promise<number> {
             });
 
   io.write(`PLAN provider ${plan.service} ${environment}`);
+  io.write("Evidence: provider-command-plan");
+  io.write("Provider execution: none");
+  const ledgerMatch = providerApplyLedgerMatch(service, environment, validation.context.manifest);
+  if (ledgerMatch !== undefined) {
+    io.write(`Ledger: ${formatProviderPlanLedgerStatus(await enforceProviderLedgerResource(io.cwd, ledgerMatch))}`);
+  }
   io.write(`Target: ${formatProviderPlanTarget(plan.target)}`);
   io.write(`Required env: ${formatList(plan.target.requiredEnv)}`);
   io.write(`Requires confirmation: ${plan.target.requiresConfirmation ? "yes" : "no"}`);
@@ -638,6 +650,56 @@ async function providerPlanCommand(argv: string[], io: RunIo): Promise<number> {
     }
   });
   return 0;
+}
+
+export function providerApplyLedgerMatch(
+  service: string,
+  environment: EnvironmentName,
+  manifest: AgentstackManifest
+): ProviderLedgerExpectedMatch | undefined {
+  if (environment !== "preview" && environment !== "production") {
+    return undefined;
+  }
+
+  if (service === "convex") {
+    return {
+      provider: "convex",
+      environment,
+      resourceType: "deployment",
+      resourceName: environment === "production" ? "prod" : `${manifest.app.slug}-preview`
+    };
+  }
+
+  if (service === "vercel" && environment === "preview") {
+    return {
+      provider: "vercel",
+      environment,
+      resourceType: "project",
+      resourceName: manifest.app.slug
+    };
+  }
+
+  return undefined;
+}
+
+function formatProviderPlanLedgerStatus(decision: ProviderLedgerDecision): string {
+  if (decision.ok) {
+    return decision.row.status;
+  }
+
+  if (decision.reason === "missing") {
+    return "missing";
+  }
+
+  if (decision.reason === "invalid") {
+    return "invalid";
+  }
+
+  if (decision.reason === "incomplete") {
+    return "invalid";
+  }
+
+  return `blocked ${decision.row.status}`;
 }
 
 function formatProviderPlanTarget(target: {
@@ -806,6 +868,8 @@ async function providerInspectCommand(argv: string[], io: RunIo): Promise<number
   const pending = providerOperationPlan.operations.some((operation) => operation.service === service);
   const commandCount = service === "clerk" || service === "eas" ? results.length : plan.commands.length;
   io.write(`${failed || pending ? "WARN" : "PASS"} provider inspect ${service} ${environment}`);
+  io.write("Evidence: live-read");
+  io.write("Mutation: none");
   io.write(`Target: ${formatProviderPlanTarget(plan.target)}`);
   io.write(`Required env: ${formatList(plan.target.requiredEnv)}`);
   io.write(`Operations: ${providerOperationPlan.operations.filter((operation) => operation.service === service).length}`);
@@ -960,6 +1024,43 @@ async function providerApplyCommand(argv: string[], io: RunIo): Promise<number> 
     return 1;
   }
 
+  const ledgerMatch = providerApplyLedgerMatch(service, environment, validation.context.manifest);
+  if (ledgerMatch === undefined) {
+    io.write(
+      formatDiagnostic({
+        severity: "fail",
+        code: "provider.apply.unsupported",
+        path: `${service}.${environment}`,
+        message: "This provider apply target is not ledger-gated for live mutation in this slice.",
+        fix,
+        blocks: ["provider apply"]
+      })
+    );
+    await recordCommandEvent(io, {
+      name: "agentstack.provider.apply.completed",
+      environment,
+      journey: "provider-apply",
+      command: ["provider", "apply", ...argv].join(" "),
+      status: "fail",
+      state: { service, reason: "unsupported-ledger-target" }
+    });
+    return 1;
+  }
+
+  const ledgerDecision = await enforceProviderLedgerResource(io.cwd, ledgerMatch);
+  if (!ledgerDecision.ok) {
+    io.write(providerLedgerDiagnostic(ledgerDecision));
+    await recordCommandEvent(io, {
+      name: "agentstack.provider.apply.completed",
+      environment,
+      journey: "provider-apply",
+      command: ["provider", "apply", ...argv].join(" "),
+      status: "fail",
+      state: { service, reason: `ledger-${ledgerDecision.reason}` }
+    });
+    return 1;
+  }
+
   const adapter = new LocalCloudAdapter(io.cwd) as EnvAwareLocalCloudAdapter;
   const cloudReport = await adapter.inspect(validation.context.manifest, environment, {
     envValues: validation.envValues
@@ -1015,6 +1116,8 @@ async function providerApplyCommand(argv: string[], io: RunIo): Promise<number> 
   io.write(`Operations: ${operations.length}`);
   io.write(`Commands: ${commandCount}`);
   io.write(`Results: ${results.length}`);
+  io.write("Evidence: live-mutation");
+  io.write("Mutation scope: bounded provider executor");
   writeProviderExecutionDiagnostics(io, results);
 
   await recordCommandEvent(io, {
@@ -1031,6 +1134,54 @@ async function providerApplyCommand(argv: string[], io: RunIo): Promise<number> 
     }
   });
   return failed ? 1 : 0;
+}
+
+export function providerLedgerDiagnostic(decision: Exclude<ProviderLedgerDecision, { ok: true }>): string {
+  if (decision.reason === "missing") {
+    return formatDiagnostic({
+      severity: "fail",
+      code: "provider.ledger.missing",
+      path: decision.path,
+      message: `No provider ledger row matches ${formatExpectedLedgerMatch(decision.expected)}.`,
+      fix: "Add a planned or active row to docs/provider-resource-ledger.md before running provider apply.",
+      blocks: ["provider apply"]
+    });
+  }
+
+  if (decision.reason === "invalid") {
+    return formatDiagnostic({
+      severity: "fail",
+      code: "provider.ledger.invalid",
+      path: decision.path,
+      message: decision.message,
+      fix: "Fix the Ledger section table shape and statuses in docs/provider-resource-ledger.md.",
+      blocks: ["provider apply"]
+    });
+  }
+
+  if (decision.reason === "incomplete") {
+    return formatDiagnostic({
+      severity: "fail",
+      code: "provider.ledger.incomplete",
+      path: decision.path,
+      message: `Provider ledger row for ${formatExpectedLedgerMatch(decision.row)} is missing required fields: ${decision.missingFields.join(", ")}.`,
+      fix: "Complete the planned or active ledger row before running provider apply.",
+      blocks: ["provider apply"]
+    });
+  }
+
+  return formatDiagnostic({
+    severity: "fail",
+    code: "provider.ledger.status-blocked",
+    path: decision.path,
+    message: `Provider ledger row for ${formatExpectedLedgerMatch(decision.row)} has blocked status. Status: ${decision.row.status}.`,
+    fix: "Move the ledger row to planned or active only when the resource is approved for mutation.",
+    blocks: ["provider apply"]
+  });
+}
+
+function formatExpectedLedgerMatch(expected: ProviderLedgerExpectedMatch): string {
+  return `${expected.provider} ${expected.environment} ${expected.resourceType} ${expected.resourceName}`;
 }
 
 function readProviderRuntimeEnvironmentOption(
@@ -1234,6 +1385,7 @@ async function prodProvisionCommand(argv: string[], io: RunIo): Promise<number> 
   });
 
   io.write(`${plan.applied ? "APPLIED" : "PLAN"} prod provision production`);
+  io.write("Evidence: local-rehearsal");
   plan.changes.forEach((change) => io.write(`- ${change}`));
   await recordCommandEvent(io, {
     name: "agentstack.prod.provision.completed",
@@ -1277,6 +1429,7 @@ async function buildMobileCommand(argv: string[], io: RunIo): Promise<number> {
   const status = mobilePlan.applied ? "applied" : "planned";
 
   io.write(`${mobilePlan.applied ? "APPLIED" : "PLAN"} mobile build ${mobilePlan.environment}`);
+  io.write("Evidence: local-rehearsal");
   io.write(
     `- ${status} eas profile ${mobilePlan.profile} distribution ${mobilePlan.distribution} development-client=${
       mobilePlan.developmentClient ? "yes" : "no"
@@ -1755,6 +1908,7 @@ async function syncCommand(argv: string[], io: RunIo): Promise<number> {
   });
 
   io.write(`${plan.applied ? "APPLIED" : "PLAN"} ${plan.environment}`);
+  io.write("Evidence: local-rehearsal");
   plan.changes.forEach((change) => io.write(`- ${change}`));
   await recordCommandEvent(io, {
     name: "agentstack.sync.completed",
