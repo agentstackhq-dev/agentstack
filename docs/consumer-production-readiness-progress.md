@@ -14,6 +14,7 @@ Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI rou
 
 ## Recent Completed Commits
 
+- `bb4badb` docs: record live link confirmation checkpoint.
 - `efdc973` feat: gate provider link on live confirmation.
 - `610bde5` docs: record structured vercel evidence checkpoint.
 - `4709145` fix: parse vercel preview evidence structurally.
@@ -93,6 +94,8 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 - Quality re-review found that Vercel preview proof still accepted `preview` as a bare value token on an env-name line. The follow-up fix now requires a recognizable `environment` or `environments` table header and `preview` in that column for the same expected-env row.
 - Added `--source local|live` to provider link and provider adopt. Local remains the default; no `--live` shorthand was added for link/adopt.
 - Added live-safe link/adopt confirmation refusal: live link validates the ledger before any executor use, both modes run only existing read-only live inventory/inspect primitives, Vercel/EAS production rejects before executor use, live read failures print `FAIL provider.<link|adopt>.live-read`, and partial/ambiguous identity prints `FAIL provider.<link|adopt>.identity-ambiguous` without writing provider-links, ledger, telemetry, local-cloud state, provider resources, or adopt proposals.
+- Spec re-review passed for the live-safe provider link/adopt slice after the progress checkpoint update.
+- Quality review passed for the live-safe provider link/adopt slice with no blocking issues.
 
 ## Current Blockers And Gaps
 
@@ -124,16 +127,17 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 
 ## Last Known Verification Evidence
 
-Most recent final orchestrator verification after `efdc973`:
+Most recent final orchestrator verification after `bb4badb`:
 
 - `pnpm vitest run packages/adapters/src/provider-control-plane.test.ts packages/cli/src/run.test.ts packages/create-agent-stack/src/generate.test.ts` passed: 3 files / 194 tests.
 - `pnpm typecheck` passed.
 - `pnpm test` passed: 27 files / 372 tests.
-- `diff -ru templates/b2b-saas/docs/agentstack packages/create-agent-stack/templates/b2b-saas/docs/agentstack` passed with no output.
-- `git diff --check` passed with no output.
+- `diff -ru templates/b2b-saas/docs/agentstack packages/create-agent-stack/templates/b2b-saas/docs/agentstack && git diff --check` passed with no output.
 - `git status --short --branch` showed only `## agentstack-prototype`.
 - `git diff -- docs/provider-resource-ledger.md` was empty.
-- The live-safe link/adopt slice committed as `efdc973` with no provider ledger diff and no real provider resource interaction.
+- Spec re-review passed.
+- Quality review passed with no blocking issues.
+- The live-safe link/adopt slice reached final verification after `bb4badb` with no provider ledger diff and no real provider resource interaction.
 
 ## Worktree State Expectation
 
