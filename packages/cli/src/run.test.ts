@@ -1463,6 +1463,199 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toMatch(/Service: eas[\s\S]*Service: vercel[\s\S]*Service: convex[\s\S]*Service: clerk/);
   });
 
+  it("prints aggregate preview provider reconciliation plans in manifest service order without executor use", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.services = {
+      eas: manifest.services.eas,
+      vercel: manifest.services.vercel,
+      convex: manifest.services.convex,
+      clerk: manifest.services.clerk
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    const ledgerBefore = await readOptionalFile(join(dir, "docs", "provider-resource-ledger.md"));
+
+    const code = await runAgentstack(["provider", "reconcile", "--env", "preview", "--plan"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor()
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PLAN provider reconcile preview");
+    expect(output).toContain("Evidence: provider-reconciliation-plan");
+    expect(output).toContain("Provider execution: none");
+    expect(output).toContain("Mutation: none");
+    expect(output).toContain("Readiness: not-claimed");
+    expect(output).toContain("Current source: local-validation-and-ledger-only");
+    expect(output).toContain("Live state: not-read");
+    expect(output).toContain("Local-cloud state: not-read");
+    expect(output.join("\n")).toMatch(/Service: eas[\s\S]*Service: vercel[\s\S]*Service: convex[\s\S]*Service: clerk/);
+    expect(output.join("\n")).toContain("Desired: enabled");
+    expect(output.join("\n")).toContain("Current: unknown");
+    expect(output.join("\n")).toContain("Identity: ambiguous");
+    expect(output.join("\n")).toContain("Drift: unproven");
+    expect(output.join("\n")).toContain("Operations: not-evaluated");
+    expect(output.join("\n")).toContain("Next: provider plan --service convex --env preview");
+    expect(providerExecutions).toHaveLength(0);
+    await expectReconcileDidNotWriteLocalState(ledgerBefore);
+  });
+
+  it("refuses provider reconcile when local validation fails before printing service sections", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.generated.requiredAnchors = ["missing-required-anchor.md"];
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    const ledgerBefore = await readOptionalFile(join(dir, "docs", "provider-resource-ledger.md"));
+
+    const code = await runAgentstack(["provider", "reconcile", "--env", "preview", "--plan"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor()
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL template.anchor.missing");
+    expect(output.join("\n")).not.toContain("PLAN provider reconcile preview");
+    expect(output.join("\n")).not.toContain("Service: clerk");
+    expect(providerExecutions).toHaveLength(0);
+    await expectReconcileDidNotWriteLocalState(ledgerBefore);
+  });
+
+  it("rejects production provider reconcile before provider executor use", async () => {
+    const code = await runAgentstack(["provider", "reconcile", "--env", "production", "--plan"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor()
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL provider.reconcile.env-unsupported");
+    expect(output.join("\n")).not.toContain("PLAN provider reconcile production");
+    expect(providerExecutions).toHaveLength(0);
+  });
+
+  it("rejects provider reconcile without --plan before provider executor use", async () => {
+    const code = await runAgentstack(["provider", "reconcile", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor()
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL provider.reconcile.plan.required");
+    expect(output.join("\n")).not.toContain("PLAN provider reconcile preview");
+    expect(providerExecutions).toHaveLength(0);
+  });
+
+  it("rejects provider reconcile with service before provider executor use", async () => {
+    const code = await runAgentstack(["provider", "reconcile", "--service", "convex", "--env", "preview", "--plan"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor()
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL provider.reconcile.service-unsupported");
+    expect(output.join("\n")).not.toContain("PLAN provider reconcile preview");
+    expect(providerExecutions).toHaveLength(0);
+  });
+
+  it("summarizes provider reconcile ledger statuses without leaking row ids or external ids", async () => {
+    const convexRowId = "sk-reconcile-convex-row-id-12345";
+    const vercelRowId = "sk-reconcile-vercel-row-id-12345";
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: convexRowId,
+        provider: "convex",
+        resourceType: "deployment",
+        environment: "preview",
+        name: "acme-crm-preview",
+        status: "planned",
+        externalId: "https://convex.example/not-for-output",
+        cleanupCommand: "pnpm exec convex deploy --preview-name acme-crm-preview",
+        evidence: "docs/evidence/convex-preview.md"
+      }),
+      providerLedgerRow({
+        id: vercelRowId,
+        provider: "vercel",
+        resourceType: "project",
+        environment: "preview",
+        name: "acme-crm",
+        status: "cleanup-pending",
+        externalId: "prj_secret_not_for_output",
+        cleanupCommand: "pnpm exec vercel remove acme-crm",
+        evidence: "docs/evidence/vercel-preview.md"
+      })
+    ]);
+
+    const code = await runAgentstack(["provider", "reconcile", "--env", "preview", "--plan"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor()
+    });
+
+    expect(code).toBe(0);
+    expect(output.join("\n")).toContain("Service: convex");
+    expect(output.join("\n")).toContain("Ledger: planned");
+    expect(output.join("\n")).toContain("Service: vercel");
+    expect(output.join("\n")).toContain("Ledger: blocked cleanup-pending");
+    expect(output.join("\n")).not.toContain(convexRowId);
+    expect(output.join("\n")).not.toContain(vercelRowId);
+    expect(output.join("\n")).not.toContain("https://convex.example/not-for-output");
+    expect(output.join("\n")).not.toContain("prj_secret_not_for_output");
+    expect(providerExecutions).toHaveLength(0);
+  });
+
+  it("does not read seeded local-cloud rehearsal state for provider reconcile", async () => {
+    await mkdir(join(dir, ".agentstack"), { recursive: true });
+    const seededLocalCloud = {
+      version: 1,
+      environments: {
+        preview: {
+          services: {
+            convex: {
+              linked: true,
+              drift: "drifted-looking-local-only-state",
+              resources: {
+                staleSecretResource: {
+                  service: "convex",
+                  surface: "convex",
+                  name: "SEEDED_LOCAL_CLOUD_VALUE",
+                  status: "drifted"
+                }
+              }
+            }
+          }
+        }
+      }
+    };
+    await writeFile(
+      join(dir, ".agentstack", "local-cloud.json"),
+      `${JSON.stringify(seededLocalCloud, null, 2)}\n`,
+      "utf8"
+    );
+    const localCloudBefore = await readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8");
+
+    const code = await runAgentstack(["provider", "reconcile", "--env", "preview", "--plan"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor()
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("Local-cloud state: not-read");
+    expect(output.join("\n")).toMatch(/Service: convex[\s\S]*Current: unknown[\s\S]*Identity: ambiguous[\s\S]*Drift: unproven[\s\S]*Operations: not-evaluated/);
+    expect(output.join("\n")).not.toContain("drifted-looking-local-only-state");
+    expect(output.join("\n")).not.toContain("SEEDED_LOCAL_CLOUD_VALUE");
+    expect(await readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).toBe(localCloudBefore);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+    await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+    expect(providerExecutions).toHaveLength(0);
+  });
+
   it("prints aggregate preview ledger statuses without leaking row ids or external ids", async () => {
     const convexRowId = "sk-aggregate-convex-row-id-12345";
     const vercelRowId = "sk-aggregate-vercel-row-id-12345";
@@ -5072,6 +5265,30 @@ function providerLedgerRow(input: {
     input.evidence,
     ""
   ].join(" | ").replace(/^/, "| ").replace(/$/, " |");
+}
+
+async function expectReconcileDidNotWriteLocalState(ledgerBefore: string | undefined): Promise<void> {
+  await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
+    code: "ENOENT"
+  });
+  await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({
+    code: "ENOENT"
+  });
+  await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({
+    code: "ENOENT"
+  });
+  expect(await readOptionalFile(join(dir, "docs", "provider-resource-ledger.md"))).toBe(ledgerBefore);
+}
+
+async function readOptionalFile(path: string): Promise<string | undefined> {
+  try {
+    return await readFile(path, "utf8");
+  } catch (error) {
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
+      return undefined;
+    }
+    throw error;
+  }
 }
 
 async function writeLocalEnvValues(values: unknown): Promise<void> {

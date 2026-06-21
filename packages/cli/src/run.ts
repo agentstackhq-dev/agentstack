@@ -204,6 +204,10 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
       return await providerPlanCommand(rest, io);
     }
 
+    if (command === "provider" && subcommand === "reconcile") {
+      return await providerReconcileCommand(rest, io);
+    }
+
     if (command === "provider" && subcommand === "inspect") {
       return await providerInspectCommand(rest, io);
     }
@@ -773,6 +777,98 @@ async function providerPlanAllCommand(argv: string[], io: RunIo, environment: En
     io.write(`Operations: ${operations.length}`);
     io.write(`Commands: ${plan.commands.length}`);
     plan.commands.forEach((command) => writeProviderCommandPlanLine(io, command));
+  }
+
+  return 0;
+}
+
+async function providerReconcileCommand(argv: string[], io: RunIo): Promise<number> {
+  const options = parseOptions(argv);
+  const fix = "Run agentstack provider reconcile --env preview --plan.";
+  const environment = readEnvironmentOption(options.env, {
+    flag: "env",
+    fix
+  });
+
+  if (options.plan !== true) {
+    io.write(
+      formatDiagnostic({
+        severity: "fail",
+        code: "provider.reconcile.plan.required",
+        path: "provider reconcile",
+        message: "Provider reconcile is plan-only in this slice.",
+        fix,
+        blocks: ["provider reconcile"]
+      })
+    );
+    return 1;
+  }
+
+  if (environment !== "preview") {
+    io.write(
+      formatDiagnostic({
+        severity: "fail",
+        code: "provider.reconcile.env-unsupported",
+        path: environment,
+        message: "Provider reconciliation planning is preview-only in this slice.",
+        fix,
+        blocks: ["provider reconcile"]
+      })
+    );
+    return 1;
+  }
+
+  if (options.service !== undefined) {
+    io.write(
+      formatDiagnostic({
+        severity: "fail",
+        code: "provider.reconcile.service-unsupported",
+        path: "provider reconcile --service",
+        message: "Aggregate provider reconciliation planning does not accept --service.",
+        fix,
+        blocks: ["provider reconcile"]
+      })
+    );
+    return 1;
+  }
+
+  const validation = await runLocalValidationGate(io.cwd);
+  validation.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
+  if (validation.diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
+    return 1;
+  }
+
+  const enabledServices = validation.context.serviceOrder
+    .filter(isProviderControlPlaneService)
+    .filter((service) => validation.context.manifest.services[service].enabled);
+  const plans = enabledServices.map((service) => ({
+    service,
+    plan: createProviderPlanForService(service, environment, validation.context.manifest, [])
+  }));
+
+  io.write("PLAN provider reconcile preview");
+  io.write("Evidence: provider-reconciliation-plan");
+  io.write("Provider execution: none");
+  io.write("Mutation: none");
+  io.write("Readiness: not-claimed");
+  io.write("Current source: local-validation-and-ledger-only");
+  io.write("Live state: not-read");
+  io.write("Local-cloud state: not-read");
+  for (const { service, plan } of plans) {
+    io.write(`Service: ${service}`);
+    io.write("Desired: enabled");
+    io.write("Current: unknown");
+    io.write("Identity: ambiguous");
+    io.write("Drift: unproven");
+    const ledgerMatch = providerApplyLedgerMatch(service, environment, validation.context.manifest);
+    const ledgerStatus =
+      ledgerMatch === undefined
+        ? "not-required-for-plan"
+        : formatProviderPlanLedgerStatus(await enforceProviderLedgerResource(io.cwd, ledgerMatch));
+    io.write(`Ledger: ${ledgerStatus}`);
+    io.write("Operations: not-evaluated");
+    io.write(`Commands: ${plan.commands.length}`);
+    io.write(`Next: provider plan --service ${service} --env preview`);
   }
 
   return 0;

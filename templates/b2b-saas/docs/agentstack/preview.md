@@ -2,9 +2,9 @@
 
 This is a local preview deploy rehearsal. It exercises Agentstack planning, local-cloud preview state, validation, deployment artifact writing, and deployment telemetry without deploying to Vercel, running EAS builds, or calling Stripe or telemetry-provider APIs. Explicit provider execution is available only through `agentstack provider inspect/apply`.
 
-Clerk, Convex, Vercel, and EAS have command-plan surfaces. `clerk:command-plan`, `convex:command-plan`, `vercel:command-plan`, and `eas:command-plan` mean Agentstack knows current provider CLI command shapes and can print the commands an operator would run with `Evidence: provider-command-plan`. `pnpm run provider:preview:plan` prints an aggregate preview plan for all enabled providers with `Provider execution: none`, `Mutation: none`, and `Readiness: not-claimed`; it is plan-only and preview-only. `provider inspect` is explicit read/diagnostic provider interaction for Clerk, Convex, Vercel preview env listing, and EAS preview env listing with `Evidence: live-read`. Apply execution is explicit, ledger-gated, and limited to Convex commands or Vercel preview deploy only with `Evidence: live-mutation`; Convex production is guarded by `--confirm-production`, Clerk apply and EAS apply are unavailable. Generated projects include the Clerk, Convex, Vercel, and EAS CLI packages so `pnpm exec clerk`, `pnpm exec convex`, `pnpm exec vercel`, and `pnpm exec eas` resolve locally.
+Clerk, Convex, Vercel, and EAS have command-plan surfaces. `clerk:command-plan`, `convex:command-plan`, `vercel:command-plan`, and `eas:command-plan` mean Agentstack knows current provider CLI command shapes and can print the commands an operator would run with `Evidence: provider-command-plan`. `pnpm run provider:preview:plan` prints an aggregate preview plan for all enabled providers with `Provider execution: none`, `Mutation: none`, and `Readiness: not-claimed`; it is plan-only and preview-only. `pnpm run provider:preview:reconcile` prints an aggregate preview reconciliation plan artifact with `Evidence: provider-reconciliation-plan`, `Provider execution: none`, `Mutation: none`, `Readiness: not-claimed`, `Live state: not-read`, `Local-cloud state: not-read`, and `Operations: not-evaluated`. It uses local validation plus sanitized ledger summaries only; does not call provider executors or provider CLIs; does not read live provider, local-cloud rehearsal, or provider-link state; writes no `.agentstack/events.jsonl`, `.agentstack/local-cloud.json`, `.agentstack/provider-links.json`, provider resources, or `docs/provider-resource-ledger.md`; and does not claim exact identity, drift proof, provisioning, adoption/link confirmation, live coherence, or readiness. `provider inspect` is explicit read/diagnostic provider interaction for Clerk, Convex, Vercel preview env listing, and EAS preview env listing with `Evidence: live-read`. Apply execution is explicit, ledger-gated, and limited to Convex commands or Vercel preview deploy only with `Evidence: live-mutation`; Convex production is guarded by `--confirm-production`, Clerk apply and EAS apply are unavailable. Generated projects include the Clerk, Convex, Vercel, and EAS CLI packages so `pnpm exec clerk`, `pnpm exec convex`, `pnpm exec vercel`, and `pnpm exec eas` resolve locally.
 
-Supported provider apply paths require a matching `planned` or `active` ledger row before the provider executor runs. Convex preview apply requires provider `convex`, env `preview`, resource type `deployment`, and name `__APP_SLUG__-preview`. Convex production apply requires provider `convex`, env `production`, resource type `deployment`, and name `prod`. Vercel preview apply requires provider `vercel`, env `preview`, resource type `project`, and name `__APP_SLUG__`. Missing, incomplete, invalid, blocked, cleanup-pending, cleaned, or abandoned-with-reason ledger rows block mutation with `FAIL provider.ledger.*` diagnostics. `provider plan` does not require or mutate the ledger, but prints `Ledger: missing`, `Ledger: planned`, `Ledger: active`, `Ledger: blocked <status>`, or `Ledger: invalid` for supported apply targets.
+Supported provider apply paths require a matching `planned` or `active` ledger row before the provider executor runs. Convex preview apply requires provider `convex`, env `preview`, resource type `deployment`, and name `__APP_SLUG__-preview`. Convex production apply requires provider `convex`, env `production`, resource type `deployment`, and name `prod`. Vercel preview apply requires provider `vercel`, env `preview`, resource type `project`, and name `__APP_SLUG__`. Missing, incomplete, invalid, blocked, cleanup-pending, cleaned, or abandoned-with-reason ledger rows block mutation with `FAIL provider.ledger.*` diagnostics. `provider plan` and `provider reconcile --plan` do not require or mutate the ledger, but print sanitized summaries such as `Ledger: missing`, `Ledger: planned`, `Ledger: active`, `Ledger: blocked <status>`, or `Ledger: invalid` for supported apply targets.
 
 ## Commands
 
@@ -68,6 +68,25 @@ Evidence: provider-command-plan
 Provider execution: none
 Mutation: none
 Readiness: not-claimed
+```
+
+Print the aggregate preview reconciliation plan artifact without provider or local-cloud reads:
+
+```bash
+pnpm run provider:preview:reconcile
+```
+
+Expected output includes:
+
+```text
+PLAN provider reconcile preview
+Evidence: provider-reconciliation-plan
+Provider execution: none
+Mutation: none
+Readiness: not-claimed
+Live state: not-read
+Local-cloud state: not-read
+Operations: not-evaluated
 ```
 
 Plan the local preview deploy rehearsal:

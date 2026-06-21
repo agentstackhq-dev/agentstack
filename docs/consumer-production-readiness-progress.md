@@ -6,11 +6,11 @@ This file is the canonical resume and progress artifact for Agentstack consumer 
 
 ## Current State
 
-Current phase: sanitized Clerk/Convex command-level partial live-read facts are the latest substantive implementation checkpoint, building on structurally parsed EAS/Vercel preview partial-proof evidence, aggregate preview provider planning, first aggregate live validation truthful refusal, sanitized live identity proof requirements, truthful local quality validation, live-safe provider link/adopt confirmation modes, bounded live provider inventory, Vercel preview provider live-read inspect, failure-diagnostic redaction hardening, and provider inventory/link/adopt; this file intentionally avoids self-referencing its containing commit hash. Use `git log --oneline -n 5` for exact HEAD.
+Current phase: aggregate preview provider reconciliation plan artifacts are the latest substantive implementation checkpoint, building on sanitized Clerk/Convex command-level partial live-read facts, structurally parsed EAS/Vercel preview partial-proof evidence, aggregate preview provider planning, first aggregate live validation truthful refusal, sanitized live identity proof requirements, truthful local quality validation, live-safe provider link/adopt confirmation modes, bounded live provider inventory, Vercel preview provider live-read inspect, failure-diagnostic redaction hardening, and provider inventory/link/adopt; this file intentionally avoids self-referencing its containing commit hash. Use `git log --oneline -n 5` for exact HEAD.
 
-Overall status: not complete. Agentstack is about 38-40% of the way toward consumer production readiness from a consumer perspective. The current product state is a local command-contract and rehearsal prototype with credible local telemetry and provider boundaries, not a consumer-ready production framework.
+Overall status: not complete. Agentstack is about 39-41% of the way toward consumer production readiness from a consumer perspective. The current product state is a local command-contract and rehearsal prototype with credible local telemetry and provider boundaries, not a consumer-ready production framework.
 
-Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI routing, local env graph rehearsal, structural validation, local package quality validation via `agentstack validate --quality`, generated guidance/skills, local wide-event telemetry, OTLP-shaped local export, provider command plans for Clerk/Convex/Vercel/EAS, aggregate preview provider planning via `agentstack provider plan --env preview --all`, Clerk/Convex/Vercel preview/EAS preview live-read inspect, ledger-gated Convex and Vercel preview apply, local provider inventory/link/adopt, explicit bounded live provider inventory via `--source live` or `--live`, sanitized partial live identity facts and missing-proof labels for successful Clerk/Convex read-only command access and structurally parsed Vercel/EAS preview env-list reads, and live-safe refusal modes for provider link/adopt via `--source live` with sanitized identity proof requirement summaries. It still lacks exact live identity proof and exact live readiness proof for the read-only live validation runner, broad provider discovery/adoption, broad real provider provisioning, a real generated SaaS runtime, real OTel/network/hosted observability, preview deploy/build smoke evidence, production release gates, hosted control-plane state, and public package installability.
+Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI routing, local env graph rehearsal, structural validation, local package quality validation via `agentstack validate --quality`, generated guidance/skills, local wide-event telemetry, OTLP-shaped local export, provider command plans for Clerk/Convex/Vercel/EAS, aggregate preview provider planning via `agentstack provider plan --env preview --all`, aggregate preview reconciliation plan artifacts via `agentstack provider reconcile --env preview --plan`, Clerk/Convex/Vercel preview/EAS preview live-read inspect, ledger-gated Convex and Vercel preview apply, local provider inventory/link/adopt, explicit bounded live provider inventory via `--source live` or `--live`, sanitized partial live identity facts and missing-proof labels for successful Clerk/Convex read-only command access and structurally parsed Vercel/EAS preview env-list reads, and live-safe refusal modes for provider link/adopt via `--source live` with sanitized identity proof requirement summaries. It still lacks exact live identity proof and exact live readiness proof for the read-only live validation runner, broad provider discovery/adoption, broad real provider provisioning, a real generated SaaS runtime, real OTel/network/hosted observability, preview deploy/build smoke evidence, production release gates, hosted control-plane state, and public package installability.
 
 ## Recent Completed Commits
 
@@ -70,6 +70,7 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 - Provider link defaults to local state only. It requires a matching `planned` or `active` ledger row and writes only `.agentstack/provider-links.json`, while printing explicit local/provider/ledger mutation boundaries. `provider link --source live` requires the same ledger row before executor use, runs only read-only live inventory/inspect, and currently refuses partial or ambiguous identity with one sanitized identity proof requirement summary and no writes.
 - Provider adopt defaults to print-only. It prints a redacted ledger proposal and writes no files, while printing explicit local/provider/ledger mutation boundaries. `provider adopt --source live` does not require an existing ledger row, runs only read-only live inventory/inspect, and currently refuses partial or ambiguous identity with one sanitized identity proof requirement summary, no proposal, and no writes.
 - Provider plan prints `Evidence: provider-command-plan`. `agentstack provider plan --env preview --all` is the first aggregate preview provider planning surface. It runs local validation first, uses manifest service key order, prints all enabled preview service command plans with `Provider execution: none`, `Mutation: none`, and `Readiness: not-claimed`, includes existing ledger status summaries for mutation-capable preview targets, writes no telemetry/local-cloud/provider-links/ledger state, and does not call provider executors or claim readiness. It is preview-only; production aggregate planning rejects before provider executor use.
+- Provider reconcile now has a bounded aggregate preview plan surface at `agentstack provider reconcile --env preview --plan`. It is aggregate, preview-only, and plan-only. It prints `PLAN provider reconcile preview`, `Evidence: provider-reconciliation-plan`, `Provider execution: none`, `Mutation: none`, `Readiness: not-claimed`, `Current source: local-validation-and-ledger-only`, `Live state: not-read`, and `Local-cloud state: not-read`. It uses local validation, manifest service order, enabled services, sanitized ledger summaries, and command-plan counts from empty-operation plans. Per enabled service it prints `Desired: enabled`, `Current: unknown`, `Identity: ambiguous`, `Drift: unproven`, sanitized `Ledger: ...`, `Operations: not-evaluated`, a command count, and `Next: provider plan --service <service> --env preview`. Missing `--plan`, `--service`, and production env reject before provider executor use. It does not call provider executors, provider CLIs, live provider reads, `LocalCloudAdapter.inspect`, local-cloud state, or provider links, and writes no `.agentstack/events.jsonl`, `.agentstack/local-cloud.json`, `.agentstack/provider-links.json`, provider resources, or `docs/provider-resource-ledger.md`. It does not claim exact identity, drift proof, provisioning, adoption/link confirmation, live coherence, mutation, or readiness.
 - Clerk inspect, Convex inspect, Vercel preview inspect, and EAS preview inspect have live-read semantics where implemented.
 - Supported live mutation remains narrow: ledger-gated Convex apply and ledger-gated Vercel preview deploy apply. Clerk apply, Vercel env/production apply, EAS init/env/build/apply, and broad provider provisioning are still unavailable.
 - `agentstack validate` validates manifest/env/guidance/theme/source-secret/generated anchors and prints `Evidence: local-structure`. It does not run package quality commands or imply live provider/readiness proof.
@@ -81,6 +82,10 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 
 ## Completed Work This Documentation Turn
 
+- Added `agentstack provider reconcile --env preview --plan` as a typed aggregate reconciliation plan artifact for enabled preview providers. It is preview-only and plan-only, runs local validation first, preserves manifest service order, emits sanitized ledger summaries, uses empty-operation command plans for command counts, and prints `Operations: not-evaluated`.
+- Added generated template root and package-local mirror script support through `provider:preview:reconcile` and aligned generated AGENTS/environments/workflows/preview/validation docs with the non-claims/no-provider/no-local-cloud/write-nothing contract.
+- Preserved the no-external-resource boundary: no real provider resources were created, mutated, adopted, linked, or deleted, and `docs/provider-resource-ledger.md` remains unchanged.
+- Review outcome for the reconciliation slice: initial spec review failed the local-cloud dependency and weak no-write coverage; the worker removed `LocalCloudAdapter.inspect`, switched to empty-operation command plans, added `Local-cloud state: not-read` and `Operations: not-evaluated`, strengthened no-write tests, and added seeded local-cloud independence coverage. Spec re-review passed with no findings. Quality review then failed stale generated AGENTS/preview/validation docs; the worker fixed both template mirrors and quality re-review passed with no findings.
 - Added sanitized Clerk and Convex command-level partial live identity facts for successful read-only inspect commands. Clerk `auth.diagnostics` now maps to `diagnostics-read`, Clerk `auth.env.pull` and Convex `env.list` map to `provider-env-read`, and Clerk `auth.config.pull` maps to `provider-config-read`.
 - Hardened the shared provider execution artifact boundary so failed command results never carry live identity facts, malformed exact-confidence runtime input is ignored, and arbitrary/casted fact labels such as env names or raw provider identifiers are filtered before any CLI inventory output can render them.
 - Kept all Clerk/Convex partial facts explicitly non-exact: all-success live inventory rows remain `identity=ambiguous identity-scope=partial` with `missing=ledger-comparable-identity,stable-provider-identity`, while mixed success/failure live reads preserve the failure path with `identity-scope=none`, no `facts=`, and `missing=successful-live-read`.
@@ -147,7 +152,7 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 - Broad provider discovery/adoption is not implemented; live inventory is bounded read-only evidence and not discovery, provisioning, adoption, or reconciliation.
 - Vercel live-read is bounded to preview env-list inspect; production Vercel live-read remains unavailable.
 - Provider live mutation is limited to ledger-gated Convex apply and Vercel preview deploy apply.
-- Real Clerk, Convex, Vercel, and EAS create/provision/live reconciliation/apply coverage is missing or partial; aggregate preview provider planning is plan-only and does not prove live provider state.
+- Real Clerk, Convex, Vercel, and EAS create/provision/live reconciliation/apply coverage is missing or partial; aggregate preview provider planning and reconciliation artifacts are plan-only and do not prove live provider state.
 - Generated SaaS runtime is not real: no Clerk auth/org runtime, billing/webhooks, entitlements, audit, or protected end-to-end Convex data path across web/mobile.
 - UI package is not a functional primitive library.
 - Observability is local JSONL plus OTLP-shaped artifact export only.
@@ -157,8 +162,8 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 ## Next Concrete Actions
 
 1. Finish provider integration gaps first:
-   - Extend aggregate preview provider planning toward typed reconciliation artifacts while preserving `Provider execution: none`, `Mutation: none`, and `Readiness: not-claimed`.
    - Design provider-specific exact identity and drift proof contracts before any inventory row can move beyond ambiguous partial evidence.
+   - Expand provider-specific bounded live-read semantics only after exact identity and drift proof contracts are designed.
    - Expand Vercel live-read beyond bounded preview env-list only when production read semantics are explicitly designed.
    - Expand live inventory with provider-specific exact identity parsers only where exact identity matching can be proven without leaking identifiers.
    - Expand live-safe link/adopt identity confirmation only after exact provider identity can be proven without leaking identifiers.
@@ -173,6 +178,22 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 5. Update `docs/provider-resource-ledger.md` before any real provider resource is created, adopted, linked, mutated, or cleaned up.
 
 ## Last Known Verification Evidence
+
+Most recent final orchestrator verification for the aggregate preview provider reconciliation plan slice:
+
+- Initial spec review failed local-cloud dependency and weak no-write coverage; the worker fixed it by removing `LocalCloudAdapter.inspect`, using empty-operation command plans, adding `Local-cloud state: not-read` and `Operations: not-evaluated`, strengthening no-write tests, and adding seeded local-cloud independence coverage.
+- Spec re-review passed with no findings.
+- Quality review failed stale generated AGENTS/preview/validation docs; the worker fixed both template mirrors.
+- Quality re-review passed with no findings.
+- `pnpm vitest run packages/cli/src/run.test.ts --testNamePattern "provider reconcile|reconciliation"` passed: 1 file / 7 selected tests.
+- `pnpm vitest run packages/create-agent-stack/src/generate.test.ts` passed: 1 file / 10 tests.
+- `pnpm vitest run packages/cli/src/run.test.ts packages/create-agent-stack/src/generate.test.ts` passed: 2 files / 208 tests.
+- `diff -qr templates/b2b-saas packages/create-agent-stack/templates/b2b-saas` passed with no output.
+- `git diff -- docs/provider-resource-ledger.md` was empty.
+- `git diff --check` passed with no output.
+- `pnpm typecheck` passed.
+- `pnpm test` passed: 27 files / 412 tests.
+- No provider CLIs were run directly, and no real provider resources were created, mutated, adopted, linked, or deleted.
 
 Most recent final orchestrator verification for the Clerk/Convex command-level partial-facts slice:
 
