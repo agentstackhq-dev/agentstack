@@ -14,6 +14,7 @@ Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI rou
 
 ## Recent Completed Commits
 
+- `612a938` feat: add aggregate preview provider plan.
 - `6e1b9af` docs: record live validation checkpoint.
 - `b1711fe` feat: add truthful live validation refusal.
 - `78bb8fa` docs: record identity proof checkpoint.
