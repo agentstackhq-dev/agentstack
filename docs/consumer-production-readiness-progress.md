@@ -14,6 +14,7 @@ Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI rou
 
 ## Recent Completed Commits
 
+- `56c5a27` feat: add vercel identity candidates.
 - `860c188` docs: align provider candidate readiness state.
 - `1dea6bb` feat: add provider identity candidates.
 - `3dc964d` docs: record exact identity checkpoint.
