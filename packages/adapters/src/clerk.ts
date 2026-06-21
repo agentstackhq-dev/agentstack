@@ -3,6 +3,9 @@ import type { EnvironmentName } from "@agentstack/core";
 import {
   createProviderExecutionResult,
   type ProviderCommandExecutor,
+  type ProviderExactIdentityComparisonEvidence,
+  type ProviderExactIdentityProofArtifact,
+  type ProviderExactIdentityProofLabel,
   type ProviderExecutionResult,
   type ProviderLiveFactLabel
 } from "./provider-executor.js";
@@ -65,6 +68,13 @@ export type InspectClerkReadOnlyOptions = {
   env?: Record<string, string | undefined>;
   timeoutMs?: number;
   secretValues?: string[];
+  exactProofContext?: ClerkExactProofContext;
+};
+
+export type ClerkExactProofContext = {
+  expectedResourceName: string;
+  ledgerExternalIdOrUrl: string;
+  ledgerOwnerAccountOrProject: string;
 };
 
 export function createClerkTarget(environment: EnvironmentName): ClerkTarget {
@@ -191,7 +201,13 @@ export async function inspectClerkReadOnly(
         result,
         secretValues: options.secretValues,
         liveIdentityFacts: liveIdentityFactsForClerkRead(command.kind, result.exitCode),
-        identityCandidates: identityCandidatesForClerkRead(command.kind, options.environment, result)
+        identityCandidates: identityCandidatesForClerkRead(command.kind, options.environment, result),
+        exactIdentityProof: exactIdentityProofForClerkRead(
+          command.kind,
+          options.environment,
+          result,
+          options.exactProofContext
+        )
       })
     );
   }
@@ -256,6 +272,93 @@ function identityCandidatesForClerkRead(
     : undefined;
 }
 
+function exactIdentityProofForClerkRead(
+  commandKind: ClerkCommandKind,
+  environment: EnvironmentName,
+  result: { exitCode: number; stdout: string },
+  context: ClerkExactProofContext | undefined
+): ProviderExactIdentityProofArtifact | undefined {
+  if (environment !== "preview" || commandKind !== "auth.apps.list" || result.exitCode !== 0 || !context) {
+    return undefined;
+  }
+
+  const expectedClerkEnvironment = "development";
+  const expectedName = context.expectedResourceName.trim();
+  const expectedExternalId = context.ledgerExternalIdOrUrl.trim();
+  const expectedOwner = context.ledgerOwnerAccountOrProject.trim();
+  if (!expectedName || !expectedExternalId || !expectedOwner) {
+    return undefined;
+  }
+
+  const matches = parseClerkAppsList(result.stdout).filter((app) =>
+    clerkAppMatchesExactProofContext(app, {
+      expectedClerkEnvironment,
+      expectedName,
+      expectedExternalId,
+      expectedOwner
+    })
+  );
+  if (matches.length !== 1) {
+    return undefined;
+  }
+
+  const labels: ProviderExactIdentityProofLabel[] = [
+    "ledger-comparable-identity",
+    "ledger-external-id-match",
+    "manifest-resource-name-match",
+    "provider-environment-scope",
+    "provider-owner-identity",
+    "provider-resource-id",
+    "provider-specific-identity-parser",
+    "stable-provider-identity"
+  ];
+  const comparisons: ProviderExactIdentityComparisonEvidence[] = [
+    { label: "stable-provider-identity", outcome: "matched" },
+    { label: "ledger-comparable-identity", outcome: "matched" },
+    { label: "manifest-resource-name-match", outcome: "matched" },
+    { label: "ledger-external-id-match", outcome: "matched" },
+    { label: "provider-owner-identity", outcome: "matched" },
+    { label: "provider-resource-id", outcome: "matched" },
+    { label: "provider-environment-scope", outcome: "matched" }
+  ];
+
+  return {
+    kind: "provider-exact-identity-proof",
+    evaluator: "provider-specific-identity-parser",
+    labels,
+    comparisons
+  };
+}
+
+function clerkAppMatchesExactProofContext(
+  app: Record<string, unknown>,
+  context: {
+    expectedClerkEnvironment: "development" | "production";
+    expectedName: string;
+    expectedExternalId: string;
+    expectedOwner: string;
+  }
+): boolean {
+  const resourceId = readFirstString(app.resourceId, app.resource_id);
+  const owner = readFirstString(
+    app.ownerId,
+    app.owner_id,
+    app.organizationId,
+    app.organization_id,
+    app.teamId,
+    app.team_id
+  );
+  const appName = readFirstMatchingString(context.expectedName, app.name, app.slug, app.displayName);
+
+  return (
+    hasString(app.id) &&
+    resourceId === context.expectedExternalId &&
+    owner === context.expectedOwner &&
+    hasMatchingEnvironmentScope(app, context.expectedClerkEnvironment) &&
+    appName === context.expectedName
+  );
+}
+
 function parseClerkAppsList(stdout: string): Record<string, unknown>[] {
   let parsed: unknown;
   try {
@@ -264,11 +367,7 @@ function parseClerkAppsList(stdout: string): Record<string, unknown>[] {
     return [];
   }
 
-  const apps = Array.isArray(parsed)
-    ? parsed
-    : isRecord(parsed) && Array.isArray(parsed.data)
-      ? parsed.data
-      : [];
+  const apps = isRecord(parsed) && Array.isArray(parsed.data) ? parsed.data : [];
 
   return apps.filter(isRecord);
 }
@@ -294,6 +393,24 @@ function hasMatchingEnvironmentScope(
 
 function hasString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function readFirstString(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (hasString(value)) {
+      return value.trim();
+    }
+  }
+  return undefined;
+}
+
+function readFirstMatchingString(expected: string, ...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (hasString(value) && value.trim() === expected) {
+      return value.trim();
+    }
+  }
+  return undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

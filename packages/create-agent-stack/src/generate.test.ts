@@ -269,7 +269,7 @@ describe("generateProject", () => {
       expect(generatedWorkflowDocs).toContain("not proof of external provider existence");
       expect(generatedWorkflowDocs).toContain("sanitized `missing=` identity proof labels");
       expect(generatedWorkflowDocs).toContain("pnpm run validate:live:preview");
-      expect(generatedWorkflowDocs).toContain("live validation refuses readiness");
+      expect(generatedWorkflowDocs).toContain("Live validation refuses readiness");
       const generatedValidationDocs = await readFile(join(targetDir, "docs/agentstack/validation.md"), "utf8");
       expect(generatedValidationDocs).toContain("pnpm run validate:live:preview");
       expect(generatedValidationDocs).toContain("Evidence: live-validation");

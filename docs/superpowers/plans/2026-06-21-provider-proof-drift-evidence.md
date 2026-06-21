@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
-**Goal:** Surface sanitized partial drift evidence for Vercel/EAS preview env-list read results while provider proof and live validation still refuse readiness because exact live identity is unavailable.
+**Goal:** Surface sanitized partial drift evidence for Vercel/EAS preview env-list read results while provider proof and live validation still refuse readiness. Current exact identity remains limited to the narrow Clerk preview application provider-proof path, and exact drift/live coherence is unavailable.
 
 **Architecture:** Keep identity and readiness unchanged: `ProviderLiveIdentityConfidence` remains `"none" | "partial"`, proof still exits nonzero, and `validate --live` still refuses. Add a provider-neutral drift proof evaluator in `packages/adapters` that consumes existing structured `ProviderExecutionResult.liveIdentityFacts`; Vercel/EAS can contribute partial sanitized evidence only when their current env-list parsers proved an expected env name and `preview` in the same parsed row. Clerk/Convex remain unavailable/unproven.
 

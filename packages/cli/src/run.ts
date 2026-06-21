@@ -40,6 +40,7 @@ import {
   type ProviderLedgerExpectedMatch,
   type ProviderProofContract,
   type ProviderExactIdentityDecision,
+  type ClerkExactProofContext,
   type ProviderOperation
 } from "@agentstack/adapters";
 import {
@@ -1686,7 +1687,15 @@ async function providerProofCommand(argv: string[], io: RunIo): Promise<number> 
       manifest: validation.context.manifest,
       executor: resolveProviderExecutor(io),
       cwd: io.cwd,
-      secretValues
+      secretValues,
+      clerkExactProofContext:
+        service === "clerk"
+          ? {
+              expectedResourceName: name,
+              ledgerExternalIdOrUrl: ledgerDecision.row.externalIdOrUrl,
+              ledgerOwnerAccountOrProject: ledgerDecision.row.ownerAccountOrProject
+            }
+          : undefined
     });
     inventory = await createLiveProviderInventory({ localInventory, readResults: liveResults });
     liveReadFailed = (inventory.liveReadSummary?.failed ?? 0) > 0;
@@ -1722,9 +1731,7 @@ async function providerProofCommand(argv: string[], io: RunIo): Promise<number> 
       ? "live-read-failed"
       : exactIdentityDecision?.proof !== "exact"
         ? "identity-ambiguous"
-        : driftProof?.proof === "partial"
-          ? "drift-unproven"
-          : "identity-ambiguous"
+        : "drift-unproven"
   });
   return 1;
 }
@@ -2477,13 +2484,15 @@ async function readLiveProviderInventory(input: {
   executor: ProviderCommandExecutor;
   cwd: string;
   secretValues: string[];
+  clerkExactProofContext?: ClerkExactProofContext;
 }): Promise<ProviderExecutionResult[]> {
   if (input.service === "clerk") {
     return inspectClerkReadOnly({
       environment: input.environment,
       executor: input.executor,
       cwd: input.cwd,
-      secretValues: input.secretValues
+      secretValues: input.secretValues,
+      exactProofContext: input.clerkExactProofContext
     });
   }
 

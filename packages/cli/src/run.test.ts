@@ -2906,6 +2906,117 @@ describe("runAgentstack", () => {
     ]);
   });
 
+  it("keeps Clerk exact context limited to provider proof across live inventory, link, and adopt", async () => {
+    const externalId = "res_raw_clerk_boundary";
+    const owner = "org_raw_clerk_boundary";
+    const appId = "app_raw_clerk_boundary";
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: "row-clerk-boundary",
+        provider: "clerk",
+        resourceType: "application",
+        environment: "preview",
+        name: "acme-crm-preview",
+        status: "active",
+        owner,
+        externalId,
+        cleanupCommand: "delete through Clerk dashboard",
+        evidence: "docs/evidence/clerk-preview.md"
+      })
+    ]);
+    const appsList = JSON.stringify({
+      data: [
+        {
+          id: appId,
+          resourceId: externalId,
+          ownerId: owner,
+          environment: "development",
+          name: "acme-crm-preview"
+        }
+      ]
+    });
+    const runWithMatchingClerkJson = (argv: string[]) =>
+      runAgentstack(argv, {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: {
+          async execute(command, args, options) {
+            providerExecutions.push({ command, args, stdin: options.stdin });
+            return {
+              exitCode: 0,
+              stdout: args.join(" ") === "exec clerk apps list --json" ? appsList : "ok",
+              stderr: "",
+              durationMs: 12
+            };
+          }
+        }
+      });
+
+    let code = await runWithMatchingClerkJson([
+      "provider",
+      "inventory",
+      "--service",
+      "clerk",
+      "--env",
+      "preview",
+      "--source",
+      "live"
+    ]);
+    expect(code).toBe(0);
+    expect(output).toContain("PASS provider inventory clerk preview");
+    expect(output.join("\n")).toContain("identity=ambiguous");
+    expect(output.join("\n")).not.toContain("identity=matched");
+    expect(output.join("\n")).not.toContain("Exact identity evidence: available");
+    expect(output.join("\n")).not.toContain(externalId);
+    expect(output.join("\n")).not.toContain(owner);
+    expect(output.join("\n")).not.toContain(appId);
+
+    output = [];
+    providerExecutions = [];
+    code = await runWithMatchingClerkJson([
+      "provider",
+      "link",
+      "--service",
+      "clerk",
+      "--env",
+      "preview",
+      "--resource-type",
+      "application",
+      "--name",
+      "acme-crm-preview",
+      "--source",
+      "live"
+    ]);
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL provider.link.identity-ambiguous");
+    expect(output.join("\n")).not.toContain("Identity proof: exact");
+    expect(output.join("\n")).not.toContain("Exact identity evidence: available");
+    expect(output.join("\n")).not.toContain(externalId);
+    expect(output.join("\n")).not.toContain(owner);
+    expect(output.join("\n")).not.toContain(appId);
+
+    output = [];
+    providerExecutions = [];
+    code = await runWithMatchingClerkJson([
+      "provider",
+      "adopt",
+      "--service",
+      "clerk",
+      "--env",
+      "preview",
+      "--source",
+      "live"
+    ]);
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL provider.adopt.identity-ambiguous");
+    expect(output.join("\n")).not.toContain("Identity proof: exact");
+    expect(output.join("\n")).not.toContain("Exact identity evidence: available");
+    expect(output.join("\n")).not.toContain("Provider ledger proposal");
+    expect(output.join("\n")).not.toContain(externalId);
+    expect(output.join("\n")).not.toContain(owner);
+    expect(output.join("\n")).not.toContain(appId);
+  });
+
   it("renders sanitized partial EAS preview live identity facts without exact identity", async () => {
     const code = await runAgentstack(["provider", "inventory", "--service", "eas", "--env", "preview", "--source", "live"], {
       cwd: dir,
@@ -3155,6 +3266,104 @@ describe("runAgentstack", () => {
     ]);
     await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
     await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
+  });
+
+  it("runs Clerk preview provider proof with exact identity evidence while refusing readiness", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.env.custom.CLERK_SECRET_KEY = {
+      surfaces: ["web"],
+      environments: ["preview"],
+      required: true,
+      secret: true,
+      providerTargets: clerkPreviewTarget
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    await writeLocalEnvValues({
+      preview: { web: { CLERK_SECRET_KEY: "sk_test_local_should_not_print" } }
+    });
+    const rowId = "row-secret-clerk-proof";
+    const externalId = "res_raw_clerk_secret";
+    const owner = "org_raw_clerk_secret";
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: rowId,
+        provider: "clerk",
+        resourceType: "application",
+        environment: "preview",
+        name: "acme-crm-preview",
+        status: "planned",
+        owner,
+        externalId,
+        cleanupCommand: "delete through Clerk dashboard",
+        evidence: "docs/evidence/clerk-preview.md"
+      })
+    ]);
+    const ledgerPath = join(dir, "docs", "provider-resource-ledger.md");
+    const ledgerBefore = await readFile(ledgerPath, "utf8");
+    const appsList = JSON.stringify({
+      data: [
+        {
+          id: "app_raw_clerk_secret",
+          resourceId: externalId,
+          ownerId: owner,
+          environment: "development",
+          name: "acme-crm-preview"
+        }
+      ]
+    });
+
+    const code = await runAgentstack(
+      [
+        "provider",
+        "proof",
+        "--service",
+        "clerk",
+        "--env",
+        "preview",
+        "--resource-type",
+        "application",
+        "--name",
+        "acme-crm-preview"
+      ],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: {
+          async execute(command, args, options) {
+            providerExecutions.push({ command, args, stdin: options.stdin });
+            return {
+              exitCode: 0,
+              stdout: args.join(" ") === "exec clerk apps list --json" ? appsList : "ok",
+              stderr: "",
+              durationMs: 12
+            };
+          }
+        }
+      }
+    );
+
+    const rendered = output.join("\n");
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL provider proof clerk preview");
+    expect(output).toContain("Provider execution: read-only");
+    expect(output).toContain("Ledger: planned");
+    expect(output).toContain("Live resource: read");
+    expect(output).toContain("Identity proof: exact");
+    expect(output).toContain("Exact identity evidence: available");
+    expect(output).toContain("Exact identity evaluator: provider-exact-identity");
+    expect(output).toContain("Readiness: refused");
+    expect(output).toContain("Reason: drift-unproven");
+    expect(rendered).not.toContain(rowId);
+    expect(rendered).not.toContain(externalId);
+    expect(rendered).not.toContain(owner);
+    expect(rendered).not.toContain("app_raw_clerk_secret");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec clerk doctor --mode agent",
+      "exec clerk env pull --mode agent",
+      "exec clerk config pull --mode agent",
+      "exec clerk apps list --json"
+    ]);
     expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
   });
 

@@ -24,13 +24,12 @@ const completeSanitizedCandidates: ProviderIdentityCandidate[] = [
 ];
 
 describe("provider proof contracts", () => {
-  it("keeps exact live identity unavailable for every provider", () => {
+  it("keeps exact live identity unavailable except the bounded Clerk preview proof slice", () => {
     for (const service of providerProofServices) {
       const contract = getProviderProofContract(service);
 
       expect(contract.service).toBe(service);
       expect(contract.liveIdentityConfidence).toBe("none");
-      expect(contract.exactIdentityAvailable).toBe(false);
       expect(contract.identityProofRequirements).toEqual(
         expect.arrayContaining([
           "stable-provider-identity",
@@ -45,6 +44,16 @@ describe("provider proof contracts", () => {
           "expected-resource-shape"
         ] satisfies ProviderProofRequirementLabel[])
       );
+    }
+
+    expect(getProviderProofContract("clerk").exactIdentityAvailable).toEqual({
+      scope: "provider-proof",
+      environments: ["preview"],
+      resourceTypes: ["application"],
+      evaluator: "provider-specific-identity-parser"
+    });
+    for (const service of ["convex", "vercel", "eas"] as const) {
+      expect(getProviderProofContract(service).exactIdentityAvailable).toBe(false);
     }
   });
 
@@ -100,10 +109,15 @@ describe("provider proof contracts", () => {
     }
   });
 
-  it("lists provider-specific sanitized identity read plans while exact identity stays unavailable", () => {
+  it("lists provider-specific sanitized identity read plans with Clerk exact proof bounded to preview proof", () => {
     expect(getProviderIdentityReadPlan("clerk")).toEqual({
       service: "clerk",
-      exactIdentityAvailable: false,
+      exactIdentityAvailable: {
+        scope: "provider-proof",
+        environments: ["preview"],
+        resourceTypes: ["application"],
+        evaluator: "provider-specific-identity-parser"
+      },
       readCommands: ["clerk.doctor-agent", "clerk.env-pull-agent", "clerk.config-pull-agent", "clerk.apps-list-json"],
       requiredCandidateCategories: [
         "stable-provider-identity",
@@ -195,7 +209,7 @@ describe("provider proof contracts", () => {
 
     for (const service of providerProofServices) {
       const plan = getProviderIdentityReadPlan(service);
-      expect(plan.exactIdentityAvailable).toBe(false);
+      expect(plan.exactIdentityAvailable).toEqual(getProviderProofContract(service).exactIdentityAvailable);
       for (const label of [
         ...plan.readCommands,
         ...plan.requiredCandidateCategories,
@@ -321,7 +335,6 @@ describe("provider proof contracts", () => {
       const result = evaluateProviderIdentityProof(service, completeSanitizedCandidates);
       expect(result.proof).not.toBe("exact");
       expect(JSON.stringify(result)).not.toContain("\"exact\"");
-      expect(getProviderProofContract(service).exactIdentityAvailable).toBe(false);
       expect(getProviderProofContract(service).liveIdentityConfidence).toBe("none");
     }
   });
@@ -449,6 +462,65 @@ describe("provider proof contracts", () => {
         "provider-environment-scope",
         "provider-owner-identity",
         "provider-project-link-proof",
+        "provider-resource-id",
+        "provider-specific-identity-parser",
+        "stable-provider-identity"
+      ],
+      missing: []
+    });
+  });
+
+  it("returns exact identity for Clerk from required labels and matched comparisons", () => {
+    const result = evaluateProviderExactIdentityProof("clerk", [
+      {
+        service: "clerk",
+        environment: "preview",
+        commandKind: "auth.apps.list",
+        status: "success",
+        exitCode: 0,
+        durationMs: 5,
+        stdoutSummary: "<redacted provider stdout: 1 line, 42 bytes>",
+        stderrSummary: "",
+        stdoutLines: 1,
+        stderrLines: 0,
+        stdoutBytes: 42,
+        stderrBytes: 0,
+        outputRedacted: true,
+        exactIdentityProof: {
+          kind: "provider-exact-identity-proof",
+          evaluator: "provider-specific-identity-parser",
+          labels: [
+            "provider-specific-identity-parser",
+            "stable-provider-identity",
+            "ledger-comparable-identity",
+            "manifest-resource-name-match",
+            "ledger-external-id-match",
+            "provider-owner-identity",
+            "provider-resource-id",
+            "provider-environment-scope"
+          ],
+          comparisons: [
+            { label: "stable-provider-identity", outcome: "matched" },
+            { label: "ledger-comparable-identity", outcome: "matched" },
+            { label: "manifest-resource-name-match", outcome: "matched" },
+            { label: "ledger-external-id-match", outcome: "matched" },
+            { label: "provider-owner-identity", outcome: "matched" },
+            { label: "provider-resource-id", outcome: "matched" },
+            { label: "provider-environment-scope", outcome: "matched" }
+          ]
+        }
+      }
+    ]);
+
+    expect(result).toEqual({
+      proof: "exact",
+      evaluator: "provider-exact-identity",
+      labels: [
+        "ledger-comparable-identity",
+        "ledger-external-id-match",
+        "manifest-resource-name-match",
+        "provider-environment-scope",
+        "provider-owner-identity",
         "provider-resource-id",
         "provider-specific-identity-parser",
         "stable-provider-identity"

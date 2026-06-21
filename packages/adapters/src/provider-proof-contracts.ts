@@ -30,10 +30,19 @@ export type ProviderProofRequirementLabel =
 export type ProviderProofContract = {
   service: ProviderProofService;
   liveIdentityConfidence: ProviderLiveIdentityConfidence;
-  exactIdentityAvailable: false;
+  exactIdentityAvailable: ProviderExactIdentityAvailability;
   identityProofRequirements: ProviderProofRequirementLabel[];
   driftProofRequirements: ProviderProofRequirementLabel[];
 };
+
+export type ProviderExactIdentityAvailability =
+  | false
+  | {
+      scope: "provider-proof";
+      environments: ["preview"];
+      resourceTypes: ["application"];
+      evaluator: "provider-specific-identity-parser";
+    };
 
 export type ProviderIdentityReadCommandId =
   | "clerk.doctor-agent"
@@ -48,7 +57,7 @@ export type ProviderIdentityCandidateCategory = ProviderIdentityCandidateLabel;
 
 export type ProviderIdentityReadPlan = {
   service: ProviderProofService;
-  exactIdentityAvailable: false;
+  exactIdentityAvailable: ProviderExactIdentityAvailability;
   readCommands: ProviderIdentityReadCommandId[];
   requiredCandidateCategories: ProviderIdentityCandidateCategory[];
   missingUntilParsersExist: ProviderProofRequirementLabel[];
@@ -127,7 +136,12 @@ const contracts: Record<ProviderProofService, ProviderProofContract> = {
   clerk: {
     service: "clerk",
     liveIdentityConfidence: "none",
-    exactIdentityAvailable: false,
+    exactIdentityAvailable: {
+      scope: "provider-proof",
+      environments: ["preview"],
+      resourceTypes: ["application"],
+      evaluator: "provider-specific-identity-parser"
+    },
     identityProofRequirements: [
       ...baseIdentityRequirements,
       "provider-owner-identity",
@@ -185,7 +199,7 @@ const contracts: Record<ProviderProofService, ProviderProofContract> = {
 const identityReadPlans: Record<ProviderProofService, ProviderIdentityReadPlan> = {
   clerk: {
     service: "clerk",
-    exactIdentityAvailable: false,
+    exactIdentityAvailable: contracts.clerk.exactIdentityAvailable,
     readCommands: ["clerk.doctor-agent", "clerk.env-pull-agent", "clerk.config-pull-agent", "clerk.apps-list-json"],
     requiredCandidateCategories: [
       "stable-provider-identity",

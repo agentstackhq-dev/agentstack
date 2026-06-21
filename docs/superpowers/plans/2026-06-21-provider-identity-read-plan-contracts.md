@@ -4,7 +4,7 @@
 
 **Goal:** Add provider identity read-plan and exact-proof contract scaffolding while provider proof, live inventory, link/adopt, and validate-live continue to refuse exact identity and readiness.
 
-**Architecture:** Extend the existing provider proof-contract layer with sanitized provider-specific identity read-plan metadata and a provider-neutral identity proof evaluator. The evaluator may accept sanitized candidate categories, but it must return only `unavailable` or `ambiguous` in this slice because exact identity parsers and exact provider proof are not implemented. Keep all candidate details internal and sanitized; CLI/inventory output may print only sanitized availability/evaluator labels and missing requirement labels.
+**Architecture:** Extend the existing provider proof-contract layer with sanitized provider-specific identity read-plan metadata and a provider-neutral identity proof evaluator. This historical slice originally returned only `unavailable` or `ambiguous`; the current implementation adds a narrow Clerk preview application provider-proof exact path while keeping broad exact identity, live validation readiness, and live link/adopt confirmation refused. Keep all candidate details internal and sanitized; CLI/inventory output may print only sanitized availability/evaluator labels and missing requirement labels.
 
 **Tech Stack:** TypeScript, Vitest, existing provider executor/control-plane/proof-contract APIs, existing `agentstack provider proof` CLI output.
 
@@ -23,7 +23,7 @@
 
 - Do not implement matched exact identity, readiness pass, link success, adopt success, validate-live success, or provider mutations.
 - Do not add `"exact"` to `ProviderLiveIdentityConfidence`; it remains `"none" | "partial"`.
-- Keep `ProviderProofContract.exactIdentityAvailable` typed and valued as `false`.
+- Historical slice invariant: broad `ProviderProofContract.exactIdentityAvailable` remained typed and valued as `false` here. Current code represents the narrow Clerk preview application provider-proof availability with a scoped object while keeping all other services false.
 - `agentstack provider proof` must continue to exit 1 with `Identity proof: ambiguous` or `Identity proof: unavailable` and `Readiness: refused`.
 - Existing live inventory/link/adopt/validate-live behavior must remain refused/ambiguous.
 - Manifest resource-name match alone, ledger external-id match alone, local project link alone, and env-list facts alone are insufficient.
@@ -61,7 +61,7 @@ import {
 Add this test:
 
 ```ts
-it("lists provider-specific sanitized identity read plans while exact identity stays unavailable", () => {
+it("lists provider-specific sanitized identity read plans while broad exact identity remains unavailable", () => {
   expect(getProviderIdentityReadPlan("clerk")).toEqual({
     service: "clerk",
     exactIdentityAvailable: false,
@@ -548,7 +548,7 @@ Expected: pass.
 In `packages/adapters/src/provider-proof-contracts.test.ts`, add:
 
 ```ts
-it("does not expose an exact identity result shape in the contract slice", () => {
+it("does not expose a broad exact identity result shape in the contract slice", () => {
   for (const service of providerProofServices) {
     const result = evaluateProviderIdentityProof(service, completeSanitizedCandidates);
     expect(result.proof).not.toBe("exact");

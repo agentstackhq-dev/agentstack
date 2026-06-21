@@ -319,7 +319,8 @@ describe("clerk command planner", () => {
     const fixtures = [
       "{ malformed",
       JSON.stringify([]),
-      JSON.stringify([{ id: "app_raw_123", environment: "development" }])
+      JSON.stringify([{ id: "app_raw_123", environment: "development" }]),
+      JSON.stringify([{ id: "app_raw_123", ownerId: "org_raw_123", environment: "development" }])
     ];
 
     for (const stdout of fixtures) {
@@ -363,5 +364,354 @@ describe("clerk command planner", () => {
     expect(failedResults.at(-1)?.status).toBe("failed");
     expect(JSON.stringify(failedResults)).not.toContain("app_raw_123");
     expect(JSON.stringify(failedResults)).not.toContain("org_raw_123");
+  });
+
+  it("attaches sanitized exact identity proof for one Clerk app matching exact context", async () => {
+    const rawFixture = {
+      data: [
+        {
+          id: "app_raw_123",
+          resourceId: "res_raw_456",
+          ownerId: "org_raw_789",
+          environment: "development",
+          name: "acme-crm-preview-auth"
+        }
+      ]
+    };
+    const results = await inspectClerkReadOnly({
+      environment: "preview",
+      exactProofContext: {
+        expectedResourceName: "acme-crm-preview-auth",
+        ledgerExternalIdOrUrl: " res_raw_456 ",
+        ledgerOwnerAccountOrProject: " org_raw_789 "
+      },
+      executor: {
+        async execute(_command, args) {
+          return {
+            exitCode: 0,
+            stdout: args.join(" ") === "exec clerk apps list --json" ? JSON.stringify(rawFixture) : "ok",
+            stderr: "",
+            durationMs: 5
+          };
+        }
+      }
+    });
+
+    expect(results.at(-1)?.exactIdentityProof).toEqual({
+      kind: "provider-exact-identity-proof",
+      evaluator: "provider-specific-identity-parser",
+      labels: [
+        "ledger-comparable-identity",
+        "ledger-external-id-match",
+        "manifest-resource-name-match",
+        "provider-environment-scope",
+        "provider-owner-identity",
+        "provider-resource-id",
+        "provider-specific-identity-parser",
+        "stable-provider-identity"
+      ],
+      comparisons: [
+        { label: "ledger-comparable-identity", outcome: "matched" },
+        { label: "ledger-external-id-match", outcome: "matched" },
+        { label: "manifest-resource-name-match", outcome: "matched" },
+        { label: "provider-environment-scope", outcome: "matched" },
+        { label: "provider-owner-identity", outcome: "matched" },
+        { label: "provider-resource-id", outcome: "matched" },
+        { label: "stable-provider-identity", outcome: "matched" }
+      ]
+    });
+    const serialized = JSON.stringify(results);
+    expect(serialized).not.toContain("app_raw_123");
+    expect(serialized).not.toContain("res_raw_456");
+    expect(serialized).not.toContain("org_raw_789");
+  });
+
+  it("does not attach Clerk exact proof for top-level apps list arrays", async () => {
+    const rawFixture = [
+      {
+        id: "app_raw_123",
+        resourceId: "res_raw_456",
+        ownerId: "org_raw_789",
+        environment: "development",
+        name: "acme-crm-preview-auth"
+      }
+    ];
+    const results = await inspectClerkReadOnly({
+      environment: "preview",
+      exactProofContext: {
+        expectedResourceName: "acme-crm-preview-auth",
+        ledgerExternalIdOrUrl: "res_raw_456",
+        ledgerOwnerAccountOrProject: "org_raw_789"
+      },
+      executor: {
+        async execute(_command, args) {
+          return {
+            exitCode: 0,
+            stdout: args.join(" ") === "exec clerk apps list --json" ? JSON.stringify(rawFixture) : "ok",
+            stderr: "",
+            durationMs: 5
+          };
+        }
+      }
+    });
+
+    expect(results.at(-1)?.identityCandidates).toBeUndefined();
+    expect(results.at(-1)?.exactIdentityProof).toBeUndefined();
+    const serialized = JSON.stringify(results);
+    expect(serialized).not.toContain("app_raw_123");
+    expect(serialized).not.toContain("res_raw_456");
+    expect(serialized).not.toContain("org_raw_789");
+  });
+
+  it("does not attach Clerk exact proof for production even with matching exact context", async () => {
+    const rawFixture = {
+      data: [
+        {
+          id: "app_raw_123",
+          resourceId: "res_raw_456",
+          ownerId: "org_raw_789",
+          environment: "production",
+          name: "acme-crm-production-auth"
+        }
+      ]
+    };
+    const results = await inspectClerkReadOnly({
+      environment: "production",
+      exactProofContext: {
+        expectedResourceName: "acme-crm-production-auth",
+        ledgerExternalIdOrUrl: "res_raw_456",
+        ledgerOwnerAccountOrProject: "org_raw_789"
+      },
+      executor: {
+        async execute(_command, args) {
+          return {
+            exitCode: 0,
+            stdout: args.join(" ") === "exec clerk apps list --json" ? JSON.stringify(rawFixture) : "ok",
+            stderr: "",
+            durationMs: 5
+          };
+        }
+      }
+    });
+
+    expect(results.at(-1)?.exactIdentityProof).toBeUndefined();
+    const serialized = JSON.stringify(results);
+    expect(serialized).not.toContain("res_raw_456");
+    expect(serialized).not.toContain("org_raw_789");
+    expect(serialized).not.toContain("app_raw_123");
+  });
+
+  it("does not attach Clerk exact proof for malformed exact apps list shapes", async () => {
+    const malformedOutputs = [
+      "{ malformed",
+      JSON.stringify({ data: { id: "app_raw_123" } }),
+      JSON.stringify({ data: [null] }),
+      JSON.stringify({
+        data: [
+          {
+            id: 123,
+            resourceId: "res_raw_456",
+            ownerId: "org_raw_789",
+            environment: "development",
+            name: "acme-crm-preview-auth"
+          }
+        ]
+      }),
+      JSON.stringify({
+        data: [
+          {
+            id: "app_raw_123",
+            resourceId: 456,
+            ownerId: "org_raw_789",
+            environment: "development",
+            name: "acme-crm-preview-auth"
+          }
+        ]
+      }),
+      JSON.stringify({
+        data: [
+          {
+            id: "app_raw_123",
+            resourceId: "res_raw_456",
+            ownerId: 789,
+            environment: "development",
+            name: "acme-crm-preview-auth"
+          }
+        ]
+      }),
+      JSON.stringify({
+        data: [
+          {
+            id: "app_raw_123",
+            resourceId: "res_raw_456",
+            ownerId: "org_raw_789",
+            environment: null,
+            name: "acme-crm-preview-auth"
+          }
+        ]
+      }),
+      JSON.stringify({
+        data: [
+          {
+            id: "app_raw_123",
+            resourceId: "res_raw_456",
+            ownerId: "org_raw_789",
+            environment: "development",
+            name: false
+          }
+        ]
+      })
+    ];
+
+    for (const stdout of malformedOutputs) {
+      const results = await inspectClerkReadOnly({
+        environment: "preview",
+        exactProofContext: {
+          expectedResourceName: "acme-crm-preview-auth",
+          ledgerExternalIdOrUrl: "res_raw_456",
+          ledgerOwnerAccountOrProject: "org_raw_789"
+        },
+        executor: {
+          async execute(_command, args) {
+            return {
+              exitCode: 0,
+              stdout: args.join(" ") === "exec clerk apps list --json" ? stdout : "ok",
+              stderr: "",
+              durationMs: 5
+            };
+          }
+        }
+      });
+
+      expect(results.at(-1)?.exactIdentityProof).toBeUndefined();
+      const serialized = JSON.stringify(results);
+      expect(serialized).not.toContain("res_raw_456");
+      expect(serialized).not.toContain("org_raw_789");
+      expect(serialized).not.toContain("app_raw_123");
+    }
+  });
+
+  it("does not attach Clerk exact proof when exact context fields are empty", async () => {
+    const rawFixture = {
+      data: [
+        {
+          id: "app_raw_123",
+          resourceId: "res_raw_456",
+          ownerId: "org_raw_789",
+          environment: "development",
+          name: "acme-crm-preview-auth"
+        }
+      ]
+    };
+    const emptyContexts = [
+      {
+        expectedResourceName: "",
+        ledgerExternalIdOrUrl: "res_raw_456",
+        ledgerOwnerAccountOrProject: "org_raw_789"
+      },
+      {
+        expectedResourceName: "acme-crm-preview-auth",
+        ledgerExternalIdOrUrl: " ",
+        ledgerOwnerAccountOrProject: "org_raw_789"
+      },
+      {
+        expectedResourceName: "acme-crm-preview-auth",
+        ledgerExternalIdOrUrl: "res_raw_456",
+        ledgerOwnerAccountOrProject: "\t"
+      }
+    ];
+
+    for (const exactProofContext of emptyContexts) {
+      const results = await inspectClerkReadOnly({
+        environment: "preview",
+        exactProofContext,
+        executor: {
+          async execute(_command, args) {
+            return {
+              exitCode: 0,
+              stdout: args.join(" ") === "exec clerk apps list --json" ? JSON.stringify(rawFixture) : "ok",
+              stderr: "",
+              durationMs: 5
+            };
+          }
+        }
+      });
+
+      expect(results.at(-1)?.exactIdentityProof).toBeUndefined();
+    }
+  });
+
+  it("does not attach Clerk exact proof without a single exact context match", async () => {
+    const baseApp = {
+      id: "app_raw_123",
+      resourceId: "res_raw_456",
+      ownerId: "org_raw_789",
+      environment: "development",
+      name: "acme-crm-preview-auth"
+    };
+    const cases = [
+      { context: undefined, apps: [baseApp] },
+      {
+        context: {
+          expectedResourceName: "acme-crm-preview-auth",
+          ledgerExternalIdOrUrl: "res_raw_456",
+          ledgerOwnerAccountOrProject: "org_raw_789"
+        },
+        apps: [baseApp, { ...baseApp, id: "app_raw_duplicate" }]
+      },
+      {
+        context: {
+          expectedResourceName: "acme-crm-preview-auth",
+          ledgerExternalIdOrUrl: "res_raw_456",
+          ledgerOwnerAccountOrProject: "org_other"
+        },
+        apps: [baseApp]
+      },
+      {
+        context: {
+          expectedResourceName: "acme-crm-preview-auth",
+          ledgerExternalIdOrUrl: "res_raw_456",
+          ledgerOwnerAccountOrProject: "org_raw_789"
+        },
+        apps: [{ ...baseApp, environment: "production" }]
+      },
+      {
+        context: {
+          expectedResourceName: "acme-crm-preview-auth",
+          ledgerExternalIdOrUrl: "res_raw_456",
+          ledgerOwnerAccountOrProject: "org_raw_789"
+        },
+        apps: [{ id: "app_raw_123", ownerId: "org_raw_789", environment: "development", name: "acme-crm-preview-auth" }]
+      },
+      {
+        context: {
+          expectedResourceName: "acme-crm-preview-auth",
+          ledgerExternalIdOrUrl: "res_raw_456",
+          ledgerOwnerAccountOrProject: "org_raw_789"
+        },
+        apps: [{ ...baseApp, name: "other-app" }]
+      }
+    ];
+
+    for (const testCase of cases) {
+      const results = await inspectClerkReadOnly({
+        environment: "preview",
+        exactProofContext: testCase.context,
+        executor: {
+          async execute(_command, args) {
+            return {
+              exitCode: 0,
+              stdout: args.join(" ") === "exec clerk apps list --json" ? JSON.stringify({ data: testCase.apps }) : "ok",
+              stderr: "",
+              durationMs: 5
+            };
+          }
+        }
+      });
+
+      expect(results.at(-1)?.exactIdentityProof).toBeUndefined();
+      expect(JSON.stringify(results)).not.toContain("res_raw_456");
+      expect(JSON.stringify(results)).not.toContain("org_raw_789");
+    }
   });
 });
