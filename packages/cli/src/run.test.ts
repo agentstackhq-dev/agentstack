@@ -3296,6 +3296,118 @@ describe("runAgentstack", () => {
     expect(await readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).toBe(localCloudBefore);
   });
 
+  it.each([
+    {
+      service: "vercel",
+      resourceType: "project",
+      name: "acme-crm",
+      externalId: "https://vercel.com/team/proj_secret",
+      stdout: ["Name Environment Value", "NEXT_PUBLIC_APP_URL preview https://secret.example.test"].join("\n")
+    },
+    {
+      service: "eas",
+      resourceType: "project",
+      name: "acme-crm",
+      externalId: "https://expo.dev/accounts/secret/projects/acme-crm",
+      stdout: ["Name Environment Value", "EXPO_PUBLIC_APP_URL preview https://secret.example.test"].join("\n")
+    }
+  ] as const)(
+    "surfaces sanitized $service drift evidence while refusing provider proof readiness",
+    async ({ service, resourceType, name, externalId, stdout }) => {
+      const rowId = `row-${service}-proof-secret`;
+      await writeProviderLedger([
+        providerLedgerRow({
+          id: rowId,
+          provider: service,
+          resourceType,
+          environment: "preview",
+          name,
+          status: "active",
+          externalId,
+          cleanupCommand: `delete ${service} preview resource`,
+          evidence: `docs/evidence/${service}-preview.md`
+        })
+      ]);
+      await mkdir(join(dir, ".agentstack"), { recursive: true });
+      await writeFile(join(dir, ".agentstack", "local-cloud.json"), '{"secret":"SEEDED_LOCAL_CLOUD_VALUE"}\n', "utf8");
+      const localCloudBefore = await readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8");
+      const ledgerBefore = await readFile(join(dir, "docs", "provider-resource-ledger.md"), "utf8");
+
+      const code = await runAgentstack(
+        ["provider", "proof", "--service", service, "--env", "preview", "--resource-type", resourceType, "--name", name],
+        {
+          cwd: dir,
+          write: (line) => output.push(line),
+          providerExecutor: createMockProviderExecutor(stdout)
+        }
+      );
+
+      const rendered = output.join("\n");
+      expect(code).toBe(1);
+      expect(output).toContain(`FAIL provider proof ${service} preview`);
+      expect(output).toContain("Provider execution: read-only");
+      expect(output).toContain("Identity proof: ambiguous");
+      expect(output).toContain("Identity scope: partial");
+      expect(output).toContain("Drift proof: partial");
+      expect(output).toContain("Drift evaluator: env-list-preview");
+      expect(output).toContain("Readiness: refused");
+      expect(output).toContain("Reason: drift-unproven");
+      expect(rendered).not.toContain("NEXT_PUBLIC_APP_URL");
+      expect(rendered).not.toContain("EXPO_PUBLIC_APP_URL");
+      expect(rendered).not.toContain("https://secret.example.test");
+      expect(rendered).not.toContain("proj_secret");
+      expect(rendered).not.toContain(rowId);
+      expect(rendered).not.toContain(externalId);
+      expect(rendered).not.toContain("SEEDED_LOCAL_CLOUD_VALUE");
+      await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+      expect(await readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).toBe(localCloudBefore);
+      expect(await readFile(join(dir, "docs", "provider-resource-ledger.md"), "utf8")).toBe(ledgerBefore);
+    }
+  );
+
+  it.each([
+    { service: "clerk", resourceType: "application", name: "acme-crm-preview", externalId: "clerk_secret_app_id" },
+    {
+      service: "convex",
+      resourceType: "deployment",
+      name: "acme-crm-preview",
+      externalId: "https://dashboard.convex.dev/d/secret"
+    }
+  ] as const)("keeps $service drift proof unavailable for env-list-looking output", async ({ service, resourceType, name, externalId }) => {
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: `row-${service}-secret`,
+        provider: service,
+        resourceType,
+        environment: "preview",
+        name,
+        status: "active",
+        externalId,
+        cleanupCommand: "delete in provider dashboard",
+        evidence: `docs/evidence/${service}-preview.md`
+      })
+    ]);
+
+    const code = await runAgentstack(
+      ["provider", "proof", "--service", service, "--env", "preview", "--resource-type", resourceType, "--name", name],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: createMockProviderExecutor("Name Environment\nNEXT_PUBLIC_APP_URL preview\nhttps://secret.example.test")
+      }
+    );
+
+    const rendered = output.join("\n");
+    expect(code).toBe(1);
+    expect(output).toContain(`FAIL provider proof ${service} preview`);
+    expect(output).toContain("Drift proof: unproven");
+    expect(rendered).not.toContain("Drift evaluator:");
+    expect(rendered).not.toContain("NEXT_PUBLIC_APP_URL");
+    expect(rendered).not.toContain("https://secret.example.test");
+    expect(rendered).not.toContain(externalId);
+  });
+
   it("runs live validation preview as aggregate read-only inventory and refuses ambiguous readiness", async () => {
     await writeProviderLedger([]);
     const ledgerPath = join(dir, "docs", "provider-resource-ledger.md");
@@ -3317,12 +3429,15 @@ describe("runAgentstack", () => {
     expect(output).toContain("Readiness: refused");
     expect(output).toContain("Reason: identity-ambiguous");
     expect(output).toContain("Evidence: live-read-inventory");
+    expect(rendered).not.toContain("PASS validate --live");
+    expect(rendered).not.toContain("Readiness: ready");
     expect(rendered).toContain("Resource: clerk preview application");
     expect(rendered).toContain("Resource: convex preview deployment");
     expect(rendered).toContain("Resource: vercel preview project");
     expect(rendered).toContain("Resource: eas preview project");
     expect(rendered).toContain("Identity proof requirements:");
     expect(rendered).toContain("identity=ambiguous");
+    expect(rendered).toContain("identity-scope=partial");
     expect(rendered).not.toContain("identity=matched");
     expect(rendered).not.toContain("Evidence: live-read\n");
     expect(rendered).not.toContain("provider-secret");

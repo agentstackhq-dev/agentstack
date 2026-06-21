@@ -256,6 +256,44 @@ describe("eas command planner", () => {
     });
   });
 
+  it("does not infer EAS env-list facts from loose preview env prose", async () => {
+    const results = await inspectEasPreviewReadOnly({
+      environment: "preview",
+      executor: {
+        async execute() {
+          return {
+            exitCode: 0,
+            stdout: "preview has EXPO_PUBLIC_APP_URL somewhere, app-secret, https://secret.example.test",
+            stderr: "",
+            durationMs: 1
+          };
+        }
+      }
+    });
+
+    expect(results[0]?.liveIdentityFacts).toBeUndefined();
+    expect(results[0]?.stdoutSummary).not.toContain("EXPO_PUBLIC_APP_URL");
+    expect(results[0]?.stdoutSummary).not.toContain("https://secret.example.test");
+  });
+
+  it("requires EAS expected env name and preview environment in the same parsed row", async () => {
+    const results = await inspectEasPreviewReadOnly({
+      environment: "preview",
+      executor: {
+        async execute() {
+          return {
+            exitCode: 0,
+            stdout: ["Name Environment", "EXPO_PUBLIC_APP_URL production", "UNRELATED_FLAG preview"].join("\n"),
+            stderr: "",
+            durationMs: 1
+          };
+        }
+      }
+    });
+
+    expect(results[0]?.liveIdentityFacts).toBeUndefined();
+  });
+
   it("parses EAS preview env-list partial facts from comma-separated environment cells", async () => {
     const results = await inspectEasPreviewReadOnly({
       environment: "preview",

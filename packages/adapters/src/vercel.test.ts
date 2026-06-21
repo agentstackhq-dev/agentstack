@@ -248,6 +248,44 @@ describe("vercel command planner", () => {
     expect(JSON.stringify(results)).not.toContain("preview-environment");
   });
 
+  it("does not infer Vercel env-list facts from loose preview env prose", async () => {
+    const results = await inspectVercelPreviewReadOnly({
+      environment: "preview",
+      executor: {
+        async execute() {
+          return {
+            exitCode: 0,
+            stdout: "preview has NEXT_PUBLIC_APP_URL somewhere, prj_secret, https://secret.example.test",
+            stderr: "",
+            durationMs: 1
+          };
+        }
+      }
+    });
+
+    expect(results[0]?.liveIdentityFacts).toBeUndefined();
+    expect(results[0]?.stdoutSummary).not.toContain("NEXT_PUBLIC_APP_URL");
+    expect(results[0]?.stdoutSummary).not.toContain("https://secret.example.test");
+  });
+
+  it("requires Vercel expected env name and preview environment in the same parsed row", async () => {
+    const results = await inspectVercelPreviewReadOnly({
+      environment: "preview",
+      executor: {
+        async execute() {
+          return {
+            exitCode: 0,
+            stdout: ["Name Environment", "NEXT_PUBLIC_APP_URL production", "UNRELATED_FLAG preview"].join("\n"),
+            stderr: "",
+            durationMs: 1
+          };
+        }
+      }
+    });
+
+    expect(results[0]?.liveIdentityFacts).toBeUndefined();
+  });
+
   it("executes only preview deploy for Vercel apply and redacts provider output", async () => {
     const executions: Array<{ command: string; args: string[] }> = [];
     const results = await executeVercelPreviewApply({

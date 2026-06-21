@@ -13,6 +13,7 @@ import {
   createProviderInventory,
   executeConvexApply,
   executeVercelPreviewApply,
+  evaluateProviderDriftProof,
   getProviderProofContract,
   getEnabledProviderAdapterDefinitions,
   inspectEasPreviewReadOnly,
@@ -30,6 +31,7 @@ import {
   type ProviderCommandExecutor,
   type ProviderControlPlaneService,
   type ProviderExecutionResult,
+  type ProviderDriftProofResult,
   type ProviderInventory,
   type ProviderInventorySource,
   type ProviderInventoryRow,
@@ -1668,8 +1670,9 @@ async function providerProofCommand(argv: string[], io: RunIo): Promise<number> 
 
   let inventory = localInventory;
   let liveReadFailed = false;
+  let liveResults: ProviderExecutionResult[] = [];
   try {
-    const liveResults = await readLiveProviderInventory({
+    liveResults = await readLiveProviderInventory({
       service,
       environment,
       manifest: validation.context.manifest,
@@ -1684,6 +1687,7 @@ async function providerProofCommand(argv: string[], io: RunIo): Promise<number> 
   }
 
   const row = inventory.rows[0];
+  const driftProof = liveReadFailed ? undefined : evaluateProviderDriftProof(service, liveResults);
   writeProviderProofReport(io, {
     service,
     contract,
@@ -1693,7 +1697,8 @@ async function providerProofCommand(argv: string[], io: RunIo): Promise<number> 
     liveResource: liveReadFailed ? "failed" : "read",
     identityProof: liveReadFailed ? "unavailable" : "ambiguous",
     identityScope: liveReadFailed ? "none" : row?.identityScope === "partial" ? "partial" : "none",
-    reason: liveReadFailed ? "live-read-failed" : "identity-ambiguous"
+    driftProof,
+    reason: liveReadFailed ? "live-read-failed" : driftProof?.proof === "partial" ? "drift-unproven" : "identity-ambiguous"
   });
   return 1;
 }
@@ -2112,6 +2117,7 @@ type ProviderProofReport = {
   liveResource: "read" | "not-read" | "failed" | "unsupported";
   identityProof: "ambiguous" | "unavailable";
   identityScope: "partial" | "none";
+  driftProof?: ProviderDriftProofResult;
   reason:
     | "identity-ambiguous"
     | "identity-proof-unavailable"
@@ -2138,7 +2144,12 @@ function writeProviderProofReport(io: RunIo, report: ProviderProofReport): void 
   io.write(`Live resource: ${report.liveResource}`);
   io.write(`Identity proof: ${report.identityProof}`);
   io.write(`Identity scope: ${report.identityScope}`);
-  io.write("Drift proof: unproven");
+  if (report.driftProof?.proof === "partial") {
+    io.write("Drift proof: partial");
+    io.write(`Drift evaluator: ${report.driftProof.evaluator}`);
+  } else {
+    io.write("Drift proof: unproven");
+  }
   io.write("Readiness: refused");
   io.write(`Reason: ${report.reason}`);
   io.write(`Identity proof requirements: ${report.contract.identityProofRequirements.join(",")}`);

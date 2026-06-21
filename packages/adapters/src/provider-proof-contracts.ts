@@ -1,5 +1,9 @@
 import type { ProviderControlPlaneService } from "./provider-control-plane.js";
-import type { ProviderLiveIdentityConfidence } from "./provider-executor.js";
+import type {
+  ProviderExecutionResult,
+  ProviderLiveFactLabel,
+  ProviderLiveIdentityConfidence
+} from "./provider-executor.js";
 
 export const providerProofServices = ["clerk", "convex", "vercel", "eas"] as const;
 
@@ -27,6 +31,14 @@ export type ProviderProofContract = {
   identityProofRequirements: ProviderProofRequirementLabel[];
   driftProofRequirements: ProviderProofRequirementLabel[];
 };
+
+export type ProviderDriftProofResult =
+  | { proof: "unavailable" }
+  | {
+      proof: "partial";
+      evaluator: "env-list-preview";
+      evidence: ProviderLiveFactLabel[];
+    };
 
 const baseIdentityRequirements = [
   "stable-provider-identity",
@@ -100,6 +112,47 @@ const contracts: Record<ProviderProofService, ProviderProofContract> = {
   }
 };
 
+const envListPreviewFacts = [
+  "env-list-read",
+  "expected-env-names",
+  "preview-environment"
+] as const satisfies ProviderLiveFactLabel[];
+
 export function getProviderProofContract(service: ProviderControlPlaneService): ProviderProofContract {
   return contracts[service];
+}
+
+export function evaluateProviderDriftProof(
+  service: ProviderControlPlaneService,
+  readResults: readonly ProviderExecutionResult[]
+): ProviderDriftProofResult {
+  if (service !== "vercel" && service !== "eas") {
+    return { proof: "unavailable" };
+  }
+
+  const hasCompleteEnvListPreviewEvidence = readResults.some((result) => {
+    const expectedCommandKind = service === "vercel" ? "env.list" : "mobile.env.list";
+    if (
+      result.service !== service ||
+      result.environment !== "preview" ||
+      result.commandKind !== expectedCommandKind ||
+      result.status !== "success" ||
+      result.liveIdentityFacts?.identityConfidence !== "partial" ||
+      result.outputRedacted !== true
+    ) {
+      return false;
+    }
+    const facts = new Set(result.liveIdentityFacts?.facts ?? []);
+    return envListPreviewFacts.every((fact) => facts.has(fact));
+  });
+
+  if (!hasCompleteEnvListPreviewEvidence) {
+    return { proof: "unavailable" };
+  }
+
+  return {
+    proof: "partial",
+    evaluator: "env-list-preview",
+    evidence: [...envListPreviewFacts].sort()
+  };
 }
