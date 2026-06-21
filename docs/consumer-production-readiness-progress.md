@@ -6,7 +6,7 @@ This file is the canonical resume and progress artifact for Agentstack consumer 
 
 ## Current State
 
-Current phase: Wave 2 provider inventory/link/adopt checkpoint, readiness roadmap refresh, and progress checkpoint are committed through `7e6c244` (`docs: update readiness progress checkpoint`).
+Current phase: Wave 2 provider inventory/link/adopt checkpoint, readiness roadmap refresh, and progress checkpoint are committed through `7c6fecc` (`docs: align progress checkpoint with head`).
 
 Overall status: not complete. Agentstack is about 38-40% of the way toward consumer production readiness from a consumer perspective. The current product state is a local command-contract and rehearsal prototype with credible local telemetry and provider boundaries, not a consumer-ready production framework.
 
@@ -14,6 +14,7 @@ Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI rou
 
 ## Recent Completed Commits
 
+- `7c6fecc` docs: align progress checkpoint with head.
 - `7e6c244` docs: update readiness progress checkpoint.
 - `07f23d8` docs: refresh consumer production readiness plan.
 - `ee12b8b` Make provider inventory and link telemetry-free.
@@ -89,7 +90,7 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 
 ## Last Known Verification Evidence
 
-Most recent final verification after commits `07f23d8` and `7e6c244`:
+Most recent final verification after commits `07f23d8`, `7e6c244`, and `7c6fecc`:
 
 - `git diff --check` passed.
 - `diff -ru templates/b2b-saas/docs/agentstack packages/create-agent-stack/templates/b2b-saas/docs/agentstack` passed.
@@ -99,4 +100,4 @@ Most recent final verification after commits `07f23d8` and `7e6c244`:
 
 ## Worktree State Expectation
 
-After commit `7e6c244`, the expected worktree state is clean. `docs/provider-resource-ledger.md` should have no diff.
+After commit `7c6fecc`, the expected worktree state is clean. `docs/provider-resource-ledger.md` should have no diff.
