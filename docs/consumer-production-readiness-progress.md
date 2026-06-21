@@ -14,6 +14,7 @@ Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI rou
 
 ## Recent Completed Commits
 
+- `e7c829d` feat: add provider proof contract check.
 - `01a94d7` feat: add preview provider reconciliation plan.
 - `58ef1df` feat: add command-level live read facts.
 - `4b65040` docs: record structured eas evidence checkpoint.
