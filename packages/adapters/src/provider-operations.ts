@@ -23,6 +23,13 @@ export type ProviderAdapterStatus = "contract-only" | "command-plan" | "availabl
 
 export type ProviderOperationKind = "service.link" | "service.unlink" | "env.set" | "env.remove";
 
+export type ProviderOperationSource =
+  | "service.missing"
+  | "service.stale"
+  | "env.missing"
+  | "env.drifted"
+  | "env.stale";
+
 export type ProviderOperation = {
   id: string;
   environment: EnvironmentName;
@@ -30,6 +37,7 @@ export type ProviderOperation = {
   kind: ProviderOperationKind;
   scope: string;
   target: string;
+  source: ProviderOperationSource;
   summary: string;
   secret: boolean;
   requiresConfirmation: boolean;
@@ -59,7 +67,7 @@ export const providerAdapterDefinitions: Record<ServiceName, ProviderAdapterDefi
     service: "vercel",
     displayName: "Vercel",
     capabilities: ["service.lifecycle", "env.sync", "web.deploy"],
-    realAdapterStatus: "contract-only"
+    realAdapterStatus: "command-plan"
   },
   eas: {
     service: "eas",
@@ -81,11 +89,21 @@ export function createProviderOperationPlan(report: InspectReport): ProviderOper
   return {
     environment: report.environment,
     operations: [
-      ...report.missing.map((resource) => serviceOperation(report.environment, "service.link", resource)),
-      ...report.stale.map((resource) => serviceOperation(report.environment, "service.unlink", resource)),
-      ...report.missingEnv.map((resource) => envOperation(report.environment, "env.set", resource)),
-      ...report.driftedEnv.map((resource) => envOperation(report.environment, "env.set", resource)),
-      ...report.staleEnv.map((resource) => envOperation(report.environment, "env.remove", resource))
+      ...report.missing.map((resource) =>
+        serviceOperation(report.environment, "service.link", "service.missing", resource)
+      ),
+      ...report.stale.map((resource) =>
+        serviceOperation(report.environment, "service.unlink", "service.stale", resource)
+      ),
+      ...report.missingEnv.map((resource) =>
+        envOperation(report.environment, "env.set", "env.missing", resource)
+      ),
+      ...report.driftedEnv.map((resource) =>
+        envOperation(report.environment, "env.set", "env.drifted", resource)
+      ),
+      ...report.staleEnv.map((resource) =>
+        envOperation(report.environment, "env.remove", "env.stale", resource)
+      )
     ]
   };
 }
@@ -93,6 +111,7 @@ export function createProviderOperationPlan(report: InspectReport): ProviderOper
 function serviceOperation(
   environment: EnvironmentName,
   kind: Extract<ProviderOperationKind, "service.link" | "service.unlink">,
+  source: Extract<ProviderOperationSource, "service.missing" | "service.stale">,
   resource: InspectServiceResource
 ): ProviderOperation {
   const action = kind === "service.link" ? "Link" : "Unlink";
@@ -104,6 +123,7 @@ function serviceOperation(
     kind,
     scope: "service",
     target: "service",
+    source,
     summary: `${action} ${resource.service} service for ${environment}.`,
     secret: false,
     requiresConfirmation: requiresConfirmation(environment)
@@ -113,6 +133,7 @@ function serviceOperation(
 function envOperation(
   environment: EnvironmentName,
   kind: Extract<ProviderOperationKind, "env.set" | "env.remove">,
+  source: Extract<ProviderOperationSource, "env.missing" | "env.drifted" | "env.stale">,
   resource: InspectEnvResource
 ): ProviderOperation {
   const action = kind === "env.set" ? "Set" : "Remove";
@@ -124,6 +145,7 @@ function envOperation(
     kind,
     scope: resource.surface,
     target: `env:${resource.name}`,
+    source,
     summary: `${action} ${resource.name} for ${resource.service} ${resource.surface} in ${environment}.`,
     secret: resource.secret,
     requiresConfirmation: requiresConfirmation(environment)

@@ -13,7 +13,7 @@ agentstack env set --env preview --surface convex --name STRIPE_MODE --value san
 
 Use `agentstack env inspect --env preview` or `pnpm run env:inspect` to confirm whether declared bindings are present without exposing secret values.
 
-Use `agentstack inspect --env preview` or `pnpm run inspect` to see provider adapter contract status and pending provider operation IDs. `contract-only` means the provider boundary is normalized, but mutations are still local-cloud rehearsal here. `convex:command-plan` means Agentstack can plan current Convex CLI deploy/env commands without executing them. Operation IDs are stable and redacted; env operations include surface scope and variable names only, never values or hashes. An `env.set` operation can appear before a local value is available; sync remains the actionability gate.
+Use `agentstack inspect --env preview` or `pnpm run inspect` to see provider adapter contract status and pending provider operation IDs. `contract-only` means the provider boundary is normalized, but mutations are still local-cloud rehearsal here. `convex:command-plan` and `vercel:command-plan` mean Agentstack can plan current provider CLI deploy/env commands without executing them. Operation IDs are stable and redacted; env operations include surface scope and variable names only, never values or hashes. An `env.set` operation can appear before a local value is available; sync remains the actionability gate.
 
 Missing `.agentstack/env-values.json` is treated as an empty value set. Invalid JSON or non-string values fail `validate` and `validate:cloud`.
 
@@ -23,6 +23,10 @@ Use `pnpm run provider:convex:preview` to print real Convex preview commands wit
 
 Use `pnpm run provider:convex:production` to print real Convex production commands without running provider mutations. Production planning requires `CONVEX_DEPLOY_KEY`, prints `pnpm exec convex deploy`, scopes env commands with production Convex flags, and marks production confirmation as required for the future provider apply slice.
 
-Provider command output is redacted. Env set/remove command plans identify variable names and whether input comes from `.agentstack/env-values.json`; they do not print raw values, hashes, or secrets.
+Use `pnpm run provider:vercel:preview` to print real Vercel preview commands without running provider mutations. Generated projects include the Vercel package so `pnpm exec vercel` resolves locally. Preview planning requires `VERCEL_TOKEN`, a linked Vercel project from `vercel link` or `.vercel/project.json`, and prints `pnpm exec vercel deploy --target=preview`.
 
-`validate --cloud --env <env>` checks linked services and provider env resource presence or drift against local-cloud state. Convex command planning is the first real-provider command surface, but provider mutation is still intentionally manual. Real Clerk, Vercel, and EAS adapters will implement the same operation kinds later.
+Use `pnpm run provider:vercel:production` to print real Vercel production commands without running provider mutations. Production planning requires `VERCEL_TOKEN`, requires the same linked Vercel project, prints `pnpm exec vercel --prod`, and marks production confirmation as required for the future provider apply slice.
+
+Provider command output is redacted. Env add/update/remove command plans identify variable names and whether input comes from `.agentstack/env-values.json`; they do not print raw values, hashes, or secrets. Vercel env plans map missing values to `pnpm exec vercel env add`, drifted values to `pnpm exec vercel env update`, and stale values to `pnpm exec vercel env rm`.
+
+`validate --cloud --env <env>` checks linked services and provider env resource presence or drift against local-cloud state. Convex and Vercel command planning are real-provider command surfaces, but provider mutation is still intentionally manual. Real Clerk and EAS adapters will implement the same operation kinds later.

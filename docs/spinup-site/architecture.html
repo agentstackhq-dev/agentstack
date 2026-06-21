@@ -114,12 +114,12 @@
                 <tr>
                   <td>Cloud providers</td>
                   <td><code>.agentstack/local-cloud.json</code> simulates linked services per environment, and <code>.agentstack/deployments/preview.json</code> records local preview deploy rehearsal output.</td>
-                  <td><code>inspect</code> shows <code>contract-only</code> or <code>convex:command-plan</code> adapter status and stable pending operation IDs. Convex command planning prints redacted <code>pnpm exec convex</code> deploy/env commands without executing provider mutations; Clerk, Vercel, and EAS adapters implement those operation kinds later.</td>
+                  <td><code>inspect</code> shows <code>contract-only</code>, <code>convex:command-plan</code>, or <code>vercel:command-plan</code> adapter status and stable pending operation IDs. Convex and Vercel command planning print redacted <code>pnpm exec convex</code> and <code>pnpm exec vercel</code> deploy/env commands without executing provider mutations; Clerk and EAS adapters implement those operation kinds later.</td>
                 </tr>
                 <tr>
                   <td>Env values</td>
                   <td><code>.agentstack/env-values.json</code> satisfies required custom env declarations locally.</td>
-                  <td>Provider env operations expose surface scope and variable names only. Convex command plans label values as coming from <code>.agentstack/env-values.json</code>; values and hashes stay out of operation IDs, inspect output, and command output.</td>
+                  <td>Provider env operations expose surface scope and variable names only. Convex and Vercel command plans label values as coming from <code>.agentstack/env-values.json</code>; values and hashes stay out of operation IDs, inspect output, and command output. Vercel plans require <code>VERCEL_TOKEN</code>, a linked project, preview deploys with <code>pnpm exec vercel deploy --target=preview</code>, and production deploys with <code>pnpm exec vercel --prod</code> plus confirmation.</td>
                 </tr>
                 <tr>
                   <td>Telemetry</td>

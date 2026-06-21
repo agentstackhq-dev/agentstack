@@ -31,6 +31,7 @@ const providerOperations: LifecycleProviderOperationSummary[] = [
     kind: "service.link",
     scope: "service",
     target: "service",
+    source: "service.missing",
     summary: "Link convex service for preview.",
     secret: false,
     requiresConfirmation: false

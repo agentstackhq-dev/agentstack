@@ -17,6 +17,7 @@ export type LifecycleProviderOperationSummary = {
   kind: string;
   scope: string;
   target: string;
+  source: string;
   summary: string;
   secret: boolean;
   requiresConfirmation: boolean;

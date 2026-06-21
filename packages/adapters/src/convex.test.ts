@@ -51,6 +51,7 @@ describe("convex command planner", () => {
           kind: "env.set",
           scope: "convex",
           target: "env:OPENAI_API_KEY",
+          source: "env.missing",
           summary: "Set OPENAI_API_KEY for convex convex in preview.",
           secret: true,
           requiresConfirmation: false
@@ -62,6 +63,7 @@ describe("convex command planner", () => {
           kind: "env.set",
           scope: "web",
           target: "env:PUBLIC_URL",
+          source: "env.missing",
           summary: "Set PUBLIC_URL for vercel web in preview.",
           secret: false,
           requiresConfirmation: false
@@ -113,6 +115,7 @@ describe("convex command planner", () => {
           kind: "env.remove",
           scope: "convex",
           target: "env:LEGACY_KEY",
+          source: "env.stale",
           summary: "Remove LEGACY_KEY for convex convex in production.",
           secret: true,
           requiresConfirmation: true

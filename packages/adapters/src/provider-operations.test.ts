@@ -72,7 +72,7 @@ describe("provider operations", () => {
     expect(Object.keys(providerAdapterDefinitions)).toEqual(["clerk", "convex", "vercel", "eas"]);
     expect(providerAdapterDefinitions.clerk.realAdapterStatus).toBe("contract-only");
     expect(providerAdapterDefinitions.convex.realAdapterStatus).toBe("command-plan");
-    expect(providerAdapterDefinitions.vercel.realAdapterStatus).toBe("contract-only");
+    expect(providerAdapterDefinitions.vercel.realAdapterStatus).toBe("command-plan");
     expect(providerAdapterDefinitions.eas.realAdapterStatus).toBe("contract-only");
     expect(providerAdapterDefinitions.clerk.capabilities).toEqual(
       expect.arrayContaining([
@@ -122,6 +122,7 @@ describe("provider operations", () => {
         service: "vercel",
         scope: "web",
         target: "env:STRIPE_MODE",
+        source: "env.missing",
         secret: false,
         requiresConfirmation: false
       })
@@ -132,8 +133,21 @@ describe("provider operations", () => {
         service: "clerk",
         scope: "web",
         target: "env:CLERK_WEBHOOK_SECRET",
+        source: "env.missing",
         secret: true,
         requiresConfirmation: false
+      })
+    );
+    expect(plan.operations).toContainEqual(
+      expect.objectContaining({
+        id: "preview.eas.env.set.mobile.API_URL",
+        source: "env.drifted"
+      })
+    );
+    expect(plan.operations).toContainEqual(
+      expect.objectContaining({
+        id: "preview.convex.env.remove.convex.LEGACY_FLAG",
+        source: "env.stale"
       })
     );
     expect(JSON.stringify(plan)).not.toContain("hash");

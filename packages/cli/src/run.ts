@@ -2,6 +2,7 @@ import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import {
   createConvexCommandPlan,
+  createVercelCommandPlan,
   createProviderOperationPlan,
   getEnabledProviderAdapterDefinitions,
   LocalCloudAdapter,
@@ -502,20 +503,20 @@ async function deployCommand(argv: string[], io: RunIo): Promise<number> {
 
 async function providerPlanCommand(argv: string[], io: RunIo): Promise<number> {
   const options = parseOptions(argv);
-  const fix = "Run agentstack provider plan --service convex --env preview.";
+  const fix = "Run agentstack provider plan --service vercel --env preview.";
   const service = readRequiredStringOption(options.service, "service", fix);
   const environment = readEnvironmentOption(options.env, {
     flag: "env",
     fix
   });
 
-  if (service !== "convex") {
+  if (service !== "convex" && service !== "vercel") {
     io.write(
       formatDiagnostic({
         severity: "fail",
         code: "provider.service.unsupported",
         path: String(options.service ?? "missing"),
-        message: "Only the Convex provider command planner is available in this slice.",
+        message: "Only Convex and Vercel provider command planners are available in this slice.",
         fix,
         blocks: ["provider plan"]
       })
@@ -550,15 +551,22 @@ async function providerPlanCommand(argv: string[], io: RunIo): Promise<number> {
     envValues: validation.envValues
   });
   const providerOperationPlan = createProviderOperationPlan(cloudReport);
-  const plan = createConvexCommandPlan({
-    manifest: validation.context.manifest,
-    environment,
-    operations: providerOperationPlan.operations,
-    includeDeploy: true
-  });
+  const plan =
+    service === "convex"
+      ? createConvexCommandPlan({
+          manifest: validation.context.manifest,
+          environment,
+          operations: providerOperationPlan.operations,
+          includeDeploy: true
+        })
+      : createVercelCommandPlan({
+          environment,
+          operations: providerOperationPlan.operations,
+          includeDeploy: true
+        });
 
-  io.write(`PLAN provider convex ${environment}`);
-  io.write(`Target: ${plan.target.deploymentSelector}`);
+  io.write(`PLAN provider ${plan.service} ${environment}`);
+  io.write(`Target: ${formatProviderPlanTarget(plan.target)}`);
   io.write(`Required env: ${formatList(plan.target.requiredEnv)}`);
   io.write(`Requires confirmation: ${plan.target.requiresConfirmation ? "yes" : "no"}`);
   if (plan.target.warnings.length > 0) {
@@ -567,7 +575,7 @@ async function providerPlanCommand(argv: string[], io: RunIo): Promise<number> {
   }
   io.write("Commands:");
   plan.commands.forEach((command) => {
-    const targetLabel = formatConvexCommandTargetLabel(command.kind, command.args);
+    const targetLabel = formatProviderCommandTargetLabel(command.kind, command.args);
     const confirmationLabel = command.requiresConfirmation ? " [requires-confirmation]" : "";
     const valuePrefix = command.stdinLabel ? ` ${targetLabel}: ${command.stdinLabel} |` : "";
     io.write(`- ${command.kind}${confirmationLabel}${valuePrefix} ${command.args.join(" ")}`);
@@ -581,7 +589,7 @@ async function providerPlanCommand(argv: string[], io: RunIo): Promise<number> {
     status: "ok",
     state: {
       service: plan.service,
-      target: plan.target.deploymentSelector,
+      target: formatProviderPlanTarget(plan.target),
       requiredEnv: plan.target.requiredEnv,
       warnings: plan.target.warnings.length,
       commands: plan.commands.map((command) => ({
@@ -595,9 +603,17 @@ async function providerPlanCommand(argv: string[], io: RunIo): Promise<number> {
   return 0;
 }
 
-function formatConvexCommandTargetLabel(kind: string, args: string[]): string {
+function formatProviderPlanTarget(target: { deploymentSelector?: string; vercelEnvironment?: string }): string {
+  return target.deploymentSelector ?? target.vercelEnvironment ?? "unknown";
+}
+
+function formatProviderCommandTargetLabel(kind: string, args: string[]): string {
   if ((kind === "env.set" || kind === "env.remove") && args[3] === "env") {
     return args.at(-1) ?? kind;
+  }
+
+  if ((kind === "env.add" || kind === "env.update" || kind === "env.remove") && args[3] === "env") {
+    return args[5] ?? kind;
   }
 
   return kind;
@@ -942,6 +958,7 @@ function toLifecycleProviderOperationSummary(
     kind: operation.kind,
     scope: operation.scope,
     target: operation.target,
+    source: operation.source,
     summary: operation.summary,
     secret: operation.secret,
     requiresConfirmation: operation.requiresConfirmation

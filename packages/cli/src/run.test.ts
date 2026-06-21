@@ -188,7 +188,7 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("Environment: preview");
     expect(output.join("\n")).toContain("Generated anchors:");
     expect(output.join("\n")).toContain(
-      "Provider adapters: clerk:contract-only,convex:command-plan,vercel:contract-only,eas:contract-only"
+      "Provider adapters: clerk:contract-only,convex:command-plan,vercel:command-plan,eas:contract-only"
     );
     expect(output.join("\n")).toContain("Provider operations: none");
     expect(output.join("\n")).toContain("Cloud missing: none");
@@ -203,7 +203,7 @@ describe("runAgentstack", () => {
     expect(code).toBe(0);
     expect(output).toContain("WARN inspect acme-crm");
     expect(output.join("\n")).toContain(
-      "Provider adapters: clerk:contract-only,convex:command-plan,vercel:contract-only,eas:contract-only"
+      "Provider adapters: clerk:contract-only,convex:command-plan,vercel:command-plan,eas:contract-only"
     );
     expect(output.join("\n")).toContain("preview.clerk.service.link");
     expect(output.join("\n")).toContain("preview.convex.service.link");
@@ -1219,8 +1219,49 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("- backend.deploy [requires-confirmation] pnpm exec convex deploy");
   });
 
-  it("rejects provider plan for unsupported services", async () => {
+  it("prints redacted Vercel provider command plans", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.environments = ["preview"];
+    manifest.surfaces = ["web"];
+    manifest.env.custom.PUBLIC_URL = {
+      surfaces: ["web"],
+      environments: ["preview"],
+      required: true,
+      secret: false
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    await writeLocalEnvValues({
+      preview: { web: { PUBLIC_URL: "https://preview.example.test" } }
+    });
+
     const code = await runAgentstack(["provider", "plan", "--service", "vercel", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PLAN provider vercel preview");
+    expect(output.join("\n")).toContain("Required env: VERCEL_TOKEN");
+    expect(output.join("\n")).toContain("pnpm exec vercel deploy --target=preview");
+    expect(output.join("\n")).toContain("pnpm exec vercel env add PUBLIC_URL preview");
+    expect(output.join("\n")).toContain("<value from .agentstack/env-values.json>");
+    expect(output.join("\n")).not.toContain("https://preview.example.test");
+  });
+
+  it("prints explicit confirmation requirements for production Vercel provider plans", async () => {
+    const code = await runAgentstack(["provider", "plan", "--service", "vercel", "--env", "production"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PLAN provider vercel production");
+    expect(output.join("\n")).toContain("Requires confirmation: yes");
+    expect(output.join("\n")).toContain("- web.deploy [requires-confirmation] pnpm exec vercel --prod");
+  });
+
+  it("rejects provider plan for unsupported services", async () => {
+    const code = await runAgentstack(["provider", "plan", "--service", "clerk", "--env", "preview"], {
       cwd: dir,
       write: (line) => output.push(line)
     });

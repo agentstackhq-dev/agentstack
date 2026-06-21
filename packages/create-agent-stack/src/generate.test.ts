@@ -89,6 +89,8 @@ describe("generateProject", () => {
         "preview:deploy:apply": "node scripts/agentstack.mjs deploy --env preview --apply",
         "provider:convex:preview": "node scripts/agentstack.mjs provider plan --service convex --env preview",
         "provider:convex:production": "node scripts/agentstack.mjs provider plan --service convex --env production",
+        "provider:vercel:preview": "node scripts/agentstack.mjs provider plan --service vercel --env preview",
+        "provider:vercel:production": "node scripts/agentstack.mjs provider plan --service vercel --env production",
         "prod:prepare": "node scripts/agentstack.mjs prod prepare",
         "prod:provision": "node scripts/agentstack.mjs prod provision",
         "prod:provision:apply": "node scripts/agentstack.mjs prod provision --apply",
@@ -110,7 +112,8 @@ describe("generateProject", () => {
         "telemetry:export:production": "node scripts/agentstack.mjs observe export --env production --format otlp-json"
       });
       expect(packageManifest.devDependencies).toMatchObject({
-        convex: "^1.41.0"
+        convex: "^1.41.0",
+        vercel: "^54.14.5"
       });
       expect(manifest.generated.requiredAnchors).toEqual(
         expect.arrayContaining([
