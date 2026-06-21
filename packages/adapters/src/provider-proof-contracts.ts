@@ -115,7 +115,7 @@ export type ProviderDriftProofResult =
   | { proof: "unavailable" }
   | {
       proof: "partial";
-      evaluator: "env-list-preview";
+      evaluator: "env-list-preview" | "clerk-apps-list-preview";
       evidence: ProviderLiveFactLabel[];
     };
 
@@ -492,6 +492,10 @@ export function evaluateProviderDriftProof(
   service: ProviderControlPlaneService,
   readResults: readonly ProviderExecutionResult[]
 ): ProviderDriftProofResult {
+  if (service === "clerk") {
+    return evaluateClerkAppsListPreviewDriftProof(readResults);
+  }
+
   if (service !== "vercel" && service !== "eas") {
     return { proof: "unavailable" };
   }
@@ -520,5 +524,70 @@ export function evaluateProviderDriftProof(
     proof: "partial",
     evaluator: "env-list-preview",
     evidence: [...envListPreviewFacts].sort()
+  };
+}
+
+const clerkAppsListPreviewFacts = ["apps-list-read", "expected-resource-shape", "preview-environment"] as const;
+const clerkExactAppsListComparisonLabels = [
+  "stable-provider-identity",
+  "ledger-comparable-identity",
+  "manifest-resource-name-match",
+  "ledger-external-id-match",
+  "provider-owner-identity",
+  "provider-resource-id",
+  "provider-environment-scope"
+] as const;
+const clerkExactAppsListProofLabels = [
+  ...clerkExactAppsListComparisonLabels,
+  "provider-specific-identity-parser"
+] satisfies readonly ProviderExactIdentityProofLabel[];
+
+function evaluateClerkAppsListPreviewDriftProof(
+  readResults: readonly ProviderExecutionResult[]
+): ProviderDriftProofResult {
+  if (readResults.length === 0 || readResults.some((result) => result.status !== "success")) {
+    return { proof: "unavailable" };
+  }
+
+  const hasCompleteClerkAppsListPreviewEvidence = readResults.some((result) => {
+    if (
+      result.service !== "clerk" ||
+      result.environment !== "preview" ||
+      result.commandKind !== "auth.apps.list" ||
+      result.status !== "success" ||
+      result.liveIdentityFacts?.identityConfidence !== "partial" ||
+      result.outputRedacted !== true ||
+      result.exactIdentityProof?.kind !== "provider-exact-identity-proof" ||
+      result.exactIdentityProof.evaluator !== "provider-specific-identity-parser"
+    ) {
+      return false;
+    }
+
+    const facts = new Set(result.liveIdentityFacts.facts);
+    if (!clerkAppsListPreviewFacts.every((fact) => facts.has(fact))) {
+      return false;
+    }
+
+    const labels = new Set(result.exactIdentityProof.labels);
+    if (!clerkExactAppsListProofLabels.every((label) => labels.has(label))) {
+      return false;
+    }
+
+    const matchedComparisons = new Set(
+      (result.exactIdentityProof.comparisons ?? [])
+        .filter((comparison) => comparison.outcome === "matched")
+        .map((comparison) => comparison.label)
+    );
+    return clerkExactAppsListComparisonLabels.every((label) => matchedComparisons.has(label));
+  });
+
+  if (!hasCompleteClerkAppsListPreviewEvidence) {
+    return { proof: "unavailable" };
+  }
+
+  return {
+    proof: "partial",
+    evaluator: "clerk-apps-list-preview",
+    evidence: [...clerkAppsListPreviewFacts].sort()
   };
 }

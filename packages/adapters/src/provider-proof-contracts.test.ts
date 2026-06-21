@@ -970,6 +970,154 @@ describe("provider proof contracts", () => {
     }
   });
 
+  it("returns partial sanitized drift evidence for Clerk preview apps-list exact live coherence", () => {
+    expect(
+      evaluateProviderDriftProof("clerk", [
+        {
+          service: "clerk",
+          environment: "preview",
+          commandKind: "auth.apps.list",
+          status: "success",
+          exitCode: 0,
+          durationMs: 5,
+          stdoutSummary: "<redacted provider stdout: 1 lines, 180 bytes>",
+          stderrSummary: "",
+          stdoutLines: 1,
+          stderrLines: 0,
+          stdoutBytes: 180,
+          stderrBytes: 0,
+          outputRedacted: true,
+          liveIdentityFacts: {
+            identityConfidence: "partial",
+            facts: ["apps-list-read", "expected-resource-shape", "preview-environment"]
+          },
+          exactIdentityProof: {
+            kind: "provider-exact-identity-proof",
+            evaluator: "provider-specific-identity-parser",
+            labels: [
+              "ledger-comparable-identity",
+              "ledger-external-id-match",
+              "manifest-resource-name-match",
+              "provider-environment-scope",
+              "provider-owner-identity",
+              "provider-resource-id",
+              "provider-specific-identity-parser",
+              "stable-provider-identity"
+            ],
+            comparisons: [
+              { label: "stable-provider-identity", outcome: "matched" },
+              { label: "ledger-comparable-identity", outcome: "matched" },
+              { label: "manifest-resource-name-match", outcome: "matched" },
+              { label: "ledger-external-id-match", outcome: "matched" },
+              { label: "provider-owner-identity", outcome: "matched" },
+              { label: "provider-resource-id", outcome: "matched" },
+              { label: "provider-environment-scope", outcome: "matched" }
+            ]
+          }
+        }
+      ])
+    ).toEqual({
+      proof: "partial",
+      evaluator: "clerk-apps-list-preview",
+      evidence: ["apps-list-read", "expected-resource-shape", "preview-environment"]
+    });
+  });
+
+  it("keeps Clerk drift proof unavailable without strict exact apps-list live coherence", () => {
+    const baseResult = {
+      service: "clerk",
+      environment: "preview",
+      commandKind: "auth.apps.list",
+      status: "success",
+      exitCode: 0,
+      durationMs: 5,
+      stdoutSummary: "<redacted provider stdout: 1 lines, 180 bytes>",
+      stderrSummary: "",
+      stdoutLines: 1,
+      stderrLines: 0,
+      stdoutBytes: 180,
+      stderrBytes: 0,
+      outputRedacted: true,
+      liveIdentityFacts: {
+        identityConfidence: "partial",
+        facts: ["apps-list-read", "expected-resource-shape", "preview-environment"]
+      },
+      exactIdentityProof: {
+        kind: "provider-exact-identity-proof",
+        evaluator: "provider-specific-identity-parser",
+        labels: [
+          "ledger-comparable-identity",
+          "ledger-external-id-match",
+          "manifest-resource-name-match",
+          "provider-environment-scope",
+          "provider-owner-identity",
+          "provider-resource-id",
+          "provider-specific-identity-parser",
+          "stable-provider-identity"
+        ],
+        comparisons: [
+          { label: "stable-provider-identity", outcome: "matched" },
+          { label: "ledger-comparable-identity", outcome: "matched" },
+          { label: "manifest-resource-name-match", outcome: "matched" },
+          { label: "ledger-external-id-match", outcome: "matched" },
+          { label: "provider-owner-identity", outcome: "matched" },
+          { label: "provider-resource-id", outcome: "matched" },
+          { label: "provider-environment-scope", outcome: "matched" }
+        ]
+      }
+    } satisfies Parameters<typeof evaluateProviderDriftProof>[1][number];
+
+    expect(evaluateProviderDriftProof("clerk", [{ ...baseResult, exactIdentityProof: undefined }])).toEqual({
+      proof: "unavailable"
+    });
+    expect(evaluateProviderDriftProof("clerk", [{ ...baseResult, environment: "production" }])).toEqual({
+      proof: "unavailable"
+    });
+    expect(evaluateProviderDriftProof("clerk", [{ ...baseResult, status: "failed", exitCode: 1 }])).toEqual({
+      proof: "unavailable"
+    });
+    expect(
+      evaluateProviderDriftProof("clerk", [
+        baseResult,
+        {
+          ...baseResult,
+          status: "failed",
+          exitCode: 1,
+          liveIdentityFacts: undefined,
+          exactIdentityProof: undefined
+        }
+      ])
+    ).toEqual({ proof: "unavailable" });
+    expect(evaluateProviderDriftProof("clerk", [{ ...baseResult, outputRedacted: false }])).toEqual({
+      proof: "unavailable"
+    });
+    expect(
+      evaluateProviderDriftProof("clerk", [
+        {
+          ...baseResult,
+          liveIdentityFacts: {
+            identityConfidence: "partial",
+            facts: ["apps-list-read", "preview-environment"]
+          }
+        }
+      ])
+    ).toEqual({ proof: "unavailable" });
+    expect(
+      evaluateProviderDriftProof("clerk", [
+        {
+          ...baseResult,
+          exactIdentityProof: {
+            ...baseResult.exactIdentityProof,
+            comparisons: [
+              { label: "stable-provider-identity", outcome: "matched" },
+              { label: "ledger-comparable-identity", outcome: "matched" }
+            ]
+          }
+        }
+      ])
+    ).toEqual({ proof: "unavailable" });
+  });
+
   it("keeps drift proof unavailable when facts are incomplete or provider is unsupported", () => {
     const baseResult = {
       service: "vercel",

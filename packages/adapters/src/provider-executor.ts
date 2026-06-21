@@ -28,8 +28,10 @@ export type ProviderFailureClass = "auth" | "timeout" | "not-found" | "rate-limi
 export type ProviderLiveIdentityConfidence = "none" | "partial";
 export type ProviderLiveFactLabel =
   | "expected-env-names"
+  | "expected-resource-shape"
   | "preview-environment"
   | "env-list-read"
+  | "apps-list-read"
   | "diagnostics-read"
   | "provider-env-read"
   | "provider-config-read";
@@ -91,8 +93,10 @@ export type ProviderIdentityCandidatesArtifact = {
 
 const PROVIDER_LIVE_FACT_LABELS = new Set<string>([
   "expected-env-names",
+  "expected-resource-shape",
   "preview-environment",
   "env-list-read",
+  "apps-list-read",
   "diagnostics-read",
   "provider-env-read",
   "provider-config-read"

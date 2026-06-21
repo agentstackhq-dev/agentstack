@@ -420,6 +420,10 @@ describe("clerk command planner", () => {
         { label: "stable-provider-identity", outcome: "matched" }
       ]
     });
+    expect(results.at(-1)?.liveIdentityFacts).toEqual({
+      identityConfidence: "partial",
+      facts: ["apps-list-read", "expected-resource-shape", "preview-environment"]
+    });
     const serialized = JSON.stringify(results);
     expect(serialized).not.toContain("app_raw_123");
     expect(serialized).not.toContain("res_raw_456");

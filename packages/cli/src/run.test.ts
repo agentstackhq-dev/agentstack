@@ -3352,8 +3352,11 @@ describe("runAgentstack", () => {
     expect(output).toContain("Identity proof: exact");
     expect(output).toContain("Exact identity evidence: available");
     expect(output).toContain("Exact identity evaluator: provider-exact-identity");
+    expect(output).toContain("Drift proof: partial");
+    expect(output).toContain("Drift evaluator: clerk-apps-list-preview");
     expect(output).toContain("Readiness: refused");
     expect(output).toContain("Reason: drift-unproven");
+    expect(rendered).not.toContain("Drift proof: exact");
     expect(rendered).not.toContain(rowId);
     expect(rendered).not.toContain(externalId);
     expect(rendered).not.toContain(owner);

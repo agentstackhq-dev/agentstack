@@ -217,7 +217,7 @@ Run the preview-only provider proof contract check after adding a matching plann
 pnpm run provider:convex:proof:preview
 ```
 
-Expected output includes `FAIL provider proof convex preview`, `Evidence: live-proof-check`, `Provider execution: read-only`, `Local-cloud state: not-read`, `Identity proof: ambiguous`, `Drift proof: unproven`, `Readiness: refused`, and sanitized identity/drift proof requirement labels. Missing, invalid, incomplete, or blocked ledger state fails closed before provider executor use with `Provider execution: none`. Proof never writes telemetry, local-cloud, provider-link, provider resource, or ledger state, and it does not claim exact identity, drift proof, provisioning, link/adoption confirmation, live coherence, or readiness.
+Expected Convex output includes `FAIL provider proof convex preview`, `Evidence: live-proof-check`, `Provider execution: read-only`, `Local-cloud state: not-read`, `Identity proof: ambiguous`, `Drift proof: unproven`, `Readiness: refused`, and sanitized identity/drift proof requirement labels. Clerk preview application proof can instead print sanitized exact identity and `Drift proof: partial` with `Drift evaluator: clerk-apps-list-preview` when the strict apps-list and ledger/manifest gates pass, but it still exits 1 with `Readiness: refused`. Missing, invalid, incomplete, or blocked ledger state fails closed before provider executor use with `Provider execution: none`. Proof never writes telemetry, local-cloud, provider-link, provider resource, or ledger state, and it does not claim exact drift proof, provisioning, link/adoption confirmation, live coherence, or readiness.
 
 Write a local provider link after adding a matching planned or active ledger row:
 

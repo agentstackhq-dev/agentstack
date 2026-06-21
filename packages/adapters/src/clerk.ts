@@ -191,6 +191,12 @@ export async function inspectClerkReadOnly(
       env: options.env,
       timeoutMs: options.timeoutMs
     });
+    const exactIdentityProof = exactIdentityProofForClerkRead(
+      command.kind,
+      options.environment,
+      result,
+      options.exactProofContext
+    );
 
     results.push(
       createProviderExecutionResult({
@@ -200,19 +206,31 @@ export async function inspectClerkReadOnly(
         command,
         result,
         secretValues: options.secretValues,
-        liveIdentityFacts: liveIdentityFactsForClerkRead(command.kind, result.exitCode),
+        liveIdentityFacts:
+          liveCoherenceFactsForClerkExactAppsList(command.kind, options.environment, exactIdentityProof) ??
+          liveIdentityFactsForClerkRead(command.kind, result.exitCode),
         identityCandidates: identityCandidatesForClerkRead(command.kind, options.environment, result),
-        exactIdentityProof: exactIdentityProofForClerkRead(
-          command.kind,
-          options.environment,
-          result,
-          options.exactProofContext
-        )
+        exactIdentityProof
       })
     );
   }
 
   return results;
+}
+
+function liveCoherenceFactsForClerkExactAppsList(
+  commandKind: ClerkCommandKind,
+  environment: EnvironmentName,
+  exactIdentityProof: ProviderExactIdentityProofArtifact | undefined
+): { identityConfidence: "partial"; facts: ProviderLiveFactLabel[] } | undefined {
+  if (environment !== "preview" || commandKind !== "auth.apps.list" || !exactIdentityProof) {
+    return undefined;
+  }
+
+  return {
+    identityConfidence: "partial",
+    facts: ["apps-list-read", "expected-resource-shape", "preview-environment"]
+  };
 }
 
 function liveIdentityFactsForClerkRead(
