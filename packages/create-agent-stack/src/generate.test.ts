@@ -229,8 +229,12 @@ describe("generateProject", () => {
       expect(generatedEnvironmentDocs).toContain("Evidence: local-inventory");
       expect(generatedEnvironmentDocs).toContain("Evidence: ledger-local-inventory");
       expect(generatedEnvironmentDocs).toContain("does not call provider CLIs");
-      expect(generatedEnvironmentDocs).toContain("writes only `.agentstack/provider-links.json`");
-      expect(generatedEnvironmentDocs).toContain("Adopt is print-only");
+      expect(generatedEnvironmentDocs).toContain("Local mutation: .agentstack/provider-links.json");
+      expect(generatedEnvironmentDocs).toContain("Provider mutation: none");
+      expect(generatedEnvironmentDocs).toContain("Ledger mutation: none");
+      expect(generatedEnvironmentDocs).toContain("Local adopt is the default source mode");
+      expect(generatedEnvironmentDocs).toContain("FAIL provider.link.identity-ambiguous");
+      expect(generatedEnvironmentDocs).toContain("There is no `--live` shorthand for adopt");
       expect(generatedEnvironmentDocs).toContain("not proof of external provider existence");
       expect(generatedEnvironmentDocs).toContain("ledger-gated through supported provider apply commands");
       const generatedPreviewDocs = await readFile(join(targetDir, "docs/agentstack/preview.md"), "utf8");

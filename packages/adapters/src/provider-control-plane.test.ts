@@ -5,6 +5,7 @@ import { createDefaultManifest } from "@agentstack/core";
 import { describe, expect, it } from "vitest";
 import {
   buildProviderAdoptProposal,
+  confirmLiveProviderInventoryIdentity,
   createLiveProviderInventory,
   createProviderInventory,
   linkLedgerBackedProviderResource,
@@ -289,6 +290,76 @@ describe("provider control plane", () => {
     });
     expect(inventory.rows[0]?.facts).toBeUndefined();
     expect(inventory.liveReadSummary).toEqual({ commands: 1, results: 1, succeeded: 0, failed: 1 });
+  });
+
+  it("refuses live confirmation for failed or ambiguous inventory without exact identity synthesis", async () => {
+    const partialInventory = await createLiveProviderInventory({
+      localInventory: await createProviderInventory({
+        cwd: "/tmp/no-state",
+        manifest: createDefaultManifest("acme-crm"),
+        service: "vercel",
+        environment: "preview",
+        ledgerRows: []
+      }),
+      readResults: [
+        {
+          service: "vercel",
+          environment: "preview",
+          commandKind: "env.list",
+          status: "success",
+          exitCode: 0,
+          durationMs: 12,
+          stdoutSummary: "<redacted provider stdout: 3 lines, 120 bytes>",
+          stderrSummary: "",
+          stdoutLines: 3,
+          stderrLines: 0,
+          stdoutBytes: 120,
+          stderrBytes: 0,
+          outputRedacted: true,
+          liveIdentityFacts: {
+            identityConfidence: "partial",
+            facts: ["expected-env-names", "preview-environment", "env-list-read"]
+          }
+        }
+      ]
+    });
+    const failedInventory = await createLiveProviderInventory({
+      localInventory: await createProviderInventory({
+        cwd: "/tmp/no-state",
+        manifest: createDefaultManifest("acme-crm"),
+        service: "clerk",
+        environment: "preview",
+        ledgerRows: []
+      }),
+      readResults: [
+        {
+          service: "clerk",
+          environment: "preview",
+          commandKind: "env.pull",
+          status: "failed",
+          exitCode: 1,
+          durationMs: 12,
+          stdoutSummary: "",
+          stderrSummary: "<redacted provider stderr: 1 line, 99 bytes>",
+          stdoutLines: 0,
+          stderrLines: 1,
+          stdoutBytes: 0,
+          stderrBytes: 99,
+          outputRedacted: true,
+          failureClass: "auth"
+        }
+      ]
+    });
+
+    expect(confirmLiveProviderInventoryIdentity(partialInventory)).toEqual({
+      ok: false,
+      reason: "identity-ambiguous"
+    });
+    expect(confirmLiveProviderInventoryIdentity(failedInventory)).toEqual({
+      ok: false,
+      reason: "live-read"
+    });
+    expect(JSON.stringify(partialInventory)).not.toContain("identityScope\":\"exact");
   });
 
   it("writes local provider link state only when the ledger row is planned or active", async () => {

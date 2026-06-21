@@ -79,6 +79,9 @@ export type ProviderInventoryLiveReadSummary = {
   failed: number;
 };
 
+export type ProviderLiveConfirmation =
+  { ok: false; reason: "live-read" | "identity-ambiguous" };
+
 export type LiveProviderInventoryInput = {
   localInventory: ProviderInventory;
   readResults: ProviderExecutionResult[];
@@ -190,6 +193,14 @@ export async function createLiveProviderInventory(input: LiveProviderInventoryIn
       facts: liveFacts.facts.length > 0 ? liveFacts.facts : undefined
     }))
   };
+}
+
+export function confirmLiveProviderInventoryIdentity(inventory: ProviderInventory): ProviderLiveConfirmation {
+  if ((inventory.liveReadSummary?.failed ?? 0) > 0) {
+    return { ok: false, reason: "live-read" };
+  }
+
+  return { ok: false, reason: "identity-ambiguous" };
 }
 
 function summarizeLiveIdentityFacts(readResults: ProviderExecutionResult[]): {

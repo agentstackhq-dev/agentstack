@@ -8,6 +8,7 @@ import {
   createVercelCommandPlan,
   createProviderOperationPlan,
   buildProviderAdoptProposal,
+  confirmLiveProviderInventoryIdentity,
   createLiveProviderInventory,
   createProviderInventory,
   executeConvexApply,
@@ -28,6 +29,7 @@ import {
   type ProviderCommandExecutor,
   type ProviderControlPlaneService,
   type ProviderExecutionResult,
+  type ProviderInventory,
   type ProviderInventorySource,
   type ProviderInventoryRow,
   type ProviderLedgerDecision,
@@ -1321,8 +1323,23 @@ async function providerLinkCommand(argv: string[], io: RunIo): Promise<number> {
     "Run agentstack provider link --service convex --env preview --resource-type deployment --name acme-crm-preview.";
   const service = readProviderControlPlaneServiceOption(options.service, fix);
   const environment = readProviderRuntimeEnvironmentOption(options.env, fix);
+  const source = readProviderSourceOption(options.source, options.live, fix, "provider.link");
   const resourceType = readRequiredStringOption(options["resource-type"], "resource-type", fix);
   const name = readRequiredStringOption(options.name, "name", fix);
+
+  if (source === "live" && (service === "vercel" || service === "eas") && environment !== "preview") {
+    io.write(
+      formatDiagnostic({
+        severity: "fail",
+        code: "provider.link.unsupported",
+        path: `${service}.${environment}`,
+        message: `${service === "vercel" ? "Vercel" : "EAS"} live link confirmation supports preview read-only inspect only.`,
+        fix: `Run agentstack provider link --service ${service} --env preview --resource-type ${resourceType} --name ${name} --source live.`,
+        blocks: ["provider link"]
+      })
+    );
+    return 1;
+  }
 
   const validation = await runLocalValidationGate(io.cwd);
   validation.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
@@ -1345,6 +1362,40 @@ async function providerLinkCommand(argv: string[], io: RunIo): Promise<number> {
     return 1;
   }
 
+  if (source === "live") {
+    const decision = enforceProviderLedgerResource(ledgerRows, {
+      provider: service,
+      environment,
+      resourceType,
+      resourceName: name
+    });
+    if (!decision.ok) {
+      io.write(providerLinkLedgerDiagnostic(decision));
+      return 1;
+    }
+
+    const inventory = await readLiveInventoryForConfirmation({
+      io,
+      validation,
+      ledgerRows,
+      service,
+      environment,
+      failureCode: "provider.link.live-read",
+      fix,
+      blocks: ["provider link"]
+    });
+    if (inventory === undefined) {
+      return 1;
+    }
+
+    const confirmation = confirmLiveProviderInventoryIdentity(inventory);
+    if (!confirmation.ok) {
+      io.write(`FAIL provider.link.${confirmation.reason}`);
+      writeProviderConfirmationInventory(io, inventory);
+      return 1;
+    }
+  }
+
   const result = await linkLedgerBackedProviderResource({
     cwd: io.cwd,
     service,
@@ -1361,7 +1412,9 @@ async function providerLinkCommand(argv: string[], io: RunIo): Promise<number> {
 
   io.write(`LINKED provider ${service} ${environment}`);
   io.write("Evidence: ledger-local-inventory");
-  io.write("Mutation scope: local Agentstack provider link state");
+  io.write("Local mutation: .agentstack/provider-links.json");
+  io.write("Provider mutation: none");
+  io.write("Ledger mutation: none");
   return 0;
 }
 
@@ -1371,6 +1424,51 @@ async function providerAdoptCommand(argv: string[], io: RunIo): Promise<number> 
     "Run agentstack provider adopt --service clerk --env production --resource-type application --name acme-crm --external-id <id> --owner <owner> --purpose <purpose> --created-by <name> --created-at <date> --cleanup <procedure> --cleanup-trigger <trigger> --evidence <path>.";
   const service = readProviderControlPlaneServiceOption(options.service, fix);
   const environment = readProviderRuntimeEnvironmentOption(options.env, fix);
+  const source = readProviderSourceOption(options.source, options.live, fix, "provider.adopt");
+
+  if (source === "live" && (service === "vercel" || service === "eas") && environment !== "preview") {
+    io.write(
+      formatDiagnostic({
+        severity: "fail",
+        code: "provider.adopt.unsupported",
+        path: `${service}.${environment}`,
+        message: `${service === "vercel" ? "Vercel" : "EAS"} live adopt confirmation supports preview read-only inspect only.`,
+        fix: `Run agentstack provider adopt --service ${service} --env preview --source live.`,
+        blocks: ["provider adopt"]
+      })
+    );
+    return 1;
+  }
+
+  const validation = await runLocalValidationGate(io.cwd);
+  validation.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
+  if (validation.diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
+    return 1;
+  }
+
+  if (source === "live") {
+    const inventory = await readLiveInventoryForConfirmation({
+      io,
+      validation,
+      ledgerRows: [],
+      service,
+      environment,
+      failureCode: "provider.adopt.live-read",
+      fix,
+      blocks: ["provider adopt"]
+    });
+    if (inventory === undefined) {
+      return 1;
+    }
+
+    const confirmation = confirmLiveProviderInventoryIdentity(inventory);
+    if (!confirmation.ok) {
+      io.write(`FAIL provider.adopt.${confirmation.reason}`);
+      writeProviderConfirmationInventory(io, inventory);
+      return 1;
+    }
+  }
+
   const resourceType = readRequiredStringOption(options["resource-type"], "resource-type", fix);
   const name = readRequiredStringOption(options.name, "name", fix);
   const externalIdOrUrl = readRequiredStringOption(options["external-id"], "external-id", fix);
@@ -1382,12 +1480,6 @@ async function providerAdoptCommand(argv: string[], io: RunIo): Promise<number> 
   const expectedCleanupTriggerOrDate = readRequiredStringOption(options["cleanup-trigger"], "cleanup-trigger", fix);
   const evidenceLinkOrPath = readRequiredStringOption(options.evidence, "evidence", fix);
   const notes = typeof options.notes === "string" ? options.notes : "";
-
-  const validation = await runLocalValidationGate(io.cwd);
-  validation.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
-  if (validation.diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
-    return 1;
-  }
 
   const proposal = buildProviderAdoptProposal({
     service,
@@ -1407,9 +1499,75 @@ async function providerAdoptCommand(argv: string[], io: RunIo): Promise<number> 
 
   io.write(`PROPOSED provider adopt ${service} ${environment}`);
   io.write("Evidence: local-inventory");
-  io.write("Mutation: none");
+  io.write("Local mutation: none");
+  io.write("Provider mutation: none");
+  io.write("Ledger mutation: none");
   proposal.lines.forEach((line) => io.write(line));
   return 0;
+}
+
+async function readLiveInventoryForConfirmation(input: {
+  io: RunIo;
+  validation: Awaited<ReturnType<typeof runLocalValidationGate>>;
+  ledgerRows: ReturnType<typeof parseProviderLedger>;
+  service: ProviderControlPlaneService;
+  environment: "preview" | "production";
+  failureCode: "provider.link.live-read" | "provider.adopt.live-read";
+  fix: string;
+  blocks: string[];
+}): Promise<ProviderInventory | undefined> {
+  let inventory = await createProviderInventory({
+    cwd: input.io.cwd,
+    manifest: input.validation.context.manifest,
+    service: input.service,
+    environment: input.environment,
+    ledgerRows: input.ledgerRows
+  });
+  const secretValues =
+    input.service === "convex"
+      ? collectSecretValues(input.validation.envValues, input.environment, "convex")
+      : collectEnvironmentSecretValues(input.validation.envValues, input.environment);
+
+  let liveResults: ProviderExecutionResult[];
+  try {
+    liveResults = await readLiveProviderInventory({
+      service: input.service,
+      environment: input.environment,
+      manifest: input.validation.context.manifest,
+      executor: resolveProviderExecutor(input.io),
+      cwd: input.io.cwd,
+      secretValues
+    });
+  } catch (error) {
+    input.io.write(
+      formatDiagnostic({
+        severity: "fail",
+        code: input.failureCode,
+        path: `${input.service}.${input.environment}`,
+        message: redactProviderText(error instanceof Error ? error.message : String(error), { secretValues }),
+        fix: input.fix,
+        blocks: input.blocks
+      })
+    );
+    return undefined;
+  }
+
+  inventory = await createLiveProviderInventory({ localInventory: inventory, readResults: liveResults });
+  return inventory;
+}
+
+function writeProviderConfirmationInventory(io: RunIo, inventory: ProviderInventory): void {
+  io.write(`Evidence: ${inventory.evidence}`);
+  io.write("Local mutation: none");
+  io.write("Provider mutation: none");
+  io.write("Ledger mutation: none");
+  if (inventory.liveReadSummary) {
+    io.write(`Commands: ${inventory.liveReadSummary.commands}`);
+    io.write(`Results: ${inventory.liveReadSummary.results}`);
+    io.write(`Succeeded: ${inventory.liveReadSummary.succeeded}`);
+    io.write(`Failed: ${inventory.liveReadSummary.failed}`);
+  }
+  inventory.rows.forEach((row) => io.write(formatProviderInventoryRow(row)));
 }
 
 type ProviderLedgerDiagnosticCommand = "provider apply" | "provider inventory" | "provider link";
@@ -1578,6 +1736,37 @@ function readProviderInventorySourceOption(
     [
       "FAIL provider.inventory.validation",
       `Unsupported provider inventory source: ${source}. Expected one of: local, live.`,
+      `Fix: ${fix}`
+    ].join("\n")
+  );
+}
+
+function readProviderSourceOption(
+  value: string | boolean | undefined,
+  live: string | boolean | undefined,
+  fix: string,
+  codePrefix: "provider.link" | "provider.adopt"
+): ProviderInventorySource {
+  if (live !== undefined) {
+    throw new Error(
+      [
+        `FAIL ${codePrefix}.validation`,
+        "Unsupported --live option. Use --source live for this command.",
+        `Fix: ${fix}`
+      ].join("\n")
+    );
+  }
+  if (value === undefined || value === false) {
+    return "local";
+  }
+  const source = readRequiredStringOption(value, "source", fix);
+  if (source === "local" || source === "live") {
+    return source;
+  }
+  throw new Error(
+    [
+      `FAIL ${codePrefix}.validation`,
+      `Unsupported provider source: ${source}. Expected one of: local, live.`,
       `Fix: ${fix}`
     ].join("\n")
   );

@@ -183,6 +183,7 @@ node scripts/agentstack.mjs provider link --service convex --env preview --resou
 ```
 
 Link requires a matching `planned` or `active` row in `docs/provider-resource-ledger.md` and writes only `.agentstack/provider-links.json`. It does not mutate the root provider ledger, telemetry, local-cloud state, or provider resources.
+Use `--source live` to require the same ledger gate and then run only read-only live inventory/inspect before confirming. Current live evidence is partial or ambiguous only, so live link refuses with no local, provider, or ledger mutation.
 
 Print a redacted adopt proposal for operator review:
 
@@ -191,6 +192,7 @@ node scripts/agentstack.mjs provider adopt --service convex --env preview --reso
 ```
 
 Adopt is print-only in this slice. It does not mutate the root provider ledger, `.agentstack/provider-links.json`, telemetry, local-cloud state, or provider resources. Generated package scripts intentionally expose inventory/link only, not adopt, because adopt needs operator-specific external ID, owner, purpose, creation, cleanup, and evidence fields. Review the proposal and manually update the ledger before running link or any supported provider apply command.
+Use `--source live` to run only read-only live inventory/inspect without requiring an existing ledger row. Current live evidence is partial or ambiguous only, so live adopt refuses without printing a proposal or writing local, provider, or ledger state. Link and adopt do not support the inventory-only `--live` shorthand.
 
 Inspect explicit read-only EAS preview env state:
 
