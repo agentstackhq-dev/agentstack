@@ -188,7 +188,7 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("Environment: preview");
     expect(output.join("\n")).toContain("Generated anchors:");
     expect(output.join("\n")).toContain(
-      "Provider adapters: clerk:contract-only,convex:command-plan,vercel:command-plan,eas:contract-only"
+      "Provider adapters: clerk:command-plan,convex:command-plan,vercel:command-plan,eas:contract-only"
     );
     expect(output.join("\n")).toContain("Provider operations: none");
     expect(output.join("\n")).toContain("Cloud missing: none");
@@ -203,7 +203,7 @@ describe("runAgentstack", () => {
     expect(code).toBe(0);
     expect(output).toContain("WARN inspect acme-crm");
     expect(output.join("\n")).toContain(
-      "Provider adapters: clerk:contract-only,convex:command-plan,vercel:command-plan,eas:contract-only"
+      "Provider adapters: clerk:command-plan,convex:command-plan,vercel:command-plan,eas:contract-only"
     );
     expect(output.join("\n")).toContain("preview.clerk.service.link");
     expect(output.join("\n")).toContain("preview.convex.service.link");
@@ -1260,8 +1260,53 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("- web.deploy [requires-confirmation] pnpm exec vercel --prod");
   });
 
-  it("rejects provider plan for unsupported services", async () => {
+  it("prints redacted Clerk provider command plans", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.environments = ["preview"];
+    manifest.surfaces = ["web"];
+    manifest.env.custom.CLERK_SECRET_KEY = {
+      surfaces: ["web"],
+      environments: ["preview"],
+      required: true,
+      secret: true
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    await writeLocalEnvValues({
+      preview: { web: { CLERK_SECRET_KEY: "sk_test_local_should_not_print" } }
+    });
+
     const code = await runAgentstack(["provider", "plan", "--service", "clerk", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PLAN provider clerk preview");
+    expect(output.join("\n")).toContain("Target: <clerk-development-application>");
+    expect(output.join("\n")).toContain("pnpm exec clerk init -y");
+    expect(output.join("\n")).toContain("pnpm exec clerk doctor --mode agent");
+    expect(output.join("\n")).toContain("pnpm exec clerk env pull --mode agent");
+    expect(output.join("\n")).toContain("CLERK_SECRET_KEY: <value from Clerk Dashboard / clerk env pull>");
+    expect(output.join("\n")).not.toContain("sk_test_local_should_not_print");
+  });
+
+  it("prints explicit confirmation requirements for production Clerk provider plans", async () => {
+    const code = await runAgentstack(["provider", "plan", "--service", "clerk", "--env", "production"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PLAN provider clerk production");
+    expect(output.join("\n")).toContain("Required env: CLERK_SECRET_KEY");
+    expect(output.join("\n")).toContain("Requires confirmation: yes");
+    expect(output.join("\n")).toContain(
+      "- auth.production.status [requires-confirmation] pnpm exec clerk deploy --mode agent"
+    );
+  });
+
+  it("rejects provider plan for unsupported services", async () => {
+    const code = await runAgentstack(["provider", "plan", "--service", "eas", "--env", "preview"], {
       cwd: dir,
       write: (line) => output.push(line)
     });

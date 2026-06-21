@@ -87,6 +87,8 @@ describe("generateProject", () => {
         "preview:validate": "node scripts/agentstack.mjs validate --cloud --env preview",
         "preview:deploy": "node scripts/agentstack.mjs deploy --env preview",
         "preview:deploy:apply": "node scripts/agentstack.mjs deploy --env preview --apply",
+        "provider:clerk:preview": "node scripts/agentstack.mjs provider plan --service clerk --env preview",
+        "provider:clerk:production": "node scripts/agentstack.mjs provider plan --service clerk --env production",
         "provider:convex:preview": "node scripts/agentstack.mjs provider plan --service convex --env preview",
         "provider:convex:production": "node scripts/agentstack.mjs provider plan --service convex --env production",
         "provider:vercel:preview": "node scripts/agentstack.mjs provider plan --service vercel --env preview",
@@ -112,6 +114,7 @@ describe("generateProject", () => {
         "telemetry:export:production": "node scripts/agentstack.mjs observe export --env production --format otlp-json"
       });
       expect(packageManifest.devDependencies).toMatchObject({
+        clerk: expect.any(String),
         convex: "^1.41.0",
         vercel: "^54.14.5"
       });

@@ -118,7 +118,7 @@ export function buildProviderEnvResources(
 
     for (const environment of activeEnvironments) {
       for (const surface of activeSurfaces) {
-        const service = providerServiceForSurface(surface);
+        const service = providerServiceForBinding(surface, name);
         const serviceConfig = manifest.services[service];
         if (!serviceConfig.enabled || !serviceConfig.requiredEnvironments.includes(environment)) {
           continue;
@@ -207,7 +207,11 @@ function parseEnumValidation(validate: string | undefined): string[] | undefined
     .filter(Boolean);
 }
 
-function providerServiceForSurface(surface: SurfaceName): ServiceName {
+function providerServiceForBinding(surface: SurfaceName, name: string): ServiceName {
+  if (isClerkEnvName(name)) {
+    return "clerk";
+  }
+
   switch (surface) {
     case "web":
       return "vercel";
@@ -216,6 +220,16 @@ function providerServiceForSurface(surface: SurfaceName): ServiceName {
     case "convex":
       return "convex";
   }
+}
+
+function isClerkEnvName(name: string): boolean {
+  return (
+    name === "CLERK_PUBLISHABLE_KEY" ||
+    name === "CLERK_SECRET_KEY" ||
+    name === "CLERK_WEBHOOK_SIGNING_SECRET" ||
+    name.endsWith("_CLERK_PUBLISHABLE_KEY") ||
+    name.endsWith("_CLERK_SECRET_KEY")
+  );
 }
 
 function hashProviderEnvValue(

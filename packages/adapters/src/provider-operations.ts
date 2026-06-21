@@ -55,7 +55,7 @@ export const providerAdapterDefinitions: Record<ServiceName, ProviderAdapterDefi
     service: "clerk",
     displayName: "Clerk",
     capabilities: ["service.lifecycle", "auth.sync", "billing.sync", "webhook.sync", "env.sync"],
-    realAdapterStatus: "contract-only"
+    realAdapterStatus: "command-plan"
   },
   convex: {
     service: "convex",

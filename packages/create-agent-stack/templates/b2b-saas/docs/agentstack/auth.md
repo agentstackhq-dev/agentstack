@@ -8,4 +8,6 @@ Clerk owns user identity for the generated B2B SaaS template. Keep auth behavior
 - Use the SaaS spine helpers in `packages/domain/src/saas-spine.ts` for role and permission checks before adding surface-specific auth logic.
 - Normalize Clerk webhook ingestion through `convex/saasSpine.ts` metadata and keep provider SDK code behind wrappers.
 
-Expected local values are documented in `.env.example`. Keep real keys out of git and prefer `.agentstack/env-values.json` for prototype validation data.
+Use `pnpm run provider:clerk:preview` and `pnpm run provider:clerk:production` to print the bounded Clerk command plan. The plan is inspection-only: it shows commands such as `pnpm exec clerk init -y`, `pnpm exec clerk doctor --mode agent`, `pnpm exec clerk env pull --mode agent`, `pnpm exec clerk config pull --mode agent`, and the production `pnpm exec clerk deploy --mode agent` status snapshot. Agentstack does not run those commands or mutate Clerk state in this slice.
+
+Expected local values are documented in `.env.example`. Keep real keys out of git and prefer provider-owned Clerk secrets over copied source values. Clerk env values such as `CLERK_SECRET_KEY`, publishable keys, and `CLERK_WEBHOOK_SIGNING_SECRET` should be synchronized through the Clerk CLI plan or dashboard review rather than pasted into generated source.

@@ -352,6 +352,58 @@ describe("environment graph", () => {
     expect(JSON.stringify(resources)).not.toContain("sk-local-openai");
   });
 
+  it("routes Clerk-owned env names to the Clerk provider instead of the surface provider", () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.env.custom.CLERK_SECRET_KEY = {
+      surfaces: ["web"],
+      environments: ["preview"],
+      required: true,
+      secret: true
+    };
+    manifest.env.custom.CLERK_WEBHOOK_SIGNING_SECRET = {
+      surfaces: ["convex"],
+      environments: ["preview"],
+      required: true,
+      secret: true
+    };
+    manifest.env.custom.VITE_CLERK_PUBLISHABLE_KEY = {
+      surfaces: ["web", "mobile"],
+      environments: ["preview"],
+      required: true,
+      secret: false
+    };
+    manifest.env.custom.CLERK_PUBLISHABLE_KEY = {
+      surfaces: ["web"],
+      environments: ["preview"],
+      required: true,
+      secret: false
+    };
+
+    const resources = buildProviderEnvResources(manifest, {
+      preview: {
+        web: {
+          CLERK_SECRET_KEY: "sk_test_local",
+          VITE_CLERK_PUBLISHABLE_KEY: "pk_test_local",
+          CLERK_PUBLISHABLE_KEY: "pk_test_unprefixed"
+        },
+        convex: { CLERK_WEBHOOK_SIGNING_SECRET: "whsec_local" },
+        mobile: { VITE_CLERK_PUBLISHABLE_KEY: "pk_test_mobile" }
+      }
+    });
+
+    expect(resources.map((resource) => `${resource.service}.${resource.surface}.${resource.name}`)).toEqual([
+      "clerk.web.CLERK_SECRET_KEY",
+      "clerk.convex.CLERK_WEBHOOK_SIGNING_SECRET",
+      "clerk.web.VITE_CLERK_PUBLISHABLE_KEY",
+      "clerk.mobile.VITE_CLERK_PUBLISHABLE_KEY",
+      "clerk.web.CLERK_PUBLISHABLE_KEY"
+    ]);
+    expect(JSON.stringify(resources)).not.toContain("sk_test_local");
+    expect(JSON.stringify(resources)).not.toContain("whsec_local");
+    expect(JSON.stringify(resources)).not.toContain("pk_test_local");
+    expect(JSON.stringify(resources)).not.toContain("pk_test_unprefixed");
+  });
+
   it("excludes provider env resources for disabled services and inactive scopes", () => {
     const manifest = createDefaultManifest("acme-crm");
     manifest.environments = ["preview"];
