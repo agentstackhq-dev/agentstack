@@ -14,6 +14,7 @@ The prototype has a strong local command contract and rehearsal loop, but still 
 
 ## Recent Completed Commits
 
+- 1a8fd1f docs: add consumer production readiness progress.
 - e3bb39c docs: add consumer production readiness roadmap.
 - d366e33 feat: execute bounded vercel and eas provider actions.
 - 2d0bdbb feat: require explicit provider env ownership.
@@ -28,39 +29,59 @@ No real external provider resources are recorded in the ledger. No external Cler
 
 ## Completed Work This Turn
 
-- Created or repaired this canonical progress file.
-- Confirmed that the consumer production readiness roadmap already exists.
-- Confirmed that the provider resource ledger already exists.
-- Recorded the current roadmap phase, recent commit context, known verification evidence, delegated-agent outcomes, blockers, and next concrete actions.
+- Created and committed this canonical progress file as `1a8fd1f`.
+- Collected planner outputs for Wave 0 provider ledger enforcement and local/live truth labeling.
+- Completed the source-spec coverage audit against the consumer production readiness roadmap.
+- Updated the roadmap to add a source-spec capability coverage matrix and rebalance waves for manifest format, command vocabulary, telemetry manifest policy, runtime/generated package boundaries, provider inventory/link/adopt, preview/runtime observability, real SaaS runtime, UI primitives, and typed modules.
+- Created the Wave 0 plan doc at `docs/superpowers/plans/2026-06-21-agentstack-wave-0-ledger-truth.md`.
+- Reviewed and revised the Wave 0 plan doc against review findings before adoption.
+- Fixed final plan-integrity issues before commit: ledger parsing is scoped to the `## Ledger` section, manifest-format scans exclude the plan file while including the source spec, and `validate --cloud` evidence labels are required before diagnostics or early returns.
+- Updated this progress file to reflect current progress and next concrete actions.
+- Verified the docs planning package and prepared it for a single planning checkpoint commit.
+- Confirmed that no provider resources were created, changed, adopted, linked, or deleted during this docs update.
 
 ## Current Blockers And Gaps
 
 - Provider ledger enforcement is not wired at provider mutation boundaries.
-- Validation is not truthful enough for consumer production readiness.
-- `validate --cloud` currently represents local-cloud rehearsal, not live provider validation.
-- The generated app is not yet a real SaaS runtime.
-- Provider coverage is partial across Convex, Clerk, Vercel, and EAS.
-- Production gates are local-only and do not prove live provider state, deployment health, auth redirects, webhook delivery, telemetry export, rollback readiness, or mobile build readiness.
+- Evidence labels are not implemented.
+- Manifest format is not enforced.
+- The truthful validation runner has not been started.
+- Provider inventory, link, and adopt flows are not implemented.
+- The generated SaaS runtime is not real.
 
 ## In Progress And Next Concrete Actions
 
-1. Create Wave 0 implementation plan for provider ledger enforcement and local/live truth labeling.
-2. Implement provider-resource ledger parser/checks and mutation refusal before real provider apply.
-3. Update provider command output, docs, and tests to distinguish local rehearsal, live inspect, and live mutation.
-4. Then start the truthful validation runner.
+1. Dispatch implementation subagents for Wave 0 plan Task 1 and Task 2: manifest format enforcement plus provider ledger tests.
+2. Dispatch implementation subagents for Wave 0 plan Task 3 and Task 5: provider ledger parser/gate plus non-blocking provider plan ledger status.
+3. Dispatch implementation subagents for Wave 0 plan Task 4 and Task 6: evidence labels plus root/template/spinup docs.
+4. Run spec and quality review loops for the Wave 0 implementation tasks.
 
 ## Last Known Verification Evidence
 
+- `git diff --check` passed.
+- `rg -n "TODO|TBD|placeholder|runInBand|known project name|dual reader"` over the planning docs returned only the intentional roadmap policy hit for disallowing compatibility paths.
+- Focused plan scan confirmed the final Wave 0 plan includes ledger-section parsing, manifest-format scan scope, and pre-diagnostic `validate --cloud` evidence guidance.
 - `pnpm typecheck` passed.
 - `pnpm test` passed: 25 files / 309 tests.
-- Git worktree was clean after commit `e3bb39c` before this progress file was created.
 
 ## Delegated-Agent Outcomes
 
 - Audits created the consumer production readiness roadmap.
 - Audits created the provider resource ledger.
+- Planner outputs for Wave 0 were collected and synthesized into the Wave 0 plan doc.
+- Source-spec coverage audit concluded that the roadmap is directionally faithful, but had underweighted early observability, UI primitives beyond auth/billing/settings, typed modules, package boundaries, hosted account connection design, final command vocabulary, and telemetry manifest policy.
+- The Wave 0 plan doc was reviewed and revised to address review findings before implementation dispatch.
+- Final narrow plan-integrity fixes were applied and checked.
 - No active external provider resources are recorded.
 
 ## Worktree State Expectation
 
-After creating this file, it is expected to be uncommitted. It should be committed with the roadmap-progress docs if verification passes.
+After the docs planning checkpoint commit, the expected worktree state is clean. The next uncommitted work should come from Wave 0 implementation tasks, not additional planning drift.
+
+The planning checkpoint covers:
+
+- `docs/superpowers/plans/2026-06-21-agentstack-wave-0-ledger-truth.md`
+- `docs/consumer-production-readiness-roadmap.md`
+- `docs/consumer-production-readiness-progress.md`
+
+No provider CLIs should be run for this docs update, and no external provider resources should be created, mutated, adopted, linked, or deleted.
