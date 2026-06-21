@@ -6,7 +6,7 @@ This file is the canonical resume and progress artifact for Agentstack consumer 
 
 ## Current State
 
-Current phase: Wave 2 provider inventory/link/adopt checkpoint, readiness roadmap refresh, and progress checkpoint are committed. The latest substantive implementation checkpoint remains provider inventory/link/adopt plus provider link/inventory telemetry cleanup; this file intentionally avoids self-referencing its containing commit hash. Use `git log --oneline -n 5` for exact HEAD.
+Current phase: Vercel preview provider live-read inspect plus failure-diagnostic redaction hardening is the latest substantive implementation checkpoint, building on provider inventory/link/adopt plus provider link/inventory telemetry cleanup; this file intentionally avoids self-referencing its containing commit hash. Use `git log --oneline -n 5` for exact HEAD.
 
 Overall status: not complete. Agentstack is about 38-40% of the way toward consumer production readiness from a consumer perspective. The current product state is a local command-contract and rehearsal prototype with credible local telemetry and provider boundaries, not a consumer-ready production framework.
 
@@ -14,6 +14,9 @@ Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI rou
 
 ## Recent Completed Commits
 
+- `04bbbbf` fix: redact vercel inspect failure diagnostics.
+- `4fb2881` fix: classify vercel inspect failures truthfully.
+- `661d108` feat: add vercel provider live inspect.
 - `7e3dbeb` docs: repair progress head reference.
 - `4ac7d86` docs: record latest progress head.
 - `7c6fecc` docs: align progress checkpoint with head.
@@ -63,6 +66,7 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 - Documented strict provider-resource tracking discipline and cleanup flow.
 - Re-prioritized the finish plan around provider integration gaps first, then truthful validation, runtime completeness, library/UI completeness, preview evidence, production/hosted platform, and public release hardening.
 - Committed and aligned docs/template clarifications that provider inventory writes no files, provider link writes only `.agentstack/provider-links.json`, and provider adopt writes no files.
+- Added Vercel preview provider live-read inspect for bounded environment-list reads with redacted CLI output and no provider ledger mutation.
 - Corrected Vercel preview inspect failure classification so preview executor failures are reported as execution failures instead of unsupported-environment failures, while Vercel production inspect remains unavailable before executor use.
 - Added regression coverage that Vercel preview inspect leaves `docs/provider-resource-ledger.md` byte-for-byte unchanged.
 - Updated generated release docs to state that Clerk inspect, Vercel preview inspect, and EAS preview inspect are read-only, with Vercel production inspect/apply still unavailable.
@@ -97,14 +101,17 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 
 ## Last Known Verification Evidence
 
-Most recent final verification recorded before this progress wording update:
+Most recent final verification from `04bbbbf` before this progress wording update:
 
-- `git diff --check` passed.
-- `diff -ru templates/b2b-saas/docs/agentstack packages/create-agent-stack/templates/b2b-saas/docs/agentstack` passed.
-- `git diff -- docs/provider-resource-ledger.md` returned no diff.
-- `pnpm typecheck` passed.
-- `pnpm test` passed: 27 files / 339 tests.
 - `pnpm vitest run packages/cli/src/run.test.ts -t "Vercel|provider inspect"` passed: 11 selected tests.
+- `pnpm typecheck` passed.
+- `pnpm test` passed: 27 files / 344 tests.
+- `git diff --check` passed.
+- `git diff -- docs/provider-resource-ledger.md` returned no diff.
+
+Useful earlier verification:
+
+- `diff -ru templates/b2b-saas/docs/agentstack packages/create-agent-stack/templates/b2b-saas/docs/agentstack` passed.
 
 ## Worktree State Expectation
 
