@@ -211,6 +211,14 @@ node scripts/agentstack.mjs provider inventory --service convex --env preview --
 
 Expected output includes `Evidence: live-read-inventory`, `Mutation: none`, command/result counts, redacted live status fields, and sanitized `missing=` labels for unavailable identity proof. Live inventory calls only the selected service's existing read-only inspect primitive. It keeps `identity=ambiguous`; partial env-list facts are not exact provider identity.
 
+Run the preview-only provider proof contract check after adding a matching planned or active ledger row:
+
+```bash
+pnpm run provider:convex:proof:preview
+```
+
+Expected output includes `FAIL provider proof convex preview`, `Evidence: live-proof-check`, `Provider execution: read-only`, `Local-cloud state: not-read`, `Identity proof: ambiguous`, `Drift proof: unproven`, `Readiness: refused`, and sanitized identity/drift proof requirement labels. Missing, invalid, incomplete, or blocked ledger state fails closed before provider executor use with `Provider execution: none`. Proof never writes telemetry, local-cloud, provider-link, provider resource, or ledger state, and it does not claim exact identity, drift proof, provisioning, link/adoption confirmation, live coherence, or readiness.
+
 Write a local provider link after adding a matching planned or active ledger row:
 
 ```bash

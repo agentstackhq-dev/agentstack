@@ -44,6 +44,8 @@ The EAS provider plan includes `eas project:init --non-interactive`, `eas env:li
 
 Use `pnpm run provider:eas:inspect:preview` for explicit read-only EAS provider inspection with `Evidence: live-read`. It executes only `pnpm exec eas env:list --environment preview`. It does not run EAS project initialization, builds, env create/update/delete commands, production inspect, or apply.
 
+Use `pnpm run provider:eas:proof:preview` only after adding a matching planned or active EAS preview project row to the provider ledger. It is a preview-only proof contract check that may run the same bounded read-only EAS env-list path, never reads local-cloud state, writes nothing, and refuses readiness until exact EAS project identity and drift parsers exist.
+
 EAS server env values must exist in EAS for EAS Build. Local `.env` files and CI variables are useful for local workflows, but they are not a replacement for EAS server env values used by build workers.
 
 App-store submission is outside the current generated framework boundary. This slice plans builds only and does not run `eas submit` or `eas build`.

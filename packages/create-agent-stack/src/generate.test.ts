@@ -159,18 +159,22 @@ describe("generateProject", () => {
         "provider:clerk:inventory:production": "node scripts/agentstack.mjs provider inventory --service clerk --env production",
         "provider:clerk:link:preview": "node scripts/agentstack.mjs provider link --service clerk --env preview --resource-type application --name acme-crm-preview",
         "provider:clerk:link:production": "node scripts/agentstack.mjs provider link --service clerk --env production --resource-type application --name acme-crm-production",
+        "provider:clerk:proof:preview": "node scripts/agentstack.mjs provider proof --service clerk --env preview --resource-type application --name acme-crm-preview",
         "provider:convex:inventory:preview": "node scripts/agentstack.mjs provider inventory --service convex --env preview",
         "provider:convex:inventory:production": "node scripts/agentstack.mjs provider inventory --service convex --env production",
         "provider:convex:link:preview": "node scripts/agentstack.mjs provider link --service convex --env preview --resource-type deployment --name acme-crm-preview",
         "provider:convex:link:production": "node scripts/agentstack.mjs provider link --service convex --env production --resource-type deployment --name prod",
+        "provider:convex:proof:preview": "node scripts/agentstack.mjs provider proof --service convex --env preview --resource-type deployment --name acme-crm-preview",
         "provider:vercel:inventory:preview": "node scripts/agentstack.mjs provider inventory --service vercel --env preview",
         "provider:vercel:inventory:production": "node scripts/agentstack.mjs provider inventory --service vercel --env production",
         "provider:vercel:link:preview": "node scripts/agentstack.mjs provider link --service vercel --env preview --resource-type project --name acme-crm",
         "provider:vercel:link:production": "node scripts/agentstack.mjs provider link --service vercel --env production --resource-type project --name acme-crm",
+        "provider:vercel:proof:preview": "node scripts/agentstack.mjs provider proof --service vercel --env preview --resource-type project --name acme-crm",
         "provider:eas:inventory:preview": "node scripts/agentstack.mjs provider inventory --service eas --env preview",
         "provider:eas:inventory:production": "node scripts/agentstack.mjs provider inventory --service eas --env production",
         "provider:eas:link:preview": "node scripts/agentstack.mjs provider link --service eas --env preview --resource-type project --name acme-crm",
-        "provider:eas:link:production": "node scripts/agentstack.mjs provider link --service eas --env production --resource-type project --name acme-crm"
+        "provider:eas:link:production": "node scripts/agentstack.mjs provider link --service eas --env production --resource-type project --name acme-crm",
+        "provider:eas:proof:preview": "node scripts/agentstack.mjs provider proof --service eas --env preview --resource-type project --name acme-crm"
       });
       expectNoProviderAliasScripts(packageManifest.scripts);
       expectNoProviderAdoptScripts(packageManifest.scripts);
@@ -203,7 +207,8 @@ describe("generateProject", () => {
         "provider:eas:inventory:preview": "node ../../scripts/agentstack.mjs provider inventory --service eas --env preview",
         "provider:eas:inventory:production": "node ../../scripts/agentstack.mjs provider inventory --service eas --env production",
         "provider:eas:link:preview": "node ../../scripts/agentstack.mjs provider link --service eas --env preview --resource-type project --name acme-crm",
-        "provider:eas:link:production": "node ../../scripts/agentstack.mjs provider link --service eas --env production --resource-type project --name acme-crm"
+        "provider:eas:link:production": "node ../../scripts/agentstack.mjs provider link --service eas --env production --resource-type project --name acme-crm",
+        "provider:eas:proof:preview": "node ../../scripts/agentstack.mjs provider proof --service eas --env preview --resource-type project --name acme-crm"
       });
       expectNoProviderAliasScripts(mobilePackageManifest.scripts);
       expectNoProviderAdoptScripts(mobilePackageManifest.scripts);

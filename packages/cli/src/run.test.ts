@@ -2950,6 +2950,352 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).not.toContain("sk_live_secret_should_not_leak");
   });
 
+  it("fails provider proof for a missing ledger before provider executor use without local writes", async () => {
+    const code = await runAgentstack(
+      [
+        "provider",
+        "proof",
+        "--service",
+        "convex",
+        "--env",
+        "preview",
+        "--resource-type",
+        "deployment",
+        "--name",
+        "acme-crm-preview"
+      ],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: createMockProviderExecutor("live-read should not run")
+      }
+    );
+
+    const rendered = output.join("\n");
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL provider proof convex preview");
+    expect(output).toContain("Evidence: live-proof-check");
+    expect(output).toContain("Provider execution: none");
+    expect(output).toContain("Local-cloud state: not-read");
+    expect(output).toContain("Ledger: missing");
+    expect(output).toContain("Live resource: not-read");
+    expect(output).toContain("Identity proof: unavailable");
+    expect(output).toContain("Identity scope: none");
+    expect(output).toContain("Drift proof: unproven");
+    expect(output).toContain("Readiness: refused");
+    expect(output).toContain("Reason: ledger-missing");
+    expect(rendered).toContain("Identity proof requirements: ");
+    expect(rendered).toContain("stable-provider-identity");
+    expect(rendered).not.toContain("live-read should not run");
+    expect(providerExecutions).toHaveLength(0);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("runs local validation before rejecting unsupported provider proof resource shapes", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.generated.requiredAnchors = ["missing-proof-anchor.md"];
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+
+    const code = await runAgentstack(
+      [
+        "provider",
+        "proof",
+        "--service",
+        "convex",
+        "--env",
+        "preview",
+        "--resource-type",
+        "project",
+        "--name",
+        "acme-crm-preview"
+      ],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: createMockProviderExecutor("live-read should not run")
+      }
+    );
+
+    const rendered = output.join("\n");
+    expect(code).toBe(1);
+    expect(rendered).toContain("FAIL template.anchor.missing");
+    expect(rendered).not.toContain("FAIL provider proof convex preview");
+    expect(rendered).not.toContain("Evidence: live-proof-check");
+    expect(providerExecutions).toHaveLength(0);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("runs provider proof read-only for a valid planned ledger row and refuses ambiguous identity", async () => {
+    const rowId = "row-secret-proof-123";
+    const externalId = "https://dashboard.convex.dev/d/proof-secret-preview";
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: rowId,
+        provider: "convex",
+        resourceType: "deployment",
+        environment: "preview",
+        name: "acme-crm-preview",
+        status: "planned",
+        externalId,
+        cleanupCommand: "delete through Convex dashboard",
+        evidence: "docs/evidence/convex-preview.md"
+      })
+    ]);
+    const ledgerPath = join(dir, "docs", "provider-resource-ledger.md");
+    const ledgerBefore = await readFile(ledgerPath, "utf8");
+
+    const code = await runAgentstack(
+      [
+        "provider",
+        "proof",
+        "--service",
+        "convex",
+        "--env",
+        "preview",
+        "--resource-type",
+        "deployment",
+        "--name",
+        "acme-crm-preview"
+      ],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: createMockProviderExecutor("LIVE_PROVIDER_ID=raw-secret-provider-id\nURL=https://secret.example.test")
+      }
+    );
+
+    const rendered = output.join("\n");
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL provider proof convex preview");
+    expect(output).toContain("Evidence: live-proof-check");
+    expect(output).toContain("Scope: bounded read-only provider proof check; no provider mutations; no local-cloud reads");
+    expect(output).toContain("Provider execution: read-only");
+    expect(output).toContain("Mutation: none");
+    expect(output).toContain("Local mutation: none");
+    expect(output).toContain("Provider mutation: none");
+    expect(output).toContain("Ledger mutation: none");
+    expect(output).toContain("Local-cloud state: not-read");
+    expect(output).toContain("Ledger: planned");
+    expect(output).toContain("Local link: missing");
+    expect(output).toContain("Live resource: read");
+    expect(output).toContain("Identity proof: ambiguous");
+    expect(output).toContain("Identity scope: partial");
+    expect(output).toContain("Drift proof: unproven");
+    expect(output).toContain("Readiness: refused");
+    expect(output).toContain("Reason: identity-ambiguous");
+    expect(rendered).toContain("Identity proof requirements: ");
+    expect(rendered).toContain("provider-specific-identity-parser");
+    expect(rendered).toContain("Drift proof requirements: ");
+    expect(rendered).toContain("provider-specific-drift-parser");
+    expect(rendered).not.toContain(rowId);
+    expect(rendered).not.toContain(externalId);
+    expect(rendered).not.toContain("raw-secret-provider-id");
+    expect(rendered).not.toContain("https://secret.example.test");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec convex env --deployment <preview-deployment-name> list"
+    ]);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
+  });
+
+  it("fails provider proof before live reads when the ledger row does not match the manifest resource", async () => {
+    const rowId = "row-secret-proof-other-resource";
+    const externalId = "https://dashboard.convex.dev/d/other-secret-preview";
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: rowId,
+        provider: "convex",
+        resourceType: "deployment",
+        environment: "preview",
+        name: "some-other-preview",
+        status: "active",
+        externalId,
+        cleanupCommand: "delete through Convex dashboard",
+        evidence: "docs/evidence/convex-other-preview.md"
+      })
+    ]);
+    const ledgerPath = join(dir, "docs", "provider-resource-ledger.md");
+    const ledgerBefore = await readFile(ledgerPath, "utf8");
+
+    const code = await runAgentstack(
+      [
+        "provider",
+        "proof",
+        "--service",
+        "convex",
+        "--env",
+        "preview",
+        "--resource-type",
+        "deployment",
+        "--name",
+        "some-other-preview"
+      ],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: createMockProviderExecutor("live-read should not run")
+      }
+    );
+
+    const rendered = output.join("\n");
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL provider proof convex preview");
+    expect(output).toContain("Provider execution: none");
+    expect(output).toContain("Live resource: unsupported");
+    expect(output).toContain("Readiness: refused");
+    expect(output).toContain("Reason: proof-unsupported");
+    expect(rendered).not.toContain("acme-crm-preview");
+    expect(rendered).not.toContain(rowId);
+    expect(rendered).not.toContain(externalId);
+    expect(rendered).not.toContain("live-read should not run");
+    expect(providerExecutions).toHaveLength(0);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
+  });
+
+  it("fails provider proof live reads without raw provider diagnostics", async () => {
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: "row-proof-failed-read",
+        provider: "clerk",
+        resourceType: "application",
+        environment: "preview",
+        name: "acme-crm-preview",
+        status: "active",
+        externalId: "clerk-secret-application-id",
+        cleanupCommand: "delete through Clerk dashboard",
+        evidence: "docs/evidence/clerk-preview.md"
+      })
+    ]);
+
+    const code = await runAgentstack(
+      [
+        "provider",
+        "proof",
+        "--service",
+        "clerk",
+        "--env",
+        "preview",
+        "--resource-type",
+        "application",
+        "--name",
+        "acme-crm-preview"
+      ],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: {
+          async execute(command, args) {
+            providerExecutions.push({ command, args });
+            return {
+              exitCode: 1,
+              stdout: "stdout raw secret token sk_live_should_not_leak",
+              stderr: "unauthorized CLERK_SECRET_KEY=sk_live_secret_should_not_leak",
+              durationMs: 12
+            };
+          }
+        }
+      }
+    );
+
+    const rendered = output.join("\n");
+    expect(code).toBe(1);
+    expect(output).toContain("Provider execution: read-only");
+    expect(output).toContain("Live resource: failed");
+    expect(output).toContain("Identity proof: unavailable");
+    expect(output).toContain("Identity scope: none");
+    expect(output).toContain("Reason: live-read-failed");
+    expect(rendered).not.toContain("stdout raw secret");
+    expect(rendered).not.toContain("sk_live_should_not_leak");
+    expect(rendered).not.toContain("sk_live_secret_should_not_leak");
+  });
+
+  it("rejects production provider proof before provider executor use", async () => {
+    const code = await runAgentstack(
+      [
+        "provider",
+        "proof",
+        "--service",
+        "convex",
+        "--env",
+        "production",
+        "--resource-type",
+        "deployment",
+        "--name",
+        "prod"
+      ],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: createMockProviderExecutor("live-read should not run")
+      }
+    );
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL provider.proof.env-unsupported");
+    expect(output.join("\n")).not.toContain("FAIL provider proof convex production");
+    expect(providerExecutions).toHaveLength(0);
+  });
+
+  it("does not read seeded local-cloud state for provider proof", async () => {
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: "row-proof-local-cloud",
+        provider: "vercel",
+        resourceType: "project",
+        environment: "preview",
+        name: "acme-crm",
+        status: "active",
+        externalId: "prj_secret_not_for_output",
+        cleanupCommand: "pnpm exec vercel remove acme-crm",
+        evidence: "docs/evidence/vercel-preview.md"
+      })
+    ]);
+    await mkdir(join(dir, ".agentstack"), { recursive: true });
+    await writeFile(
+      join(dir, ".agentstack", "local-cloud.json"),
+      `${JSON.stringify({ seeded: "SEEDED_LOCAL_CLOUD_VALUE" }, null, 2)}\n`,
+      "utf8"
+    );
+    const localCloudBefore = await readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8");
+
+    const code = await runAgentstack(
+      [
+        "provider",
+        "proof",
+        "--service",
+        "vercel",
+        "--env",
+        "preview",
+        "--resource-type",
+        "project",
+        "--name",
+        "acme-crm"
+      ],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: createMockProviderExecutor("Project: prj_secret\nPUBLIC_API_URL=https://secret.example.test")
+      }
+    );
+
+    const rendered = output.join("\n");
+    expect(code).toBe(1);
+    expect(output).toContain("Local-cloud state: not-read");
+    expect(output).toContain("Identity proof: ambiguous");
+    expect(rendered).not.toContain("SEEDED_LOCAL_CLOUD_VALUE");
+    expect(rendered).not.toContain("prj_secret");
+    expect(rendered).not.toContain("https://secret.example.test");
+    expect(await readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).toBe(localCloudBefore);
+  });
+
   it("runs live validation preview as aggregate read-only inventory and refuses ambiguous readiness", async () => {
     await writeProviderLedger([]);
     const ledgerPath = join(dir, "docs", "provider-resource-ledger.md");

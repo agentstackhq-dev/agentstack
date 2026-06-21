@@ -13,6 +13,7 @@ import {
   createProviderInventory,
   executeConvexApply,
   executeVercelPreviewApply,
+  getProviderProofContract,
   getEnabledProviderAdapterDefinitions,
   inspectEasPreviewReadOnly,
   inspectClerkReadOnly,
@@ -34,6 +35,7 @@ import {
   type ProviderInventoryRow,
   type ProviderLedgerDecision,
   type ProviderLedgerExpectedMatch,
+  type ProviderProofContract,
   type ProviderOperation
 } from "@agentstack/adapters";
 import {
@@ -218,6 +220,10 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
 
     if (command === "provider" && subcommand === "inventory") {
       return await providerInventoryCommand(rest, io);
+    }
+
+    if (command === "provider" && subcommand === "proof") {
+      return await providerProofCommand(rest, io);
     }
 
     if (command === "provider" && subcommand === "link") {
@@ -1561,6 +1567,137 @@ async function providerInventoryCommand(argv: string[], io: RunIo): Promise<numb
   return hasFailedLiveRead ? 1 : 0;
 }
 
+async function providerProofCommand(argv: string[], io: RunIo): Promise<number> {
+  const options = parseOptions(argv);
+  const fix =
+    "Run agentstack provider proof --service convex --env preview --resource-type deployment --name acme-crm-preview.";
+  const service = readProviderControlPlaneServiceOption(options.service, fix);
+  const environment = readProviderRuntimeEnvironmentOption(options.env, fix);
+  const resourceType = readRequiredStringOption(options["resource-type"], "resource-type", fix);
+  const name = readRequiredStringOption(options.name, "name", fix);
+
+  if (environment !== "preview") {
+    io.write(
+      formatDiagnostic({
+        severity: "fail",
+        code: "provider.proof.env-unsupported",
+        path: `provider proof ${service}.${environment}`,
+        message: "Provider proof supports preview only in this slice.",
+        fix,
+        blocks: ["provider proof"]
+      })
+    );
+    return 1;
+  }
+
+  const contract = getProviderProofContract(service);
+
+  const validation = await runLocalValidationGate(io.cwd);
+  validation.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
+  if (validation.diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
+    return 1;
+  }
+
+  if (!providerProofResourceShapeSupported(service, resourceType)) {
+    writeProviderProofReport(io, {
+      service,
+      contract,
+      providerExecution: "none",
+      ledger: "invalid",
+      localLink: "not-read",
+      liveResource: "unsupported",
+      identityProof: "unavailable",
+      identityScope: "none",
+      reason: "proof-unsupported"
+    });
+    return 1;
+  }
+
+  const manifestResource = expectedProviderProofResource(validation.context.manifest, service, environment);
+  if (resourceType !== manifestResource.resourceType || name !== manifestResource.name) {
+    writeProviderProofReport(io, {
+      service,
+      contract,
+      providerExecution: "none",
+      ledger: "invalid",
+      localLink: "not-read",
+      liveResource: "unsupported",
+      identityProof: "unavailable",
+      identityScope: "none",
+      reason: "proof-unsupported"
+    });
+    return 1;
+  }
+
+  const expectedMatch = {
+    provider: service,
+    environment,
+    resourceType,
+    resourceName: name
+  };
+
+  const ledgerDecision = await enforceProviderLedgerResource(io.cwd, expectedMatch);
+  if (!ledgerDecision.ok) {
+    writeProviderProofReport(io, {
+      service,
+      contract,
+      providerExecution: "none",
+      ledger: providerProofLedgerStatus(ledgerDecision),
+      localLink: "not-read",
+      liveResource: "not-read",
+      identityProof: "unavailable",
+      identityScope: "none",
+      reason: ledgerDecision.reason === "missing" ? "ledger-missing" : "ledger-invalid"
+    });
+    return 1;
+  }
+
+  const ledgerRows = await readProviderLedgerRowsIfPresent(io.cwd);
+  const localInventory = await createProviderInventory({
+    cwd: io.cwd,
+    manifest: validation.context.manifest,
+    service,
+    environment,
+    ledgerRows
+  });
+  const localLink = localInventory.rows[0]?.localLink ?? "missing";
+  const secretValues =
+    service === "convex"
+      ? collectSecretValues(validation.envValues, environment, "convex")
+      : collectEnvironmentSecretValues(validation.envValues, environment);
+
+  let inventory = localInventory;
+  let liveReadFailed = false;
+  try {
+    const liveResults = await readLiveProviderInventory({
+      service,
+      environment,
+      manifest: validation.context.manifest,
+      executor: resolveProviderExecutor(io),
+      cwd: io.cwd,
+      secretValues
+    });
+    inventory = await createLiveProviderInventory({ localInventory, readResults: liveResults });
+    liveReadFailed = (inventory.liveReadSummary?.failed ?? 0) > 0;
+  } catch {
+    liveReadFailed = true;
+  }
+
+  const row = inventory.rows[0];
+  writeProviderProofReport(io, {
+    service,
+    contract,
+    providerExecution: "read-only",
+    ledger: providerProofAllowedLedgerStatus(ledgerDecision.row.status),
+    localLink,
+    liveResource: liveReadFailed ? "failed" : "read",
+    identityProof: liveReadFailed ? "unavailable" : "ambiguous",
+    identityScope: liveReadFailed ? "none" : row?.identityScope === "partial" ? "partial" : "none",
+    reason: liveReadFailed ? "live-read-failed" : "identity-ambiguous"
+  });
+  return 1;
+}
+
 async function liveValidationCommand(
   io: RunIo,
   validation: {
@@ -1965,6 +2102,93 @@ function writeProviderIdentityProofRequirements(io: RunIo, inventory: ProviderIn
 }
 
 type ProviderLedgerDiagnosticCommand = "provider apply" | "provider inventory" | "provider link";
+
+type ProviderProofReport = {
+  service: ProviderControlPlaneService;
+  contract: ProviderProofContract;
+  providerExecution: "none" | "read-only";
+  ledger: "planned" | "active" | "missing" | "invalid" | `blocked ${string}`;
+  localLink: "linked" | "missing" | "not-read";
+  liveResource: "read" | "not-read" | "failed" | "unsupported";
+  identityProof: "ambiguous" | "unavailable";
+  identityScope: "partial" | "none";
+  reason:
+    | "identity-ambiguous"
+    | "identity-proof-unavailable"
+    | "drift-unproven"
+    | "live-read-failed"
+    | "proof-unsupported"
+    | "ledger-missing"
+    | "ledger-invalid"
+    | "local-validation-failed";
+};
+
+function writeProviderProofReport(io: RunIo, report: ProviderProofReport): void {
+  io.write(`FAIL provider proof ${report.service} preview`);
+  io.write("Evidence: live-proof-check");
+  io.write("Scope: bounded read-only provider proof check; no provider mutations; no local-cloud reads");
+  io.write(`Provider execution: ${report.providerExecution}`);
+  io.write("Mutation: none");
+  io.write("Local mutation: none");
+  io.write("Provider mutation: none");
+  io.write("Ledger mutation: none");
+  io.write("Local-cloud state: not-read");
+  io.write(`Ledger: ${report.ledger}`);
+  io.write(`Local link: ${report.localLink}`);
+  io.write(`Live resource: ${report.liveResource}`);
+  io.write(`Identity proof: ${report.identityProof}`);
+  io.write(`Identity scope: ${report.identityScope}`);
+  io.write("Drift proof: unproven");
+  io.write("Readiness: refused");
+  io.write(`Reason: ${report.reason}`);
+  io.write(`Identity proof requirements: ${report.contract.identityProofRequirements.join(",")}`);
+  io.write(`Drift proof requirements: ${report.contract.driftProofRequirements.join(",")}`);
+}
+
+function providerProofLedgerStatus(
+  decision: Exclude<ProviderLedgerDecision, { ok: true }>
+): ProviderProofReport["ledger"] {
+  if (decision.reason === "missing") {
+    return "missing";
+  }
+  if (decision.reason === "status-blocked") {
+    return `blocked ${decision.row.status}`;
+  }
+  return "invalid";
+}
+
+function providerProofAllowedLedgerStatus(status: string): Extract<ProviderProofReport["ledger"], "planned" | "active"> {
+  return status === "active" ? "active" : "planned";
+}
+
+function expectedProviderProofResource(
+  manifest: AgentstackManifest,
+  service: ProviderControlPlaneService,
+  environment: "preview" | "production"
+): { resourceType: string; name: string } {
+  if (service === "clerk") {
+    return { resourceType: "application", name: `${manifest.app.slug}-${environment}` };
+  }
+
+  if (service === "convex") {
+    return { resourceType: "deployment", name: environment === "production" ? "prod" : `${manifest.app.slug}-preview` };
+  }
+
+  return { resourceType: "project", name: manifest.app.slug };
+}
+
+function providerProofResourceShapeSupported(
+  service: ProviderControlPlaneService,
+  resourceType: string
+): boolean {
+  if (service === "clerk") {
+    return resourceType === "application";
+  }
+  if (service === "convex") {
+    return resourceType === "deployment";
+  }
+  return resourceType === "project";
+}
 
 export function providerLedgerDiagnostic(
   decision: Exclude<ProviderLedgerDecision, { ok: true }>,
