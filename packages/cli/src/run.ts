@@ -1792,7 +1792,6 @@ async function liveValidationCommand(
   }
 
   let hasFailedLiveRead = false;
-  let hasIdentityAmbiguity = false;
   const inventories: ProviderInventory[] = [];
 
   for (const service of services) {
@@ -1815,9 +1814,16 @@ async function liveValidationCommand(
         manifest: validation.context.manifest,
         executor: resolveProviderExecutor(io),
         cwd: io.cwd,
-        secretValues
+        secretValues,
+        clerkExactProofContext: buildLiveValidationClerkExactProofContext({
+          service,
+          environment,
+          manifest: validation.context.manifest,
+          ledgerRows
+        })
       });
       inventory = await createLiveProviderInventory({ localInventory: inventory, readResults: liveResults });
+      writeLiveValidationProviderProofSummary(io, service, environment, liveResults);
     } catch (error) {
       io.write(
         formatDiagnostic({
@@ -1836,9 +1842,6 @@ async function liveValidationCommand(
     if ((inventory.liveReadSummary?.failed ?? 0) > 0) {
       hasFailedLiveRead = true;
     }
-    if (!confirmLiveProviderInventoryIdentity(inventory).ok) {
-      hasIdentityAmbiguity = true;
-    }
     writeLiveValidationInventory(io, inventory);
   }
 
@@ -1846,13 +1849,65 @@ async function liveValidationCommand(
   io.write("Readiness: refused");
   if (hasFailedLiveRead) {
     io.write("Reason: live-read-failed");
-  } else if (hasIdentityAmbiguity) {
-    io.write("Reason: identity-ambiguous");
   } else {
-    io.write("Reason: identity-ambiguous");
+    io.write("Reason: proof-incomplete");
   }
+  io.write(
+    "Provider proof readiness is refused because exact drift/live coherence is not proven for every enabled provider; partial or exact identity evidence is diagnostic only and does not authorize link, adopt, mutation, or production readiness."
+  );
   writeLiveValidationIdentityProofRequirements(io, inventories);
   return 1;
+}
+
+function buildLiveValidationClerkExactProofContext(input: {
+  service: ProviderControlPlaneService;
+  environment: "preview" | "production";
+  manifest: AgentstackManifest;
+  ledgerRows: ReturnType<typeof parseProviderLedger>;
+}): ClerkExactProofContext | undefined {
+  if (input.service !== "clerk" || input.environment !== "preview") {
+    return undefined;
+  }
+
+  const manifestResource = expectedProviderProofResource(input.manifest, input.service, input.environment);
+  const ledgerDecision = enforceProviderLedgerResource(input.ledgerRows, {
+    provider: input.service,
+    environment: input.environment,
+    resourceType: manifestResource.resourceType,
+    resourceName: manifestResource.name
+  });
+
+  if (!ledgerDecision.ok) {
+    return undefined;
+  }
+
+  return {
+    expectedResourceName: manifestResource.name,
+    ledgerExternalIdOrUrl: ledgerDecision.row.externalIdOrUrl,
+    ledgerOwnerAccountOrProject: ledgerDecision.row.ownerAccountOrProject
+  };
+}
+
+function writeLiveValidationProviderProofSummary(
+  io: RunIo,
+  service: ProviderControlPlaneService,
+  environment: "preview" | "production",
+  liveResults: ProviderExecutionResult[]
+): void {
+  const exactIdentityDecision = evaluateProviderExactIdentityProof(service, liveResults);
+  const exactIdentityReportFields = formatProviderExactIdentityReportFields(exactIdentityDecision);
+  const driftProof = evaluateProviderDriftProof(service, liveResults);
+
+  io.write(`Provider proof: ${service} ${environment}`);
+  io.write(`Identity proof: ${exactIdentityDecision.proof}`);
+  io.write(`Exact identity evidence: ${exactIdentityReportFields.identityCandidates}`);
+  io.write(`Exact identity evaluator: ${exactIdentityReportFields.identityEvaluator}`);
+  if (driftProof.proof === "partial") {
+    io.write("Drift proof: partial");
+    io.write(`Drift evaluator: ${driftProof.evaluator}`);
+  } else {
+    io.write("Drift proof: unproven");
+  }
 }
 
 function writeLiveValidationInventory(io: RunIo, inventory: ProviderInventory): void {

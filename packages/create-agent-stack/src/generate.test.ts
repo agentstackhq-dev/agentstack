@@ -269,11 +269,13 @@ describe("generateProject", () => {
       expect(generatedWorkflowDocs).toContain("not proof of external provider existence");
       expect(generatedWorkflowDocs).toContain("sanitized `missing=` identity proof labels");
       expect(generatedWorkflowDocs).toContain("pnpm run validate:live:preview");
-      expect(generatedWorkflowDocs).toContain("Live validation refuses readiness");
+      expect(generatedWorkflowDocs).toContain("Live validation prints per-service proof summaries");
+      expect(generatedWorkflowDocs).toContain("Reason: proof-incomplete");
       const generatedValidationDocs = await readFile(join(targetDir, "docs/agentstack/validation.md"), "utf8");
       expect(generatedValidationDocs).toContain("pnpm run validate:live:preview");
       expect(generatedValidationDocs).toContain("Evidence: live-validation");
-      expect(generatedValidationDocs).toContain("identity-ambiguous");
+      expect(generatedValidationDocs).toContain("Reason: proof-incomplete");
+      expect(generatedValidationDocs).toContain("Exact identity evaluator: provider-exact-identity");
       await expect(readFile(join(targetDir, "docs/provider-resource-ledger.md"), "utf8")).resolves.toContain(
         "## Ledger"
       );

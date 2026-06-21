@@ -3675,7 +3675,7 @@ describe("runAgentstack", () => {
     expect(rendered).not.toContain(externalId);
   });
 
-  it("runs live validation preview as aggregate read-only inventory and refuses ambiguous readiness", async () => {
+  it("runs live validation preview as aggregate read-only inventory and refuses incomplete proof readiness", async () => {
     await writeProviderLedger([]);
     const ledgerPath = join(dir, "docs", "provider-resource-ledger.md");
     const ledgerBefore = await readFile(ledgerPath, "utf8");
@@ -3694,7 +3694,7 @@ describe("runAgentstack", () => {
     expect(output).toContain("Mutation: none");
     expect(output).toContain("FAIL validate --live");
     expect(output).toContain("Readiness: refused");
-    expect(output).toContain("Reason: identity-ambiguous");
+    expect(output).toContain("Reason: proof-incomplete");
     expect(output).toContain("Evidence: live-read-inventory");
     expect(rendered).not.toContain("PASS validate --live");
     expect(rendered).not.toContain("Readiness: ready");
@@ -3703,6 +3703,13 @@ describe("runAgentstack", () => {
     expect(rendered).toContain("Resource: vercel preview project");
     expect(rendered).toContain("Resource: eas preview project");
     expect(rendered).toContain("Identity proof requirements:");
+    expect(rendered).toContain("Provider proof: clerk preview");
+    expect(rendered).toContain("Provider proof: convex preview");
+    expect(rendered).toContain("Provider proof: vercel preview");
+    expect(rendered).toContain("Provider proof: eas preview");
+    expect(rendered).toContain("Exact identity evidence: unavailable");
+    expect(rendered).toContain("Exact identity evaluator: unavailable");
+    expect(rendered).toContain("Drift proof: unproven");
     expect(rendered).toContain("identity=ambiguous");
     expect(rendered).toContain("identity-scope=partial");
     expect(rendered).not.toContain("identity=matched");
@@ -3722,6 +3729,193 @@ describe("runAgentstack", () => {
     await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
     await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
     expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
+  });
+
+  it("surfaces exact Clerk preview proof summary during live validation when ledger and apps-list gates match", async () => {
+    const rowId = "row-secret-live-clerk-proof";
+    const externalId = "res_live_clerk_secret";
+    const owner = "org_live_clerk_secret";
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: rowId,
+        provider: "clerk",
+        resourceType: "application",
+        environment: "preview",
+        name: "acme-crm-preview",
+        status: "planned",
+        owner,
+        externalId,
+        cleanupCommand: "delete through Clerk dashboard",
+        evidence: "docs/evidence/clerk-preview.md"
+      })
+    ]);
+    const ledgerPath = join(dir, "docs", "provider-resource-ledger.md");
+    const ledgerBefore = await readFile(ledgerPath, "utf8");
+    const appsList = JSON.stringify({
+      data: [
+        {
+          id: "app_live_clerk_secret",
+          resourceId: externalId,
+          ownerId: owner,
+          environment: "development",
+          name: "acme-crm-preview"
+        }
+      ]
+    });
+
+    const code = await runAgentstack(["validate", "--live", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: {
+        async execute(command, args, options) {
+          providerExecutions.push({ command, args, stdin: options.stdin });
+          return {
+            exitCode: 0,
+            stdout: args.join(" ") === "exec clerk apps list --json" ? appsList : "ok",
+            stderr: "",
+            durationMs: 12
+          };
+        }
+      }
+    });
+
+    const rendered = output.join("\n");
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL validate --live");
+    expect(output).toContain("Readiness: refused");
+    expect(output).toContain("Reason: proof-incomplete");
+    expect(rendered).not.toContain("PASS validate --live");
+    expect(rendered).not.toContain("Readiness: ready");
+    expect(rendered).toContain("Provider proof: clerk preview");
+    expect(rendered).toContain("Identity proof: exact");
+    expect(rendered).toContain("Exact identity evidence: available");
+    expect(rendered).toContain("Exact identity evaluator: provider-exact-identity");
+    expect(rendered).toContain("Drift proof: partial");
+    expect(rendered).toContain("Drift evaluator: clerk-apps-list-preview");
+    expect(rendered).toContain(
+      "Provider proof readiness is refused because exact drift/live coherence is not proven for every enabled provider"
+    );
+    expect(rendered).not.toContain(rowId);
+    expect(rendered).not.toContain(externalId);
+    expect(rendered).not.toContain(owner);
+    expect(rendered).not.toContain("app_live_clerk_secret");
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
+  });
+
+  it("does not surface exact Clerk live validation proof summary for a blocked ledger row", async () => {
+    const rowId = "row-blocked-live-clerk-proof";
+    const externalId = "res_blocked_live_clerk_secret";
+    const owner = "org_blocked_live_clerk_secret";
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: rowId,
+        provider: "clerk",
+        resourceType: "application",
+        environment: "preview",
+        name: "acme-crm-preview",
+        status: "cleanup-pending",
+        owner,
+        externalId,
+        cleanupCommand: "delete through Clerk dashboard",
+        evidence: "docs/evidence/clerk-preview.md"
+      })
+    ]);
+    const ledgerPath = join(dir, "docs", "provider-resource-ledger.md");
+    const ledgerBefore = await readFile(ledgerPath, "utf8");
+    const appsList = JSON.stringify({
+      data: [
+        {
+          id: "app_blocked_live_clerk_secret",
+          resourceId: externalId,
+          ownerId: owner,
+          environment: "development",
+          name: "acme-crm-preview"
+        }
+      ]
+    });
+
+    const code = await runAgentstack(["validate", "--live", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: {
+        async execute(command, args, options) {
+          providerExecutions.push({ command, args, stdin: options.stdin });
+          return {
+            exitCode: 0,
+            stdout: args.join(" ") === "exec clerk apps list --json" ? appsList : "ok",
+            stderr: "",
+            durationMs: 12
+          };
+        }
+      }
+    });
+
+    const rendered = output.join("\n");
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL validate --live");
+    expect(output).toContain("Readiness: refused");
+    expect(output).toContain("Reason: proof-incomplete");
+    expect(rendered).toContain("Provider proof: clerk preview");
+    expect(rendered).not.toContain("Identity proof: exact");
+    expect(rendered).not.toContain("Exact identity evidence: available");
+    expect(rendered).not.toContain("Drift evaluator: clerk-apps-list-preview");
+    expect(rendered).not.toContain(rowId);
+    expect(rendered).not.toContain(externalId);
+    expect(rendered).not.toContain(owner);
+    expect(rendered).not.toContain("app_blocked_live_clerk_secret");
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
+  });
+
+  it("does not surface exact Clerk live validation proof summary without a matching ledger row", async () => {
+    await writeProviderLedger([]);
+    const appsList = JSON.stringify({
+      data: [
+        {
+          id: "app_live_clerk_secret",
+          resourceId: "res_live_clerk_secret",
+          ownerId: "org_live_clerk_secret",
+          environment: "development",
+          name: "acme-crm-preview"
+        }
+      ]
+    });
+
+    const code = await runAgentstack(["validate", "--live", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: {
+        async execute(command, args, options) {
+          providerExecutions.push({ command, args, stdin: options.stdin });
+          return {
+            exitCode: 0,
+            stdout: args.join(" ") === "exec clerk apps list --json" ? appsList : "ok",
+            stderr: "",
+            durationMs: 12
+          };
+        }
+      }
+    });
+
+    const rendered = output.join("\n");
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL validate --live");
+    expect(output).toContain("Readiness: refused");
+    expect(output).toContain("Reason: proof-incomplete");
+    expect(rendered).toContain("Provider proof: clerk preview");
+    expect(rendered).not.toContain("Identity proof: exact");
+    expect(rendered).toContain("Identity proof: unavailable");
+    expect(rendered).toContain("Exact identity evidence: unavailable");
+    expect(rendered).toContain("Exact identity evaluator: unavailable");
+    expect(rendered).not.toContain("Drift evaluator: clerk-apps-list-preview");
+    expect(rendered).not.toContain("app_live_clerk_secret");
+    expect(rendered).not.toContain("res_live_clerk_secret");
+    expect(rendered).not.toContain("org_live_clerk_secret");
   });
 
   it("stops live validation on local structural failure before provider executor use or writes", async () => {

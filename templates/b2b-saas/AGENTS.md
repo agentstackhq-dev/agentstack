@@ -10,7 +10,7 @@
 - Use `pnpm run dev` as a local preflight for the generated workspace-status vertical. It must not mutate provider state.
 - Run `pnpm run validate` before completion for structural checks.
 - Run `pnpm run validate:quality` before completion when code changed; it runs local package commands only and must not write local-cloud state or provider resources.
-- Use `pnpm run validate:live:preview` only for non-mutating aggregate live provider reads. It does not pass Clerk proof exact context in this slice and refuses readiness while exact drift/live coherence remains unproven.
+- Use `pnpm run validate:live:preview` only for non-mutating aggregate live provider reads. It prints per-service proof summaries, can surface gated Clerk preview exact identity diagnostics, and refuses readiness while exact drift/live coherence is not proven for every enabled provider.
 - Validate theme changes with `pnpm run theme:validate`; normal `pnpm run validate` also checks token shape.
 - Style UI through `@app/theme` token roles and `@app/ui` primitives before adding surface-specific components.
 - Treat `workspace status` as the reference runnable slice: shared domain model, Convex boundary, web/mobile rendering, unstyled UI primitives, and local docs.
