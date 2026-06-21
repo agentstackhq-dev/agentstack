@@ -14,6 +14,7 @@ Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI rou
 
 ## Recent Completed Commits
 
+- `58ef1df` feat: add command-level live read facts.
 - `4b65040` docs: record structured eas evidence checkpoint.
 - `129e8fb` fix: require structured eas preview evidence.
 - `1dd0a3a` docs: record aggregate provider plan checkpoint.
