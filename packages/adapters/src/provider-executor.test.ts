@@ -262,6 +262,16 @@ describe("provider executor artifacts", () => {
           "provider-resource-id",
           "provider-environment-scope",
           "provider-project-link-proof"
+        ],
+        comparisons: [
+          { label: "stable-provider-identity", outcome: "matched" },
+          { label: "ledger-comparable-identity", outcome: "matched" },
+          { label: "manifest-resource-name-match", outcome: "matched" },
+          { label: "ledger-external-id-match", outcome: "matched" },
+          { label: "provider-owner-identity", outcome: "matched" },
+          { label: "provider-resource-id", outcome: "matched" },
+          { label: "provider-environment-scope", outcome: "matched" },
+          { label: "provider-project-link-proof", outcome: "matched" }
         ]
       },
       liveIdentityFacts: {
@@ -272,6 +282,10 @@ describe("provider executor artifacts", () => {
 
     expect(result.liveIdentityFacts?.identityConfidence).toBe("partial");
     expect(result.exactIdentityProof?.labels).toContain("provider-specific-identity-parser");
+    expect(result.exactIdentityProof?.comparisons).toContainEqual({
+      label: "ledger-comparable-identity",
+      outcome: "matched"
+    });
     expect(JSON.stringify(result)).not.toContain("prj_raw_secret");
   });
 
@@ -285,7 +299,8 @@ describe("provider executor artifacts", () => {
       exactIdentityProof: {
         kind: "provider-exact-identity-proof",
         evaluator: "provider-specific-identity-parser",
-        labels: ["provider-specific-identity-parser", "stable-provider-identity"]
+        labels: ["provider-specific-identity-parser", "stable-provider-identity"],
+        comparisons: [{ label: "stable-provider-identity", outcome: "matched" }]
       }
     });
 
@@ -308,6 +323,12 @@ describe("provider executor artifacts", () => {
           "https://dashboard.clerk.com/raw-org",
           "RAW_PROVIDER_ID",
           "stable-provider-identity"
+        ],
+        comparisons: [
+          { label: "stable-provider-identity", outcome: "matched" },
+          { label: "https://dashboard.clerk.com/raw-org", outcome: "matched" },
+          { label: "provider-resource-id", outcome: "prj_raw_secret" },
+          { label: "provider-owner-identity", outcome: "mismatched" }
         ]
       } as never
     });
@@ -315,11 +336,53 @@ describe("provider executor artifacts", () => {
     expect(result.exactIdentityProof).toEqual({
       kind: "provider-exact-identity-proof",
       evaluator: "provider-specific-identity-parser",
-      labels: ["provider-specific-identity-parser", "stable-provider-identity"]
+      labels: ["provider-specific-identity-parser", "stable-provider-identity"],
+      comparisons: [{ label: "stable-provider-identity", outcome: "matched" }]
     });
     expect(JSON.stringify(result)).not.toContain("raw-org-name");
     expect(JSON.stringify(result)).not.toContain("dashboard.clerk.com");
     expect(JSON.stringify(result)).not.toContain("RAW_PROVIDER_ID");
+    expect(JSON.stringify(result)).not.toContain("prj_raw_secret");
+    expect(JSON.stringify(result)).not.toContain("mismatched");
+  });
+
+  it("drops malformed exact identity proof comparison entries without throwing", () => {
+    const result = createProviderExecutionResult({
+      service: "vercel",
+      environment: "preview",
+      commandKind: "env.list",
+      command: { id: "vercel.env.list", args: ["exec", "vercel", "env", "ls", "preview"] },
+      result: {
+        exitCode: 0,
+        stdout: "Project prj_raw_secret raw-id",
+        stderr: "",
+        durationMs: 12
+      },
+      exactIdentityProof: {
+        kind: "provider-exact-identity-proof",
+        evaluator: "provider-specific-identity-parser",
+        labels: ["provider-specific-identity-parser", "stable-provider-identity"],
+        comparisons: [
+          null,
+          "raw-id",
+          123,
+          { label: "stable-provider-identity", outcome: "matched" },
+          { label: "provider-resource-id", outcome: "prj_raw_secret" },
+          { label: "https://dashboard.vercel.com/raw-project", outcome: "matched" },
+          { raw: "raw-id", label: "ledger-comparable-identity" }
+        ]
+      } as never
+    });
+
+    expect(result.exactIdentityProof).toEqual({
+      kind: "provider-exact-identity-proof",
+      evaluator: "provider-specific-identity-parser",
+      labels: ["provider-specific-identity-parser", "stable-provider-identity"],
+      comparisons: [{ label: "stable-provider-identity", outcome: "matched" }]
+    });
+    expect(JSON.stringify(result)).not.toContain("raw-id");
+    expect(JSON.stringify(result)).not.toContain("prj_raw_secret");
+    expect(JSON.stringify(result)).not.toContain("dashboard.vercel.com");
   });
 
   it("stores sanitized provider identity candidate artifacts separately from exact proof", () => {

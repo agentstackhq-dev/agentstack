@@ -453,6 +453,74 @@ describe("provider control plane", () => {
     expect(JSON.stringify(partialInventory)).not.toContain("identityScope\":\"exact");
   });
 
+  it("keeps live inventory identity ambiguous for label-only exact proof artifacts", async () => {
+    const inventory = await createLiveProviderInventory({
+      localInventory: await createProviderInventory({
+        cwd: "/tmp/no-state",
+        manifest: createDefaultManifest("acme-crm"),
+        service: "vercel",
+        environment: "preview",
+        ledgerRows: []
+      }),
+      readResults: [
+        {
+          service: "vercel",
+          environment: "preview",
+          commandKind: "env.list",
+          status: "success",
+          exitCode: 0,
+          durationMs: 12,
+          stdoutSummary: "<redacted provider stdout: 1 line, 42 bytes>",
+          stderrSummary: "",
+          stdoutLines: 1,
+          stderrLines: 0,
+          stdoutBytes: 42,
+          stderrBytes: 0,
+          outputRedacted: true,
+          exactIdentityProof: {
+            kind: "provider-exact-identity-proof",
+            evaluator: "provider-specific-identity-parser",
+            labels: [
+              "provider-specific-identity-parser",
+              "stable-provider-identity",
+              "ledger-comparable-identity",
+              "manifest-resource-name-match",
+              "ledger-external-id-match",
+              "provider-owner-identity",
+              "provider-resource-id",
+              "provider-environment-scope",
+              "provider-project-link-proof"
+            ]
+          },
+          liveIdentityFacts: {
+            identityConfidence: "partial",
+            facts: ["env-list-read"]
+          }
+        }
+      ]
+    });
+
+    expect(inventory.rows[0]).toMatchObject({
+      liveStatus: "found",
+      identityMatch: "ambiguous",
+      identityScope: "partial",
+      permissionSummary: "read-ok",
+      driftSummary: "unknown",
+      facts: ["env-list-read"]
+    });
+    expect(inventory.rows[0]?.missingProof).toEqual([
+      "provider-specific-identity-parser",
+      "stable-provider-identity",
+      "ledger-comparable-identity",
+      "provider-owner-identity",
+      "provider-resource-id",
+      "provider-project-link-proof",
+      "provider-environment-scope"
+    ]);
+    expect(confirmLiveProviderInventoryIdentity(inventory)).toEqual({ ok: false, reason: "identity-ambiguous" });
+    expect(JSON.stringify(inventory)).not.toContain("identity=matched");
+  });
+
   it("matches live inventory identity only when sanitized exact proof artifacts satisfy the shared contract", async () => {
     const inventory = await createLiveProviderInventory({
       localInventory: await createProviderInventory({
@@ -490,6 +558,16 @@ describe("provider control plane", () => {
               "provider-resource-id",
               "provider-environment-scope",
               "provider-project-link-proof"
+            ],
+            comparisons: [
+              { label: "stable-provider-identity", outcome: "matched" },
+              { label: "ledger-comparable-identity", outcome: "matched" },
+              { label: "manifest-resource-name-match", outcome: "matched" },
+              { label: "ledger-external-id-match", outcome: "matched" },
+              { label: "provider-owner-identity", outcome: "matched" },
+              { label: "provider-resource-id", outcome: "matched" },
+              { label: "provider-environment-scope", outcome: "matched" },
+              { label: "provider-project-link-proof", outcome: "matched" }
             ]
           },
           liveIdentityFacts: {

@@ -2183,7 +2183,7 @@ function writeProviderProofReport(io: RunIo, report: ProviderProofReport): void 
   io.write(`Identity proof: ${report.identityProof}`);
   io.write(`Identity scope: ${report.identityScope}`);
   if (report.identityCandidates) {
-    io.write(`Exact identity candidates: ${report.identityCandidates}`);
+    io.write(`Exact identity evidence: ${report.identityCandidates}`);
   }
   if (report.identityEvaluator) {
     io.write(`Exact identity evaluator: ${report.identityEvaluator}`);

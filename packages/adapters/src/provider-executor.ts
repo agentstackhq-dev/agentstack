@@ -50,6 +50,23 @@ export type ProviderExactIdentityProofLabel =
   | "provider-environment-scope"
   | "provider-project-link-proof";
 
+export type ProviderExactIdentityComparisonLabel =
+  | "stable-provider-identity"
+  | "ledger-comparable-identity"
+  | "manifest-resource-name-match"
+  | "ledger-external-id-match"
+  | "provider-owner-identity"
+  | "provider-resource-id"
+  | "provider-environment-scope"
+  | "provider-project-link-proof";
+
+export type ProviderExactIdentityComparisonOutcome = "matched";
+
+export type ProviderExactIdentityComparisonEvidence = {
+  label: ProviderExactIdentityComparisonLabel;
+  outcome: ProviderExactIdentityComparisonOutcome;
+};
+
 export type ProviderIdentityCandidateLabel =
   | "stable-provider-identity"
   | "manifest-resource-name-match"
@@ -63,6 +80,7 @@ export type ProviderExactIdentityProofArtifact = {
   kind: "provider-exact-identity-proof";
   evaluator: "provider-specific-identity-parser";
   labels: ProviderExactIdentityProofLabel[];
+  comparisons?: ProviderExactIdentityComparisonEvidence[];
 };
 
 export type ProviderIdentityCandidatesArtifact = {
@@ -82,6 +100,17 @@ const PROVIDER_LIVE_FACT_LABELS = new Set<string>([
 
 const PROVIDER_EXACT_IDENTITY_PROOF_LABELS = new Set<string>([
   "provider-specific-identity-parser",
+  "stable-provider-identity",
+  "ledger-comparable-identity",
+  "manifest-resource-name-match",
+  "ledger-external-id-match",
+  "provider-owner-identity",
+  "provider-resource-id",
+  "provider-environment-scope",
+  "provider-project-link-proof"
+]);
+
+const PROVIDER_EXACT_IDENTITY_COMPARISON_LABELS = new Set<string>([
   "stable-provider-identity",
   "ledger-comparable-identity",
   "manifest-resource-name-match",
@@ -270,12 +299,27 @@ function normalizeExactIdentityProof(
   const labels = proof.labels.filter((label): label is ProviderExactIdentityProofLabel =>
     PROVIDER_EXACT_IDENTITY_PROOF_LABELS.has(label)
   );
+  const comparisons = Array.isArray(proof.comparisons)
+    ? proof.comparisons.filter(
+        (comparison): comparison is ProviderExactIdentityComparisonEvidence =>
+          typeof comparison === "object" &&
+          comparison !== null &&
+          comparison.outcome === "matched" && PROVIDER_EXACT_IDENTITY_COMPARISON_LABELS.has(comparison.label)
+      )
+    : [];
 
   return labels.length > 0
     ? {
         kind: "provider-exact-identity-proof",
         evaluator: "provider-specific-identity-parser",
-        labels: [...new Set(labels)].sort()
+        labels: [...new Set(labels)].sort(),
+        ...(comparisons.length > 0
+          ? {
+              comparisons: [...new Map(comparisons.map((comparison) => [comparison.label, comparison])).values()].sort(
+                (left, right) => left.label.localeCompare(right.label)
+              )
+            }
+          : {})
       }
     : undefined;
 }

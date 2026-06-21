@@ -3135,7 +3135,7 @@ describe("runAgentstack", () => {
     expect(output).toContain("Live resource: read");
     expect(output).toContain("Identity proof: ambiguous");
     expect(output).toContain("Identity scope: partial");
-    expect(output).toContain("Exact identity candidates: unavailable");
+    expect(output).toContain("Exact identity evidence: unavailable");
     expect(output).toContain("Exact identity evaluator: unavailable");
     expect(output).toContain("Drift proof: unproven");
     expect(output).toContain("Readiness: refused");

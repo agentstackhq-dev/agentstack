@@ -326,7 +326,7 @@ describe("provider proof contracts", () => {
     }
   });
 
-  it("returns exact identity only from sanitized exact proof artifacts with every required label", () => {
+  it("keeps label-only exact proof artifacts ambiguous even with every required label", () => {
     const result = evaluateProviderExactIdentityProof("vercel", [
       {
         service: "vercel",
@@ -359,6 +359,81 @@ describe("provider proof contracts", () => {
             "provider-resource-id",
             "provider-environment-scope",
             "provider-project-link-proof"
+          ]
+        }
+      }
+    ]);
+
+    expect(result).toEqual({
+      proof: "ambiguous",
+      evaluator: "provider-exact-identity",
+      labels: [
+        "ledger-comparable-identity",
+        "ledger-external-id-match",
+        "manifest-resource-name-match",
+        "provider-environment-scope",
+        "provider-owner-identity",
+        "provider-project-link-proof",
+        "provider-resource-id",
+        "provider-specific-identity-parser",
+        "stable-provider-identity"
+      ],
+      missing: [
+        "stable-provider-identity",
+        "ledger-comparable-identity",
+        "manifest-resource-name-match",
+        "ledger-external-id-match",
+        "provider-owner-identity",
+        "provider-resource-id",
+        "provider-environment-scope",
+        "provider-project-link-proof"
+      ]
+    });
+  });
+
+  it("returns exact identity only from sanitized exact proof artifacts with every required label and matched comparison", () => {
+    const result = evaluateProviderExactIdentityProof("vercel", [
+      {
+        service: "vercel",
+        environment: "preview",
+        commandKind: "env.list",
+        status: "success",
+        exitCode: 0,
+        durationMs: 5,
+        stdoutSummary: "<redacted provider stdout: 1 line, 42 bytes>",
+        stderrSummary: "",
+        stdoutLines: 1,
+        stderrLines: 0,
+        stdoutBytes: 42,
+        stderrBytes: 0,
+        outputRedacted: true,
+        liveIdentityFacts: {
+          identityConfidence: "partial",
+          facts: ["env-list-read"]
+        },
+        exactIdentityProof: {
+          kind: "provider-exact-identity-proof",
+          evaluator: "provider-specific-identity-parser",
+          labels: [
+            "provider-specific-identity-parser",
+            "stable-provider-identity",
+            "ledger-comparable-identity",
+            "manifest-resource-name-match",
+            "ledger-external-id-match",
+            "provider-owner-identity",
+            "provider-resource-id",
+            "provider-environment-scope",
+            "provider-project-link-proof"
+          ],
+          comparisons: [
+            { label: "stable-provider-identity", outcome: "matched" },
+            { label: "ledger-comparable-identity", outcome: "matched" },
+            { label: "manifest-resource-name-match", outcome: "matched" },
+            { label: "ledger-external-id-match", outcome: "matched" },
+            { label: "provider-owner-identity", outcome: "matched" },
+            { label: "provider-resource-id", outcome: "matched" },
+            { label: "provider-environment-scope", outcome: "matched" },
+            { label: "provider-project-link-proof", outcome: "matched" }
           ]
         }
       }
@@ -784,7 +859,9 @@ describe("provider proof contracts", () => {
         "provider-owner-identity",
         "provider-resource-id",
         "provider-project-link-proof",
-        "provider-environment-scope"
+        "provider-environment-scope",
+        "stable-provider-identity",
+        "ledger-comparable-identity"
       ]
     });
   });

@@ -1,5 +1,6 @@
 import type { ProviderControlPlaneService } from "./provider-control-plane.js";
 import type {
+  ProviderExactIdentityComparisonLabel,
   ProviderExactIdentityProofLabel,
   ProviderExecutionResult,
   ProviderIdentityCandidateLabel,
@@ -281,6 +282,17 @@ const envListPreviewFacts = [
 const providerSpecificIdentityParserBlocker = "provider-specific-identity-parser" as const;
 const ledgerComparableIdentityBlocker = "ledger-comparable-identity" as const;
 
+const proofLabelsRequiringComparison = [
+  "stable-provider-identity",
+  "ledger-comparable-identity",
+  "manifest-resource-name-match",
+  "ledger-external-id-match",
+  "provider-owner-identity",
+  "provider-resource-id",
+  "provider-environment-scope",
+  "provider-project-link-proof"
+] as const satisfies readonly ProviderExactIdentityComparisonLabel[];
+
 export function getProviderProofContract(service: ProviderControlPlaneService): ProviderProofContract {
   return contracts[service];
 }
@@ -378,6 +390,7 @@ export function evaluateProviderExactIdentityProof(
 ): ProviderExactIdentityDecision {
   const plan = getProviderIdentityReadPlan(service);
   const labels = new Set<ProviderExactIdentityProofLabel>();
+  const matchedComparisons = new Set<ProviderExactIdentityComparisonLabel>();
 
   if (readResults.length === 0 || readResults.some((result) => result.status !== "success")) {
     return {
@@ -399,6 +412,11 @@ export function evaluateProviderExactIdentityProof(
     for (const label of result.exactIdentityProof.labels) {
       labels.add(label);
     }
+    for (const comparison of result.exactIdentityProof.comparisons ?? []) {
+      if (comparison.outcome === "matched") {
+        matchedComparisons.add(comparison.label);
+      }
+    }
   }
 
   const required = [
@@ -407,7 +425,13 @@ export function evaluateProviderExactIdentityProof(
     "ledger-comparable-identity",
     ...plan.requiredCandidateCategories
   ] as const satisfies readonly ProviderProofRequirementLabel[];
-  const missing = [...new Set(required.filter((label) => !labels.has(label as ProviderExactIdentityProofLabel)))];
+  const requiredSet = new Set<ProviderProofRequirementLabel>(required);
+  const requiredComparisons = proofLabelsRequiringComparison.filter((label) =>
+    requiredSet.has(label)
+  );
+  const missingLabels = required.filter((label) => !labels.has(label as ProviderExactIdentityProofLabel));
+  const missingComparisons = requiredComparisons.filter((label) => !matchedComparisons.has(label));
+  const missing = [...new Set([...missingLabels, ...missingComparisons])];
   const sortedLabels = [...labels].sort();
 
   if (sortedLabels.length === 0) {
