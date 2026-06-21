@@ -10,7 +10,7 @@ Current phase: Wave 2 provider inventory/link/adopt checkpoint, readiness roadma
 
 Overall status: not complete. Agentstack is about 38-40% of the way toward consumer production readiness from a consumer perspective. The current product state is a local command-contract and rehearsal prototype with credible local telemetry and provider boundaries, not a consumer-ready production framework.
 
-Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI routing, local env graph rehearsal, structural validation, generated guidance/skills, local wide-event telemetry, OTLP-shaped local export, provider command plans for Clerk/Convex/Vercel/EAS, ledger-gated Convex and Vercel preview apply, and local provider inventory/link/adopt. It still lacks a truthful live validation runner, live provider inventory/discovery/adoption, broad real provider provisioning, a real generated SaaS runtime, real OTel/network/hosted observability, preview deploy/build smoke evidence, production release gates, hosted control-plane state, and public package installability.
+Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI routing, local env graph rehearsal, structural validation, generated guidance/skills, local wide-event telemetry, OTLP-shaped local export, provider command plans for Clerk/Convex/Vercel/EAS, Clerk/Convex/Vercel preview/EAS preview live-read inspect, ledger-gated Convex and Vercel preview apply, and local provider inventory/link/adopt. It still lacks a truthful live validation runner, live provider inventory/discovery/adoption, broad real provider provisioning, a real generated SaaS runtime, real OTel/network/hosted observability, preview deploy/build smoke evidence, production release gates, hosted control-plane state, and public package installability.
 
 ## Recent Completed Commits
 
@@ -47,7 +47,7 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 - Provider link is local state only. It requires a matching `planned` or `active` ledger row and writes only `.agentstack/provider-links.json`. It does not mutate providers, telemetry, local-cloud state, or `docs/provider-resource-ledger.md`.
 - Provider adopt is print-only. It prints a redacted ledger proposal and writes no files.
 - Provider plan prints `Evidence: provider-command-plan`.
-- Clerk inspect, Convex inspect, and EAS preview inspect have live-read semantics where implemented; Vercel live-read remains missing.
+- Clerk inspect, Convex inspect, Vercel preview inspect, and EAS preview inspect have live-read semantics where implemented.
 - Supported live mutation remains narrow: ledger-gated Convex apply and ledger-gated Vercel preview deploy apply. Clerk apply, Vercel env/production apply, EAS init/env/build/apply, and broad provider provisioning are still unavailable.
 - `agentstack validate` validates manifest/env/guidance/theme/source-secret/generated anchors. It does not yet run lint, format, typecheck, tests, Convex checks, or full runtime checks.
 - `agentstack validate --cloud` is honest local rehearsal. It checks local-cloud state and prints `Evidence: local-rehearsal`; it is not live provider validation.
@@ -68,7 +68,7 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 
 - No truthful live validation runner exists yet.
 - Live provider inventory/discovery/adoption is not implemented; current inventory/link/adopt is local-control-plane only.
-- Vercel live-read parity is missing.
+- Vercel live-read is bounded to preview env-list inspect; production Vercel live-read remains unavailable.
 - Provider live mutation is limited to ledger-gated Convex apply and Vercel preview deploy apply.
 - Real Clerk, Convex, Vercel, and EAS create/provision/reconcile/apply coverage is missing or partial.
 - Generated SaaS runtime is not real: no Clerk auth/org runtime, billing/webhooks, entitlements, audit, or protected end-to-end Convex data path across web/mobile.
@@ -80,7 +80,7 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 ## Next Concrete Actions
 
 1. Finish provider integration gaps first:
-   - Add Vercel live-read.
+   - Expand Vercel live-read beyond bounded preview env-list only when production read semantics are explicitly designed.
    - Implement live provider inventory/discovery for Clerk, Convex, Vercel, and EAS.
    - Add live-safe link/adopt identity confirmation without writing secrets.
    - Keep all mutation paths ledger-gated and evidence-labeled.

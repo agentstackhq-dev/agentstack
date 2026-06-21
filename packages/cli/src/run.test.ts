@@ -1589,9 +1589,57 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).not.toContain("provider-eas-secret");
   });
 
-  it("rejects provider inspect for Vercel in this slice", async () => {
+  it("executes Vercel preview inspect env-list only", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.environments = ["preview"];
+    manifest.surfaces = ["web"];
+    manifest.env.custom.PUBLIC_API_URL = {
+      surfaces: ["web"],
+      environments: ["preview"],
+      required: true,
+      secret: true,
+      providerTargets: vercelPreviewTarget
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    await writeLocalEnvValues({
+      preview: { web: { PUBLIC_API_URL: "local-vercel-secret" } }
+    });
+
     const vercelCode = await runAgentstack(
       ["provider", "inspect", "--service", "vercel", "--env", "preview"],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: createMockProviderExecutor(
+          "PUBLIC_API_URL=provider-vercel-secret\nVERCEL_TOKEN=vercel-token-secret"
+        )
+      }
+    );
+
+    expect(vercelCode).toBe(0);
+    expect(output).toContain("WARN provider inspect vercel preview");
+    expect(output).toContain("Evidence: live-read");
+    expect(output).toContain("Mutation: none");
+    expect(output.join("\n")).toContain("Target: preview");
+    expect(output.join("\n")).toContain("Required env: VERCEL_TOKEN");
+    expect(output.join("\n")).toContain("Operations: 2");
+    expect(output.join("\n")).toContain("Commands: 1");
+    expect(output.join("\n")).toContain("Results: 1");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec vercel env ls preview"
+    ]);
+    expect(providerExecutions.map((execution) => execution.args.join(" ")).join("\n")).not.toMatch(
+      /\b(deploy|add|update|remove|rm)\b/
+    );
+    expect(output.join("\n")).toContain("<redacted provider stdout:");
+    expect(output.join("\n")).not.toContain("local-vercel-secret");
+    expect(output.join("\n")).not.toContain("provider-vercel-secret");
+    expect(output.join("\n")).not.toContain("vercel-token-secret");
+  });
+
+  it("rejects Vercel production inspect without executing", async () => {
+    const vercelCode = await runAgentstack(
+      ["provider", "inspect", "--service", "vercel", "--env", "production"],
       {
         cwd: dir,
         write: (line) => output.push(line),
@@ -1600,8 +1648,9 @@ describe("runAgentstack", () => {
     );
 
     expect(vercelCode).toBe(1);
-    expect(output.join("\n")).toContain("FAIL provider.service.unsupported");
-    expect(output.join("\n")).not.toContain("Mutation: none");
+    expect(output.join("\n")).toContain("FAIL provider.inspect.unsupported");
+    expect(output.join("\n")).toContain("Vercel runtime inspect supports preview env-list only");
+    expect(providerExecutions).toEqual([]);
   });
 
   it("rejects development env for provider inspect and apply", async () => {

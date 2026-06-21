@@ -15,6 +15,7 @@ import {
   inspectEasPreviewReadOnly,
   inspectClerkReadOnly,
   inspectConvexReadOnly,
+  inspectVercelPreviewReadOnly,
   LocalCloudAdapter,
   enforceProviderLedgerResource,
   linkLedgerBackedProviderResource,
@@ -767,13 +768,13 @@ async function providerInspectCommand(argv: string[], io: RunIo): Promise<number
   const service = readRequiredStringOption(options.service, "service", fix);
   const environment = readProviderRuntimeEnvironmentOption(options.env, fix);
 
-  if (service !== "clerk" && service !== "convex" && service !== "eas") {
+  if (service !== "clerk" && service !== "convex" && service !== "vercel" && service !== "eas") {
     io.write(
       formatDiagnostic({
         severity: "fail",
         code: "provider.service.unsupported",
         path: service,
-        message: "Only Clerk, Convex, and EAS preview provider inspect are available in this slice.",
+        message: "Only Clerk, Convex, Vercel preview, and EAS preview provider inspect are available in this slice.",
         fix,
         blocks: ["provider inspect"]
       })
@@ -827,11 +828,17 @@ async function providerInspectCommand(argv: string[], io: RunIo): Promise<number
             operations: providerOperationPlan.operations,
             includeDeploy: false
           })
-        : createEasCommandPlan({
-            environment,
-            operations: providerOperationPlan.operations,
-            includeBuild: true
-          });
+        : service === "vercel"
+          ? createVercelCommandPlan({
+              environment,
+              operations: providerOperationPlan.operations,
+              includeDeploy: false
+            })
+          : createEasCommandPlan({
+              environment,
+              operations: providerOperationPlan.operations,
+              includeBuild: true
+            });
 
   if (service === "clerk") {
     results = await inspectClerkReadOnly({
@@ -883,9 +890,40 @@ async function providerInspectCommand(argv: string[], io: RunIo): Promise<number
     }
   }
 
+  if (service === "vercel") {
+    try {
+      results = await inspectVercelPreviewReadOnly({
+        environment,
+        executor: resolveProviderExecutor(io),
+        cwd: io.cwd,
+        secretValues
+      });
+    } catch (error) {
+      io.write(
+        formatDiagnostic({
+          severity: "fail",
+          code: "provider.inspect.unsupported",
+          path: `${service}.${environment}`,
+          message: error instanceof Error ? error.message : String(error),
+          fix: "Run agentstack provider inspect --service vercel --env preview.",
+          blocks: ["provider inspect"]
+        })
+      );
+      await recordCommandEvent(io, {
+        name: "agentstack.provider.inspect.completed",
+        environment,
+        journey: "provider-inspect",
+        command: ["provider", "inspect", ...argv].join(" "),
+        status: "fail",
+        state: { service, reason: "unsupported-environment" }
+      });
+      return 1;
+    }
+  }
+
   const failed = results.some((result) => result.status === "failed");
   const pending = providerOperationPlan.operations.some((operation) => operation.service === service);
-  const commandCount = service === "clerk" || service === "eas" ? results.length : plan.commands.length;
+  const commandCount = service === "clerk" || service === "vercel" || service === "eas" ? results.length : plan.commands.length;
   io.write(`${failed || pending ? "WARN" : "PASS"} provider inspect ${service} ${environment}`);
   io.write("Evidence: live-read");
   io.write("Mutation: none");

@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   createVercelCommandPlan,
   createVercelTarget,
-  executeVercelPreviewApply
+  executeVercelPreviewApply,
+  inspectVercelPreviewReadOnly
 } from "./vercel.js";
 
 describe("vercel command planner", () => {
@@ -16,6 +17,10 @@ describe("vercel command planner", () => {
         requiresConfirmation: false,
         deployCommand: expect.objectContaining({
           args: ["pnpm", "exec", "vercel", "deploy", "--target=preview"]
+        }),
+        envListCommand: expect.objectContaining({
+          kind: "env.list",
+          args: ["pnpm", "exec", "vercel", "env", "ls", "preview"]
         })
       })
     );
@@ -28,6 +33,10 @@ describe("vercel command planner", () => {
         requiresConfirmation: true,
         deployCommand: expect.objectContaining({
           args: ["pnpm", "exec", "vercel", "--prod"]
+        }),
+        envListCommand: expect.objectContaining({
+          kind: "env.list",
+          args: ["pnpm", "exec", "vercel", "env", "ls", "production"]
         })
       })
     );
@@ -121,6 +130,41 @@ describe("vercel command planner", () => {
     expect(JSON.stringify(plan)).not.toContain("sk-");
   });
 
+  it("executes only preview env list for Vercel inspect and redacts provider output", async () => {
+    const executions: Array<{ command: string; args: string[] }> = [];
+    const results = await inspectVercelPreviewReadOnly({
+      environment: "preview",
+      executor: {
+        async execute(command, args) {
+          executions.push({ command, args });
+          return {
+            exitCode: 0,
+            stdout: "API_TOKEN=provider-secret\nNEXT_PUBLIC_APP_URL=https://preview.example.test",
+            stderr: "",
+            durationMs: 9
+          };
+        }
+      },
+      secretValues: ["provider-secret"]
+    });
+
+    expect(executions).toEqual([
+      { command: "pnpm", args: ["exec", "vercel", "env", "ls", "preview"] }
+    ]);
+    expect(results).toEqual([
+      expect.objectContaining({
+        service: "vercel",
+        environment: "preview",
+        commandKind: "env.list",
+        status: "success",
+        outputRedacted: true
+      })
+    ]);
+    expect(results[0]?.stdoutSummary).toBe("<redacted provider stdout: 2 lines, 74 bytes>");
+    expect(JSON.stringify(results)).not.toContain("provider-secret");
+    expect(JSON.stringify(results)).not.toContain("https://preview.example.test");
+  });
+
   it("executes only preview deploy for Vercel apply and redacts provider output", async () => {
     const executions: Array<{ command: string; args: string[] }> = [];
     const results = await executeVercelPreviewApply({
@@ -183,6 +227,23 @@ describe("vercel command planner", () => {
         }
       })
     ).rejects.toThrow("Vercel runtime apply supports preview deploy only.");
+    expect(executions).toEqual([]);
+  });
+
+  it("rejects non-preview Vercel inspect without executing", async () => {
+    const executions: string[] = [];
+
+    await expect(
+      inspectVercelPreviewReadOnly({
+        environment: "production",
+        executor: {
+          async execute(command) {
+            executions.push(command);
+            return { exitCode: 0, stdout: "", stderr: "", durationMs: 1 };
+          }
+        }
+      })
+    ).rejects.toThrow("Vercel runtime inspect supports preview env-list only.");
     expect(executions).toEqual([]);
   });
 });
