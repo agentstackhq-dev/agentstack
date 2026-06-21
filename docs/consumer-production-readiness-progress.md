@@ -14,6 +14,7 @@ Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI rou
 
 ## Recent Completed Commits
 
+- `9cb2a67` feat: add provider identity read plans.
 - `9632379` feat: add provider proof drift evidence.
 - `e7c829d` feat: add provider proof contract check.
 - `01a94d7` feat: add preview provider reconciliation plan.
@@ -203,7 +204,20 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 
 ## Last Known Verification Evidence
 
-Most recent final orchestrator verification for the provider proof drift evidence slice:
+Most recent final orchestrator verification for the provider identity read-plan slice:
+
+- Spec review passed.
+- Quality review initially found stale acceptance/output/doc-plan issues; implementation and plan docs were corrected; final quality re-review passed.
+- `pnpm exec vitest run packages/adapters/src/provider-proof-contracts.test.ts packages/adapters/src/provider-executor.test.ts` passed: 2 files / 22 tests.
+- `pnpm exec vitest run packages/cli/src/run.test.ts -t "provider proof"` passed: 1 file / 9 selected tests, 200 skipped.
+- `git diff -- docs/provider-resource-ledger.md templates/b2b-saas/docs/provider-resource-ledger.md packages/create-agent-stack/templates/b2b-saas/docs/provider-resource-ledger.md` passed with no output.
+- `.agentstack/local-cloud.json`, `.agentstack/provider-links.json`, and `.agentstack/events.jsonl` were absent.
+- `git diff --check` passed.
+- `pnpm typecheck` passed.
+- `pnpm test` passed: 28 files / 440 tests.
+- No provider CLIs were run directly, and no real provider resources were created, mutated, adopted, linked, or deleted.
+
+Previous final orchestrator verification for the provider proof drift evidence slice:
 
 - Spec review passed.
 - Quality review initially failed because the evaluator accepted generic facts too broadly and a CLI test allowed two reasons. The worker fixed both.
