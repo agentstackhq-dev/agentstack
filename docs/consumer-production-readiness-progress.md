@@ -14,6 +14,7 @@ Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI rou
 
 ## Recent Completed Commits
 
+- `3c27690` feat: add truthful local quality validation.
 - `bb4badb` docs: record live link confirmation checkpoint.
 - `efdc973` feat: gate provider link on live confirmation.
 - `610bde5` docs: record structured vercel evidence checkpoint.
