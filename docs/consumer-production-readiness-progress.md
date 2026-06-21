@@ -14,6 +14,9 @@ Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI rou
 
 ## Recent Completed Commits
 
+- `0c013ee` feat: add clerk app-list coherence proof.
+- `7065bcb` docs: repair exact proof progress history.
+- `afba0da` docs: record clerk exact proof checkpoint.
 - `a3287ee` feat: add clerk exact proof parser.
 - `54307c4` docs: record exact comparison checkpoint.
 - `b1da6e9` feat: require exact identity comparisons.
@@ -98,6 +101,12 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 
 ## Completed Work This Documentation Turn
 
+- Added narrow Clerk preview application provider-proof app-list live-coherence partial drift evidence.
+- `evaluateProviderDriftProof` now can return partial via `clerk-apps-list-preview` only when the read set has no failures, the service/env/command shape is Clerk preview `auth.apps.list`, output is redacted, exact proof exists, required proof labels and matched comparisons are present, and sanitized app-list facts (`apps-list-read`, `expected-resource-shape`, `preview-environment`) are present.
+- CLI still exits nonzero/refuses readiness with `Reason: drift-unproven`; this is not exact drift, live readiness, link/adopt confirmation, or production readiness.
+- Review found and fixed the mixed success+failure fail-closed issue in the exported drift evaluator.
+- Verification evidence from parent: focused vitest passed 4 files / 266 tests; `git diff --check` passed; template mirror diffs passed; ledger diff empty; `.agentstack` absent; overclaim search found only denial/guard wording; `pnpm typecheck` passed; `pnpm test` passed 28 files / 487 tests.
+- No provider CLIs were run directly and no real provider resources were created/mutated/adopted/linked/deleted.
 - Added shared exact identity comparison hardening in `b1da6e9`: `exactIdentityProof` now carries sanitized matched comparison evidence, and `evaluateProviderExactIdentityProof` requires both required exact labels and matched comparison evidence before returning exact.
 - Kept label-only exact artifacts fail-closed. Synthetic exact artifacts with required labels plus matched comparison evidence still prove exact through shared tests, while malformed comparison entries such as `comparisons: [null]` normalize safely and remain non-throwing.
 - Preserved the real-provider boundary: exact identity is available only for the narrow Clerk preview application provider-proof path after strict apps-list JSON plus manifest/ledger comparison gates; Convex, Vercel, EAS, candidate-only paths, partial paths, and `validate --live` remain ambiguous/refused without exact live readiness proof.
@@ -243,7 +252,21 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 
 ## Last Known Verification Evidence
 
-Most recent final orchestrator verification for the Clerk exact proof parser slice:
+Most recent final orchestrator verification for the Clerk app-list coherence proof slice:
+
+- Feature commit `0c013ee` (`feat: add clerk app-list coherence proof`) followed docs repair `7065bcb` (`docs: repair exact proof progress history`) and prior Clerk exact checkpoint `afba0da` (`docs: record clerk exact proof checkpoint`).
+- Focused command passed: `pnpm vitest run packages/adapters/src/clerk.test.ts packages/adapters/src/provider-proof-contracts.test.ts packages/cli/src/run.test.ts packages/create-agent-stack/src/generate.test.ts`: 4 files / 266 tests.
+- `git diff --check` passed.
+- Template mirror diffs passed.
+- Ledger diff was empty.
+- `.agentstack` was absent.
+- Overclaim search passed and found only denial/guard wording.
+- `pnpm typecheck` passed.
+- `pnpm test` passed: 28 files / 487 tests.
+- Static verifier passed and found no template, ledger, state, or overclaim issues.
+- No provider CLIs were run directly and no real provider resources were touched.
+
+Previous final orchestrator verification for the Clerk exact proof parser slice:
 
 - Feature commit `a3287ee` (`feat: add clerk exact proof parser`) followed previous progress checkpoint `54307c4` (`docs: record exact comparison checkpoint`).
 - Exact proof is available only for narrow Clerk preview application provider proof after strict `{ data: [...] }` apps-list JSON plus manifest/ledger comparison gates. Top-level arrays fail closed.
