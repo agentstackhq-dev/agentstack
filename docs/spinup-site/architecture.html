@@ -9,7 +9,7 @@
   <body data-page="architecture">
     <div class="layout">
       <aside class="sidebar">
-        <div class="brand"><strong>Agentstack Spin-Up</strong><span>How the prototype is layered</span></div>
+        <div class="brand"><strong>Agentstack Spin-Up</strong><span>How the framework is layered</span></div>
         <nav class="nav" aria-label="Spin-up navigation">
           <a data-page="home" href="index.html">Start Here</a>
           <a data-page="architecture" href="architecture.html">System Map</a>
@@ -27,7 +27,7 @@
           <div>
             <h1>System map</h1>
             <p>
-              The prototype is intentionally split into small packages. The kernel owns schemas
+              The current framework is intentionally split into small packages. The kernel owns schemas
               and diagnostics; adapters simulate provider state; telemetry owns event inspection;
               the CLI composes them; the generator emits a minimal B2B SaaS app.
             </p>
@@ -107,6 +107,18 @@
           </section>
 
           <section class="section">
+            <h2>How the pieces fit during a command</h2>
+            <div class="flow-row" aria-label="Command responsibility chain">
+              <div class="flow-step"><strong>Generated script</strong><span>Stable project entrypoint with installed-bin or source-prototype resolution.</span><code>scripts/agentstack.mjs</code></div>
+              <div class="flow-step"><strong>CLI context</strong><span>Finds config, local state files, telemetry path, and cwd-specific project data.</span><code>context.ts</code></div>
+              <div class="flow-step"><strong>Core contract</strong><span>Parses manifest and produces diagnostics, plans, or normalized validation state.</span><code>core/src/*.ts</code></div>
+              <div class="flow-step"><strong>Adapter boundary</strong><span>Reads/writes local-cloud rehearsal state or prints command-plan provider operations.</span><code>adapters/src</code></div>
+              <div class="flow-step"><strong>Telemetry</strong><span>Records redacted command events and makes timelines queryable.</span><code>events.jsonl</code></div>
+              <div class="flow-step"><strong>Generated app</strong><span>Receives new anchors, docs, env state, local deploy/build artifacts.</span><code>app root</code></div>
+            </div>
+          </section>
+
+          <section class="section">
             <h2>What is deliberately local</h2>
             <table class="table">
               <thead><tr><th>Area</th><th>Prototype behavior</th><th>Future real adapter behavior</th></tr></thead>
@@ -126,6 +138,68 @@
                   <td><code>.agentstack/events.jsonl</code> stores redacted-queryable wide events, including <code>agentstack.deploy.completed</code> for preview rehearsals.</td>
                   <td>OTel exporter/provider can replace the local store without changing event shape.</td>
                 </tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="section">
+            <h2>Provider orchestration boundary</h2>
+            <div class="grid two">
+              <div class="diagram">
+                <svg viewBox="0 0 760 390" role="img" aria-label="Provider orchestration boundary">
+                  <defs>
+                    <marker id="arrow-provider" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+                      <path class="svg-arrow" d="M0,0 L0,6 L9,3 z"></path>
+                    </marker>
+                  </defs>
+                  <rect class="svg-box svg-blue" x="36" y="52" width="180" height="70" rx="8"></rect>
+                  <text class="svg-label" x="76" y="84">Manifest</text>
+                  <text class="svg-small" x="66" y="106">services, env, surfaces</text>
+                  <rect class="svg-box svg-teal" x="284" y="52" width="190" height="70" rx="8"></rect>
+                  <text class="svg-label" x="324" y="84">Sync/validate</text>
+                  <text class="svg-small" x="316" y="106">selected environment</text>
+                  <rect class="svg-box svg-amber" x="544" y="52" width="180" height="70" rx="8"></rect>
+                  <text class="svg-label" x="584" y="84">Local cloud</text>
+                  <text class="svg-small" x="574" y="106">hash-only rehearsal</text>
+                  <path class="svg-line" marker-end="url(#arrow-provider)" d="M216 87 H278"></path>
+                  <path class="svg-line" marker-end="url(#arrow-provider)" d="M474 87 H538"></path>
+                  <rect class="svg-box svg-rose" x="84" y="230" width="130" height="54" rx="8"></rect>
+                  <text class="svg-small" x="116" y="262">Clerk plan</text>
+                  <rect class="svg-box svg-rose" x="244" y="230" width="130" height="54" rx="8"></rect>
+                  <text class="svg-small" x="274" y="262">Convex plan</text>
+                  <rect class="svg-box svg-rose" x="404" y="230" width="130" height="54" rx="8"></rect>
+                  <text class="svg-small" x="436" y="262">Vercel plan</text>
+                  <rect class="svg-box svg-rose" x="564" y="230" width="130" height="54" rx="8"></rect>
+                  <text class="svg-small" x="600" y="262">EAS plan</text>
+                  <path class="svg-line" marker-end="url(#arrow-provider)" d="M380 124 C380 178 148 176 148 224"></path>
+                  <path class="svg-line" marker-end="url(#arrow-provider)" d="M380 124 C380 178 308 176 308 224"></path>
+                  <path class="svg-line" marker-end="url(#arrow-provider)" d="M380 124 C380 178 468 176 468 224"></path>
+                  <path class="svg-line" marker-end="url(#arrow-provider)" d="M380 124 C380 178 628 176 628 224"></path>
+                  <text class="svg-small" x="236" y="334">Plans print redacted provider CLI command shapes. They do not execute remote mutations in this slice.</text>
+                </svg>
+              </div>
+              <div class="card">
+                <h3>Boundary invariant</h3>
+                <p>
+                  The repo already models provider intent, required tokens, production confirmation,
+                  env resource scope, and operation IDs. It intentionally stops before remote mutation.
+                  That means local validation and command plans can be reviewed today, while future
+                  provider apply automation can reuse the same normalized contract.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
+            <h2>Responsibility matrix</h2>
+            <table class="table">
+              <thead><tr><th>Question</th><th>Owned by</th><th>Current answer</th></tr></thead>
+              <tbody>
+                <tr><td>What should the app contain?</td><td><code>agentstack.config.json</code> and <code>@agentstack/core</code></td><td>Surfaces, services, env declarations, telemetry policy, generated anchors, guidance version.</td></tr>
+                <tr><td>How does an agent run the workflow?</td><td><code>@agentstack/cli</code> and generated scripts</td><td>Inspect, doctor, dev preflight, validate, env inspect/set, sync, deploy, build mobile, observe.</td></tr>
+                <tr><td>Where is provider state?</td><td><code>@agentstack/adapters</code></td><td><code>.agentstack/local-cloud.json</code> plus redacted command-plan operations for provider CLIs.</td></tr>
+                <tr><td>Where is incident evidence?</td><td><code>@agentstack/telemetry</code></td><td><code>.agentstack/events.jsonl</code> and local <code>OTLP-shaped JSON</code> exports.</td></tr>
+                <tr><td>What is still a gap?</td><td>Future adapters/runtime work</td><td>Remote provider apply, hosted telemetry ingestion, real servers, Stripe adapter, app-store submission.</td></tr>
               </tbody>
             </table>
           </section>

@@ -81,6 +81,18 @@
           </section>
 
           <section class="section">
+            <h2>Generated app topology</h2>
+            <div class="flow-row" aria-label="Generated app topology">
+              <div class="flow-step"><strong>Manifest</strong><span>Declares app identity, envs, surfaces, services, telemetry, generated anchors.</span><code>agentstack.config.json</code></div>
+              <div class="flow-step"><strong>Scripts</strong><span>Expose stable commands for agents and humans without committing local source paths.</span><code>package.json</code></div>
+              <div class="flow-step"><strong>Surfaces</strong><span>Web, mobile, and Convex package anchors prove where runtime code will land.</span><code>apps/* convex/*</code></div>
+              <div class="flow-step"><strong>Shared packages</strong><span>Domain, config, telemetry, theme, UI, runtime, and SaaS-spine contracts.</span><code>packages/*</code></div>
+              <div class="flow-step"><strong>Agent docs</strong><span>Workflow, validation, env, release, observability, generated-boundary, and skill guidance.</span><code>docs/agentstack</code></div>
+              <div class="flow-step"><strong>Local state</strong><span>Gitignored env values, local-cloud rehearsal, deploy/build artifacts, and events.</span><code>.agentstack/*</code></div>
+            </div>
+          </section>
+
+          <section class="section">
             <h2>Core SaaS Spine</h2>
             <p class="lede">
               The generated SaaS spine connects shared domain types, Convex authorization, local

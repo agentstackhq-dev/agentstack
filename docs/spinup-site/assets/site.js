@@ -111,3 +111,76 @@ if (scenarioButtons.length > 0) {
   scenarioButtons[0].classList.add("active");
   renderScenario(scenarioButtons[0].dataset.scenario);
 }
+
+const concerns = {
+  architecture: {
+    title: "Architecture and ownership",
+    summary: "The repo is split into five framework packages plus a generated B2B SaaS template. Core owns contracts and diagnostics; the CLI composes commands; adapters model provider boundaries; telemetry stores/query events; the generator copies the template.",
+    commands: ["pnpm typecheck", "pnpm test"],
+    files: [
+      "packages/core/src/manifest.ts",
+      "packages/cli/src/run.ts",
+      "packages/adapters/src/types.ts",
+      "packages/telemetry/src/events.ts",
+      "packages/create-agent-stack/src/generate.ts"
+    ]
+  },
+  workflow: {
+    title: "Workflow orchestration",
+    summary: "Generated apps expose scripts that route through scripts/agentstack.mjs. In source-prototype mode the wrapper uses AGENTSTACK_CLI_BIN and AGENTSTACK_TSX_BIN; in an installed package it resolves the agentstack bin without embedding local machine paths.",
+    commands: ["pnpm run inspect", "pnpm run doctor", "pnpm run dev", "pnpm run sync:preview:apply"],
+    files: ["templates/b2b-saas/package.json", "templates/b2b-saas/scripts/agentstack.mjs", "packages/cli/src/context.ts"]
+  },
+  providers: {
+    title: "Env and provider orchestration",
+    summary: "Provider work is currently a local rehearsal. Local-cloud state records linked services, provider operation IDs, env resource metadata, deployments, and mobile builds. Command-plan adapters print Clerk, Convex, Vercel, and EAS command shapes without executing remote mutations.",
+    commands: ["pnpm run env:inspect", "pnpm run provider:convex:preview", "pnpm run provider:eas:production"],
+    files: ["packages/adapters/src/local-cloud.ts", "packages/adapters/src/provider-operations.ts", "packages/adapters/src/convex.ts", "packages/adapters/src/eas.ts"]
+  },
+  generated: {
+    title: "Generated app contract",
+    summary: "The generated app is intentionally small but structured: web, mobile, Convex, theme, UI, config, telemetry, domain, runtime, docs, skills, and manifest anchors. Add commands extend that shape through generated feature, event, and billing-plan anchors.",
+    commands: ["create-agent-stack acme-crm", "agentstack add feature invoices --surfaces web,mobile --backend convex", "agentstack add billing-plan pro --entitlements feature.auditLog --seats 10"],
+    files: ["templates/b2b-saas/agentstack.config.json", "templates/b2b-saas/docs/agentstack", "templates/b2b-saas/packages"]
+  },
+  telemetry: {
+    title: "Telemetry and timeline inspection",
+    summary: "Telemetry is local and redacted today. The CLI writes/query JSONL events, supports timeline/query/trace/journey/errors/webhook/component/compare views, and can write an OTLP-shaped JSON export artifact for handoff.",
+    commands: ["agentstack observe timeline --env preview --journey deployment", "agentstack observe export --env preview --format otlp-json"],
+    files: ["packages/telemetry/src/store.ts", "packages/telemetry/src/otlp.ts", "templates/b2b-saas/docs/agentstack/observability.md"]
+  },
+  gaps: {
+    title: "Current progress and gaps",
+    summary: "The slice proves the local command contract and provider boundaries, but real provider apply automation, real app servers, hosted telemetry export, Stripe adapter coverage, and store submission flows remain future work.",
+    commands: ["pnpm run preview:deploy", "pnpm run preview:deploy:apply", "pnpm run prod:deploy"],
+    files: ["README.md", "tests/e2e/prototype.test.ts", "templates/b2b-saas/docs/agentstack/release.md"]
+  }
+};
+
+function renderConcern(key) {
+  const target = document.querySelector("[data-concern-output]");
+  if (!target || !concerns[key]) return;
+  const concern = concerns[key];
+  target.innerHTML = `
+    <h3>${concern.title}</h3>
+    <p>${concern.summary}</p>
+    <h4>Commands to recognize</h4>
+    <div class="pill-row">${concern.commands.map((command) => `<span class="pill"><code>${command}</code></span>`).join("")}</div>
+    <h4>Evidence anchors</h4>
+    <div class="pill-row">${concern.files.map((file) => `<span class="pill">${file}</span>`).join("")}</div>
+  `;
+}
+
+const concernButtons = document.querySelectorAll("[data-concern]");
+for (const button of concernButtons) {
+  button.addEventListener("click", () => {
+    for (const current of concernButtons) current.classList.remove("active");
+    button.classList.add("active");
+    renderConcern(button.dataset.concern);
+  });
+}
+
+if (concernButtons.length > 0) {
+  concernButtons[0].classList.add("active");
+  renderConcern(concernButtons[0].dataset.concern);
+}

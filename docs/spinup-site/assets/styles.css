@@ -215,6 +215,145 @@ pre code {
   margin-bottom: 0;
 }
 
+.card.compact {
+  box-shadow: none;
+  min-height: 100%;
+}
+
+.status-strip {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.status-item {
+  background: #0d1216;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.9rem;
+}
+
+.status-item strong {
+  color: var(--ink);
+  font-size: 0.98rem;
+}
+
+.status-item span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.status-item.done {
+  border-color: rgba(117, 197, 111, 0.55);
+}
+
+.status-item.partial {
+  border-color: rgba(242, 184, 75, 0.6);
+}
+
+.status-item.gap {
+  border-color: rgba(230, 107, 122, 0.58);
+}
+
+.flow-row {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.flow-step {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 0.25rem;
+  min-height: 120px;
+  padding: 0.85rem;
+  position: relative;
+}
+
+.flow-step:not(:last-child)::after {
+  color: var(--amber);
+  content: ">";
+  font-weight: 700;
+  position: absolute;
+  right: -0.5rem;
+  top: 2.55rem;
+}
+
+.flow-step strong {
+  color: var(--ink);
+}
+
+.flow-step span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.flow-step code {
+  align-self: end;
+  overflow-wrap: anywhere;
+}
+
+.concern-panel {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 250px minmax(0, 1fr);
+}
+
+.concern-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.concern-button {
+  appearance: none;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  padding: 0.7rem;
+  text-align: left;
+}
+
+.concern-button.active,
+.concern-button:hover {
+  border-color: var(--teal);
+  color: var(--ink);
+}
+
+.concern-output {
+  min-height: 260px;
+}
+
+.mini-map {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.mini-map div {
+  background: #0d1216;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.8rem;
+}
+
+.mini-map strong {
+  color: var(--ink);
+}
+
+.mini-map span {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
 .metric {
   align-items: start;
   display: grid;
@@ -501,9 +640,20 @@ pre code {
   .two,
   .three,
   .four,
+  .status-strip,
+  .flow-row,
+  .concern-panel,
+  .mini-map,
   .inspection-grid,
   .incident-path {
     grid-template-columns: 1fr;
+  }
+
+  .flow-step:not(:last-child)::after {
+    bottom: -1rem;
+    right: 1rem;
+    top: auto;
+    transform: rotate(90deg);
   }
 
   .incident-path div:not(:last-child)::after {

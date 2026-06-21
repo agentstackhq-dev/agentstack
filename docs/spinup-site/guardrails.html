@@ -147,6 +147,22 @@ Guidance anchors:
           </section>
 
           <section class="section">
+            <h2>Guardrail coverage map</h2>
+            <table class="table">
+              <thead><tr><th>Invariant</th><th>Command surface</th><th>Evidence file</th><th>Failure shape</th></tr></thead>
+              <tbody>
+                <tr><td>Manifest is strict and typed</td><td><code>agentstack validate</code></td><td><code>packages/core/src/manifest.ts</code></td><td><code>manifest.invalid</code></td></tr>
+                <tr><td>Generated anchors are present as files</td><td><code>agentstack validate</code></td><td><code>packages/core/src/validation.ts</code></td><td><code>template.anchor.missing</code></td></tr>
+                <tr><td>Env values are local, scoped, and schema-valid</td><td><code>agentstack env set</code>, <code>validate</code>, <code>sync</code></td><td><code>packages/core/src/env-graph.ts</code></td><td><code>env.custom.missing</code>, <code>env.custom.invalid-enum</code></td></tr>
+                <tr><td>Provider rehearsal state matches manifest</td><td><code>sync --env</code>, <code>validate --cloud</code></td><td><code>packages/adapters/src/local-cloud.ts</code></td><td><code>cloud.service.missing</code>, <code>cloud.service.stale</code></td></tr>
+                <tr><td>Theme tokens stay source-of-truth backed</td><td><code>theme validate</code>, <code>validate</code></td><td><code>packages/core/src/theme.ts</code></td><td><code>theme.tokens.mirror-drift</code></td></tr>
+                <tr><td>Source does not contain raw secret-like values</td><td><code>validate</code>, <code>deploy</code></td><td><code>packages/core/src/validation.ts</code></td><td><code>source.secret.detected</code></td></tr>
+                <tr><td>Guidance pack is present and versioned</td><td><code>skills inspect</code></td><td><code>packages/core/src/guidance.ts</code></td><td>missing anchors fail, stale version warns</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="section">
             <h2>Local-cloud state machine</h2>
             <div class="diagram">
               <svg viewBox="0 0 760 270" role="img" aria-label="Local cloud state machine">

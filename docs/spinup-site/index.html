@@ -11,7 +11,7 @@
       <aside class="sidebar">
         <div class="brand">
           <strong>Agentstack Spin-Up</strong>
-          <span>Internal map of the prototype slice</span>
+          <span>Internal map of the current framework</span>
         </div>
         <nav class="nav" aria-label="Spin-up navigation">
           <a data-page="home" href="index.html">Start Here</a>
@@ -30,10 +30,10 @@
           <div>
             <h1>What we built, why it matters, and how the pieces fit.</h1>
             <p>
-              Agentstack slice 1 is a local, executable proof of an agent-first framework contract.
+              Agentstack is currently a local, executable proof of an agent-first framework contract.
               It does not call Convex, Clerk, Vercel, or EAS yet. It proves the command surface,
-              validation model, generated project shape, cloud-drift loop, and telemetry inspection
-              path that command-plan adapters use and future apply automation can extend.
+              validation model, generated project shape, cloud-drift loop, provider command-plan
+              boundary, and telemetry inspection path that future apply automation can extend.
             </p>
             <div class="pill-row">
               <span class="pill">TypeScript monorepo</span>
@@ -75,12 +75,12 @@
         <section class="content">
           <div class="grid four">
             <div class="card metric">
-              <strong>6</strong>
-              <span>workspace packages/surfaces in the framework repo</span>
+              <strong>5</strong>
+              <span>framework packages in the pnpm workspace</span>
             </div>
             <div class="card metric">
-              <strong>146</strong>
-              <span>passing tests in latest verification</span>
+              <strong>3</strong>
+              <span>generated app surfaces: web, mobile, Convex</span>
             </div>
             <div class="card metric">
               <strong>0</strong>
@@ -91,6 +91,23 @@
               <span>local command contract that generated apps can use</span>
             </div>
           </div>
+
+          <section class="section">
+            <h2>Current repo atlas</h2>
+            <p class="lede">
+              Agentstack currently contains a framework workspace, a packageable generator, a
+              mirrored B2B SaaS template, and a generated-project contract that the smoke workflow
+              can create on demand. The framework packages are source TypeScript; the generated app
+              is the shape they create and validate.
+            </p>
+            <div class="mini-map" aria-label="Repository atlas">
+              <div><strong>@agentstack/core</strong><span>manifest, diagnostics, validation, env graph, feature/event/billing/theme/mobile/release contracts</span></div>
+              <div><strong>@agentstack/cli</strong><span>command router, project context, script-facing workflows, provider plans</span></div>
+              <div><strong>@agentstack/adapters</strong><span>local-cloud state and provider operation planning for Clerk, Convex, Vercel, EAS</span></div>
+              <div><strong>@agentstack/telemetry</strong><span>wide events, redaction, JSONL store, OTLP-shaped local export</span></div>
+              <div><strong>create-agent-stack</strong><span>copies the B2B SaaS template and replaces app identity tokens</span></div>
+            </div>
+          </section>
 
           <section class="section">
             <h2>The short version</h2>
@@ -115,6 +132,37 @@
           </section>
 
           <section class="section">
+            <h2>The loop Agentstack is proving</h2>
+            <div class="flow-row" aria-label="Agentstack command loop">
+              <div class="flow-step"><strong>Create</strong><span>Copy the app template and replace identity tokens.</span><code>create-agent-stack</code></div>
+              <div class="flow-step"><strong>Add</strong><span>Generate coordinated feature, event, and billing-plan anchors.</span><code>agentstack add</code></div>
+              <div class="flow-step"><strong>Validate</strong><span>Check manifest, anchors, env values, telemetry, theme, and source secrets.</span><code>pnpm run validate</code></div>
+              <div class="flow-step"><strong>Sync</strong><span>Plan/apply selected-environment local-cloud repair and env resource rehearsal.</span><code>sync --env preview</code></div>
+              <div class="flow-step"><strong>Rehearse</strong><span>Plan/apply local preview deploy, production release, and mobile build artifacts.</span><code>deploy/build</code></div>
+              <div class="flow-step"><strong>Observe</strong><span>Query redacted JSONL timelines and write local OTLP-shaped export artifacts.</span><code>observe</code></div>
+            </div>
+          </section>
+
+          <section class="section">
+            <h2>Browse by concern</h2>
+            <p class="lede">
+              Pick the question you are trying to answer. This panel points to the commands and
+              source artifacts that carry the claim.
+            </p>
+            <div class="concern-panel">
+              <div class="concern-list" aria-label="Concern selector">
+                <button class="concern-button" type="button" data-concern="architecture">Architecture</button>
+                <button class="concern-button" type="button" data-concern="workflow">Workflow</button>
+                <button class="concern-button" type="button" data-concern="providers">Providers/env</button>
+                <button class="concern-button" type="button" data-concern="generated">Generated app</button>
+                <button class="concern-button" type="button" data-concern="telemetry">Telemetry</button>
+                <button class="concern-button" type="button" data-concern="gaps">Progress/gaps</button>
+              </div>
+              <div class="card concern-output" data-concern-output></div>
+            </div>
+          </section>
+
+          <section class="section">
             <h2>How to read this site</h2>
             <div class="grid three">
               <div class="card">
@@ -135,7 +183,7 @@
           <section class="section">
             <h2>Evidence anchors</h2>
             <p class="lede">
-              The explanations here are grounded in the final code. These are the most important files to know.
+              The explanations here are grounded in the current code. These are the most important files to know.
             </p>
             <table class="table">
               <thead>
@@ -173,6 +221,16 @@
                 </tr>
               </tbody>
             </table>
+          </section>
+
+          <section class="section">
+            <h2>Progress and gaps</h2>
+            <div class="status-strip">
+              <div class="status-item done"><strong>Working locally</strong><span>Generate project, add feature/event/billing anchors, validate, inspect, sync, rehearse deploy/build, observe timelines.</span></div>
+              <div class="status-item done"><strong>Guarded</strong><span>Generated anchors, env-value shape, source-secret policy, theme mirror drift, guidance anchors, local-cloud drift.</span></div>
+              <div class="status-item partial"><strong>Boundary only</strong><span>Clerk, Convex, Vercel, and EAS provider command plans print redacted command shapes but do not mutate remote state.</span></div>
+              <div class="status-item gap"><strong>Future work</strong><span>Real provider apply automation, hosted telemetry export, Stripe adapter, running app servers, app-store submission.</span></div>
+            </div>
           </section>
         </section>
         <footer class="footer">Internal spin-up site generated from the local Agentstack prototype repository.</footer>

@@ -9,7 +9,7 @@
   <body data-page="timeline">
     <div class="layout">
       <aside class="sidebar">
-        <div class="brand"><strong>Agentstack Spin-Up</strong><span>How the slice came together</span></div>
+        <div class="brand"><strong>Agentstack Spin-Up</strong><span>How the framework came together</span></div>
         <nav class="nav" aria-label="Spin-up navigation">
           <a data-page="home" href="index.html">Start Here</a>
           <a data-page="architecture" href="architecture.html">System Map</a>
@@ -27,13 +27,13 @@
           <div>
             <h1>Implementation timeline</h1>
             <p>
-              The prototype was built as a managed sequence of subagent-owned slices with spec review,
+              The framework has been built as a managed sequence of subagent-owned slices with spec review,
               code-quality review, and final blocker reviews. The important part is not the number of
               commits; it is that each layer became mechanically verifiable.
             </p>
           </div>
           <div class="card">
-            <h3>Final verification</h3>
+            <h3>Verification gates</h3>
             <ul>
               <li><code>pnpm install --frozen-lockfile</code></li>
               <li><code>pnpm typecheck</code></li>
@@ -45,6 +45,16 @@
         </header>
 
         <section class="content">
+          <section class="section">
+            <h2>Current state snapshot</h2>
+            <div class="status-strip">
+              <div class="status-item done"><strong>Executable contract</strong><span>Commands are implemented and covered through unit/e2e tests for local generation, validation, sync, deploy/build rehearsal, and observe flows.</span></div>
+              <div class="status-item done"><strong>Generated structure</strong><span>The B2B SaaS template contains app surfaces, shared packages, docs, skills, scripts, package-manager pinning, and safety ignores.</span></div>
+              <div class="status-item partial"><strong>Provider boundary</strong><span>Clerk, Convex, Vercel, and EAS command plans are modeled, but actual API mutations remain out of scope for this slice.</span></div>
+              <div class="status-item gap"><strong>Product runtime</strong><span>The generated web/mobile/Convex files are anchors and examples, not running production app experiences.</span></div>
+            </div>
+          </section>
+
           <section class="section">
             <h2>Build sequence</h2>
             <div class="timeline">
@@ -124,6 +134,36 @@
           </section>
 
           <section class="section">
+            <h2>Likely next slices</h2>
+            <div class="grid three">
+              <div class="card compact">
+                <h3>Real provider apply</h3>
+                <p>Turn command-plan operations into bounded apply flows with dry-run parity, token checks, production confirmation, and persisted remote IDs.</p>
+              </div>
+              <div class="card compact">
+                <h3>Runnable app surfaces</h3>
+                <p>Promote web, mobile, and Convex anchors into real dev servers, auth flows, membership screens, billing settings, and smokeable UX.</p>
+              </div>
+              <div class="card compact">
+                <h3>Hosted telemetry path</h3>
+                <p>Keep the current local JSONL/export contract while adding configurable network export, retention controls, and provider dashboard links.</p>
+              </div>
+              <div class="card compact">
+                <h3>Stripe coverage</h3>
+                <p>Add a Stripe adapter and billing-webhook rehearsal that matches the existing billing-plan, entitlement, audit, and telemetry contracts.</p>
+              </div>
+              <div class="card compact">
+                <h3>Template depth</h3>
+                <p>Expand the generated app from structural anchors to real product modules while preserving generated-boundary validation.</p>
+              </div>
+              <div class="card compact">
+                <h3>Release evidence</h3>
+                <p>Attach deploy/build artifacts, provider operation summaries, and telemetry exports into a reviewer-friendly release bundle.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="section">
             <h2>Review themes that changed the code</h2>
             <div class="grid two">
               <div class="card">
@@ -153,7 +193,7 @@
             </div>
           </section>
         </section>
-        <footer class="footer">Evidence: git history, final test output, and final review notes.</footer>
+        <footer class="footer">Evidence: git history, current test output, and review notes.</footer>
       </main>
     </div>
     <script src="assets/site.js"></script>
