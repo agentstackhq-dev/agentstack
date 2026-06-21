@@ -30,8 +30,8 @@ The consumer-facing truth is:
 | Single manifest source of truth | Implemented | `agentstack.config.json` is the active manifest across templates, docs, CLI context, and generated guidance. | Needs production-hardening of schema ergonomics, policy coverage, and package/runtime contracts. |
 | Bootstrap generation | Implemented | `create-agent-stack` copies the B2B SaaS template, rewrites app tokens, and validates generated anchors. | Public npm installability and clean-machine smoke evidence are still missing. |
 | CLI command vocabulary | Partial | Broad routing exists for core workflows, provider commands, add/generate-like surfaces, env, prod, mobile build rehearsal, and observe. | Final public command vocabulary and help/docs stability are not release-grade. |
-| Local validation | Partial | `agentstack validate` checks manifest/env/guidance/theme/source-secret/generated anchors. | It does not run lint, format, typecheck, tests, Convex checks, or full runtime validation. |
-| `validate --cloud` | Misleading-risk | It truthfully labels `Evidence: local-rehearsal` and checks local-cloud state only. | Needs a real live validation runner or a stronger split between local rehearsal and provider-backed validation. |
+| Local validation | Partial | Bare `agentstack validate` checks manifest/env/guidance/theme/source-secret/generated anchors and prints `Evidence: local-structure`. `agentstack validate --quality` adds configured local package commands, currently `pnpm typecheck` and `pnpm test`, and prints `Evidence: local-quality`. | It does not yet run lint, format, Convex checks, or full runtime validation beyond the configured local quality commands. |
+| `validate --cloud` | Local rehearsal | It truthfully labels `Evidence: local-rehearsal` and checks local-cloud state only. | Needs a separate real live validation runner that proves provider-backed state or refuses with actionable connection diagnostics. |
 | Provider command plans | Partial | Clerk/Convex/Vercel/EAS command plans exist with redacted output and evidence labels. | Plans do not yet cover full create/provision/reconcile/apply lifecycle. |
 | Live provider reads | Partial | Clerk, Convex, Vercel preview, and EAS preview have live-read inspect paths. | Production and broad provider reads are still limited; identity, scope, drift, and permissions are not yet proven across the full provider surface. |
 | Live provider mutation | Partial | Only ledger-gated Convex apply and Vercel preview deploy apply exist. | Clerk create/update, Convex full provisioning, Vercel env/domain/production, and EAS init/env/build/release are missing. |
@@ -71,7 +71,7 @@ The consumer-facing truth is:
 A consumer path from `npx create-agent-stack` to real production environments still requires:
 
 1. Public package installability: versioned npm packages, clean-machine `npx create-agent-stack` smoke tests, generated scripts that do not depend on prototype source paths, and release provenance.
-2. Truthful validation: `agentstack validate` must run local quality gates, and live validation must clearly prove provider state or refuse with actionable connection diagnostics.
+2. Truthful validation: bare `agentstack validate` is local-structure validation; `agentstack validate --quality` runs local package quality gates; live validation still needs a separate runner that clearly proves provider state or refuses with actionable connection diagnostics.
 3. Provider identity and discovery: provider-specific identity parsers, live-safe adoption/link confirmation, full discovery/provisioning, and broad production reads are still missing.
 4. Safe link/adopt/create: existing resources must be linked or adopted before mutation, and new resources must be planned, ledger-tracked, created, inspected, and cleaned up through explicit commands.
 5. Real provider provisioning: Clerk auth/org/billing/webhooks, Convex deployments/env/schema/functions, Vercel projects/env/domains/deploys, and EAS projects/env/build profiles/builds/releases.
@@ -134,7 +134,7 @@ Goal: make validation output mean what a consumer thinks it means.
 
 Deliver:
 
-- `agentstack validate` orchestration for lint, format check, typecheck, tests, Convex checks, generated anchors, theme checks, telemetry schema/redaction checks, secret scanning, and manifest validation.
+- `agentstack validate --quality` orchestration beyond the current `pnpm typecheck` and `pnpm test` commands, including lint, format check, Convex checks, generated anchors, theme checks, telemetry schema/redaction checks, secret scanning, and manifest validation.
 - A live validation mode that either reaches providers and reports live evidence or refuses with a connected-account/resource diagnostic.
 - Clear separation between local rehearsal, live-read, live-mutation, preview evidence, production evidence, and hosted-control-plane evidence.
 

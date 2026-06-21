@@ -92,7 +92,8 @@ describe("generateProject", () => {
         }
       ]);
       expect(packageManifest.packageManager).toBe("pnpm@9.15.4");
-      expect(agents).toContain("Run `pnpm run validate` before completion.");
+      expect(agents).toContain("Run `pnpm run validate` before completion for structural checks.");
+      expect(agents).toContain("Run `pnpm run validate:quality` before completion when code changed");
       expect(gitignore).toContain(".agentstack/");
       expect(gitignore).toContain(".env.*");
       expect(gitignore).toContain("!.env.example");
@@ -100,6 +101,10 @@ describe("generateProject", () => {
         inspect: "node scripts/agentstack.mjs inspect --env preview",
         doctor: "node scripts/agentstack.mjs doctor --env preview",
         dev: "node scripts/agentstack.mjs dev --env preview",
+        typecheck: "pnpm --filter @app/web build",
+        test: "node scripts/agentstack.mjs theme validate",
+        validate: "node scripts/agentstack.mjs validate",
+        "validate:quality": "node scripts/agentstack.mjs validate --quality",
         "env:inspect": "node scripts/agentstack.mjs env inspect --env preview",
         "preview:plan": "node scripts/agentstack.mjs sync --env preview",
         "preview:apply": "node scripts/agentstack.mjs sync --env preview --apply",
@@ -133,6 +138,7 @@ describe("generateProject", () => {
       expect(packageManifest.scripts).not.toHaveProperty("sync:preview:apply");
       expect(packageManifest.scripts).not.toHaveProperty("mobile:build:plan");
       expect(packageManifest.scripts).not.toHaveProperty("mobile:build:apply");
+      expect(packageManifest.scripts).not.toHaveProperty("validate:cloud");
       expect(packageManifest.devDependencies).toMatchObject({
         clerk: expect.any(String),
         convex: "^1.41.0",
@@ -395,7 +401,7 @@ describe("generateProject", () => {
       await expect(runPackageScript(targetDir, "validate", sourceCliEnv())).resolves.toContain(
         "PASS validate"
       );
-      await expect(runPackageScript(targetDir, "validate:cloud", sourceCliEnv())).rejects.toMatchObject({
+      await expect(runPackageScript(targetDir, "preview:validate", sourceCliEnv())).rejects.toMatchObject({
         stdout: expect.stringContaining("FAIL cloud.service.missing")
       });
       await expect(runPackageScript(targetDir, "init:cloud", sourceCliEnv())).resolves.toContain(
@@ -421,7 +427,7 @@ describe("generateProject", () => {
       await expect(readFile(join(targetDir, ".agentstack/deployments/preview.json"), "utf8")).resolves.toContain(
         '"environment": "preview"'
       );
-      await expect(runPackageScript(targetDir, "validate:cloud", sourceCliEnv())).resolves.toBeDefined();
+      await expect(runPackageScript(targetDir, "preview:validate", sourceCliEnv())).resolves.toBeDefined();
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }
@@ -573,7 +579,7 @@ describe("packaged template", () => {
     ).resolves.toContain("__APP_SLUG__");
     await expect(
       readFile(join(packageTemplateDir, "AGENTS.md"), "utf8")
-    ).resolves.toContain("Run `pnpm run validate` before completion.");
+    ).resolves.toContain("Run `pnpm run validate` before completion for structural checks.");
     await Promise.all(
       generatedAnchorFiles.map(async (file) => {
         await expect(stat(join(packageTemplateDir, file))).resolves.toMatchObject({

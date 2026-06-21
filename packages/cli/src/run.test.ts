@@ -15,6 +15,7 @@ const packageShimPath = join(packageDir, "src/bin.js");
 let dir: string;
 let output: string[];
 let providerExecutions: Array<{ command: string; args: string[]; stdin?: string }>;
+let qualityExecutions: Array<{ id: string; command: string; args: string[] }>;
 type CustomEnvProviderTarget = NonNullable<
   ReturnType<typeof createDefaultManifest>["env"]["custom"][string]["providerTargets"]
 >[number];
@@ -46,6 +47,7 @@ beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), "agentstack-cli-"));
   output = [];
   providerExecutions = [];
+  qualityExecutions = [];
   const manifest = createDefaultManifest("acme-crm");
   await writeFile(
     join(dir, "agentstack.config.json"),
@@ -199,11 +201,117 @@ describe("runAgentstack", () => {
   it("validates a local project", async () => {
     const code = await runAgentstack(["validate"], {
       cwd: dir,
-      write: (line) => output.push(line)
+      write: (line) => output.push(line),
+      commandRunner: async ({ id, command, args }) => {
+        qualityExecutions.push({ id, command, args });
+        return { exitCode: 0, stdout: "", stderr: "" };
+      }
     });
 
     expect(code).toBe(0);
+    expect(output).toContain("Evidence: local-structure");
+    expect(output.join("\n")).toContain("Scope: local filesystem structure only");
+    expect(output.join("\n")).not.toContain("live provider");
     expect(output).toContain("PASS validate");
+    expect(qualityExecutions).toEqual([]);
+  });
+
+  it("runs structural and local package quality validation without provider execution or telemetry", async () => {
+    const code = await runAgentstack(["validate", "--quality"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor(),
+      commandRunner: async ({ id, command, args }) => {
+        qualityExecutions.push({ id, command, args });
+        return { exitCode: 0, stdout: `ok ${id}`, stderr: "" };
+      }
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("Evidence: local-structure");
+    expect(output).toContain("Evidence: local-quality");
+    expect(output).toContain(
+      "Scope: local filesystem and package commands only; no local-cloud writes; no provider executor; no live provider reads"
+    );
+    expect(output).toContain("PASS validate --quality");
+    expect(qualityExecutions).toEqual([
+      { id: "typecheck", command: "pnpm", args: ["typecheck"] },
+      { id: "test", command: "pnpm", args: ["test"] }
+    ]);
+    expect(providerExecutions).toEqual([]);
+    await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+  });
+
+  it("fails local package quality validation with redacted command output", async () => {
+    const code = await runAgentstack(["validate", "--quality"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("provider executor should not run"),
+      commandRunner: async ({ id, command, args }) => {
+        qualityExecutions.push({ id, command, args });
+        if (id === "typecheck") {
+          return { exitCode: 0, stdout: "typecheck ok", stderr: "" };
+        }
+        return {
+          exitCode: 7,
+          stdout: `first line\nOPENAI_API_KEY=sk-live-token-shaped-secret\n${"x".repeat(5000)}`,
+          stderr: "stderr has tok_live_secret and convex deploy key"
+        };
+      }
+    });
+
+    const rendered = output.join("\n");
+    expect(code).toBe(1);
+    expect(rendered).toContain("FAIL validate --quality");
+    expect(rendered).toContain("Command: test");
+    expect(rendered).toContain("Executable: pnpm test");
+    expect(rendered).toContain("Exit code: 7");
+    expect(rendered).toContain("[REDACTED]");
+    expect(rendered).not.toContain("sk-live-token-shaped-secret");
+    expect(rendered).not.toContain("tok_live_secret");
+    expect(rendered.length).toBeLessThan(2200);
+    expect(qualityExecutions).toEqual([
+      { id: "typecheck", command: "pnpm", args: ["typecheck"] },
+      { id: "test", command: "pnpm", args: ["test"] }
+    ]);
+    expect(providerExecutions).toEqual([]);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+    await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+  });
+
+  it("does not write telemetry when quality validation stops on structural failure", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.telemetry.redaction.forbidRawSecrets = false;
+    await writeFile(
+      join(dir, "agentstack.config.json"),
+      `${JSON.stringify(manifest, null, 2)}\n`,
+      "utf8"
+    );
+
+    const code = await runAgentstack(["validate", "--quality"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      commandRunner: async ({ id, command, args }) => {
+        qualityExecutions.push({ id, command, args });
+        return { exitCode: 0, stdout: "", stderr: "" };
+      }
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL telemetry.redaction.disabled");
+    expect(qualityExecutions).toEqual([]);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
   });
 
   it("inspects project lifecycle state", async () => {
@@ -3060,6 +3168,24 @@ describe("runAgentstack", () => {
       "Scope: local-cloud state only; no live provider reads"
     ]);
     expect(output).toContain("PASS validate --cloud");
+  });
+
+  it("does not call provider executor during cloud rehearsal validation", async () => {
+    await runAgentstack(["init", "cloud"], {
+      cwd: dir,
+      write: () => undefined
+    });
+
+    const code = await runAgentstack(["validate", "--cloud"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("provider executor should not run")
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("Evidence: local-rehearsal");
+    expect(output.join("\n")).toContain("Scope: local-cloud state only; no live provider reads");
+    expect(providerExecutions).toEqual([]);
   });
 
   it("validates cloud state for an explicit environment", async () => {

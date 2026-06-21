@@ -1696,7 +1696,9 @@ Create `templates/b2b-saas/package.json`:
   "type": "module",
   "scripts": {
     "validate": "agentstack validate",
-    "validate:cloud": "agentstack validate --cloud",
+    "validate:quality": "agentstack validate --quality",
+    "preview:validate": "agentstack validate --cloud --env preview",
+    "prod:validate": "agentstack validate --cloud --env production",
     "init:cloud": "agentstack init cloud"
   },
   "workspaces": [

@@ -8,7 +8,8 @@
 - Use `skills/agentstack/SKILL.md` as the entrypoint for Agentstack workflow, guardrail, and observability guidance.
 - Run `pnpm run doctor` before provider, environment, build, sync, or deploy work; it prints repair commands when local validation or preview local-cloud checks fail.
 - Use `pnpm run dev` as a local preflight for the generated workspace-status vertical. It must not mutate provider state.
-- Run `pnpm run validate` before completion.
+- Run `pnpm run validate` before completion for structural checks.
+- Run `pnpm run validate:quality` before completion when code changed; it runs local package commands only and must not write local-cloud state or provider resources.
 - Validate theme changes with `pnpm run theme:validate`; normal `pnpm run validate` also checks token shape.
 - Style UI through `@app/theme` token roles and `@app/ui` primitives before adding surface-specific components.
 - Treat `workspace status` as the reference runnable slice: shared domain model, Convex boundary, web/mobile rendering, unstyled UI primitives, and local docs.

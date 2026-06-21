@@ -1,7 +1,8 @@
 # Workflows
 
 - Inspect: run `pnpm run inspect`, then `pnpm run skills:inspect` when agent guidance is relevant.
-- Validate: run `pnpm run validate` before completion; use `pnpm run doctor` for repair hints.
+- Validate: run `pnpm run validate` before completion for `Evidence: local-structure`; run `pnpm run validate:quality` before completion when code changed for `Evidence: local-quality`.
+- Cloud rehearsal: run `pnpm run preview:validate` for local-cloud rehearsal only; it prints `Evidence: local-rehearsal` and does not prove live provider state.
 - Preview: rehearse sync with `pnpm run preview:plan`, then apply with `pnpm run preview:apply` only when requested.
 - Deploy: rehearse deploys with `pnpm run preview:deploy`; use `pnpm run preview:deploy:apply` for local apply artifacts.
 - Mobile: use the generated mobile build scripts and treat `.agentstack/builds/` as local rehearsal output.

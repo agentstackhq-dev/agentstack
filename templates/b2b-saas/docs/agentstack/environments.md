@@ -15,7 +15,7 @@ Use `agentstack env inspect --env preview` or `pnpm run env:inspect` to confirm 
 
 Use `agentstack inspect --env preview` or `pnpm run inspect` to see provider adapter contract status and pending provider operation IDs. `contract-only` means the provider boundary is normalized, but mutations are still local-cloud rehearsal here. `clerk:command-plan`, `convex:command-plan`, `vercel:command-plan`, and `eas:command-plan` mean Agentstack can plan current provider CLI command shapes. Runtime provider execution is available only through explicit `agentstack provider inspect/apply` commands. Operation IDs are stable and redacted; env operations include surface scope and variable names only, never values or hashes. An `env.set` operation can appear before a local value is available; sync remains the actionability gate.
 
-Missing `.agentstack/env-values.json` is treated as an empty value set. Invalid JSON or non-string values fail `validate` and `validate:cloud`.
+Missing `.agentstack/env-values.json` is treated as an empty value set. Invalid JSON or non-string values fail `validate`, `validate --quality`, and `validate --cloud`.
 
 Use `agentstack sync --env <env>` after local values exist to reconcile the local provider env resource rehearsal. Sync refuses missing or invalid declared values before planning or applying provider env resources. The local-cloud adapter creates provider env resources only from declared `providerTargets`, such as `convex.convex.STRIPE_MODE` when `STRIPE_MODE` targets the Convex provider service on the Convex surface. Applied sync writes those resources to `.agentstack/local-cloud.json` with redacted metadata and `valueHash` only; raw env values are never written there.
 

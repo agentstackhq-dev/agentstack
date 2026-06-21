@@ -30,6 +30,6 @@ Before applying provider changes, run:
 ```sh
 pnpm run preview:plan
 pnpm run preview:apply
-pnpm run validate:cloud
+pnpm run preview:validate
 pnpm run observe:timeline
 ```

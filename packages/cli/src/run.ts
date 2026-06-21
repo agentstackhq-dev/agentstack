@@ -87,7 +87,22 @@ export type RunIo = {
   cwd: string;
   write: (line: string) => void;
   providerExecutor?: ProviderCommandExecutor;
+  commandRunner?: LocalCommandRunner;
 };
+
+export type LocalCommandSpec = {
+  id: string;
+  command: string;
+  args: string[];
+};
+
+export type LocalCommandResult = {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+};
+
+export type LocalCommandRunner = (command: LocalCommandSpec) => Promise<LocalCommandResult>;
 
 type ParsedOptions = Record<string, string | boolean>;
 
@@ -130,6 +145,11 @@ const telemetrySurfaceValues = [
   "cli",
   "control-plane"
 ] as const;
+
+const localQualityCommands: LocalCommandSpec[] = [
+  { id: "typecheck", command: "pnpm", args: ["typecheck"] },
+  { id: "test", command: "pnpm", args: ["test"] }
+];
 
 const observeValueOptions = [
   "env",
@@ -293,6 +313,9 @@ async function validateCommand(argv: string[], io: RunIo): Promise<number> {
   diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
 
   if (diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
+    if (options.quality) {
+      return 1;
+    }
     await recordCommandEvent(io, {
       name: "agentstack.validate.completed",
       environment: "development",
@@ -302,6 +325,23 @@ async function validateCommand(argv: string[], io: RunIo): Promise<number> {
       state: { diagnostics: diagnostics.length }
     });
     return 1;
+  }
+
+  if (options.quality) {
+    io.write("Evidence: local-structure");
+    io.write("Scope: local filesystem structure only; no package commands");
+    io.write("Evidence: local-quality");
+    io.write(
+      "Scope: local filesystem and package commands only; no local-cloud writes; no provider executor; no live provider reads"
+    );
+    const qualityResult = await runQualityValidation(io);
+    if (!qualityResult.ok) {
+      io.write("FAIL validate --quality");
+      writeFailedQualityCommand(io, qualityResult.failure);
+      return 1;
+    }
+    io.write("PASS validate --quality");
+    return 0;
   }
 
   if (options.cloud) {
@@ -341,6 +381,8 @@ async function validateCommand(argv: string[], io: RunIo): Promise<number> {
     return 0;
   }
 
+  io.write("Evidence: local-structure");
+  io.write("Scope: local filesystem structure only; no package commands");
   io.write("PASS validate");
   await recordCommandEvent(io, {
     name: "agentstack.validate.completed",
@@ -2104,6 +2146,77 @@ async function runLocalValidationGate(cwd: string): Promise<{
     diagnostics,
     envValues
   };
+}
+
+type QualityValidationResult =
+  | { ok: true }
+  | {
+      ok: false;
+      failure: {
+        spec: LocalCommandSpec;
+        result: LocalCommandResult;
+      };
+    };
+
+async function runQualityValidation(io: RunIo): Promise<QualityValidationResult> {
+  const runner = io.commandRunner ?? createChildProcessCommandRunner(io.cwd);
+  for (const spec of localQualityCommands) {
+    const result = await runner(spec);
+    if (result.exitCode !== 0) {
+      return { ok: false, failure: { spec, result } };
+    }
+  }
+  return { ok: true };
+}
+
+function writeFailedQualityCommand(
+  io: RunIo,
+  failure: Extract<QualityValidationResult, { ok: false }>["failure"]
+): void {
+  io.write(`Command: ${failure.spec.id}`);
+  io.write(`Executable: ${[failure.spec.command, ...failure.spec.args].join(" ")}`);
+  io.write(`Exit code: ${failure.result.exitCode}`);
+  const stdout = redactAndTrimCommandOutput(failure.result.stdout);
+  const stderr = redactAndTrimCommandOutput(failure.result.stderr);
+  if (stdout.length > 0) {
+    io.write(`Stdout tail: ${stdout}`);
+  }
+  if (stderr.length > 0) {
+    io.write(`Stderr tail: ${stderr}`);
+  }
+}
+
+function createChildProcessCommandRunner(cwd: string): LocalCommandRunner {
+  return async (spec) =>
+    await new Promise((resolve) => {
+      const child = spawn(spec.command, spec.args, {
+        cwd,
+        shell: false,
+        stdio: ["ignore", "pipe", "pipe"]
+      });
+      let stdout = "";
+      let stderr = "";
+      child.stdout?.on("data", (chunk) => {
+        stdout += String(chunk);
+      });
+      child.stderr?.on("data", (chunk) => {
+        stderr += String(chunk);
+      });
+      child.on("error", (error) => {
+        resolve({ exitCode: 127, stdout, stderr: `${stderr}\n${error.message}` });
+      });
+      child.on("close", (code) => {
+        resolve({ exitCode: code ?? 1, stdout, stderr });
+      });
+    });
+}
+
+function redactAndTrimCommandOutput(value: string): string {
+  const redacted = redactProviderText(value)
+    .replace(/\b(?:sk|pk|rk|tok)_(?:(?:live|test|proj|local)_?)?[A-Za-z0-9_-]{6,}\b/g, "[REDACTED]")
+    .replace(/\b[A-Z0-9_]*(?:TOKEN|SECRET|KEY)[A-Z0-9_]*=[^\s]+/gi, "[REDACTED]");
+  const tail = redacted.length > 480 ? redacted.slice(-480) : redacted;
+  return tail.trim();
 }
 
 async function runReleaseValidationGate(
