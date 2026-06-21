@@ -1157,7 +1157,7 @@ async function buildMobileCommand(argv: string[], io: RunIo): Promise<number> {
   const easDiagnostics = (await adapter.validate(context.manifest, environment, { envValues })).filter(
     (diagnostic) =>
       diagnostic.path === `${environment}.eas` ||
-      diagnostic.path?.startsWith(`${environment}.eas.env.`)
+      diagnostic.path?.startsWith(`${environment}.eas.`)
   );
   easDiagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
   if (easDiagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
@@ -1393,7 +1393,7 @@ function formatProviderEnvResources(resources: InspectEnvResource[]): string[] {
 }
 
 function formatProviderEnvResource(resource: InspectEnvResource): string {
-  return `${resource.environment}.${resource.service}.${resource.name}`;
+  return `${resource.environment}.${resource.service}.${resource.surface}.${resource.name}`;
 }
 
 function toLifecycleProviderAdapterSummary(
@@ -1686,7 +1686,7 @@ async function envInspectCommand(argv: string[], io: RunIo): Promise<number> {
   }
   for (const resource of report.expectedEnv ?? []) {
     io.write(
-      `- provider-env ${resource.service}.${resource.name} synced=${
+      `- provider-env ${resource.service}.${resource.surface}.${resource.name} synced=${
         syncedEnv.has(formatProviderEnvResource(resource)) ? "yes" : "no"
       } secret=${resource.secret ? "yes" : "no"}`
     );

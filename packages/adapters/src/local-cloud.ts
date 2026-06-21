@@ -50,6 +50,7 @@ type LocalCloudEnvResourceState = {
   name: string;
   required: boolean;
   secret: boolean;
+  source: ProviderEnvResource["source"];
   valueHash?: string;
 };
 
@@ -95,7 +96,7 @@ export class LocalCloudAdapter implements CloudAdapter {
         stateEnvResources.some(
           (candidate) =>
             envResourceKey(candidate) === envResourceKey(resource) &&
-            (!hasEnvValues || candidate.valueHash === resource.valueHash)
+            (resource.source === "provider-owned" || !hasEnvValues || candidate.valueHash === resource.valueHash)
         )
       )
       .map((resource) => ({ ...resource, synced: true }));
@@ -108,6 +109,7 @@ export class LocalCloudAdapter implements CloudAdapter {
         stateEnvResources.some(
           (candidate) =>
             envResourceKey(candidate) === envResourceKey(resource) &&
+            resource.source === "local-value" &&
             candidate.valueHash !== resource.valueHash
         )
       )
@@ -134,7 +136,7 @@ export class LocalCloudAdapter implements CloudAdapter {
   }
 
   plan(report: InspectReport): LifecycleSyncPlan {
-    const envResources = [...report.missingEnv, ...report.driftedEnv].filter(hasValueHash);
+    const envResources = [...report.missingEnv, ...report.driftedEnv].filter(isLocalValueResourceWithHash);
     return {
       environment: report.environment,
       changes: [
@@ -152,15 +154,19 @@ export class LocalCloudAdapter implements CloudAdapter {
           action: "set-env",
           environment: report.environment,
           service: resource.service,
+          surface: resource.surface,
           name: resource.name,
-          secret: resource.secret
+          secret: resource.secret,
+          source: resource.source
         })),
         ...report.staleEnv.map<SyncChange>((resource) => ({
           action: "remove-env",
           environment: report.environment,
           service: resource.service,
+          surface: resource.surface,
           name: resource.name,
-          secret: resource.secret
+          secret: resource.secret,
+          source: resource.source
         }))
       ],
       ...(envResources.length > 0 ? { envResources } : {})
@@ -213,6 +219,7 @@ export class LocalCloudAdapter implements CloudAdapter {
           (candidate) =>
             candidate.environment === change.environment &&
             candidate.service === change.service &&
+            candidate.surface === change.surface &&
             candidate.name === change.name
         );
         if (!resource) {
@@ -234,7 +241,7 @@ export class LocalCloudAdapter implements CloudAdapter {
     const removeEnvChanges = new Set(plan.changes.filter(isRemoveEnvChange).map(envChangeKey));
     if (removeEnvChanges.size > 0 && state.envResources) {
       state.envResources = state.envResources.filter(
-        (resource) => !removeEnvChanges.has(`${resource.environment}.${resource.service}.${resource.name}`)
+        (resource) => !removeEnvChanges.has(envResourceKey(resource))
       );
     }
 
@@ -271,7 +278,7 @@ export class LocalCloudAdapter implements CloudAdapter {
     const missingEnvDiagnostics = report.missingEnv.map((resource) => ({
       severity: "fail" as const,
       code: "cloud.env.missing",
-      path: `${environment}.${resource.service}.env.${resource.name}`,
+      path: formatEnvDiagnosticPath(environment, resource),
       message: `${resource.name} is not synced to ${resource.service} in ${environment}.`,
       fix: `Run agentstack sync --env ${environment} --apply.`,
       blocks: ["validate --cloud"]
@@ -279,7 +286,7 @@ export class LocalCloudAdapter implements CloudAdapter {
     const driftedEnvDiagnostics = report.driftedEnv.map((resource) => ({
       severity: "fail" as const,
       code: "cloud.env.drift",
-      path: `${environment}.${resource.service}.env.${resource.name}`,
+      path: formatEnvDiagnosticPath(environment, resource),
       message: `${resource.name} is synced to ${resource.service} in ${environment} with a stale value hash.`,
       fix: `Run agentstack sync --env ${environment} --apply.`,
       blocks: ["validate --cloud"]
@@ -287,7 +294,7 @@ export class LocalCloudAdapter implements CloudAdapter {
     const staleEnvDiagnostics = report.staleEnv.map((resource) => ({
       severity: "fail" as const,
       code: "cloud.env.stale",
-      path: `${environment}.${resource.service}.env.${resource.name}`,
+      path: formatEnvDiagnosticPath(environment, resource),
       message: `${resource.name} is synced to ${resource.service} in ${environment} but is not expected by the manifest.`,
       fix: `Run agentstack sync --env ${environment} --apply.`,
       blocks: ["validate --cloud"]
@@ -407,18 +414,30 @@ export class LocalCloudAdapter implements CloudAdapter {
 
 function formatChange(change: SyncChange): string {
   if (change.action === "set-env" || change.action === "remove-env") {
-    return `${change.action} ${change.environment}.${change.service}.${change.name}`;
+    return `${change.action} ${change.environment}.${change.service}.${change.surface}.${change.name}`;
   }
 
   return `${change.action} ${change.environment}.${change.service}`;
 }
 
-function envResourceKey(resource: { environment: EnvironmentName; service: ServiceName | string; name: string }): string {
-  return `${resource.environment}.${resource.service}.${resource.name}`;
+function envResourceKey(resource: {
+  environment: EnvironmentName;
+  service: ServiceName | string;
+  surface: ProviderEnvResource["surface"];
+  name: string;
+}): string {
+  return `${resource.environment}.${resource.service}.${resource.surface}.${resource.name}`;
+}
+
+function formatEnvDiagnosticPath(
+  environment: EnvironmentName,
+  resource: { service: ServiceName | string; surface: ProviderEnvResource["surface"]; name: string }
+): string {
+  return `${environment}.${resource.service}.${resource.surface}.env.${resource.name}`;
 }
 
 function envChangeKey(change: EnvResourceChange): string {
-  return `${change.environment}.${change.service}.${change.name}`;
+  return `${change.environment}.${change.service}.${change.surface}.${change.name}`;
 }
 
 function isSetEnvChange(change: SyncChange): change is EnvResourceChange & { action: "set-env" } {
@@ -429,8 +448,10 @@ function isRemoveEnvChange(change: SyncChange): change is EnvResourceChange & { 
   return change.action === "remove-env";
 }
 
-function hasValueHash<T extends { valueHash?: string }>(resource: T): resource is T & { valueHash: string } {
-  return resource.valueHash !== undefined;
+function isLocalValueResourceWithHash<T extends { source?: string; valueHash?: string }>(
+  resource: T
+): resource is T & { source: "local-value"; valueHash: string } {
+  return resource.source === "local-value" && resource.valueHash !== undefined;
 }
 
 function toLocalEnvResource(resource: LocalCloudEnvResourceState): LocalCloudEnvResourceState {
@@ -442,6 +463,7 @@ function toLocalEnvResource(resource: LocalCloudEnvResourceState): LocalCloudEnv
     name: resource.name,
     required: resource.required,
     secret: resource.secret,
+    source: resource.source,
     ...(resource.valueHash ? { valueHash: resource.valueHash } : {})
   };
 }

@@ -15,6 +15,32 @@ const packageShimPath = join(packageDir, "src/bin.js");
 let dir: string;
 let output: string[];
 let providerExecutions: Array<{ command: string; args: string[]; stdin?: string }>;
+type CustomEnvProviderTarget = NonNullable<
+  ReturnType<typeof createDefaultManifest>["env"]["custom"][string]["providerTargets"]
+>[number];
+const convexPreviewTarget: CustomEnvProviderTarget[] = [
+  { service: "convex", surfaces: ["convex"], environments: ["preview"], source: "local-value" }
+];
+const convexPreviewProductionTargets: CustomEnvProviderTarget[] = [
+  { service: "convex", surfaces: ["convex"], environments: ["preview", "production"], source: "local-value" }
+];
+const productionWebConvexTargets: CustomEnvProviderTarget[] = [
+  { service: "vercel", surfaces: ["web"], environments: ["production"], source: "local-value" },
+  { service: "convex", surfaces: ["convex"], environments: ["production"], source: "local-value" }
+];
+const previewWebConvexTargets: CustomEnvProviderTarget[] = [
+  { service: "vercel", surfaces: ["web"], environments: ["preview"], source: "local-value" },
+  { service: "convex", surfaces: ["convex"], environments: ["preview"], source: "local-value" }
+];
+const easPreviewTarget: CustomEnvProviderTarget[] = [
+  { service: "eas", surfaces: ["mobile"], environments: ["preview"], source: "local-value" }
+];
+const vercelPreviewTarget: CustomEnvProviderTarget[] = [
+  { service: "vercel", surfaces: ["web"], environments: ["preview"], source: "local-value" }
+];
+const clerkPreviewTarget: CustomEnvProviderTarget[] = [
+  { service: "clerk", surfaces: ["web"], environments: ["preview"], source: "local-value" }
+];
 
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), "agentstack-cli-"));
@@ -366,7 +392,8 @@ describe("runAgentstack", () => {
       surfaces: ["convex"],
       environments: ["preview"],
       required: true,
-      secret: true
+      secret: true,
+      providerTargets: convexPreviewTarget
     };
     await writeFile(
       join(dir, "agentstack.config.json"),
@@ -397,7 +424,8 @@ describe("runAgentstack", () => {
       surfaces: ["convex"],
       environments: ["preview"],
       required: true,
-      secret: true
+      secret: true,
+      providerTargets: convexPreviewTarget
     };
     await writeFile(
       join(dir, "agentstack.config.json"),
@@ -437,7 +465,7 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(1);
     expect(output.join("\n")).toContain("FAIL cloud.env.missing");
-    expect(output.join("\n")).toContain("Path: preview.convex.env.OPENAI_API_KEY");
+    expect(output.join("\n")).toContain("Path: preview.convex.convex.env.OPENAI_API_KEY");
     expect(output.join("\n")).not.toContain("sk-local-provider-value");
   });
 
@@ -453,7 +481,7 @@ describe("runAgentstack", () => {
     });
 
     expect(code).toBe(0);
-    expect(output).toContain("- set-env preview.convex.OPENAI_API_KEY");
+    expect(output).toContain("- set-env preview.convex.convex.OPENAI_API_KEY");
     expect(output.join("\n")).not.toContain("sk-local-provider-value");
     await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).resolves.not.toContain(
       "sk-local-provider-value"
@@ -502,7 +530,8 @@ describe("runAgentstack", () => {
       environments: ["preview"],
       required: true,
       secret: false,
-      validate: "enum:sandbox,live"
+      validate: "enum:sandbox,live",
+      providerTargets: convexPreviewTarget
     };
     await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
     await writeLocalEnvValues({
@@ -566,7 +595,8 @@ describe("runAgentstack", () => {
       surfaces: ["convex"],
       environments: ["preview"],
       required: true,
-      secret: true
+      secret: true,
+      providerTargets: convexPreviewTarget
     };
     await writeFile(
       join(dir, "agentstack.config.json"),
@@ -611,7 +641,8 @@ describe("runAgentstack", () => {
       environments: ["production"],
       required: true,
       secret: false,
-      validate: "enum:sandbox,live"
+      validate: "enum:sandbox,live",
+      providerTargets: productionWebConvexTargets
     };
     await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
     await writeLocalEnvValues({
@@ -628,7 +659,7 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(1);
     expect(output.join("\n")).toContain("FAIL cloud.env.missing");
-    expect(output.join("\n")).toContain("Path: production.vercel.env.STRIPE_MODE");
+    expect(output.join("\n")).toContain("Path: production.vercel.web.env.STRIPE_MODE");
     expect(output.join("\n")).not.toContain("live");
   });
 
@@ -666,7 +697,8 @@ describe("runAgentstack", () => {
       environments: ["production"],
       required: true,
       secret: false,
-      validate: "enum:sandbox,live"
+      validate: "enum:sandbox,live",
+      providerTargets: productionWebConvexTargets
     };
     await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 
@@ -692,7 +724,8 @@ describe("runAgentstack", () => {
       environments: ["production"],
       required: true,
       secret: false,
-      validate: "enum:sandbox,live"
+      validate: "enum:sandbox,live",
+      providerTargets: productionWebConvexTargets
     };
     await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 
@@ -1140,7 +1173,8 @@ describe("runAgentstack", () => {
       surfaces: ["mobile"],
       environments: ["preview"],
       required: true,
-      secret: false
+      secret: false,
+      providerTargets: easPreviewTarget
     };
     await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
     await writeLocalEnvValues({
@@ -1160,7 +1194,7 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(1);
     expect(output.join("\n")).toContain("FAIL cloud.env.missing");
-    expect(output.join("\n")).toContain("Path: preview.eas.env.EXPO_PUBLIC_API_URL");
+    expect(output.join("\n")).toContain("Path: preview.eas.mobile.env.EXPO_PUBLIC_API_URL");
     expect(output.join("\n")).not.toContain("https://api.example.test");
   });
 
@@ -1235,7 +1269,8 @@ describe("runAgentstack", () => {
       surfaces: ["web"],
       environments: ["preview"],
       required: true,
-      secret: false
+      secret: false,
+      providerTargets: vercelPreviewTarget
     };
     await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
     await writeLocalEnvValues({
@@ -1276,7 +1311,8 @@ describe("runAgentstack", () => {
       surfaces: ["mobile"],
       environments: ["preview"],
       required: true,
-      secret: false
+      secret: false,
+      providerTargets: easPreviewTarget
     };
     await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
     await writeLocalEnvValues({
@@ -1321,7 +1357,8 @@ describe("runAgentstack", () => {
       surfaces: ["web"],
       environments: ["preview"],
       required: true,
-      secret: true
+      secret: true,
+      providerTargets: clerkPreviewTarget
     };
     await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
     await writeLocalEnvValues({
@@ -1631,7 +1668,8 @@ describe("runAgentstack", () => {
       environments: ["preview"],
       required: true,
       secret: false,
-      validate: "enum:sandbox,live"
+      validate: "enum:sandbox,live",
+      providerTargets: previewWebConvexTargets
     };
     await writeFile(
       join(dir, "agentstack.config.json"),
@@ -1677,7 +1715,7 @@ describe("runAgentstack", () => {
     });
 
     expect(syncedCode).toBe(0);
-    expect(output).toContain("- provider-env convex.OPENAI_API_KEY synced=yes secret=yes");
+    expect(output).toContain("- provider-env convex.convex.OPENAI_API_KEY synced=yes secret=yes");
     expect(output.join("\n")).not.toContain("sk-local-provider-value");
 
     await rm(join(dir, ".agentstack", "local-cloud.json"), { force: true });
@@ -1688,8 +1726,53 @@ describe("runAgentstack", () => {
     });
 
     expect(missingCode).toBe(0);
-    expect(output).toContain("- provider-env convex.OPENAI_API_KEY synced=no secret=yes");
+    expect(output).toContain("- provider-env convex.convex.OPENAI_API_KEY synced=no secret=yes");
     expect(output.join("\n")).not.toContain("sk-local-provider-value");
+  });
+
+  it("keeps same-provider env inspect sync state distinct by surface", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.environments = ["preview"];
+    manifest.surfaces = ["web", "convex"];
+    manifest.env.custom.STRIPE_MODE = {
+      surfaces: ["web", "convex"],
+      environments: ["preview"],
+      required: true,
+      secret: false,
+      validate: "enum:sandbox,live",
+      providerTargets: [
+        { service: "convex", surfaces: ["web"], environments: ["preview"], source: "local-value" },
+        { service: "convex", surfaces: ["convex"], environments: ["preview"], source: "local-value" }
+      ]
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    await writeLocalEnvValues({
+      preview: {
+        web: { STRIPE_MODE: "sandbox" },
+        convex: { STRIPE_MODE: "sandbox" }
+      }
+    });
+    await runAgentstack(["sync", "--env", "preview", "--apply"], {
+      cwd: dir,
+      write: () => undefined
+    });
+    const state = JSON.parse(await readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")) as {
+      envResources?: Array<{ surface: string; name: string }>;
+    };
+    state.envResources = state.envResources?.filter(
+      (resource) => !(resource.surface === "convex" && resource.name === "STRIPE_MODE")
+    );
+    await writeFile(join(dir, ".agentstack", "local-cloud.json"), `${JSON.stringify(state, null, 2)}\n`);
+
+    const code = await runAgentstack(["env", "inspect", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("- provider-env convex.web.STRIPE_MODE synced=yes secret=no");
+    expect(output).toContain("- provider-env convex.convex.STRIPE_MODE synced=no secret=no");
+    expect(output.join("\n")).not.toContain("- provider-env convex.STRIPE_MODE");
   });
 
   it("sets a declared custom env value and lets validation pass", async () => {
@@ -1701,7 +1784,8 @@ describe("runAgentstack", () => {
       environments: ["preview"],
       required: true,
       secret: false,
-      validate: "enum:sandbox,live"
+      validate: "enum:sandbox,live",
+      providerTargets: convexPreviewTarget
     };
     await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 
@@ -1729,7 +1813,8 @@ describe("runAgentstack", () => {
       environments: ["preview"],
       required: true,
       secret: false,
-      validate: "enum:sandbox,live"
+      validate: "enum:sandbox,live",
+      providerTargets: previewWebConvexTargets
     };
     await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
     await mkdir(join(dir, ".agentstack"), { recursive: true });
@@ -1756,7 +1841,8 @@ describe("runAgentstack", () => {
       surfaces: ["convex"],
       environments: ["preview"],
       required: true,
-      secret: false
+      secret: false,
+      providerTargets: convexPreviewTarget
     };
     await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 
@@ -1795,7 +1881,8 @@ describe("runAgentstack", () => {
       environments: ["preview"],
       required: true,
       secret: false,
-      validate: "enum:sandbox,live"
+      validate: "enum:sandbox,live",
+      providerTargets: convexPreviewTarget
     };
     await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 
@@ -1815,7 +1902,8 @@ describe("runAgentstack", () => {
       surfaces: ["convex"],
       environments: ["preview"],
       required: true,
-      secret: true
+      secret: true,
+      providerTargets: convexPreviewTarget
     };
     await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 
@@ -2854,7 +2942,8 @@ async function writeProviderEnvManifest(): Promise<void> {
     surfaces: ["convex"],
     environments: ["preview"],
     required: true,
-    secret: true
+    secret: true,
+    providerTargets: convexPreviewTarget
   };
   await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 }

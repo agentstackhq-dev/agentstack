@@ -40,7 +40,15 @@
         "environments": ["preview", "production"],
         "required": false,
         "secret": false,
-        "validate": "enum:sandbox,live"
+        "validate": "enum:sandbox,live",
+        "providerTargets": [
+          {
+            "service": "convex",
+            "surfaces": ["convex"],
+            "environments": ["preview", "production"],
+            "source": "local-value"
+          }
+        ]
       }
     }
   },

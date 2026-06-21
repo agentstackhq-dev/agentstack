@@ -35,7 +35,11 @@ describe("environment graph", () => {
       environments: ["preview", "production"],
       required: true,
       secret: false,
-      validate: "enum:sandbox,live"
+      validate: "enum:sandbox,live",
+      providerTargets: [
+        { service: "vercel", surfaces: ["web"], environments: ["preview", "production"], source: "local-value" },
+        { service: "convex", surfaces: ["convex"], environments: ["preview", "production"], source: "local-value" }
+      ]
     };
 
     const graph = buildEnvGraph(manifest);
@@ -120,7 +124,15 @@ describe("environment graph", () => {
       surfaces: ["convex"],
       environments: ["development", "preview", "production"],
       required: true,
-      secret: true
+      secret: true,
+      providerTargets: [
+        {
+          service: "convex",
+          surfaces: ["convex"],
+          environments: ["development", "preview", "production"],
+          source: "local-value"
+        }
+      ]
     };
 
     const diagnostics = validateCustomEnvValues(manifest, {
@@ -144,7 +156,10 @@ describe("environment graph", () => {
       environments: ["preview"],
       required: true,
       secret: false,
-      validate: "enum:sandbox,live"
+      validate: "enum:sandbox,live",
+      providerTargets: [
+        { service: "convex", surfaces: ["convex"], environments: ["preview"], source: "local-value" }
+      ]
     };
 
     const diagnostics = validateCustomEnvValues(manifest, {
@@ -195,7 +210,11 @@ describe("environment graph", () => {
       surfaces: ["web", "convex"],
       environments: ["preview", "production"],
       required: true,
-      secret: true
+      secret: true,
+      providerTargets: [
+        { service: "vercel", surfaces: ["web"], environments: ["production"], source: "local-value" },
+        { service: "convex", surfaces: ["convex"], environments: ["production"], source: "local-value" }
+      ]
     };
 
     const diagnostics = validateCustomEnvValues(manifest, {
@@ -213,7 +232,10 @@ describe("environment graph", () => {
       surfaces: ["convex"],
       environments: ["production"],
       required: true,
-      secret: true
+      secret: true,
+      providerTargets: [
+        { service: "convex", surfaces: ["convex"], environments: ["production"], source: "local-value" }
+      ]
     };
 
     const diagnostics = validateCustomEnvValues(manifest, {
@@ -230,7 +252,10 @@ describe("environment graph", () => {
       surfaces: ["web"],
       environments: ["production"],
       required: false,
-      secret: true
+      secret: true,
+      providerTargets: [
+        { service: "vercel", surfaces: ["web"], environments: ["production"], source: "local-value" }
+      ]
     };
 
     const diagnostics = validateCustomEnvValues(manifest, {
@@ -248,7 +273,10 @@ describe("environment graph", () => {
       surfaces: ["convex"],
       environments: ["preview"],
       required: true,
-      secret: true
+      secret: true,
+      providerTargets: [
+        { service: "convex", surfaces: ["convex"], environments: ["preview"], source: "local-value" }
+      ]
     };
 
     const diagnostics = validateCustomEnvValues(manifest, {
@@ -274,13 +302,20 @@ describe("environment graph", () => {
       environments: ["preview", "production"],
       required: true,
       secret: false,
-      validate: "enum:sandbox,live"
+      validate: "enum:sandbox,live",
+      providerTargets: [
+        { service: "vercel", surfaces: ["web"], environments: ["preview", "production"], source: "local-value" },
+        { service: "convex", surfaces: ["convex"], environments: ["preview", "production"], source: "local-value" }
+      ]
     };
     manifest.env.custom.OPENAI_API_KEY = {
       surfaces: ["convex"],
       environments: ["preview"],
       required: true,
-      secret: true
+      secret: true,
+      providerTargets: [
+        { service: "convex", surfaces: ["convex"], environments: ["preview"], source: "local-value" }
+      ]
     };
 
     const resources = buildProviderEnvResources(manifest, {
@@ -352,31 +387,43 @@ describe("environment graph", () => {
     expect(JSON.stringify(resources)).not.toContain("sk-local-openai");
   });
 
-  it("routes Clerk-owned env names to the Clerk provider instead of the surface provider", () => {
+  it("routes provider env resources only through explicit provider targets", () => {
     const manifest = createDefaultManifest("acme-crm");
     manifest.env.custom.CLERK_SECRET_KEY = {
       surfaces: ["web"],
       environments: ["preview"],
       required: true,
-      secret: true
+      secret: true,
+      providerTargets: [
+        { service: "clerk", surfaces: ["web"], environments: ["preview"], source: "local-value" }
+      ]
     };
     manifest.env.custom.CLERK_WEBHOOK_SIGNING_SECRET = {
       surfaces: ["convex"],
       environments: ["preview"],
       required: true,
-      secret: true
+      secret: true,
+      providerTargets: [
+        { service: "clerk", surfaces: ["convex"], environments: ["preview"], source: "local-value" }
+      ]
     };
     manifest.env.custom.VITE_CLERK_PUBLISHABLE_KEY = {
       surfaces: ["web", "mobile"],
       environments: ["preview"],
       required: true,
-      secret: false
+      secret: false,
+      providerTargets: [
+        { service: "clerk", surfaces: ["web", "mobile"], environments: ["preview"], source: "local-value" }
+      ]
     };
     manifest.env.custom.CLERK_PUBLISHABLE_KEY = {
       surfaces: ["web"],
       environments: ["preview"],
       required: true,
-      secret: false
+      secret: false,
+      providerTargets: [
+        { service: "clerk", surfaces: ["web"], environments: ["preview"], source: "local-value" }
+      ]
     };
 
     const resources = buildProviderEnvResources(manifest, {
@@ -404,6 +451,101 @@ describe("environment graph", () => {
     expect(JSON.stringify(resources)).not.toContain("pk_test_unprefixed");
   });
 
+  it("creates separate provider resources for the same name on Vercel web and Convex", () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.env.custom.SHARED_TOKEN = {
+      surfaces: ["web", "convex"],
+      environments: ["preview"],
+      required: true,
+      secret: true,
+      providerTargets: [
+        { service: "vercel", surfaces: ["web"], environments: ["preview"], source: "local-value" },
+        { service: "convex", surfaces: ["convex"], environments: ["preview"], source: "local-value" }
+      ]
+    };
+
+    const resources = buildProviderEnvResources(manifest, {
+      preview: {
+        web: { SHARED_TOKEN: "web-value" },
+        convex: { SHARED_TOKEN: "convex-value" }
+      }
+    });
+
+    expect(resources.map((resource) => `${resource.environment}.${resource.service}.${resource.surface}.${resource.name}`)).toEqual([
+      "preview.vercel.web.SHARED_TOKEN",
+      "preview.convex.convex.SHARED_TOKEN"
+    ]);
+    expect(resources[0]?.valueHash).not.toBe(resources[1]?.valueHash);
+  });
+
+  it("keeps provider-owned Clerk targets separate from local-value materialization", () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.env.custom.CLERK_SECRET_KEY = {
+      surfaces: ["web"],
+      environments: ["preview"],
+      required: true,
+      secret: true,
+      providerTargets: [
+        { service: "clerk", surfaces: ["web"], environments: ["preview"], source: "provider-owned" }
+      ]
+    };
+
+    const resources = buildProviderEnvResources(manifest, {});
+
+    expect(resources).toEqual([
+      {
+        environment: "preview",
+        surface: "web",
+        service: "clerk",
+        kind: "envVar",
+        name: "CLERK_SECRET_KEY",
+        required: true,
+        secret: true,
+        source: "provider-owned"
+      }
+    ]);
+  });
+
+  it("fails loudly when custom env providerTargets is missing from an in-memory manifest", () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.env.custom.STRIPE_MODE = {
+      surfaces: ["web"],
+      environments: ["preview"],
+      required: true,
+      secret: false
+    } as (typeof manifest.env.custom)[string];
+
+    expect(() => buildProviderEnvResources(manifest, {})).toThrow();
+  });
+
+  it("does not route Clerk-looking names to Clerk without explicit provider targets", () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.env.custom.CLERK_SECRET_KEY = {
+      surfaces: ["web"],
+      environments: ["preview"],
+      required: true,
+      secret: true,
+      providerTargets: [
+        { service: "vercel", surfaces: ["web"], environments: ["preview"], source: "local-value" }
+      ]
+    };
+
+    const resources = buildProviderEnvResources(manifest, {
+      preview: { web: { CLERK_SECRET_KEY: "sk_test_local" } }
+    });
+
+    expect(resources).toEqual([
+      expect.objectContaining({
+        environment: "preview",
+        surface: "web",
+        service: "vercel",
+        name: "CLERK_SECRET_KEY",
+        source: "local-value",
+        valueHash: expect.any(String)
+      })
+    ]);
+  });
+
   it("excludes provider env resources for disabled services and inactive scopes", () => {
     const manifest = createDefaultManifest("acme-crm");
     manifest.environments = ["preview"];
@@ -414,7 +556,27 @@ describe("environment graph", () => {
       surfaces: ["web", "convex", "mobile"],
       environments: ["development", "preview", "production"],
       required: true,
-      secret: false
+      secret: false,
+      providerTargets: [
+        {
+          service: "vercel",
+          surfaces: ["web"],
+          environments: ["development", "preview", "production"],
+          source: "local-value"
+        },
+        {
+          service: "convex",
+          surfaces: ["convex"],
+          environments: ["development", "preview", "production"],
+          source: "local-value"
+        },
+        {
+          service: "eas",
+          surfaces: ["mobile"],
+          environments: ["development", "preview", "production"],
+          source: "local-value"
+        }
+      ]
     };
 
     const resources = buildProviderEnvResources(manifest, {
@@ -438,7 +600,10 @@ describe("environment graph", () => {
       surfaces: ["web"],
       environments: ["preview"],
       required: false,
-      secret: true
+      secret: true,
+      providerTargets: [
+        { service: "vercel", surfaces: ["web"], environments: ["preview"], source: "local-value" }
+      ]
     };
 
     expect(buildProviderEnvResources(manifest, {})).toEqual([]);
@@ -451,6 +616,7 @@ describe("environment graph", () => {
         environment: "preview",
         surface: "web",
         service: "vercel",
+        source: "local-value",
         name: "SENTRY_DSN",
         required: false,
         secret: true,

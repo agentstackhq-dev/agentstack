@@ -38,6 +38,7 @@ export type ProviderOperation = {
   scope: string;
   target: string;
   source: ProviderOperationSource;
+  valueSource?: "local-value" | "provider-owned";
   summary: string;
   secret: boolean;
   requiresConfirmation: boolean;
@@ -95,10 +96,10 @@ export function createProviderOperationPlan(report: InspectReport): ProviderOper
       ...report.stale.map((resource) =>
         serviceOperation(report.environment, "service.unlink", "service.stale", resource)
       ),
-      ...report.missingEnv.map((resource) =>
+      ...report.missingEnv.filter(isLocalValueEnvResource).map((resource) =>
         envOperation(report.environment, "env.set", "env.missing", resource)
       ),
-      ...report.driftedEnv.map((resource) =>
+      ...report.driftedEnv.filter(isLocalValueEnvResource).map((resource) =>
         envOperation(report.environment, "env.set", "env.drifted", resource)
       ),
       ...report.staleEnv.map((resource) =>
@@ -146,10 +147,15 @@ function envOperation(
     scope: resource.surface,
     target: `env:${resource.name}`,
     source,
+    valueSource: resource.source,
     summary: `${action} ${resource.name} for ${resource.service} ${resource.surface} in ${environment}.`,
     secret: resource.secret,
     requiresConfirmation: requiresConfirmation(environment)
   };
+}
+
+function isLocalValueEnvResource(resource: InspectEnvResource): boolean {
+  return resource.source === "local-value" && resource.valueHash !== undefined;
 }
 
 function requiresConfirmation(environment: EnvironmentName): boolean {

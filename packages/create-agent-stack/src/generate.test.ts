@@ -82,6 +82,14 @@ describe("generateProject", () => {
       );
 
       expect(manifest.app.slug).toBe("acme-crm");
+      expect(manifest.env.custom.STRIPE_MODE.providerTargets).toEqual([
+        {
+          service: "convex",
+          surfaces: ["convex"],
+          environments: ["preview", "production"],
+          source: "local-value"
+        }
+      ]);
       expect(packageManifest.packageManager).toBe("pnpm@9.15.4");
       expect(agents).toContain("Run `pnpm run validate` before completion.");
       expect(gitignore).toContain(".agentstack/");

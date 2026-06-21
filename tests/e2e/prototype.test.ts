@@ -112,7 +112,15 @@ describe("Agentstack executable prototype workflow", () => {
       environments: ["preview", "production"],
       required: true,
       secret: false,
-      validate: "enum:sandbox,live"
+      validate: "enum:sandbox,live",
+      providerTargets: [
+        {
+          service: "convex",
+          surfaces: ["convex"],
+          environments: ["preview", "production"],
+          source: "local-value"
+        }
+      ]
     };
     await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 
@@ -275,8 +283,8 @@ describe("Agentstack executable prototype workflow", () => {
     expect(renderedOutput).toContain("PASS env set preview convex.STRIPE_MODE");
     expect(renderedOutput).toContain("PASS env set production convex.STRIPE_MODE");
     expect(renderedOutput).toContain("PASS env inspect preview");
-    expect(renderedOutput).toContain("set-env preview.convex.STRIPE_MODE");
-    expect(renderedOutput).toContain("provider-env convex.STRIPE_MODE synced=yes secret=no");
+    expect(renderedOutput).toContain("set-env preview.convex.convex.STRIPE_MODE");
+    expect(renderedOutput).toContain("provider-env convex.convex.STRIPE_MODE synced=yes secret=no");
     expect(renderedOutput).toContain("PASS inspect acme-crm");
     expect(renderedOutput).toContain("PASS skills inspect");
     expect(renderedOutput).toContain("No MCP dependency");

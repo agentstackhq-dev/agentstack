@@ -5,7 +5,9 @@ import type {
   EnvironmentName,
   MobileBuildPlan,
   ProviderEnvResource,
-  ServiceName
+  ProviderEnvSource,
+  ServiceName,
+  SurfaceName
 } from "@agentstack/core";
 
 export type SyncOptions = {
@@ -59,8 +61,10 @@ export type EnvResourceChange = {
   action: "set-env" | "remove-env";
   environment: EnvironmentName;
   service: ServiceName | string;
+  surface: SurfaceName;
   name: string;
   secret: boolean;
+  source: ProviderEnvSource;
 };
 
 export type SyncChange = ServiceChange | EnvResourceChange;

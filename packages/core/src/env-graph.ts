@@ -6,6 +6,7 @@ import {
   surfaceSchema,
   type AgentstackManifest,
   type EnvironmentName,
+  type ProviderEnvSource,
   type ServiceName,
   type SurfaceName
 } from "./manifest.js";
@@ -38,6 +39,7 @@ export type ProviderEnvResource = {
   name: string;
   required: boolean;
   secret: boolean;
+  source: ProviderEnvSource;
   valueHash?: string;
 };
 
@@ -118,27 +120,35 @@ export function buildProviderEnvResources(
 
     for (const environment of activeEnvironments) {
       for (const surface of activeSurfaces) {
-        const service = providerServiceForBinding(surface, name);
-        const serviceConfig = manifest.services[service];
-        if (!serviceConfig.enabled || !serviceConfig.requiredEnvironments.includes(environment)) {
-          continue;
-        }
+        for (const target of declaration.providerTargets) {
+          if (!target.environments.includes(environment) || !target.surfaces.includes(surface)) {
+            continue;
+          }
 
-        const value = values[environment]?.[surface]?.[name];
-        if (!declaration.required && value === undefined) {
-          continue;
-        }
+          const serviceConfig = manifest.services[target.service];
+          if (!serviceConfig.enabled || !serviceConfig.requiredEnvironments.includes(environment)) {
+            continue;
+          }
 
-        resources.push({
-          environment,
-          surface,
-          service,
-          kind: "envVar",
-          name,
-          required: declaration.required,
-          secret: declaration.secret,
-          ...(value !== undefined ? { valueHash: hashProviderEnvValue(environment, surface, name, value) } : {})
-        });
+          const value = values[environment]?.[surface]?.[name];
+          if (target.source === "local-value" && !declaration.required && value === undefined) {
+            continue;
+          }
+
+          resources.push({
+            environment,
+            surface,
+            service: target.service,
+            kind: "envVar",
+            name,
+            required: declaration.required,
+            secret: declaration.secret,
+            source: target.source,
+            ...(target.source === "local-value" && value !== undefined
+              ? { valueHash: hashProviderEnvValue(environment, surface, name, value) }
+              : {})
+          });
+        }
       }
     }
   }
@@ -205,31 +215,6 @@ function parseEnumValidation(validate: string | undefined): string[] | undefined
     .split(",")
     .map((option) => option.trim())
     .filter(Boolean);
-}
-
-function providerServiceForBinding(surface: SurfaceName, name: string): ServiceName {
-  if (isClerkEnvName(name)) {
-    return "clerk";
-  }
-
-  switch (surface) {
-    case "web":
-      return "vercel";
-    case "mobile":
-      return "eas";
-    case "convex":
-      return "convex";
-  }
-}
-
-function isClerkEnvName(name: string): boolean {
-  return (
-    name === "CLERK_PUBLISHABLE_KEY" ||
-    name === "CLERK_SECRET_KEY" ||
-    name === "CLERK_WEBHOOK_SIGNING_SECRET" ||
-    name.endsWith("_CLERK_PUBLISHABLE_KEY") ||
-    name.endsWith("_CLERK_SECRET_KEY")
-  );
 }
 
 function hashProviderEnvValue(

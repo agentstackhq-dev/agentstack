@@ -300,7 +300,11 @@ describe("local-cloud adapter", () => {
       environments: ["preview"],
       required: true,
       secret: false,
-      validate: "enum:sandbox,live"
+      validate: "enum:sandbox,live",
+      providerTargets: [
+        { service: "vercel", surfaces: ["web"], environments: ["preview"], source: "local-value" },
+        { service: "convex", surfaces: ["convex"], environments: ["preview"], source: "local-value" }
+      ]
     };
     const envValues = {
       preview: {
@@ -315,7 +319,7 @@ describe("local-cloud adapter", () => {
       expect.objectContaining({
         severity: "fail",
         code: "cloud.env.missing",
-        path: "preview.vercel.env.STRIPE_MODE",
+        path: "preview.vercel.web.env.STRIPE_MODE",
         fix: "Run agentstack sync --env preview --apply."
       })
     );
@@ -323,24 +327,25 @@ describe("local-cloud adapter", () => {
       expect.objectContaining({
         severity: "fail",
         code: "cloud.env.missing",
-        path: "preview.convex.env.STRIPE_MODE"
+        path: "preview.convex.convex.env.STRIPE_MODE"
       })
     );
 
     const syncPlan = await adapter.sync(manifest, "preview", { apply: true, envValues });
     const stateText = await readFile(statePath(), "utf8");
     const state = JSON.parse(stateText) as {
-      envResources?: Array<{ environment: string; service: string; name: string; valueHash?: string }>;
+      envResources?: Array<{ environment: string; service: string; surface: string; name: string; valueHash?: string }>;
     };
     const afterSync = await adapter.validate(manifest, "preview", { envValues });
 
-    expect(syncPlan.changes).toContain("set-env preview.vercel.STRIPE_MODE");
-    expect(syncPlan.changes).toContain("set-env preview.convex.STRIPE_MODE");
+    expect(syncPlan.changes).toContain("set-env preview.vercel.web.STRIPE_MODE");
+    expect(syncPlan.changes).toContain("set-env preview.convex.convex.STRIPE_MODE");
     expect(state.envResources).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           environment: "preview",
           service: "vercel",
+          surface: "web",
           name: "STRIPE_MODE",
           valueHash: expect.any(String)
         })
@@ -358,12 +363,15 @@ describe("local-cloud adapter", () => {
       environments: ["preview"],
       required: true,
       secret: false,
-      validate: "enum:sandbox,live"
+      validate: "enum:sandbox,live",
+      providerTargets: [
+        { service: "vercel", surfaces: ["web"], environments: ["preview"], source: "local-value" }
+      ]
     };
 
     const plan = await adapter.sync(manifest, "preview", { apply: false, envValues: {} });
 
-    expect(plan.changes).not.toContain("set-env preview.vercel.STRIPE_MODE");
+    expect(plan.changes).not.toContain("set-env preview.vercel.web.STRIPE_MODE");
   });
 
   it("does not persist provider env resources when required values are missing", async () => {
@@ -374,18 +382,22 @@ describe("local-cloud adapter", () => {
       environments: ["preview"],
       required: true,
       secret: false,
-      validate: "enum:sandbox,live"
+      validate: "enum:sandbox,live",
+      providerTargets: [
+        { service: "vercel", surfaces: ["web"], environments: ["preview"], source: "local-value" }
+      ]
     };
 
     await adapter.sync(manifest, "preview", { apply: true, envValues: {} });
 
     const state = JSON.parse(await readFile(statePath(), "utf8")) as {
-      envResources?: Array<{ environment: string; service: string; name: string; valueHash?: string }>;
+      envResources?: Array<{ environment: string; service: string; surface: string; name: string; valueHash?: string }>;
     };
     expect(state.envResources ?? []).not.toContainEqual(
       expect.objectContaining({
         environment: "preview",
         service: "vercel",
+        surface: "web",
         name: "STRIPE_MODE"
       })
     );
@@ -427,10 +439,84 @@ describe("local-cloud adapter", () => {
       expect.objectContaining({
         severity: "fail",
         code: "cloud.env.stale",
-        path: "preview.vercel.env.LEGACY_FLAG"
+        path: "preview.vercel.web.env.LEGACY_FLAG"
       })
     );
-    expect(plan.changes).toContain("remove-env preview.vercel.LEGACY_FLAG");
+    expect(plan.changes).toContain("remove-env preview.vercel.web.LEGACY_FLAG");
+  });
+
+  it("keeps same-name provider env resources distinct by surface", async () => {
+    const adapter = new LocalCloudAdapter(dir);
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.env.custom.PUBLIC_API_URL = {
+      surfaces: ["web", "mobile"],
+      environments: ["preview"],
+      required: true,
+      secret: false,
+      providerTargets: [
+        { service: "vercel", surfaces: ["web"], environments: ["preview"], source: "local-value" },
+        { service: "eas", surfaces: ["mobile"], environments: ["preview"], source: "local-value" }
+      ]
+    };
+
+    await adapter.sync(manifest, "preview", {
+      apply: true,
+      envValues: {
+        preview: {
+          web: { PUBLIC_API_URL: "https://web.example.test" },
+          mobile: { PUBLIC_API_URL: "https://mobile.example.test" }
+        }
+      }
+    });
+
+    const state = JSON.parse(await readFile(statePath(), "utf8")) as {
+      envResources?: Array<{ environment: string; service: string; surface: string; name: string; valueHash?: string }>;
+    };
+
+    expect(state.envResources).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ environment: "preview", service: "vercel", surface: "web", name: "PUBLIC_API_URL" }),
+        expect.objectContaining({ environment: "preview", service: "eas", surface: "mobile", name: "PUBLIC_API_URL" })
+      ])
+    );
+    expect(new Set((state.envResources ?? []).map((resource) => `${resource.environment}.${resource.service}.${resource.surface}.${resource.name}`)).size).toBe(state.envResources?.length);
+  });
+
+  it("represents provider-owned env resources as inspect state without planning local-value sync", async () => {
+    const adapter = new LocalCloudAdapter(dir);
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.env.custom.CLERK_SECRET_KEY = {
+      surfaces: ["web"],
+      environments: ["preview"],
+      required: true,
+      secret: true,
+      providerTargets: [
+        { service: "clerk", surfaces: ["web"], environments: ["preview"], source: "provider-owned" }
+      ]
+    };
+
+    const report = await adapter.inspect(manifest, "preview", { envValues: {} });
+    const plan = adapter.plan(report);
+    await adapter.apply(plan);
+
+    const stateText = await readFile(statePath(), "utf8");
+    const state = JSON.parse(stateText) as {
+      envResources?: Array<{ environment: string; service: string; surface: string; name: string; source?: string; valueHash?: string }>;
+    };
+
+    expect(report.missingEnv).toContainEqual(
+      expect.objectContaining({
+        environment: "preview",
+        service: "clerk",
+        surface: "web",
+        name: "CLERK_SECRET_KEY",
+        source: "provider-owned"
+      })
+    );
+    expect(report.missingEnv.find((resource) => resource.name === "CLERK_SECRET_KEY")).not.toHaveProperty("valueHash");
+    expect(plan.changes).not.toContainEqual(expect.objectContaining({ action: "set-env", name: "CLERK_SECRET_KEY" }));
+    expect(state.envResources ?? []).not.toContainEqual(expect.objectContaining({ name: "CLERK_SECRET_KEY" }));
+    expect(stateText).not.toContain("provider-owned-secret");
   });
 
   it("detects drifted provider env resource hashes until sync apply updates them", async () => {
@@ -441,7 +527,10 @@ describe("local-cloud adapter", () => {
       environments: ["preview"],
       required: true,
       secret: true,
-      validate: "enum:sandbox,live"
+      validate: "enum:sandbox,live",
+      providerTargets: [
+        { service: "vercel", surfaces: ["web"], environments: ["preview"], source: "local-value" }
+      ]
     };
     const firstValues = { preview: { web: { STRIPE_MODE: "sandbox" } } };
     const secondValues = { preview: { web: { STRIPE_MODE: "live" } } };
@@ -455,10 +544,10 @@ describe("local-cloud adapter", () => {
       expect.objectContaining({
         severity: "fail",
         code: "cloud.env.drift",
-        path: "preview.vercel.env.STRIPE_MODE"
+        path: "preview.vercel.web.env.STRIPE_MODE"
       })
     );
-    expect(driftPlan.changes).toContain("set-env preview.vercel.STRIPE_MODE");
+    expect(driftPlan.changes).toContain("set-env preview.vercel.web.STRIPE_MODE");
 
     await adapter.sync(manifest, "preview", { apply: true, envValues: secondValues });
 
@@ -476,7 +565,10 @@ describe("local-cloud adapter", () => {
       environments: ["preview"],
       required: true,
       secret: false,
-      validate: "enum:sandbox,live"
+      validate: "enum:sandbox,live",
+      providerTargets: [
+        { service: "vercel", surfaces: ["web"], environments: ["preview"], source: "local-value" }
+      ]
     };
 
     await adapter.sync(manifest, "preview", {

@@ -6,6 +6,7 @@ export const surfaceSchema = z.enum(["web", "mobile", "convex"]);
 export const serviceSchema = z.enum(["clerk", "convex", "vercel", "eas"]);
 export const serviceModeSchema = z.enum(["managed", "external", "manual"]);
 export const telemetryLevelSchema = z.enum(["off", "debug", "journey", "audit"]);
+export const providerEnvSourceSchema = z.enum(["local-value", "provider-owned"]);
 export const expectedAgentstackGuidanceVersion = "2026-06-20";
 
 const allEnvironments = ["development", "preview", "production"] as const;
@@ -27,61 +28,135 @@ const telemetryEnvironmentPolicySchema = z
   })
   .strict();
 
-export const customEnvSchema = z.object({
-  surfaces: z.array(surfaceSchema).min(1),
-  environments: z.array(environmentSchema).min(1),
-  required: z.boolean().default(false),
-  secret: z.boolean().default(false),
-  validate: z.string().optional()
-}).strict();
+export const providerTargetSchema = z
+  .object({
+    service: serviceSchema,
+    surfaces: z.array(surfaceSchema).min(1),
+    environments: z.array(environmentSchema).min(1),
+    source: providerEnvSourceSchema.default("local-value")
+  })
+  .strict();
 
-export const manifestSchema = z.object({
-  frameworkVersion: z.string().min(1).default("0.0.0"),
-  guidanceVersion: z.string().min(1).default(expectedAgentstackGuidanceVersion),
-  app: z.object({
-    name: z.string().min(1),
-    slug: z.string().regex(/^[a-z0-9-]+$/)
-  }).strict(),
-  environments: z.array(environmentSchema).min(1),
-  surfaces: z.array(surfaceSchema).min(1),
-  services: z.object({
-    clerk: serviceConfigSchema("clerk"),
-    convex: serviceConfigSchema("convex"),
-    vercel: serviceConfigSchema("vercel"),
-    eas: serviceConfigSchema("eas")
-  }).strict(),
-  env: z.object({
-    custom: z.record(customEnvSchema)
-  }).strict(),
-  telemetry: z.object({
-    enabled: z.boolean(),
-    exporter: z.enum(["local", "otlp", "control-plane"]),
-    environments: z
+export const customEnvSchema = z
+  .object({
+    surfaces: z.array(surfaceSchema).min(1),
+    environments: z.array(environmentSchema).min(1),
+    required: z.boolean().default(false),
+    secret: z.boolean().default(false),
+    validate: z.string().optional(),
+    providerTargets: z.array(providerTargetSchema).min(1)
+  })
+  .strict()
+  .superRefine((declaration, context) => {
+    declaration.providerTargets.forEach((target, targetIndex) => {
+      target.surfaces.forEach((surface, surfaceIndex) => {
+        if (!declaration.surfaces.includes(surface)) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["providerTargets", targetIndex, "surfaces", surfaceIndex],
+            message: `${target.service} provider target surface ${surface} is not declared for this custom env.`
+          });
+        }
+      });
+
+      target.environments.forEach((environment, environmentIndex) => {
+        if (!declaration.environments.includes(environment)) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["providerTargets", targetIndex, "environments", environmentIndex],
+            message: `${target.service} provider target environment ${environment} is not declared for this custom env.`
+          });
+        }
+      });
+    });
+  });
+
+export const manifestSchema = z
+  .object({
+    frameworkVersion: z.string().min(1).default("0.0.0"),
+    guidanceVersion: z.string().min(1).default(expectedAgentstackGuidanceVersion),
+    app: z
       .object({
-        development: telemetryEnvironmentPolicySchema,
-        preview: telemetryEnvironmentPolicySchema,
-        production: telemetryEnvironmentPolicySchema
+        name: z.string().min(1),
+        slug: z.string().regex(/^[a-z0-9-]+$/)
+      })
+      .strict(),
+    environments: z.array(environmentSchema).min(1),
+    surfaces: z.array(surfaceSchema).min(1),
+    services: z
+      .object({
+        clerk: serviceConfigSchema("clerk"),
+        convex: serviceConfigSchema("convex"),
+        vercel: serviceConfigSchema("vercel"),
+        eas: serviceConfigSchema("eas")
+      })
+      .strict(),
+    env: z
+      .object({
+        custom: z.record(customEnvSchema)
+      })
+      .strict(),
+    telemetry: z
+      .object({
+        enabled: z.boolean(),
+        exporter: z.enum(["local", "otlp", "control-plane"]),
+        environments: z
+          .object({
+            development: telemetryEnvironmentPolicySchema,
+            preview: telemetryEnvironmentPolicySchema,
+            production: telemetryEnvironmentPolicySchema
+          })
+          .strict()
+          .default({
+            development: { required: false, level: "debug" },
+            preview: { required: true, level: "journey" },
+            production: { required: true, level: "journey" }
+          }),
+        redaction: z
+          .object({
+            defaultPolicy: z.enum(["strict", "billing-safe", "debug"]),
+            forbidRawSecrets: z.boolean()
+          })
+          .strict()
+      })
+      .strict(),
+    generated: z
+      .object({
+        requiredAnchors: z.array(z.string().min(1)).default([])
       })
       .strict()
-      .default({
-        development: { required: false, level: "debug" },
-        preview: { required: true, level: "journey" },
-        production: { required: true, level: "journey" }
-      }),
-    redaction: z.object({
-      defaultPolicy: z.enum(["strict", "billing-safe", "debug"]),
-      forbidRawSecrets: z.boolean()
-    }).strict()
-  }).strict(),
-  generated: z.object({
-    requiredAnchors: z.array(z.string().min(1)).default([])
-  }).strict()
-}).strict();
+  })
+  .strict()
+  .superRefine((manifest, context) => {
+    for (const [name, declaration] of Object.entries(manifest.env.custom)) {
+      declaration.providerTargets.forEach((target, targetIndex) => {
+        const serviceConfig = manifest.services[target.service];
+        if (!serviceConfig.enabled) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["env", "custom", name, "providerTargets", targetIndex, "service"],
+            message: `${target.service} provider target is disabled.`
+          });
+        }
+
+        target.environments.forEach((environment, environmentIndex) => {
+          if (!serviceConfig.requiredEnvironments.includes(environment)) {
+            context.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ["env", "custom", name, "providerTargets", targetIndex, "environments", environmentIndex],
+              message: `${target.service} is not active in ${environment}.`
+            });
+          }
+        });
+      });
+    }
+  });
 
 export type AgentstackManifest = z.infer<typeof manifestSchema>;
 export type EnvironmentName = z.infer<typeof environmentSchema>;
 export type SurfaceName = z.infer<typeof surfaceSchema>;
 export type ServiceName = z.infer<typeof serviceSchema>;
+export type ProviderEnvSource = z.infer<typeof providerEnvSourceSchema>;
 
 export function createDefaultManifest(slug: string): AgentstackManifest {
   const name = slug

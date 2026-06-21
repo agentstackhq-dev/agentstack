@@ -24,6 +24,7 @@ const report = {
       name: "STRIPE_MODE",
       required: true,
       secret: false,
+      source: "local-value" as const,
       valueHash: "hash",
       rawValue: "raw-secret",
       synced: false
@@ -36,6 +37,7 @@ const report = {
       name: "CLERK_WEBHOOK_SECRET",
       required: true,
       secret: true,
+      source: "provider-owned" as const,
       synced: false
     }
   ],
@@ -48,6 +50,7 @@ const report = {
       name: "LEGACY_FLAG",
       required: false,
       secret: false,
+      source: "local-value" as const,
       valueHash: "stale-hash",
       synced: true
     }
@@ -61,6 +64,7 @@ const report = {
       name: "API_URL",
       required: true,
       secret: false,
+      source: "local-value" as const,
       valueHash: "drifted-hash",
       synced: false
     }
@@ -113,7 +117,6 @@ describe("provider operations", () => {
       "service.unlink",
       "env.set",
       "env.set",
-      "env.set",
       "env.remove"
     ]);
     expect(plan.operations).toContainEqual(
@@ -123,20 +126,13 @@ describe("provider operations", () => {
         scope: "web",
         target: "env:STRIPE_MODE",
         source: "env.missing",
+        valueSource: "local-value",
         secret: false,
         requiresConfirmation: false
       })
     );
-    expect(plan.operations).toContainEqual(
-      expect.objectContaining({
-        id: "preview.clerk.env.set.web.CLERK_WEBHOOK_SECRET",
-        service: "clerk",
-        scope: "web",
-        target: "env:CLERK_WEBHOOK_SECRET",
-        source: "env.missing",
-        secret: true,
-        requiresConfirmation: false
-      })
+    expect(plan.operations).not.toContainEqual(
+      expect.objectContaining({ id: "preview.clerk.env.set.web.CLERK_WEBHOOK_SECRET" })
     );
     expect(plan.operations).toContainEqual(
       expect.objectContaining({
