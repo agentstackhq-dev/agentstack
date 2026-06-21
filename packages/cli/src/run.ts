@@ -1610,6 +1610,8 @@ async function providerProofCommand(argv: string[], io: RunIo): Promise<number> 
       liveResource: "unsupported",
       identityProof: "unavailable",
       identityScope: "none",
+      identityCandidates: "unavailable",
+      identityEvaluator: "unavailable",
       reason: "proof-unsupported"
     });
     return 1;
@@ -1626,6 +1628,8 @@ async function providerProofCommand(argv: string[], io: RunIo): Promise<number> 
       liveResource: "unsupported",
       identityProof: "unavailable",
       identityScope: "none",
+      identityCandidates: "unavailable",
+      identityEvaluator: "unavailable",
       reason: "proof-unsupported"
     });
     return 1;
@@ -1649,6 +1653,8 @@ async function providerProofCommand(argv: string[], io: RunIo): Promise<number> 
       liveResource: "not-read",
       identityProof: "unavailable",
       identityScope: "none",
+      identityCandidates: "unavailable",
+      identityEvaluator: "unavailable",
       reason: ledgerDecision.reason === "missing" ? "ledger-missing" : "ledger-invalid"
     });
     return 1;
@@ -1697,6 +1703,8 @@ async function providerProofCommand(argv: string[], io: RunIo): Promise<number> 
     liveResource: liveReadFailed ? "failed" : "read",
     identityProof: liveReadFailed ? "unavailable" : "ambiguous",
     identityScope: liveReadFailed ? "none" : row?.identityScope === "partial" ? "partial" : "none",
+    identityCandidates: "unavailable",
+    identityEvaluator: "unavailable",
     driftProof,
     reason: liveReadFailed ? "live-read-failed" : driftProof?.proof === "partial" ? "drift-unproven" : "identity-ambiguous"
   });
@@ -2117,6 +2125,8 @@ type ProviderProofReport = {
   liveResource: "read" | "not-read" | "failed" | "unsupported";
   identityProof: "ambiguous" | "unavailable";
   identityScope: "partial" | "none";
+  identityCandidates?: "unavailable";
+  identityEvaluator?: "unavailable";
   driftProof?: ProviderDriftProofResult;
   reason:
     | "identity-ambiguous"
@@ -2144,6 +2154,12 @@ function writeProviderProofReport(io: RunIo, report: ProviderProofReport): void 
   io.write(`Live resource: ${report.liveResource}`);
   io.write(`Identity proof: ${report.identityProof}`);
   io.write(`Identity scope: ${report.identityScope}`);
+  if (report.identityCandidates) {
+    io.write(`Exact identity candidates: ${report.identityCandidates}`);
+  }
+  if (report.identityEvaluator) {
+    io.write(`Exact identity evaluator: ${report.identityEvaluator}`);
+  }
   if (report.driftProof?.proof === "partial") {
     io.write("Drift proof: partial");
     io.write(`Drift evaluator: ${report.driftProof.evaluator}`);

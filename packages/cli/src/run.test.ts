@@ -3084,6 +3084,8 @@ describe("runAgentstack", () => {
     expect(output).toContain("Live resource: read");
     expect(output).toContain("Identity proof: ambiguous");
     expect(output).toContain("Identity scope: partial");
+    expect(output).toContain("Exact identity candidates: unavailable");
+    expect(output).toContain("Exact identity evaluator: unavailable");
     expect(output).toContain("Drift proof: unproven");
     expect(output).toContain("Readiness: refused");
     expect(output).toContain("Reason: identity-ambiguous");
@@ -3095,6 +3097,8 @@ describe("runAgentstack", () => {
     expect(rendered).not.toContain(externalId);
     expect(rendered).not.toContain("raw-secret-provider-id");
     expect(rendered).not.toContain("https://secret.example.test");
+    expect(rendered).not.toContain("LIVE_PROVIDER_ID");
+    expect(rendered).not.toContain("URL=");
     expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
       "exec convex env --deployment <preview-deployment-name> list"
     ]);

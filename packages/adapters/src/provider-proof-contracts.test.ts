@@ -1,12 +1,25 @@
 import { describe, expect, it } from "vitest";
 import {
   evaluateProviderDriftProof,
+  evaluateProviderIdentityProof,
+  getProviderIdentityReadPlan,
   getProviderProofContract,
   providerProofServices,
+  type ProviderIdentityCandidate,
   type ProviderProofRequirementLabel
 } from "./provider-proof-contracts.js";
 
-const sanitizedLabelPattern = /^[a-z][a-z0-9-]*$/;
+const sanitizedLabelPattern = /^[a-z][a-z0-9.-]*$/;
+
+const completeSanitizedCandidates: ProviderIdentityCandidate[] = [
+  { category: "stable-provider-identity", source: "provider-read-plan", sanitizedLabel: "stable-provider-identity" },
+  { category: "manifest-resource-name-match", source: "manifest", sanitizedLabel: "manifest-resource-name-match" },
+  { category: "ledger-external-id-match", source: "ledger", sanitizedLabel: "ledger-external-id-match" },
+  { category: "provider-owner-identity", source: "provider-read-plan", sanitizedLabel: "provider-owner-identity" },
+  { category: "provider-resource-id", source: "provider-read-plan", sanitizedLabel: "provider-resource-id" },
+  { category: "provider-environment-scope", source: "provider-read-plan", sanitizedLabel: "provider-environment-scope" },
+  { category: "provider-project-link-proof", source: "local-link", sanitizedLabel: "provider-project-link-proof" }
+];
 
 describe("provider proof contracts", () => {
   it("keeps exact live identity unavailable for every provider", () => {
@@ -82,6 +95,232 @@ describe("provider proof contracts", () => {
         expect(label).not.toContain("://");
         expect(label).not.toContain("_");
       }
+    }
+  });
+
+  it("lists provider-specific sanitized identity read plans while exact identity stays unavailable", () => {
+    expect(getProviderIdentityReadPlan("clerk")).toEqual({
+      service: "clerk",
+      exactIdentityAvailable: false,
+      readCommands: ["clerk.doctor-agent", "clerk.env-pull-agent", "clerk.config-pull-agent"],
+      requiredCandidateCategories: [
+        "stable-provider-identity",
+        "manifest-resource-name-match",
+        "ledger-external-id-match",
+        "provider-owner-identity",
+        "provider-resource-id",
+        "provider-environment-scope"
+      ],
+      missingUntilParsersExist: [
+        "provider-specific-identity-parser",
+        "stable-provider-identity",
+        "ledger-comparable-identity",
+        "provider-owner-identity",
+        "provider-resource-id",
+        "provider-environment-scope"
+      ]
+    });
+
+    expect(getProviderIdentityReadPlan("convex")).toEqual({
+      service: "convex",
+      exactIdentityAvailable: false,
+      readCommands: ["convex.env-list-preview-deployment"],
+      requiredCandidateCategories: [
+        "stable-provider-identity",
+        "manifest-resource-name-match",
+        "ledger-external-id-match",
+        "provider-owner-identity",
+        "provider-resource-id",
+        "provider-environment-scope"
+      ],
+      missingUntilParsersExist: [
+        "provider-specific-identity-parser",
+        "stable-provider-identity",
+        "ledger-comparable-identity",
+        "provider-owner-identity",
+        "provider-resource-id",
+        "provider-environment-scope"
+      ]
+    });
+
+    expect(getProviderIdentityReadPlan("vercel")).toEqual({
+      service: "vercel",
+      exactIdentityAvailable: false,
+      readCommands: ["vercel.env-ls-preview"],
+      requiredCandidateCategories: [
+        "stable-provider-identity",
+        "manifest-resource-name-match",
+        "ledger-external-id-match",
+        "provider-owner-identity",
+        "provider-resource-id",
+        "provider-project-link-proof",
+        "provider-environment-scope"
+      ],
+      missingUntilParsersExist: [
+        "provider-specific-identity-parser",
+        "stable-provider-identity",
+        "ledger-comparable-identity",
+        "provider-owner-identity",
+        "provider-resource-id",
+        "provider-project-link-proof",
+        "provider-environment-scope"
+      ]
+    });
+
+    expect(getProviderIdentityReadPlan("eas")).toEqual({
+      service: "eas",
+      exactIdentityAvailable: false,
+      readCommands: ["eas.env-list-preview"],
+      requiredCandidateCategories: [
+        "stable-provider-identity",
+        "manifest-resource-name-match",
+        "ledger-external-id-match",
+        "provider-owner-identity",
+        "provider-resource-id",
+        "provider-project-link-proof",
+        "provider-environment-scope"
+      ],
+      missingUntilParsersExist: [
+        "provider-specific-identity-parser",
+        "stable-provider-identity",
+        "ledger-comparable-identity",
+        "provider-owner-identity",
+        "provider-resource-id",
+        "provider-project-link-proof",
+        "provider-environment-scope"
+      ]
+    });
+
+    for (const service of providerProofServices) {
+      const plan = getProviderIdentityReadPlan(service);
+      expect(plan.exactIdentityAvailable).toBe(false);
+      for (const label of [
+        ...plan.readCommands,
+        ...plan.requiredCandidateCategories,
+        ...plan.missingUntilParsersExist
+      ]) {
+        expect(label).toMatch(/^[a-z][a-z0-9.-]*$/);
+        expect(label).not.toContain("://");
+        expect(label).not.toContain("_");
+      }
+    }
+  });
+
+  it("keeps identity unavailable when there are no sanitized candidates", () => {
+    for (const service of providerProofServices) {
+      expect(evaluateProviderIdentityProof(service, [])).toEqual({
+        proof: "unavailable",
+        evaluator: "unavailable",
+        missing: getProviderIdentityReadPlan(service).missingUntilParsersExist
+      });
+    }
+  });
+
+  it("keeps identity ambiguous even when every sanitized candidate category is present", () => {
+    for (const service of providerProofServices) {
+      expect(evaluateProviderIdentityProof(service, completeSanitizedCandidates)).toEqual({
+        proof: "ambiguous",
+        evaluator: "identity-read-plan",
+        missing: ["provider-specific-identity-parser", "ledger-comparable-identity"]
+      });
+    }
+  });
+
+  it("keeps incomplete candidates ambiguous with sanitized missing labels", () => {
+    expect(
+      evaluateProviderIdentityProof("vercel", [
+        { category: "manifest-resource-name-match", source: "manifest", sanitizedLabel: "manifest-resource-name-match" },
+        { category: "ledger-external-id-match", source: "ledger", sanitizedLabel: "ledger-external-id-match" }
+      ])
+    ).toEqual({
+      proof: "ambiguous",
+      evaluator: "identity-read-plan",
+      missing: [
+        "provider-specific-identity-parser",
+        "stable-provider-identity",
+        "ledger-comparable-identity",
+        "provider-owner-identity",
+        "provider-resource-id",
+        "provider-project-link-proof",
+        "provider-environment-scope"
+      ]
+    });
+  });
+
+  it("drops unsanitized identity candidates before evaluation", () => {
+    const result = evaluateProviderIdentityProof("clerk", [
+      { category: "provider-resource-id", source: "provider-read-plan", sanitizedLabel: "app_123_raw" },
+      { category: "provider-owner-identity", source: "provider-read-plan", sanitizedLabel: "https://dashboard.clerk.com/acme" },
+      { category: "manifest-resource-name-match", source: "manifest", sanitizedLabel: "manifest-resource-name-match" }
+    ] as never);
+
+    expect(result).toEqual({
+      proof: "ambiguous",
+      evaluator: "identity-read-plan",
+      missing: [
+        "provider-specific-identity-parser",
+        "stable-provider-identity",
+        "ledger-comparable-identity",
+        "ledger-external-id-match",
+        "provider-owner-identity",
+        "provider-resource-id",
+        "provider-environment-scope"
+      ]
+    });
+    expect(JSON.stringify(result)).not.toContain("app_123_raw");
+    expect(JSON.stringify(result)).not.toContain("dashboard.clerk.com");
+  });
+
+  it("ignores provider-shaped and secret-shaped labels that do not equal their category", () => {
+    const result = evaluateProviderIdentityProof("vercel", [
+      {
+        category: "provider-owner-identity",
+        source: "provider-read-plan",
+        sanitizedLabel: "dashboard.clerk.com"
+      },
+      {
+        category: "provider-resource-id",
+        source: "provider-read-plan",
+        sanitizedLabel: "prj-secret-project"
+      },
+      {
+        category: "stable-provider-identity",
+        source: "provider-read-plan",
+        sanitizedLabel: "sk-live-secret"
+      },
+      {
+        category: "manifest-resource-name-match",
+        source: "manifest",
+        sanitizedLabel: "manifest-resource-name-match"
+      }
+    ]);
+
+    expect(result).toEqual({
+      proof: "ambiguous",
+      evaluator: "identity-read-plan",
+      missing: [
+        "provider-specific-identity-parser",
+        "stable-provider-identity",
+        "ledger-comparable-identity",
+        "ledger-external-id-match",
+        "provider-owner-identity",
+        "provider-resource-id",
+        "provider-project-link-proof",
+        "provider-environment-scope"
+      ]
+    });
+    expect(JSON.stringify(result)).not.toContain("dashboard.clerk.com");
+    expect(JSON.stringify(result)).not.toContain("prj-secret-project");
+    expect(JSON.stringify(result)).not.toContain("sk-live-secret");
+  });
+
+  it("does not expose an exact identity result shape in the contract slice", () => {
+    for (const service of providerProofServices) {
+      const result = evaluateProviderIdentityProof(service, completeSanitizedCandidates);
+      expect(result.proof).not.toBe("exact");
+      expect(JSON.stringify(result)).not.toContain("\"exact\"");
+      expect(getProviderProofContract(service).exactIdentityAvailable).toBe(false);
+      expect(getProviderProofContract(service).liveIdentityConfidence).toBe("none");
     }
   });
 
