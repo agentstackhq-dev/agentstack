@@ -10,6 +10,7 @@ import {
   type ProviderIdentityCandidate,
   type ProviderProofRequirementLabel
 } from "./provider-proof-contracts.js";
+import type { ProviderExecutionResult } from "./provider-executor.js";
 
 const sanitizedLabelPattern = /^[a-z][a-z0-9.-]*$/;
 
@@ -24,7 +25,7 @@ const completeSanitizedCandidates: ProviderIdentityCandidate[] = [
 ];
 
 describe("provider proof contracts", () => {
-  it("keeps exact live identity unavailable except the bounded Clerk preview proof slice", () => {
+  it("keeps exact live identity unavailable except bounded Clerk and Vercel preview proof slices", () => {
     for (const service of providerProofServices) {
       const contract = getProviderProofContract(service);
 
@@ -52,7 +53,13 @@ describe("provider proof contracts", () => {
       resourceTypes: ["application"],
       evaluator: "provider-specific-identity-parser"
     });
-    for (const service of ["convex", "vercel", "eas"] as const) {
+    expect(getProviderProofContract("vercel").exactIdentityAvailable).toEqual({
+      scope: "provider-proof",
+      environments: ["preview"],
+      resourceTypes: ["project"],
+      evaluator: "provider-specific-identity-parser"
+    });
+    for (const service of ["convex", "eas"] as const) {
       expect(getProviderProofContract(service).exactIdentityAvailable).toBe(false);
     }
   });
@@ -84,6 +91,7 @@ describe("provider proof contracts", () => {
       "provider-specific-identity-parser",
       "provider-owner-identity",
       "provider-resource-id",
+      "provider-environment-scope",
       "provider-project-link-proof",
       "manifest-resource-name-match",
       "ledger-external-id-match"
@@ -161,8 +169,13 @@ describe("provider proof contracts", () => {
 
     expect(getProviderIdentityReadPlan("vercel")).toEqual({
       service: "vercel",
-      exactIdentityAvailable: false,
-      readCommands: ["vercel.env-ls-preview"],
+      exactIdentityAvailable: {
+        scope: "provider-proof",
+        environments: ["preview"],
+        resourceTypes: ["project"],
+        evaluator: "provider-specific-identity-parser"
+      },
+      readCommands: ["vercel.env-ls-preview", "vercel.project-ls-json"],
       requiredCandidateCategories: [
         "stable-provider-identity",
         "manifest-resource-name-match",
@@ -368,6 +381,7 @@ describe("provider proof contracts", () => {
             "ledger-comparable-identity",
             "manifest-resource-name-match",
             "ledger-external-id-match",
+            "provider-environment-scope",
             "provider-owner-identity",
             "provider-resource-id",
             "provider-environment-scope",
@@ -443,6 +457,7 @@ describe("provider proof contracts", () => {
             { label: "ledger-comparable-identity", outcome: "matched" },
             { label: "manifest-resource-name-match", outcome: "matched" },
             { label: "ledger-external-id-match", outcome: "matched" },
+            { label: "provider-environment-scope", outcome: "matched" },
             { label: "provider-owner-identity", outcome: "matched" },
             { label: "provider-resource-id", outcome: "matched" },
             { label: "provider-environment-scope", outcome: "matched" },
@@ -468,6 +483,84 @@ describe("provider proof contracts", () => {
       ],
       missing: []
     });
+  });
+
+  it("returns exact Vercel identity from provider-owned project JSON proof but still leaves drift proof unavailable", () => {
+    const readResults: ProviderExecutionResult[] = [
+      {
+        service: "vercel",
+        environment: "preview",
+        commandKind: "env.list",
+        status: "success",
+        exitCode: 0,
+        durationMs: 5,
+        stdoutSummary: "<redacted provider stdout: 2 lines, 90 bytes>",
+        stderrSummary: "",
+        stdoutLines: 2,
+        stderrLines: 0,
+        stdoutBytes: 90,
+        stderrBytes: 0,
+        outputRedacted: true
+      },
+      {
+        service: "vercel",
+        environment: "preview",
+        commandKind: "project.list",
+        status: "success",
+        exitCode: 0,
+        durationMs: 5,
+        stdoutSummary: "<redacted provider stdout: 1 line, 100 bytes>",
+        stderrSummary: "",
+        stdoutLines: 1,
+        stderrLines: 0,
+        stdoutBytes: 100,
+        stderrBytes: 0,
+        outputRedacted: true,
+        exactIdentityProof: {
+          kind: "provider-exact-identity-proof",
+          evaluator: "provider-specific-identity-parser",
+          labels: [
+            "provider-specific-identity-parser",
+            "stable-provider-identity",
+            "ledger-comparable-identity",
+            "manifest-resource-name-match",
+            "ledger-external-id-match",
+            "provider-environment-scope",
+            "provider-owner-identity",
+            "provider-resource-id",
+            "provider-project-link-proof"
+          ],
+          comparisons: [
+            { label: "stable-provider-identity", outcome: "matched" },
+            { label: "ledger-comparable-identity", outcome: "matched" },
+            { label: "manifest-resource-name-match", outcome: "matched" },
+            { label: "ledger-external-id-match", outcome: "matched" },
+            { label: "provider-environment-scope", outcome: "matched" },
+            { label: "provider-owner-identity", outcome: "matched" },
+            { label: "provider-resource-id", outcome: "matched" },
+            { label: "provider-project-link-proof", outcome: "matched" }
+          ]
+        }
+      }
+    ];
+
+    expect(evaluateProviderExactIdentityProof("vercel", readResults)).toEqual({
+      proof: "exact",
+      evaluator: "provider-exact-identity",
+      labels: [
+        "ledger-comparable-identity",
+        "ledger-external-id-match",
+        "manifest-resource-name-match",
+        "provider-environment-scope",
+        "provider-owner-identity",
+        "provider-project-link-proof",
+        "provider-resource-id",
+        "provider-specific-identity-parser",
+        "stable-provider-identity"
+      ],
+      missing: []
+    });
+    expect(evaluateProviderDriftProof("vercel", readResults)).toEqual({ proof: "unavailable" });
   });
 
   it("returns exact identity for Clerk from required labels and matched comparisons", () => {

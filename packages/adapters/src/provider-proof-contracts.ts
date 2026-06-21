@@ -40,7 +40,7 @@ export type ProviderExactIdentityAvailability =
   | {
       scope: "provider-proof";
       environments: ["preview"];
-      resourceTypes: ["application"];
+      resourceTypes: ["application" | "project"];
       evaluator: "provider-specific-identity-parser";
     };
 
@@ -51,6 +51,7 @@ export type ProviderIdentityReadCommandId =
   | "clerk.config-pull-agent"
   | "convex.env-list-preview-deployment"
   | "vercel.env-ls-preview"
+  | "vercel.project-ls-json"
   | "eas.env-list-preview";
 
 export type ProviderIdentityCandidateCategory = ProviderIdentityCandidateLabel;
@@ -169,11 +170,17 @@ const contracts: Record<ProviderProofService, ProviderProofContract> = {
   vercel: {
     service: "vercel",
     liveIdentityConfidence: "none",
-    exactIdentityAvailable: false,
+    exactIdentityAvailable: {
+      scope: "provider-proof",
+      environments: ["preview"],
+      resourceTypes: ["project"],
+      evaluator: "provider-specific-identity-parser"
+    },
     identityProofRequirements: [
       ...baseIdentityRequirements,
       "provider-owner-identity",
       "provider-resource-id",
+      "provider-environment-scope",
       "provider-project-link-proof",
       "manifest-resource-name-match",
       "ledger-external-id-match"
@@ -241,8 +248,8 @@ const identityReadPlans: Record<ProviderProofService, ProviderIdentityReadPlan> 
   },
   vercel: {
     service: "vercel",
-    exactIdentityAvailable: false,
-    readCommands: ["vercel.env-ls-preview"],
+    exactIdentityAvailable: contracts.vercel.exactIdentityAvailable,
+    readCommands: ["vercel.env-ls-preview", "vercel.project-ls-json"],
     requiredCandidateCategories: [
       "stable-provider-identity",
       "manifest-resource-name-match",

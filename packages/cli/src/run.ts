@@ -41,6 +41,7 @@ import {
   type ProviderProofContract,
   type ProviderExactIdentityDecision,
   type ClerkExactProofContext,
+  type VercelExactProofContext,
   type ProviderOperation
 } from "@agentstack/adapters";
 import {
@@ -1695,6 +1696,14 @@ async function providerProofCommand(argv: string[], io: RunIo): Promise<number> 
               ledgerExternalIdOrUrl: ledgerDecision.row.externalIdOrUrl,
               ledgerOwnerAccountOrProject: ledgerDecision.row.ownerAccountOrProject
             }
+          : undefined,
+      vercelExactProofContext:
+        service === "vercel"
+          ? {
+              expectedResourceName: name,
+              ledgerExternalIdOrUrl: ledgerDecision.row.externalIdOrUrl,
+              ledgerOwnerAccountOrProject: ledgerDecision.row.ownerAccountOrProject
+            }
           : undefined
     });
     inventory = await createLiveProviderInventory({ localInventory, readResults: liveResults });
@@ -1820,6 +1829,12 @@ async function liveValidationCommand(
           environment,
           manifest: validation.context.manifest,
           ledgerRows
+        }),
+        vercelExactProofContext: buildLiveValidationVercelExactProofContext({
+          service,
+          environment,
+          manifest: validation.context.manifest,
+          ledgerRows
         })
       });
       inventory = await createLiveProviderInventory({ localInventory: inventory, readResults: liveResults });
@@ -1866,6 +1881,35 @@ function buildLiveValidationClerkExactProofContext(input: {
   ledgerRows: ReturnType<typeof parseProviderLedger>;
 }): ClerkExactProofContext | undefined {
   if (input.service !== "clerk" || input.environment !== "preview") {
+    return undefined;
+  }
+
+  const manifestResource = expectedProviderProofResource(input.manifest, input.service, input.environment);
+  const ledgerDecision = enforceProviderLedgerResource(input.ledgerRows, {
+    provider: input.service,
+    environment: input.environment,
+    resourceType: manifestResource.resourceType,
+    resourceName: manifestResource.name
+  });
+
+  if (!ledgerDecision.ok) {
+    return undefined;
+  }
+
+  return {
+    expectedResourceName: manifestResource.name,
+    ledgerExternalIdOrUrl: ledgerDecision.row.externalIdOrUrl,
+    ledgerOwnerAccountOrProject: ledgerDecision.row.ownerAccountOrProject
+  };
+}
+
+function buildLiveValidationVercelExactProofContext(input: {
+  service: ProviderControlPlaneService;
+  environment: "preview" | "production";
+  manifest: AgentstackManifest;
+  ledgerRows: ReturnType<typeof parseProviderLedger>;
+}): VercelExactProofContext | undefined {
+  if (input.service !== "vercel" || input.environment !== "preview") {
     return undefined;
   }
 
@@ -2540,6 +2584,7 @@ async function readLiveProviderInventory(input: {
   cwd: string;
   secretValues: string[];
   clerkExactProofContext?: ClerkExactProofContext;
+  vercelExactProofContext?: VercelExactProofContext;
 }): Promise<ProviderExecutionResult[]> {
   if (input.service === "clerk") {
     return inspectClerkReadOnly({
@@ -2566,7 +2611,8 @@ async function readLiveProviderInventory(input: {
       environment: input.environment,
       executor: input.executor,
       cwd: input.cwd,
-      secretValues: input.secretValues
+      secretValues: input.secretValues,
+      exactProofContext: input.vercelExactProofContext
     });
   }
 

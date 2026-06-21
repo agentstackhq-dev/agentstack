@@ -133,13 +133,21 @@ describe("vercel command planner", () => {
     expect(JSON.stringify(plan)).not.toContain("sk-");
   });
 
-  it("executes only preview env list for Vercel inspect and redacts provider output", async () => {
+  it("executes preview env list and provider-owned project JSON reads for Vercel inspect without mutation", async () => {
     const executions: Array<{ command: string; args: string[] }> = [];
     const results = await inspectVercelPreviewReadOnly({
       environment: "preview",
       executor: {
         async execute(command, args) {
           executions.push({ command, args });
+          if (args.join(" ") === "exec vercel project ls --json") {
+            return {
+              exitCode: 0,
+              stdout: JSON.stringify([{ id: "prj_raw_project_secret", name: "agentstack-preview", accountId: "team_raw_owner_secret" }]),
+              stderr: "",
+              durationMs: 11
+            };
+          }
           return {
             exitCode: 0,
             stdout: [
@@ -156,9 +164,11 @@ describe("vercel command planner", () => {
     });
 
     expect(executions).toEqual([
-      { command: "pnpm", args: ["exec", "vercel", "env", "ls", "preview"] }
+      { command: "pnpm", args: ["exec", "vercel", "env", "ls", "preview"] },
+      { command: "pnpm", args: ["exec", "vercel", "project", "ls", "--json"] }
     ]);
-    expect(results).toEqual([
+    expect(results).toHaveLength(2);
+    expect(results[0]).toEqual(
       expect.objectContaining({
         service: "vercel",
         environment: "preview",
@@ -170,10 +180,29 @@ describe("vercel command planner", () => {
         },
         outputRedacted: true
       })
-    ]);
+    );
+    expect(results[1]).toEqual(
+      expect.objectContaining({
+        service: "vercel",
+        environment: "preview",
+        commandKind: "project.list",
+        status: "success",
+        identityCandidates: {
+          kind: "provider-identity-candidates",
+          evaluator: "provider-specific-identity-candidate-parser",
+          labels: ["provider-owner-identity", "provider-resource-id", "stable-provider-identity"]
+        },
+        outputRedacted: true
+      })
+    );
     expect(results[0]?.stdoutSummary).toBe("<redacted provider stdout: 3 lines, 109 bytes>");
     expect(JSON.stringify(results)).not.toContain("provider-secret");
     expect(JSON.stringify(results)).not.toContain("https://preview.example.test");
+    expect(JSON.stringify(results)).not.toContain("prj_raw_project_secret");
+    expect(JSON.stringify(results)).not.toContain("team_raw_owner_secret");
+    expect(JSON.stringify(executions)).not.toContain("deploy");
+    expect(JSON.stringify(executions)).not.toContain("env add");
+    expect(JSON.stringify(executions)).not.toContain("env rm");
   });
 
   it("attaches sanitized preview identity candidates from env-list proof and local project link", async () => {
@@ -213,11 +242,178 @@ describe("vercel command planner", () => {
         labels: ["provider-environment-scope", "provider-project-link-proof"]
       });
       expect(results[0]?.exactIdentityProof).toBeUndefined();
+      expect(results[1]?.exactIdentityProof).toBeUndefined();
       expect(JSON.stringify(results)).not.toContain("prj_raw_project_secret");
       expect(JSON.stringify(results)).not.toContain("org_raw_owner_secret");
       expect(JSON.stringify(results)).not.toContain("https://preview-secret.example.test");
     } finally {
       await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("attaches exact sanitized Vercel preview identity only from single provider-owned project JSON matched to proof context", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "agentstack-vercel-exact-"));
+    try {
+      await mkdir(join(dir, ".vercel"), { recursive: true });
+      await writeFile(
+        join(dir, ".vercel", "project.json"),
+        JSON.stringify({ projectId: "prj_raw_project_secret", orgId: "team_raw_owner_secret" }),
+        "utf8"
+      );
+
+      const results = await inspectVercelPreviewReadOnly({
+        environment: "preview",
+        cwd: dir,
+        exactProofContext: {
+          expectedResourceName: "agentstack-preview",
+          ledgerExternalIdOrUrl: "prj_raw_project_secret",
+          ledgerOwnerAccountOrProject: "team_raw_owner_secret"
+        },
+        executor: {
+          async execute(_command, args) {
+            if (args.join(" ") === "exec vercel project ls --json") {
+              return {
+                exitCode: 0,
+                stdout: JSON.stringify([
+                  {
+                    id: "prj_raw_project_secret",
+                    name: "agentstack-preview",
+                    accountId: "team_raw_owner_secret"
+                  }
+                ]),
+                stderr: "",
+                durationMs: 1
+              };
+            }
+            return {
+              exitCode: 0,
+              stdout: ["Name Environment", "NEXT_PUBLIC_APP_URL preview"].join("\n"),
+              stderr: "",
+              durationMs: 1
+            };
+          }
+        }
+      });
+
+      expect(results[1]?.exactIdentityProof).toEqual({
+        kind: "provider-exact-identity-proof",
+        evaluator: "provider-specific-identity-parser",
+        labels: [
+          "ledger-comparable-identity",
+          "ledger-external-id-match",
+          "manifest-resource-name-match",
+          "provider-environment-scope",
+          "provider-owner-identity",
+          "provider-project-link-proof",
+          "provider-resource-id",
+          "provider-specific-identity-parser",
+          "stable-provider-identity"
+        ],
+        comparisons: [
+          { label: "ledger-comparable-identity", outcome: "matched" },
+          { label: "ledger-external-id-match", outcome: "matched" },
+          { label: "manifest-resource-name-match", outcome: "matched" },
+          { label: "provider-environment-scope", outcome: "matched" },
+          { label: "provider-owner-identity", outcome: "matched" },
+          { label: "provider-project-link-proof", outcome: "matched" },
+          { label: "provider-resource-id", outcome: "matched" },
+          { label: "stable-provider-identity", outcome: "matched" }
+        ]
+      });
+      expect(JSON.stringify(results)).not.toContain("prj_raw_project_secret");
+      expect(JSON.stringify(results)).not.toContain("team_raw_owner_secret");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps local Vercel project link alone from producing provider-owned exact identity proof", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "agentstack-vercel-local-only-"));
+    try {
+      await mkdir(join(dir, ".vercel"), { recursive: true });
+      await writeFile(
+        join(dir, ".vercel", "project.json"),
+        JSON.stringify({ projectId: "prj_raw_project_secret", orgId: "team_raw_owner_secret" }),
+        "utf8"
+      );
+
+      const results = await inspectVercelPreviewReadOnly({
+        environment: "preview",
+        cwd: dir,
+        exactProofContext: {
+          expectedResourceName: "agentstack-preview",
+          ledgerExternalIdOrUrl: "prj_raw_project_secret",
+          ledgerOwnerAccountOrProject: "team_raw_owner_secret"
+        },
+        executor: {
+          async execute(_command, args) {
+            if (args.join(" ") === "exec vercel project ls --json") {
+              return { exitCode: 0, stdout: "[]", stderr: "", durationMs: 1 };
+            }
+            return {
+              exitCode: 0,
+              stdout: ["Name Environment", "NEXT_PUBLIC_APP_URL preview"].join("\n"),
+              stderr: "",
+              durationMs: 1
+            };
+          }
+        }
+      });
+
+      expect(results[0]?.identityCandidates?.labels).toEqual([
+        "provider-environment-scope",
+        "provider-project-link-proof"
+      ]);
+      expect(results[0]?.exactIdentityProof).toBeUndefined();
+      expect(results[1]?.identityCandidates).toBeUndefined();
+      expect(results[1]?.exactIdentityProof).toBeUndefined();
+      expect(JSON.stringify(results)).not.toContain("stable-provider-identity");
+      expect(JSON.stringify(results)).not.toContain("provider-resource-id");
+      expect(JSON.stringify(results)).not.toContain("provider-owner-identity");
+      expect(JSON.stringify(results)).not.toContain("prj_raw_project_secret");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps malformed, unsupported, missing, and multiple Vercel project JSON rows ambiguous", async () => {
+    const outputs = [
+      "{ invalid json",
+      JSON.stringify({ projects: [{ id: "prj_raw_project_secret", name: "agentstack-preview", accountId: "team_raw_owner_secret" }] }),
+      JSON.stringify([{ id: "prj_raw_project_secret", name: "", accountId: "team_raw_owner_secret" }]),
+      JSON.stringify([
+        { id: "prj_raw_project_secret", name: "agentstack-preview", accountId: "team_raw_owner_secret" },
+        { id: "prj_other_secret", name: "agentstack-preview", accountId: "team_raw_owner_secret" }
+      ])
+    ];
+
+    for (const stdout of outputs) {
+      const results = await inspectVercelPreviewReadOnly({
+        environment: "preview",
+        exactProofContext: {
+          expectedResourceName: "agentstack-preview",
+          ledgerExternalIdOrUrl: "prj_raw_project_secret",
+          ledgerOwnerAccountOrProject: "team_raw_owner_secret"
+        },
+        executor: {
+          async execute(_command, args) {
+            if (args.join(" ") === "exec vercel project ls --json") {
+              return { exitCode: 0, stdout, stderr: "", durationMs: 1 };
+            }
+            return {
+              exitCode: 0,
+              stdout: ["Name Environment", "NEXT_PUBLIC_APP_URL preview"].join("\n"),
+              stderr: "",
+              durationMs: 1
+            };
+          }
+        }
+      });
+
+      expect(results[1]?.identityCandidates).toBeUndefined();
+      expect(results[1]?.exactIdentityProof).toBeUndefined();
+      expect(JSON.stringify(results)).not.toContain("prj_raw_project_secret");
+      expect(JSON.stringify(results)).not.toContain("team_raw_owner_secret");
     }
   });
 
@@ -239,23 +435,58 @@ describe("vercel command planner", () => {
     expect(results[0]?.liveIdentityFacts).toBeUndefined();
   });
 
-  it("keeps Vercel inspect ambiguous when expected env names lack preview proof", async () => {
-    const results = await inspectVercelPreviewReadOnly({
-      environment: "preview",
-      executor: {
-        async execute() {
-          return {
-            exitCode: 0,
-            stdout: "NEXT_PUBLIC_APP_URL https://example.test",
-            stderr: "",
-            durationMs: 9
-          };
-        }
-      }
-    });
+  it("keeps exact Vercel proof ambiguous when env-list output lacks preview proof", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "agentstack-vercel-env-scope-"));
+    try {
+      await mkdir(join(dir, ".vercel"), { recursive: true });
+      await writeFile(
+        join(dir, ".vercel", "project.json"),
+        JSON.stringify({ projectId: "prj_raw_project_secret", orgId: "team_raw_owner_secret" }),
+        "utf8"
+      );
 
-    expect(results[0]?.liveIdentityFacts).toBeUndefined();
-    expect(JSON.stringify(results)).not.toContain("preview-environment");
+      const results = await inspectVercelPreviewReadOnly({
+        environment: "preview",
+        cwd: dir,
+        exactProofContext: {
+          expectedResourceName: "agentstack-preview",
+          ledgerExternalIdOrUrl: "prj_raw_project_secret",
+          ledgerOwnerAccountOrProject: "team_raw_owner_secret"
+        },
+        executor: {
+          async execute(_command, args) {
+            if (args.join(" ") === "exec vercel project ls --json") {
+              return {
+                exitCode: 0,
+                stdout: JSON.stringify([
+                  {
+                    id: "prj_raw_project_secret",
+                    name: "agentstack-preview",
+                    accountId: "team_raw_owner_secret"
+                  }
+                ]),
+                stderr: "",
+                durationMs: 9
+              };
+            }
+            return {
+              exitCode: 0,
+              stdout: "NEXT_PUBLIC_APP_URL https://example.test",
+              stderr: "",
+              durationMs: 9
+            };
+          }
+        }
+      });
+
+      expect(results[0]?.liveIdentityFacts).toBeUndefined();
+      expect(results[1]?.exactIdentityProof).toBeUndefined();
+      expect(JSON.stringify(results)).not.toContain("preview-environment");
+      expect(JSON.stringify(results)).not.toContain("prj_raw_project_secret");
+      expect(JSON.stringify(results)).not.toContain("team_raw_owner_secret");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   it("keeps Vercel inspect ambiguous when preview only appears inside a value", async () => {

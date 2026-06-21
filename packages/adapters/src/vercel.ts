@@ -5,6 +5,9 @@ import type { EnvironmentName } from "@agentstack/core";
 import {
   createProviderExecutionResult,
   type ProviderCommandExecutor,
+  type ProviderExactIdentityComparisonEvidence,
+  type ProviderExactIdentityProofArtifact,
+  type ProviderExactIdentityProofLabel,
   type ProviderExecutionResult,
   type ProviderIdentityCandidateLabel,
   type ProviderIdentityCandidatesArtifact,
@@ -12,7 +15,13 @@ import {
 } from "./provider-executor.js";
 import type { ProviderOperation } from "./provider-operations.js";
 
-export type VercelCommandKind = "web.deploy" | "env.list" | "env.add" | "env.update" | "env.remove";
+export type VercelCommandKind =
+  | "web.deploy"
+  | "env.list"
+  | "project.list"
+  | "env.add"
+  | "env.update"
+  | "env.remove";
 
 export type VercelCliCommand = {
   id: string;
@@ -64,6 +73,13 @@ export type InspectVercelPreviewReadOnlyOptions = {
   env?: Record<string, string | undefined>;
   timeoutMs?: number;
   secretValues?: string[];
+  exactProofContext?: VercelExactProofContext;
+};
+
+export type VercelExactProofContext = {
+  expectedResourceName: string;
+  ledgerExternalIdOrUrl: string;
+  ledgerOwnerAccountOrProject: string;
 };
 
 export function createVercelTarget(environment: EnvironmentName): VercelTarget {
@@ -133,8 +149,9 @@ export async function inspectVercelPreviewReadOnly(
   }
 
   const target = createVercelTarget(options.environment);
-  const commands = [target.envListCommand];
+  const commands = [target.envListCommand, projectListCommand(options.environment)];
   const results: ProviderExecutionResult[] = [];
+  let previewEnvironmentScopeFacts: ProviderLiveIdentityFacts | undefined;
 
   for (const command of commands) {
     const [executable, ...args] = command.args;
@@ -148,12 +165,28 @@ export async function inspectVercelPreviewReadOnly(
       timeoutMs: options.timeoutMs
     });
 
-    const liveIdentityFacts = parseVercelPreviewEnvListFacts(result.stdout, result.exitCode);
-    const identityCandidates = await parseVercelPreviewIdentityCandidates({
-      cwd: options.cwd,
-      exitCode: result.exitCode,
-      liveIdentityFacts
-    });
+    const localProjectLink = await readVercelLocalProjectLink(options.cwd);
+    const liveIdentityFacts =
+      command.kind === "env.list" ? parseVercelPreviewEnvListFacts(result.stdout, result.exitCode) : undefined;
+    if (command.kind === "env.list") {
+      previewEnvironmentScopeFacts = liveIdentityFacts;
+    }
+    const identityCandidates =
+      command.kind === "env.list"
+        ? await parseVercelPreviewIdentityCandidates({
+            localProjectLink,
+            exitCode: result.exitCode,
+            liveIdentityFacts
+          })
+        : identityCandidatesForVercelProjectList(result.stdout, result.exitCode);
+    const exactIdentityProof =
+      command.kind === "project.list"
+        ? exactIdentityProofForVercelProjectList(result.stdout, result.exitCode, {
+            context: options.exactProofContext,
+            localProjectLink,
+            previewEnvironmentScopeFacts
+          })
+        : undefined;
 
     results.push(
       createProviderExecutionResult({
@@ -164,7 +197,8 @@ export async function inspectVercelPreviewReadOnly(
         result,
         secretValues: options.secretValues,
         liveIdentityFacts,
-        identityCandidates
+        identityCandidates,
+        exactIdentityProof
       })
     );
   }
@@ -191,7 +225,7 @@ function parseVercelPreviewEnvListFacts(stdout: string, exitCode: number): Provi
 }
 
 async function parseVercelPreviewIdentityCandidates(input: {
-  cwd: string | undefined;
+  localProjectLink: VercelLocalProjectLink | undefined;
   exitCode: number;
   liveIdentityFacts: ProviderLiveIdentityFacts | undefined;
 }): Promise<ProviderIdentityCandidatesArtifact | undefined> {
@@ -203,7 +237,7 @@ async function parseVercelPreviewIdentityCandidates(input: {
   if (hasVercelPreviewEnvironmentScope(input.liveIdentityFacts)) {
     labels.push("provider-environment-scope");
   }
-  if (await hasVercelLocalProjectLink(input.cwd)) {
+  if (input.localProjectLink) {
     labels.push("provider-project-link-proof");
   }
 
@@ -228,28 +262,178 @@ function hasVercelPreviewEnvironmentScope(facts: ProviderLiveIdentityFacts | und
   );
 }
 
-async function hasVercelLocalProjectLink(cwd: string | undefined): Promise<boolean> {
+type VercelLocalProjectLink = {
+  projectId: string;
+  orgId: string;
+};
+
+async function readVercelLocalProjectLink(cwd: string | undefined): Promise<VercelLocalProjectLink | undefined> {
   if (!cwd) {
-    return false;
+    return undefined;
   }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(await readFile(join(cwd, ".vercel", "project.json"), "utf8"));
   } catch {
-    return false;
+    return undefined;
   }
 
   if (!parsed || typeof parsed !== "object") {
-    return false;
+    return undefined;
   }
 
   const project = parsed as { projectId?: unknown; orgId?: unknown };
-  return isNonEmptyString(project.projectId) && isNonEmptyString(project.orgId);
+  if (!isNonEmptyString(project.projectId) || !isNonEmptyString(project.orgId)) {
+    return undefined;
+  }
+  return { projectId: project.projectId.trim(), orgId: project.orgId.trim() };
 }
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+type VercelProjectListRow = {
+  id: string;
+  name: string;
+  owner: string;
+};
+
+function identityCandidatesForVercelProjectList(
+  stdout: string,
+  exitCode: number
+): ProviderIdentityCandidatesArtifact | undefined {
+  const project = parseSingleVercelProjectListRow(stdout, exitCode);
+  if (!project) {
+    return undefined;
+  }
+
+  return {
+    kind: "provider-identity-candidates",
+    evaluator: "provider-specific-identity-candidate-parser",
+    labels: ["stable-provider-identity", "provider-owner-identity", "provider-resource-id"]
+  };
+}
+
+function exactIdentityProofForVercelProjectList(
+  stdout: string,
+  exitCode: number,
+  input: {
+    context: VercelExactProofContext | undefined;
+    localProjectLink: VercelLocalProjectLink | undefined;
+    previewEnvironmentScopeFacts: ProviderLiveIdentityFacts | undefined;
+  }
+): ProviderExactIdentityProofArtifact | undefined {
+  if (
+    exitCode !== 0 ||
+    !input.context ||
+    !input.localProjectLink ||
+    !hasVercelPreviewEnvironmentScope(input.previewEnvironmentScopeFacts)
+  ) {
+    return undefined;
+  }
+
+  const expectedName = input.context.expectedResourceName.trim();
+  const expectedExternalId = input.context.ledgerExternalIdOrUrl.trim();
+  const expectedOwner = input.context.ledgerOwnerAccountOrProject.trim();
+  if (!expectedName || !expectedExternalId || !expectedOwner) {
+    return undefined;
+  }
+
+  const project = parseSingleVercelProjectListRow(stdout, exitCode);
+  if (!project) {
+    return undefined;
+  }
+
+  if (
+    project.name !== expectedName ||
+    project.id !== expectedExternalId ||
+    project.owner !== expectedOwner ||
+    input.localProjectLink.projectId !== project.id ||
+    input.localProjectLink.orgId !== project.owner
+  ) {
+    return undefined;
+  }
+
+  const labels: ProviderExactIdentityProofLabel[] = [
+    "ledger-comparable-identity",
+    "ledger-external-id-match",
+    "manifest-resource-name-match",
+    "provider-environment-scope",
+    "provider-owner-identity",
+    "provider-project-link-proof",
+    "provider-resource-id",
+    "provider-specific-identity-parser",
+    "stable-provider-identity"
+  ];
+  const comparisons: ProviderExactIdentityComparisonEvidence[] = [
+    { label: "stable-provider-identity", outcome: "matched" },
+    { label: "ledger-comparable-identity", outcome: "matched" },
+    { label: "manifest-resource-name-match", outcome: "matched" },
+    { label: "ledger-external-id-match", outcome: "matched" },
+    { label: "provider-environment-scope", outcome: "matched" },
+    { label: "provider-owner-identity", outcome: "matched" },
+    { label: "provider-resource-id", outcome: "matched" },
+    { label: "provider-project-link-proof", outcome: "matched" }
+  ];
+
+  return {
+    kind: "provider-exact-identity-proof",
+    evaluator: "provider-specific-identity-parser",
+    labels,
+    comparisons
+  };
+}
+
+function parseSingleVercelProjectListRow(
+  stdout: string,
+  exitCode: number
+): VercelProjectListRow | undefined {
+  if (exitCode !== 0) {
+    return undefined;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch {
+    return undefined;
+  }
+
+  if (!Array.isArray(parsed) || parsed.length !== 1) {
+    return undefined;
+  }
+
+  const row = parsed[0];
+  if (!row || typeof row !== "object") {
+    return undefined;
+  }
+  const project = row as Record<string, unknown>;
+  const owner = firstNonEmptyString(
+    project.accountId,
+    project.account_id,
+    project.ownerId,
+    project.owner_id,
+    project.teamId,
+    project.team_id,
+    project.orgId,
+    project.org_id
+  );
+  if (!isNonEmptyString(project.id) || !isNonEmptyString(project.name) || !owner) {
+    return undefined;
+  }
+
+  return { id: project.id.trim(), name: project.name.trim(), owner };
+}
+
+function firstNonEmptyString(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (isNonEmptyString(value)) {
+      return value.trim();
+    }
+  }
+  return undefined;
 }
 
 function parseVercelEnvListRows(stdout: string): Array<{ name: string; environments: string[] }> {
@@ -410,6 +594,18 @@ function envListCommand(
     environment,
     summary: `List Vercel env values for ${environment}.`,
     args: ["pnpm", "exec", "vercel", "env", "ls", vercelEnvironment],
+    secret: false,
+    requiresConfirmation: false
+  };
+}
+
+function projectListCommand(environment: EnvironmentName): VercelCliCommand {
+  return {
+    id: `${environment}.vercel.project.list`,
+    kind: "project.list",
+    environment,
+    summary: `List Vercel projects as JSON for ${environment} identity evidence.`,
+    args: ["pnpm", "exec", "vercel", "project", "ls", "--json"],
     secret: false,
     requiresConfirmation: false
   };
