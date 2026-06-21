@@ -77,6 +77,7 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 - Kept Vercel and EAS production live inventory unsupported before executor use.
 - Updated generated Agentstack docs in both template mirrors to describe local default inventory and explicit bounded live inventory.
 - Corrected live inventory failure semantics so failed provider read results now print `FAIL provider inventory <service> <env>` and return nonzero while keeping redacted evidence, summary counts, and row diagnostics visible.
+- Review outcome: spec review of `f86d510` passed; quality review found the P1 live-read failure exit-code issue above; fix commit `8db8a6e` passed re-review.
 
 ## Current Blockers And Gaps
 
@@ -108,14 +109,14 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 
 ## Last Known Verification Evidence
 
-Most recent final verification from this live inventory failure-semantics fix:
+Most recent final orchestrator verification after `8db8a6e`:
 
-- `pnpm vitest run packages/cli/src/run.test.ts -t "provider inventory|live inventory|live-read-inventory"` passed: 7 selected tests.
+- `pnpm vitest run packages/cli/src/run.test.ts -t "provider inventory|live inventory|live-read-inventory"` passed: 1 file / 7 selected tests.
+- `git diff --check && git diff -- docs/provider-resource-ledger.md && diff -ru templates/b2b-saas/docs/agentstack packages/create-agent-stack/templates/b2b-saas/docs/agentstack` passed with no output.
 - `pnpm vitest run packages/adapters/src/provider-control-plane.test.ts packages/cli/src/run.test.ts` passed: 2 files / 170 tests.
 - `pnpm typecheck` passed.
 - `pnpm test` passed: 27 files / 351 tests.
-- `git diff --check` passed.
-- `git diff -- docs/provider-resource-ledger.md` returned no diff.
+- `git status --short --branch` showed only `## agentstack-prototype`; worktree clean.
 
 ## Worktree State Expectation
 
