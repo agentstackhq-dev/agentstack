@@ -215,6 +215,10 @@ function summarizeLiveIdentityFacts(readResults: ProviderExecutionResult[]): {
   identityScope: ProviderInventoryIdentityScope;
   facts: ProviderLiveFactLabel[];
 } {
+  if (readResults.some((result) => result.status === "failed")) {
+    return { identityScope: "none", facts: [] };
+  }
+
   const facts = new Set<ProviderLiveFactLabel>();
   let identityScope: ProviderInventoryIdentityScope = "none";
 

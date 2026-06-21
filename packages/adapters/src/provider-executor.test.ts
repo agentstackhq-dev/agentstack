@@ -105,13 +105,27 @@ describe("provider executor artifacts", () => {
       },
       liveIdentityFacts: {
         identityConfidence: "partial",
-        facts: ["expected-env-names", "preview-environment", "env-list-read"]
+        facts: [
+          "expected-env-names",
+          "preview-environment",
+          "env-list-read",
+          "diagnostics-read",
+          "provider-env-read",
+          "provider-config-read"
+        ]
       }
     });
 
     expect(result.liveIdentityFacts).toEqual({
       identityConfidence: "partial",
-      facts: ["expected-env-names", "preview-environment", "env-list-read"]
+      facts: [
+        "expected-env-names",
+        "preview-environment",
+        "env-list-read",
+        "diagnostics-read",
+        "provider-env-read",
+        "provider-config-read"
+      ]
     });
     expect(JSON.stringify(result)).not.toContain("NEXT_PUBLIC_APP_URL");
     expect(JSON.stringify(result)).not.toContain("https://preview-secret.example.test");
@@ -142,6 +156,90 @@ describe("provider executor artifacts", () => {
 
     expect(result.liveIdentityFacts).toBeUndefined();
     expect(JSON.stringify(result)).not.toContain("exact");
+  });
+
+  it("drops malformed live identity fact labels from runtime input", () => {
+    const result = createProviderExecutionResult({
+      service: "clerk",
+      environment: "preview",
+      commandKind: "auth.env.pull",
+      command: {
+        id: "preview.clerk.env.pull",
+        args: ["pnpm", "exec", "clerk", "env", "pull", "--mode", "agent"],
+        secret: false
+      },
+      result: {
+        exitCode: 0,
+        stdout: "RAW_PROVIDER_ID=secret\nNEXT_PUBLIC_APP_URL=https://secret.example.test",
+        stderr: "",
+        durationMs: 13
+      },
+      liveIdentityFacts: {
+        identityConfidence: "partial",
+        facts: ["provider-env-read", "RAW_PROVIDER_ID=secret", "NEXT_PUBLIC_APP_URL"]
+      } as never
+    });
+
+    expect(result.liveIdentityFacts).toEqual({
+      identityConfidence: "partial",
+      facts: ["provider-env-read"]
+    });
+    expect(JSON.stringify(result)).not.toContain("RAW_PROVIDER_ID=secret");
+    expect(JSON.stringify(result)).not.toContain("NEXT_PUBLIC_APP_URL");
+    expect(JSON.stringify(result)).not.toContain("https://secret.example.test");
+  });
+
+  it("drops live identity facts when no allowed fact labels remain", () => {
+    const result = createProviderExecutionResult({
+      service: "clerk",
+      environment: "preview",
+      commandKind: "auth.env.pull",
+      command: {
+        id: "preview.clerk.env.pull",
+        args: ["pnpm", "exec", "clerk", "env", "pull", "--mode", "agent"],
+        secret: false
+      },
+      result: {
+        exitCode: 0,
+        stdout: "ok",
+        stderr: "",
+        durationMs: 13
+      },
+      liveIdentityFacts: {
+        identityConfidence: "partial",
+        facts: ["RAW_PROVIDER_ID=secret", "NEXT_PUBLIC_APP_URL"]
+      } as never
+    });
+
+    expect(result.liveIdentityFacts).toBeUndefined();
+    expect(JSON.stringify(result)).not.toContain("RAW_PROVIDER_ID=secret");
+    expect(JSON.stringify(result)).not.toContain("NEXT_PUBLIC_APP_URL");
+  });
+
+  it("drops live identity facts from failed command results at the executor boundary", () => {
+    const result = createProviderExecutionResult({
+      service: "clerk",
+      environment: "preview",
+      commandKind: "auth.diagnostics",
+      command: {
+        id: "preview.clerk.doctor",
+        args: ["pnpm", "exec", "clerk", "doctor", "--mode", "agent"],
+        secret: false
+      },
+      result: {
+        exitCode: 1,
+        stdout: "",
+        stderr: "auth failed",
+        durationMs: 13
+      },
+      liveIdentityFacts: {
+        identityConfidence: "partial",
+        facts: ["diagnostics-read"]
+      }
+    });
+
+    expect(result.status).toBe("failed");
+    expect(result.liveIdentityFacts).toBeUndefined();
   });
 
   it("classifies timeout failures", () => {

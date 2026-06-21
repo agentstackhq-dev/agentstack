@@ -207,7 +207,9 @@ export async function inspectConvexReadOnly(
         commandKind: command.kind,
         command,
         result,
-        secretValues: options.secretValues
+        secretValues: options.secretValues,
+        liveIdentityFacts:
+          result.exitCode === 0 ? { identityConfidence: "partial", facts: ["provider-env-read"] } : undefined
       })
     );
   }

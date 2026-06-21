@@ -160,6 +160,11 @@ describe("clerk command planner", () => {
       "auth.env.pull",
       "auth.config.pull"
     ]);
+    expect(results.map((result) => result.liveIdentityFacts)).toEqual([
+      { identityConfidence: "partial", facts: ["diagnostics-read"] },
+      { identityConfidence: "partial", facts: ["provider-env-read"] },
+      { identityConfidence: "partial", facts: ["provider-config-read"] }
+    ]);
     expect(calls.map((call) => call.join(" "))).not.toContain("pnpm exec clerk init -y");
     expect(calls.map((call) => call.join(" "))).not.toContain(
       "pnpm exec clerk deploy --mode agent"
@@ -195,5 +200,38 @@ describe("clerk command planner", () => {
     );
     expect(JSON.stringify(results)).not.toContain("provider-owned-secret-value");
     expect(JSON.stringify(results)).not.toContain("sk_live_not_known_locally");
+  });
+
+  it("does not attach Clerk live identity facts to failed inspect commands", async () => {
+    let callIndex = 0;
+    const results = await inspectClerkReadOnly({
+      environment: "preview",
+      executor: {
+        async execute() {
+          callIndex += 1;
+          return {
+            exitCode: callIndex === 2 ? 1 : 0,
+            stdout: callIndex === 2 ? "" : "ok",
+            stderr: callIndex === 2 ? "auth failed" : "",
+            durationMs: 5
+          };
+        }
+      }
+    });
+
+    expect(results.map((result) => result.commandKind)).toEqual([
+      "auth.diagnostics",
+      "auth.env.pull",
+      "auth.config.pull"
+    ]);
+    expect(results.map((result) => result.liveIdentityFacts)).toEqual([
+      { identityConfidence: "partial", facts: ["diagnostics-read"] },
+      undefined,
+      { identityConfidence: "partial", facts: ["provider-config-read"] }
+    ]);
+    expect(results[1]).toMatchObject({
+      status: "failed",
+      failureClass: "auth"
+    });
   });
 });

@@ -3,7 +3,8 @@ import type { EnvironmentName } from "@agentstack/core";
 import {
   createProviderExecutionResult,
   type ProviderCommandExecutor,
-  type ProviderExecutionResult
+  type ProviderExecutionResult,
+  type ProviderLiveFactLabel
 } from "./provider-executor.js";
 import type { ProviderOperation } from "./provider-operations.js";
 
@@ -177,12 +178,31 @@ export async function inspectClerkReadOnly(
         commandKind: command.kind,
         command,
         result,
-        secretValues: options.secretValues
+        secretValues: options.secretValues,
+        liveIdentityFacts: liveIdentityFactsForClerkRead(command.kind, result.exitCode)
       })
     );
   }
 
   return results;
+}
+
+function liveIdentityFactsForClerkRead(
+  commandKind: ClerkCommandKind,
+  exitCode: number
+): { identityConfidence: "partial"; facts: ProviderLiveFactLabel[] } | undefined {
+  if (exitCode !== 0) {
+    return undefined;
+  }
+
+  const factByCommandKind: Partial<Record<ClerkCommandKind, ProviderLiveFactLabel>> = {
+    "auth.diagnostics": "diagnostics-read",
+    "auth.env.pull": "provider-env-read",
+    "auth.config.pull": "provider-config-read"
+  };
+  const fact = factByCommandKind[commandKind];
+
+  return fact ? { identityConfidence: "partial", facts: [fact] } : undefined;
 }
 
 function operationCommand(operation: ProviderOperation): ClerkCliCommand[] {

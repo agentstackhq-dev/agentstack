@@ -229,10 +229,41 @@ describe("convex command planner", () => {
         stdoutSummary: "<redacted provider stdout: 1 line, 39 bytes>",
         stdoutLines: 1,
         stdoutBytes: 39,
-        outputRedacted: true
+        outputRedacted: true,
+        liveIdentityFacts: {
+          identityConfidence: "partial",
+          facts: ["provider-env-read"]
+        }
       })
     ]);
     expect(JSON.stringify(results)).not.toContain("sk_live_");
+  });
+
+  it("does not attach Convex live identity facts to failed env list reads", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    const results = await inspectConvexReadOnly({
+      manifest,
+      environment: "preview",
+      executor: {
+        async execute() {
+          return {
+            exitCode: 1,
+            stdout: "",
+            stderr: "not found",
+            durationMs: 9
+          };
+        }
+      }
+    });
+
+    expect(results[0]).toMatchObject({
+      service: "convex",
+      environment: "preview",
+      commandKind: "env.list",
+      status: "failed",
+      failureClass: "not-found"
+    });
+    expect(results[0]?.liveIdentityFacts).toBeUndefined();
   });
 
   it("does not store unknown provider-owned secrets from Convex inspect output", async () => {

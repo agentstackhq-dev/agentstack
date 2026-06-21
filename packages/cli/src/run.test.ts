@@ -2511,7 +2511,7 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("Commands: 1");
     expect(output.join("\n")).toContain("Results: 1");
     expect(output.join("\n")).toContain(
-      "live=unknown identity=ambiguous identity-scope=none permission=read-ok drift=unknown missing=provider-specific-identity-parser,stable-provider-identity"
+      "live=found identity=ambiguous identity-scope=partial permission=read-ok drift=unknown facts=provider-env-read missing=ledger-comparable-identity,stable-provider-identity"
     );
     expect(output.join("\n")).not.toContain(rowId);
     expect(output.join("\n")).not.toContain(externalId);
@@ -2582,6 +2582,83 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).not.toContain("prj_secret");
     expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
       "exec vercel env ls preview"
+    ]);
+  });
+
+  it("renders mixed Clerk live inventory failures without partial facts", async () => {
+    let callIndex = 0;
+    const code = await runAgentstack(["provider", "inventory", "--service", "clerk", "--env", "preview", "--source", "live"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: {
+        async execute(command, args, options) {
+          providerExecutions.push({ command, args, stdin: options.stdin });
+          callIndex += 1;
+          return {
+            exitCode: callIndex === 1 ? 0 : 1,
+            stdout: callIndex === 1 ? "ok" : "",
+            stderr: callIndex === 1 ? "" : "auth failed",
+            durationMs: 12
+          };
+        }
+      }
+    });
+
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL provider inventory clerk preview");
+    expect(output).not.toContain("PASS provider inventory clerk preview");
+    expect(output.join("\n")).toContain("Commands: 3");
+    expect(output.join("\n")).toContain("Results: 3");
+    expect(output.join("\n")).toContain("Failed: 2");
+    expect(output.join("\n")).toContain(
+      "live=auth-failed identity=ambiguous identity-scope=none permission=read-failed drift=unknown missing=successful-live-read"
+    );
+    expect(output.join("\n")).not.toContain("facts=");
+    expect(output.join("\n")).not.toContain("diagnostics-read");
+    expect(output.join("\n")).not.toContain("provider-env-read");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec clerk doctor --mode agent",
+      "exec clerk env pull --mode agent",
+      "exec clerk config pull --mode agent"
+    ]);
+  });
+
+  it("renders all-success Clerk live inventory with sorted command-level partial facts", async () => {
+    let callIndex = 0;
+    const code = await runAgentstack(["provider", "inventory", "--service", "clerk", "--env", "preview", "--source", "live"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: {
+        async execute(command, args, options) {
+          providerExecutions.push({ command, args, stdin: options.stdin });
+          callIndex += 1;
+          return {
+            exitCode: 0,
+            stdout: [
+              `RAW_PROVIDER_ID=secret-${callIndex}`,
+              "NEXT_PUBLIC_APP_URL=https://secret.example.test",
+              "CLERK_SECRET_KEY=sk_live_secret_should_not_leak"
+            ].join("\n"),
+            stderr: "",
+            durationMs: 12
+          };
+        }
+      }
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS provider inventory clerk preview");
+    expect(output.join("\n")).toContain(
+      "live=found identity=ambiguous identity-scope=partial permission=read-ok drift=unknown facts=diagnostics-read,provider-config-read,provider-env-read missing=ledger-comparable-identity,stable-provider-identity"
+    );
+    expect(output.join("\n")).not.toContain("RAW_PROVIDER_ID");
+    expect(output.join("\n")).not.toContain("NEXT_PUBLIC_APP_URL");
+    expect(output.join("\n")).not.toContain("https://secret.example.test");
+    expect(output.join("\n")).not.toContain("sk_live_secret_should_not_leak");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec clerk doctor --mode agent",
+      "exec clerk env pull --mode agent",
+      "exec clerk config pull --mode agent"
     ]);
   });
 

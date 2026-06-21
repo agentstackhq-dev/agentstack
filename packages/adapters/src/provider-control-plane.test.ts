@@ -123,7 +123,7 @@ describe("provider control plane", () => {
     ).resolves.toMatchObject({ rows: [expect.objectContaining({ resourceType: "project", name: "acme-crm" })] });
   });
 
-  it("projects successful live read results as bounded ambiguous read evidence without leaking provider output", async () => {
+  it("projects successful live read results with command-level partial facts without leaking provider output", async () => {
     const inventory = await createLiveProviderInventory({
       localInventory: await createProviderInventory({
         cwd: "/tmp/no-state",
@@ -147,22 +147,26 @@ describe("provider control plane", () => {
           stdoutBytes: 42,
           stderrBytes: 0,
           outputRedacted: true,
-          providerResourceId: "raw-provider-id-should-not-leak"
+          providerResourceId: "raw-provider-id-should-not-leak",
+          liveIdentityFacts: {
+            identityConfidence: "partial",
+            facts: ["provider-env-read"]
+          }
         }
       ]
     });
 
     expect(inventory.evidence).toBe("live-read-inventory");
-      expect(inventory.rows[0]).toMatchObject({
-        liveStatus: "unknown",
-        identityMatch: "ambiguous",
-        identityScope: "none",
-        permissionSummary: "read-ok",
-        driftSummary: "unknown",
-        missingProof: ["provider-specific-identity-parser", "stable-provider-identity"],
-        externalIdSummary: "none"
-      });
-    expect(inventory.rows[0]?.facts).toBeUndefined();
+    expect(inventory.rows[0]).toMatchObject({
+      liveStatus: "found",
+      identityMatch: "ambiguous",
+      identityScope: "partial",
+      permissionSummary: "read-ok",
+      driftSummary: "unknown",
+      facts: ["provider-env-read"],
+      missingProof: ["ledger-comparable-identity", "stable-provider-identity"],
+      externalIdSummary: "none"
+    });
     expect(inventory.liveReadSummary).toEqual({ commands: 1, results: 1, succeeded: 1, failed: 0 });
     expect(JSON.stringify(inventory)).not.toContain("raw-provider-id-should-not-leak");
   });
@@ -294,6 +298,66 @@ describe("provider control plane", () => {
       });
     expect(inventory.rows[0]?.facts).toBeUndefined();
     expect(inventory.liveReadSummary).toEqual({ commands: 1, results: 1, succeeded: 0, failed: 1 });
+  });
+
+  it("keeps mixed live read results on the failure path without partial facts", async () => {
+    const inventory = await createLiveProviderInventory({
+      localInventory: await createProviderInventory({
+        cwd: "/tmp/no-state",
+        manifest: createDefaultManifest("acme-crm"),
+        service: "clerk",
+        environment: "preview",
+        ledgerRows: []
+      }),
+      readResults: [
+        {
+          service: "clerk",
+          environment: "preview",
+          commandKind: "auth.diagnostics",
+          status: "success",
+          exitCode: 0,
+          durationMs: 12,
+          stdoutSummary: "<redacted provider stdout: 1 line, 2 bytes>",
+          stderrSummary: "",
+          stdoutLines: 1,
+          stderrLines: 0,
+          stdoutBytes: 2,
+          stderrBytes: 0,
+          outputRedacted: true,
+          liveIdentityFacts: {
+            identityConfidence: "partial",
+            facts: ["diagnostics-read"]
+          }
+        },
+        {
+          service: "clerk",
+          environment: "preview",
+          commandKind: "auth.env.pull",
+          status: "failed",
+          exitCode: 1,
+          durationMs: 12,
+          stdoutSummary: "",
+          stderrSummary: "<redacted provider stderr: 1 line, 99 bytes>",
+          stdoutLines: 0,
+          stderrLines: 1,
+          stdoutBytes: 0,
+          stderrBytes: 99,
+          outputRedacted: true,
+          failureClass: "auth"
+        }
+      ]
+    });
+
+    expect(inventory.rows[0]).toMatchObject({
+      liveStatus: "auth-failed",
+      identityMatch: "ambiguous",
+      identityScope: "none",
+      permissionSummary: "read-failed",
+      driftSummary: "unknown",
+      missingProof: ["successful-live-read"]
+    });
+    expect(inventory.rows[0]?.facts).toBeUndefined();
+    expect(inventory.liveReadSummary).toEqual({ commands: 2, results: 2, succeeded: 1, failed: 1 });
   });
 
   it("refuses live confirmation for failed or ambiguous inventory without exact identity synthesis", async () => {

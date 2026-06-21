@@ -26,12 +26,27 @@ export type ProviderExecutionStatus = "success" | "failed";
 
 export type ProviderFailureClass = "auth" | "timeout" | "not-found" | "rate-limit" | "unknown";
 export type ProviderLiveIdentityConfidence = "none" | "partial";
-export type ProviderLiveFactLabel = "expected-env-names" | "preview-environment" | "env-list-read";
+export type ProviderLiveFactLabel =
+  | "expected-env-names"
+  | "preview-environment"
+  | "env-list-read"
+  | "diagnostics-read"
+  | "provider-env-read"
+  | "provider-config-read";
 
 export type ProviderLiveIdentityFacts = {
   identityConfidence: ProviderLiveIdentityConfidence;
   facts: ProviderLiveFactLabel[];
 };
+
+const PROVIDER_LIVE_FACT_LABELS = new Set<string>([
+  "expected-env-names",
+  "preview-environment",
+  "env-list-read",
+  "diagnostics-read",
+  "provider-env-read",
+  "provider-config-read"
+]);
 
 export type ProviderExecutionResult = {
   service: ServiceName | string;
@@ -121,7 +136,8 @@ export function createProviderExecutionResult(
     providerResourceId: input.providerResourceId
       ? redactProviderText(input.providerResourceId, { secretValues: input.secretValues })
       : undefined,
-    liveIdentityFacts: normalizeLiveIdentityFacts(input.liveIdentityFacts)
+    liveIdentityFacts:
+      status === "success" ? normalizeLiveIdentityFacts(input.liveIdentityFacts) : undefined
   };
 
   if (status === "failed") {
@@ -138,9 +154,16 @@ function normalizeLiveIdentityFacts(
     return undefined;
   }
 
+  const allowedFacts = facts.facts.filter((fact): fact is ProviderLiveFactLabel =>
+    PROVIDER_LIVE_FACT_LABELS.has(fact)
+  );
+  if (allowedFacts.length === 0) {
+    return undefined;
+  }
+
   return {
     identityConfidence: "partial",
-    facts: [...facts.facts]
+    facts: allowedFacts
   };
 }
 
