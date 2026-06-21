@@ -3,8 +3,29 @@ import type { AgentstackManifest, EnvironmentName, ServiceName, SurfaceName } fr
 
 export type LifecycleStatus = "pass" | "warn" | "fail";
 
+export type LifecycleProviderAdapterSummary = {
+  service: ServiceName | string;
+  displayName: string;
+  capabilities: string[];
+  realAdapterStatus: "contract-only" | "available";
+};
+
+export type LifecycleProviderOperationSummary = {
+  id: string;
+  environment: EnvironmentName;
+  service: ServiceName | string;
+  kind: string;
+  scope: string;
+  target: string;
+  summary: string;
+  secret: boolean;
+  requiresConfirmation: boolean;
+};
+
 export type LifecycleCloudSummary = {
   environment: EnvironmentName;
+  providerAdapters: LifecycleProviderAdapterSummary[];
+  providerOperations: LifecycleProviderOperationSummary[];
   expectedServices: Array<ServiceName | string>;
   linkedServices: Array<ServiceName | string>;
   missingServices: Array<ServiceName | string>;
@@ -53,6 +74,7 @@ export function createLifecycleSummary(input: CreateLifecycleSummaryInput): Life
     (input.diagnostics.some((diagnostic) => diagnostic.severity === "warn") ||
       Boolean(input.cloud?.missingServices.length) ||
       Boolean(input.cloud?.staleServices.length) ||
+      Boolean(input.cloud?.providerOperations.length) ||
       Boolean(input.cloud?.missingEnv.length) ||
       Boolean(input.cloud?.staleEnv.length) ||
       Boolean(input.cloud?.driftedEnv.length));
@@ -83,6 +105,7 @@ export function createLifecycleSummary(input: CreateLifecycleSummaryInput): Life
       diagnostics: input.diagnostics,
       cloudMissing: [...(input.cloud?.missingServices ?? []), ...(input.cloud?.missingEnv ?? [])],
       cloudEnvNeedsSync: [
+        ...(input.cloud?.providerOperations ?? []),
         ...(input.cloud?.missingEnv ?? []),
         ...(input.cloud?.staleEnv ?? []),
         ...(input.cloud?.driftedEnv ?? [])
@@ -95,7 +118,7 @@ export type RecommendLifecycleCommandsInput = {
   environment: EnvironmentName;
   diagnostics: Diagnostic[];
   cloudMissing: Array<ServiceName | string>;
-  cloudEnvNeedsSync?: string[];
+  cloudEnvNeedsSync?: unknown[];
 };
 
 export function recommendLifecycleCommands(input: RecommendLifecycleCommandsInput): string[] {

@@ -3,14 +3,47 @@ import { createDefaultManifest } from "./manifest.js";
 import {
   createLifecycleSummary,
   recommendLifecycleCommands,
-  type LifecycleCloudSummary
+  type LifecycleCloudSummary,
+  type LifecycleProviderAdapterSummary,
+  type LifecycleProviderOperationSummary
 } from "./lifecycle.js";
+
+const providerAdapters: LifecycleProviderAdapterSummary[] = [
+  {
+    service: "clerk",
+    displayName: "Clerk",
+    capabilities: ["service.lifecycle", "auth.sync", "billing.sync", "webhook.sync", "env.sync"],
+    realAdapterStatus: "contract-only"
+  },
+  {
+    service: "convex",
+    displayName: "Convex",
+    capabilities: ["service.lifecycle", "env.sync", "backend.deploy"],
+    realAdapterStatus: "contract-only"
+  }
+];
+
+const providerOperations: LifecycleProviderOperationSummary[] = [
+  {
+    id: "preview.convex.service.link",
+    environment: "preview",
+    service: "convex",
+    kind: "service.link",
+    scope: "service",
+    target: "service",
+    summary: "Link convex service for preview.",
+    secret: false,
+    requiresConfirmation: false
+  }
+];
 
 describe("lifecycle summaries", () => {
   it("summarizes manifest, anchors, and healthy cloud state", () => {
     const manifest = createDefaultManifest("acme-crm");
     const cloud: LifecycleCloudSummary = {
       environment: "preview",
+      providerAdapters,
+      providerOperations: [],
       expectedServices: ["clerk", "convex"],
       linkedServices: ["clerk", "convex"],
       missingServices: [],
@@ -34,6 +67,8 @@ describe("lifecycle summaries", () => {
     expect(summary.status).toBe("pass");
     expect(summary.app.slug).toBe("acme-crm");
     expect(summary.generated.missing).toEqual([]);
+    expect(summary.cloud?.providerAdapters).toEqual(providerAdapters);
+    expect(summary.cloud?.providerOperations).toEqual([]);
     expect(summary.cloud?.linkedServices).toEqual(["clerk", "convex"]);
   });
 
@@ -70,6 +105,8 @@ describe("lifecycle summaries", () => {
       diagnostics: [],
       cloud: {
         environment: "preview",
+        providerAdapters,
+        providerOperations: [],
         expectedServices: ["clerk", "convex"],
         linkedServices: ["clerk"],
         missingServices: ["convex"],
@@ -84,6 +121,37 @@ describe("lifecycle summaries", () => {
 
     expect(summary.status).toBe("warn");
     expect(summary.cloud?.missingServices).toEqual(["convex"]);
+    expect(summary.nextCommands).toEqual([
+      "agentstack sync --env preview --apply",
+      "agentstack validate --cloud --env preview"
+    ]);
+  });
+
+  it("recommends provider sync when provider operations are planned", () => {
+    const manifest = createDefaultManifest("acme-crm");
+    const summary = createLifecycleSummary({
+      manifest,
+      environment: "preview",
+      requiredAnchors: ["AGENTS.md"],
+      missingAnchors: [],
+      diagnostics: [],
+      cloud: {
+        environment: "preview",
+        providerAdapters,
+        providerOperations,
+        expectedServices: ["clerk", "convex"],
+        linkedServices: ["clerk", "convex"],
+        missingServices: [],
+        staleServices: [],
+        expectedEnv: [],
+        syncedEnv: [],
+        missingEnv: [],
+        staleEnv: [],
+        driftedEnv: []
+      }
+    });
+
+    expect(summary.status).toBe("warn");
     expect(summary.nextCommands).toEqual([
       "agentstack sync --env preview --apply",
       "agentstack validate --cloud --env preview"

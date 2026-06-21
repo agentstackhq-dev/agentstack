@@ -4,7 +4,7 @@ Agentstack is an agent-first control framework for B2B SaaS teams building on Co
 
 This prototype proves the local command contract: generate a project, inspect lifecycle state, run doctor-style preflight checks, validate the framework manifest, inspect environment state, plan and apply local-cloud sync, validate a named environment, rehearse local provider env resources, rehearse local preview and production deploy flows, inspect redacted command telemetry from the CLI, and write an `OTLP-shaped JSON` local export artifact for agent handoff. It does not provision real provider resources yet.
 
-The current cloud implementation is a filesystem-backed local-cloud adapter. `agentstack env set` writes local validation values only. `agentstack sync --env <env>` refuses missing or invalid custom env values before planning or applying provider env resources. Applied sync reconciles local provider env resource rehearsal into `.agentstack/local-cloud.json` with redacted/hash-only metadata, never raw env values. Real Convex, Clerk, Vercel, EAS, Stripe, and telemetry adapters will implement the same validation, sync, deploy, and inspection contracts.
+The current cloud implementation is a filesystem-backed local-cloud adapter. `agentstack inspect --env <env>` shows provider adapter contract status and pending provider operation IDs so agents can see the provider boundary before real API calls exist. `contract-only` means a normalized provider boundary exists, while provider mutations still run as local-cloud rehearsal in this prototype. `agentstack env set` writes local validation values only. `agentstack sync --env <env>` refuses missing or invalid custom env values before planning or applying provider env resources. Applied sync reconciles local provider env resource rehearsal into `.agentstack/local-cloud.json` with redacted/hash-only metadata, never raw env values. Provider operation IDs are stable and redacted; env operations expose variable names only, never values or hashes. An `env.set` operation can appear before a local value is available; sync remains the actionability gate. Real Convex, Clerk, Vercel, EAS, Stripe, and telemetry adapters will implement the same validation, sync, deploy, and inspection contracts.
 
 ## Local Smoke
 
@@ -64,7 +64,7 @@ CREATED feature invoices
 CREATED billing-plan pro
 CREATED event billing.subscription.updated
 PASS env set preview convex.STRIPE_MODE
-PASS inspect acme-crm
+WARN inspect acme-crm
 PASS skills inspect
 PASS validate
 PASS env inspect preview
@@ -99,7 +99,7 @@ agentstack.event.added
 - Generated apps include a typed SaaS spine in `packages/domain/src/saas-spine.ts`, `convex/saasSpine.ts`, and `docs/agentstack/saas-spine.md` for roles, memberships, billing plans, entitlements, Clerk webhooks, and audit events.
 - `agentstack add billing-plan <name> --entitlements <keys> --seats <count>` creates coordinated billing-plan anchors across domain, Convex, web, mobile, telemetry, and docs.
 - `agentstack add event <name> --journey <journey> --surfaces web,mobile,convex --state key:type` creates typed app telemetry event definitions and local event docs.
-- `pnpm run inspect` summarizes app identity, framework and guidance versions, generated anchor counts, enabled services, and preview local-cloud state.
+- `pnpm run inspect` summarizes app identity, framework and guidance versions, generated anchor counts, enabled services, preview local-cloud state, provider adapter contract status, and pending provider operation IDs.
 - `pnpm run skills:inspect` checks the versioned repo-local skill pack, prints required guidance anchors, and confirms there is no MCP dependency.
 - `pnpm run doctor` runs local validation plus preview local-cloud checks and prints repair commands before provider, env, build, sync, or deploy work.
 - `pnpm run dev` is a local preflight only. It prints next commands such as validation, env inspection, sync, web dev, and mobile dev; this prototype does not start real web, mobile, Convex, Expo, or provider servers.

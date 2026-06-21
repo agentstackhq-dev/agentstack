@@ -1,6 +1,13 @@
 import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { LocalCloudAdapter, type InspectEnvResource } from "@agentstack/adapters";
+import {
+  createProviderOperationPlan,
+  getEnabledProviderAdapterDefinitions,
+  LocalCloudAdapter,
+  type InspectEnvResource,
+  type ProviderAdapterDefinition,
+  type ProviderOperation
+} from "@agentstack/adapters";
 import {
   buildEnvGraph,
   createLifecycleSummary,
@@ -22,6 +29,8 @@ import {
   type Diagnostic,
   type EnvironmentName,
   type LifecycleCloudSummary,
+  type LifecycleProviderAdapterSummary,
+  type LifecycleProviderOperationSummary,
   type LifecycleSummary,
   type ReleaseEnvironment,
   type SurfaceName
@@ -291,7 +300,7 @@ async function inspectCommand(argv: string[], io: RunIo): Promise<number> {
   });
   const { summary } = await loadLifecycleSummary(io.cwd, environment, { includeCloudDiagnostics: false });
 
-  io.write(`PASS inspect ${summary.app.slug}`);
+  io.write(`${summary.status.toUpperCase()} inspect ${summary.app.slug}`);
   writeLifecycleSummary(io, summary);
   await recordCommandEvent(io, {
     name: "agentstack.inspect.completed",
@@ -701,11 +710,16 @@ async function loadLifecycleSummary(
   const cloudDiagnostics = options.includeCloudDiagnostics
     ? await adapter.validate(validation.context.manifest, environment, { envValues: validation.envValues })
     : [];
+  const providerOperationPlan = createProviderOperationPlan(cloudReport);
   const localDiagnostics = validation.diagnostics;
   const diagnostics = [...localDiagnostics, ...cloudDiagnostics];
   const requiredAnchors = getRequiredGeneratedAnchors(validation.context.manifest);
   const cloud: LifecycleCloudSummary = {
     environment,
+    providerAdapters: getEnabledProviderAdapterDefinitions(validation.context.manifest).map(
+      toLifecycleProviderAdapterSummary
+    ),
+    providerOperations: providerOperationPlan.operations.map(toLifecycleProviderOperationSummary),
     expectedServices: cloudReport.expected.map((resource) => resource.service),
     linkedServices: cloudReport.linked.map((resource) => resource.service),
     missingServices: cloudReport.missing.map((resource) => resource.service),
@@ -747,6 +761,8 @@ function writeLifecycleSummary(io: RunIo, summary: LifecycleSummary): void {
     io.write(`Generated missing: ${formatList(summary.generated.missing)}`);
   }
   if (summary.cloud) {
+    io.write(`Provider adapters: ${formatList(formatProviderAdapters(summary.cloud.providerAdapters))}`);
+    io.write(`Provider operations: ${formatList(formatProviderOperations(summary.cloud.providerOperations))}`);
     io.write(`Cloud expected: ${formatList(summary.cloud.expectedServices)}`);
     io.write(`Cloud linked: ${formatList(summary.cloud.linkedServices)}`);
     io.write(`Cloud missing: ${formatList(summary.cloud.missingServices)}`);
@@ -795,6 +811,41 @@ function formatProviderEnvResources(resources: InspectEnvResource[]): string[] {
 
 function formatProviderEnvResource(resource: InspectEnvResource): string {
   return `${resource.environment}.${resource.service}.${resource.name}`;
+}
+
+function toLifecycleProviderAdapterSummary(
+  definition: ProviderAdapterDefinition
+): LifecycleProviderAdapterSummary {
+  return {
+    service: definition.service,
+    displayName: definition.displayName,
+    capabilities: [...definition.capabilities],
+    realAdapterStatus: definition.realAdapterStatus
+  };
+}
+
+function toLifecycleProviderOperationSummary(
+  operation: ProviderOperation
+): LifecycleProviderOperationSummary {
+  return {
+    id: operation.id,
+    environment: operation.environment,
+    service: operation.service,
+    kind: operation.kind,
+    scope: operation.scope,
+    target: operation.target,
+    summary: operation.summary,
+    secret: operation.secret,
+    requiresConfirmation: operation.requiresConfirmation
+  };
+}
+
+function formatProviderAdapters(adapters: LifecycleProviderAdapterSummary[]): string[] {
+  return adapters.map((adapter) => `${adapter.service}:${adapter.realAdapterStatus}`);
+}
+
+function formatProviderOperations(operations: LifecycleProviderOperationSummary[]): string[] {
+  return operations.map((operation) => operation.id);
 }
 
 async function themeValidateCommand(io: RunIo): Promise<number> {

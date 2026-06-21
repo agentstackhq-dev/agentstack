@@ -187,7 +187,26 @@ describe("runAgentstack", () => {
     expect(output).toContain("PASS inspect acme-crm");
     expect(output.join("\n")).toContain("Environment: preview");
     expect(output.join("\n")).toContain("Generated anchors:");
+    expect(output.join("\n")).toContain(
+      "Provider adapters: clerk:contract-only,convex:contract-only,vercel:contract-only,eas:contract-only"
+    );
+    expect(output.join("\n")).toContain("Provider operations: none");
     expect(output.join("\n")).toContain("Cloud missing: none");
+  });
+
+  it("prints provider operations for unsynced preview inspection", async () => {
+    const code = await runAgentstack(["inspect", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("WARN inspect acme-crm");
+    expect(output.join("\n")).toContain(
+      "Provider adapters: clerk:contract-only,convex:contract-only,vercel:contract-only,eas:contract-only"
+    );
+    expect(output.join("\n")).toContain("preview.clerk.service.link");
+    expect(output.join("\n")).toContain("preview.convex.service.link");
   });
 
   it("reports doctor failures with next commands", async () => {

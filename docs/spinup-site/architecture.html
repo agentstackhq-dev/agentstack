@@ -114,12 +114,12 @@
                 <tr>
                   <td>Cloud providers</td>
                   <td><code>.agentstack/local-cloud.json</code> simulates linked services per environment, and <code>.agentstack/deployments/preview.json</code> records local preview deploy rehearsal output.</td>
-                  <td>Convex, Clerk, Vercel, and EAS adapters implement the same validate/sync/deploy interface.</td>
+                  <td><code>inspect</code> shows <code>contract-only</code> adapter status and stable pending operation IDs; Convex, Clerk, Vercel, and EAS adapters implement those operation kinds later.</td>
                 </tr>
                 <tr>
                   <td>Env values</td>
                   <td><code>.agentstack/env-values.json</code> satisfies required custom env declarations locally.</td>
-                  <td>Provider-specific env APIs and secret stores can be wrapped behind the framework.</td>
+                  <td>Provider env operations expose surface scope and variable names only. Values and hashes stay out of operation IDs and inspect output.</td>
                 </tr>
                 <tr>
                   <td>Telemetry</td>
