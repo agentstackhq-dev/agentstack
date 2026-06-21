@@ -85,6 +85,7 @@ describe("clerk command planner", () => {
       "auth.diagnostics",
       "auth.env.pull",
       "auth.config.pull",
+      "auth.apps.list",
       "env.pull"
     ]);
     expect(plan.commands.at(-1)).toEqual(
@@ -153,17 +154,20 @@ describe("clerk command planner", () => {
     expect(calls).toEqual([
       ["pnpm", "exec", "clerk", "doctor", "--mode", "agent"],
       ["pnpm", "exec", "clerk", "env", "pull", "--mode", "agent"],
-      ["pnpm", "exec", "clerk", "config", "pull", "--mode", "agent"]
+      ["pnpm", "exec", "clerk", "config", "pull", "--mode", "agent"],
+      ["pnpm", "exec", "clerk", "apps", "list", "--json"]
     ]);
     expect(results.map((result) => result.commandKind)).toEqual([
       "auth.diagnostics",
       "auth.env.pull",
-      "auth.config.pull"
+      "auth.config.pull",
+      "auth.apps.list"
     ]);
     expect(results.map((result) => result.liveIdentityFacts)).toEqual([
       { identityConfidence: "partial", facts: ["diagnostics-read"] },
       { identityConfidence: "partial", facts: ["provider-env-read"] },
-      { identityConfidence: "partial", facts: ["provider-config-read"] }
+      { identityConfidence: "partial", facts: ["provider-config-read"] },
+      undefined
     ]);
     expect(calls.map((call) => call.join(" "))).not.toContain("pnpm exec clerk init -y");
     expect(calls.map((call) => call.join(" "))).not.toContain(
@@ -188,7 +192,7 @@ describe("clerk command planner", () => {
       }
     });
 
-    expect(results).toHaveLength(3);
+    expect(results).toHaveLength(4);
     expect(results[1]).toEqual(
       expect.objectContaining({
         service: "clerk",
@@ -222,16 +226,142 @@ describe("clerk command planner", () => {
     expect(results.map((result) => result.commandKind)).toEqual([
       "auth.diagnostics",
       "auth.env.pull",
-      "auth.config.pull"
+      "auth.config.pull",
+      "auth.apps.list"
     ]);
     expect(results.map((result) => result.liveIdentityFacts)).toEqual([
       { identityConfidence: "partial", facts: ["diagnostics-read"] },
       undefined,
-      { identityConfidence: "partial", facts: ["provider-config-read"] }
+      { identityConfidence: "partial", facts: ["provider-config-read"] },
+      undefined
     ]);
     expect(results[1]).toMatchObject({
       status: "failed",
       failureClass: "auth"
     });
+  });
+
+  it("attaches sanitized identity candidate labels for a matching Clerk apps list fixture", async () => {
+    const rawFixture = {
+      data: [
+        {
+          id: "app_raw_123",
+          resourceId: "app_raw_123",
+          ownerId: "org_raw_123",
+          environment: "development"
+        }
+      ]
+    };
+    const results = await inspectClerkReadOnly({
+      environment: "preview",
+      executor: {
+        async execute(_command, args) {
+          return {
+            exitCode: 0,
+            stdout: args.join(" ") === "exec clerk apps list --json" ? JSON.stringify(rawFixture) : "ok",
+            stderr: "",
+            durationMs: 5
+          };
+        }
+      }
+    });
+
+    expect(results.at(-1)?.identityCandidates).toEqual({
+      kind: "provider-identity-candidates",
+      evaluator: "provider-specific-identity-candidate-parser",
+      labels: [
+        "provider-environment-scope",
+        "provider-owner-identity",
+        "provider-resource-id",
+        "stable-provider-identity"
+      ]
+    });
+    expect(results.at(-1)?.exactIdentityProof).toBeUndefined();
+    expect(JSON.stringify(results)).not.toContain("app_raw_123");
+    expect(JSON.stringify(results)).not.toContain("org_raw_123");
+  });
+
+  it("does not treat a Clerk app id as provider-resource-id candidate evidence", async () => {
+    const rawFixture = {
+      data: [
+        {
+          id: "app_raw_123",
+          ownerId: "org_raw_123",
+          environment: "development"
+        }
+      ]
+    };
+    const results = await inspectClerkReadOnly({
+      environment: "preview",
+      executor: {
+        async execute(_command, args) {
+          return {
+            exitCode: 0,
+            stdout: args.join(" ") === "exec clerk apps list --json" ? JSON.stringify(rawFixture) : "ok",
+            stderr: "",
+            durationMs: 5
+          };
+        }
+      }
+    });
+
+    expect(results.at(-1)?.identityCandidates).toEqual({
+      kind: "provider-identity-candidates",
+      evaluator: "provider-specific-identity-candidate-parser",
+      labels: ["provider-environment-scope", "provider-owner-identity", "stable-provider-identity"]
+    });
+    expect(results.at(-1)?.exactIdentityProof).toBeUndefined();
+    expect(JSON.stringify(results)).not.toContain("app_raw_123");
+    expect(JSON.stringify(results)).not.toContain("org_raw_123");
+  });
+
+  it("does not attach Clerk identity candidates for malformed, incomplete, mismatched, or failed apps list output", async () => {
+    const fixtures = [
+      "{ malformed",
+      JSON.stringify([]),
+      JSON.stringify([{ id: "app_raw_123", environment: "development" }])
+    ];
+
+    for (const stdout of fixtures) {
+      const results = await inspectClerkReadOnly({
+        environment: "preview",
+        executor: {
+          async execute(_command, args) {
+            return {
+              exitCode: 0,
+              stdout: args.join(" ") === "exec clerk apps list --json" ? stdout : "ok",
+              stderr: "",
+              durationMs: 5
+            };
+          }
+        }
+      });
+
+      expect(results.at(-1)?.identityCandidates).toBeUndefined();
+      expect(JSON.stringify(results)).not.toContain("app_raw_123");
+      expect(JSON.stringify(results)).not.toContain("org_raw_123");
+    }
+
+    const failedResults = await inspectClerkReadOnly({
+      environment: "preview",
+      executor: {
+        async execute(_command, args) {
+          const isAppsList = args.join(" ") === "exec clerk apps list --json";
+          return {
+            exitCode: isAppsList ? 1 : 0,
+            stdout: isAppsList
+              ? JSON.stringify([{ id: "app_raw_123", ownerId: "org_raw_123", environment: "development" }])
+              : "ok",
+            stderr: isAppsList ? "auth failed" : "",
+            durationMs: 5
+          };
+        }
+      }
+    });
+
+    expect(failedResults.at(-1)?.identityCandidates).toBeUndefined();
+    expect(failedResults.at(-1)?.status).toBe("failed");
+    expect(JSON.stringify(failedResults)).not.toContain("app_raw_123");
+    expect(JSON.stringify(failedResults)).not.toContain("org_raw_123");
   });
 });

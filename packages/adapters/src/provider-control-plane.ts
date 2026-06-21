@@ -7,6 +7,7 @@ import type {
   ProviderLiveIdentityConfidence
 } from "./provider-executor.js";
 import {
+  evaluateProviderIdentityCandidateProof,
   evaluateProviderExactIdentityProof,
   type ProviderProofRequirementLabel
 } from "./provider-proof-contracts.js";
@@ -176,7 +177,15 @@ export async function createLiveProviderInventory(input: LiveProviderInventoryIn
   const notFound = input.readResults.some((result) => result.failureClass === "not-found");
   const liveFacts = summarizeLiveIdentityFacts(input.readResults);
   const exactIdentityDecision = evaluateProviderExactIdentityProof(input.localInventory.service, input.readResults);
-  const missingProof = summarizeMissingIdentityProof(input.readResults, exactIdentityDecision.missing);
+  const candidateIdentityDecision = evaluateProviderIdentityCandidateProof(
+    input.localInventory.service,
+    input.readResults
+  );
+  const missingProof = summarizeMissingIdentityProof(
+    input.readResults,
+    exactIdentityDecision.missing,
+    candidateIdentityDecision.missing
+  );
   const liveStatus: ProviderInventoryLiveStatus = authFailed
     ? "auth-failed"
     : notFound
@@ -247,13 +256,14 @@ function summarizeLiveIdentityFacts(readResults: ProviderExecutionResult[]): {
 
 function summarizeMissingIdentityProof(
   readResults: ProviderExecutionResult[],
-  exactMissing: ProviderProofRequirementLabel[]
+  exactMissing: ProviderProofRequirementLabel[],
+  candidateMissing: ProviderProofRequirementLabel[]
 ): ProviderIdentityProofMissingLabel[] {
   if (readResults.some((result) => result.status === "failed")) {
     return ["successful-live-read"];
   }
 
-  return exactMissing;
+  return candidateMissing.length < exactMissing.length ? candidateMissing : exactMissing;
 }
 
 export async function linkLedgerBackedProviderResource(input: ProviderLinkInput): Promise<ProviderLinkResult> {

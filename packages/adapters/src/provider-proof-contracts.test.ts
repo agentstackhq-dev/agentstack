@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   evaluateProviderDriftProof,
   evaluateProviderExactIdentityProof,
+  evaluateProviderIdentityCandidateProof,
   evaluateProviderIdentityProof,
   getProviderIdentityReadPlan,
   getProviderProofContract,
@@ -103,7 +104,7 @@ describe("provider proof contracts", () => {
     expect(getProviderIdentityReadPlan("clerk")).toEqual({
       service: "clerk",
       exactIdentityAvailable: false,
-      readCommands: ["clerk.doctor-agent", "clerk.env-pull-agent", "clerk.config-pull-agent"],
+      readCommands: ["clerk.doctor-agent", "clerk.env-pull-agent", "clerk.config-pull-agent", "clerk.apps-list-json"],
       requiredCandidateCategories: [
         "stable-provider-identity",
         "manifest-resource-name-match",
@@ -409,6 +410,180 @@ describe("provider proof contracts", () => {
       evaluator: "unavailable",
       labels: [],
       missing: getProviderIdentityReadPlan("vercel").missingUntilParsersExist
+    });
+  });
+
+  it("aggregates sanitized identity candidate labels from successful matching-provider reads only", () => {
+    const result = evaluateProviderIdentityCandidateProof("clerk", [
+      {
+        service: "clerk",
+        environment: "preview",
+        commandKind: "auth.apps.list",
+        status: "success",
+        exitCode: 0,
+        durationMs: 5,
+        stdoutSummary: "<redacted provider stdout: 1 line, 42 bytes>",
+        stderrSummary: "",
+        stdoutLines: 1,
+        stderrLines: 0,
+        stdoutBytes: 42,
+        stderrBytes: 0,
+        outputRedacted: true,
+        identityCandidates: {
+          kind: "provider-identity-candidates",
+          evaluator: "provider-specific-identity-candidate-parser",
+          labels: ["provider-resource-id", "stable-provider-identity", "provider-owner-identity"]
+        }
+      },
+      {
+        service: "vercel",
+        environment: "preview",
+        commandKind: "env.list",
+        status: "success",
+        exitCode: 0,
+        durationMs: 5,
+        stdoutSummary: "<redacted provider stdout: 1 line, 42 bytes>",
+        stderrSummary: "",
+        stdoutLines: 1,
+        stderrLines: 0,
+        stdoutBytes: 42,
+        stderrBytes: 0,
+        outputRedacted: true,
+        identityCandidates: {
+          kind: "provider-identity-candidates",
+          evaluator: "provider-specific-identity-candidate-parser",
+          labels: ["provider-environment-scope"]
+        }
+      }
+    ]);
+
+    expect(result).toEqual({
+      proof: "ambiguous",
+      evaluator: "provider-specific-identity-candidate-parser",
+      labels: ["provider-owner-identity", "provider-resource-id", "stable-provider-identity"],
+      missing: [
+        "provider-specific-identity-parser",
+        "ledger-comparable-identity",
+        "manifest-resource-name-match",
+        "ledger-external-id-match",
+        "provider-environment-scope"
+      ]
+    });
+    expect(JSON.stringify(result)).not.toContain("exact");
+  });
+
+  it("keeps provider-resource-id missing when Clerk candidates only prove stable owner environment labels", () => {
+    const result = evaluateProviderIdentityCandidateProof("clerk", [
+      {
+        service: "clerk",
+        environment: "preview",
+        commandKind: "auth.apps.list",
+        status: "success",
+        exitCode: 0,
+        durationMs: 5,
+        stdoutSummary: "<redacted provider stdout: 1 line, 42 bytes>",
+        stderrSummary: "",
+        stdoutLines: 1,
+        stderrLines: 0,
+        stdoutBytes: 42,
+        stderrBytes: 0,
+        outputRedacted: true,
+        identityCandidates: {
+          kind: "provider-identity-candidates",
+          evaluator: "provider-specific-identity-candidate-parser",
+          labels: ["stable-provider-identity", "provider-owner-identity", "provider-environment-scope"]
+        }
+      }
+    ]);
+
+    expect(result).toEqual({
+      proof: "ambiguous",
+      evaluator: "provider-specific-identity-candidate-parser",
+      labels: ["provider-environment-scope", "provider-owner-identity", "stable-provider-identity"],
+      missing: [
+        "provider-specific-identity-parser",
+        "ledger-comparable-identity",
+        "manifest-resource-name-match",
+        "ledger-external-id-match",
+        "provider-resource-id"
+      ]
+    });
+  });
+
+  it("keeps identity candidates unavailable for failed or empty read results", () => {
+    expect(evaluateProviderIdentityCandidateProof("clerk", [])).toEqual({
+      proof: "unavailable",
+      evaluator: "unavailable",
+      labels: [],
+      missing: getProviderIdentityReadPlan("clerk").missingUntilParsersExist
+    });
+    expect(
+      evaluateProviderIdentityCandidateProof("clerk", [
+        {
+          service: "clerk",
+          environment: "preview",
+          commandKind: "auth.apps.list",
+          status: "failed",
+          exitCode: 1,
+          durationMs: 5,
+          stdoutSummary: "",
+          stderrSummary: "<redacted provider stderr: 1 line, 11 bytes>",
+          stdoutLines: 0,
+          stderrLines: 1,
+          stdoutBytes: 0,
+          stderrBytes: 11,
+          outputRedacted: true,
+          failureClass: "auth",
+          identityCandidates: {
+            kind: "provider-identity-candidates",
+            evaluator: "provider-specific-identity-candidate-parser",
+            labels: ["stable-provider-identity"]
+          }
+        }
+      ])
+    ).toEqual({
+      proof: "unavailable",
+      evaluator: "unavailable",
+      labels: [],
+      missing: getProviderIdentityReadPlan("clerk").missingUntilParsersExist
+    });
+  });
+
+  it("does not let identity candidate artifacts make exact identity proof exact", () => {
+    const readResults = [
+      {
+        service: "clerk",
+        environment: "preview",
+        commandKind: "auth.apps.list",
+        status: "success",
+        exitCode: 0,
+        durationMs: 5,
+        stdoutSummary: "<redacted provider stdout: 1 line, 42 bytes>",
+        stderrSummary: "",
+        stdoutLines: 1,
+        stderrLines: 0,
+        stdoutBytes: 42,
+        stderrBytes: 0,
+        outputRedacted: true,
+        identityCandidates: {
+          kind: "provider-identity-candidates",
+          evaluator: "provider-specific-identity-candidate-parser",
+          labels: [
+            "stable-provider-identity",
+            "provider-owner-identity",
+            "provider-resource-id",
+            "provider-environment-scope"
+          ]
+        }
+      }
+    ] as const;
+
+    expect(evaluateProviderIdentityCandidateProof("clerk", readResults).proof).toBe("ambiguous");
+    expect(evaluateProviderExactIdentityProof("clerk", readResults)).toEqual({
+      proof: "unavailable",
+      evaluator: "unavailable",
+      labels: [],
+      missing: getProviderIdentityReadPlan("clerk").missingUntilParsersExist
     });
   });
 

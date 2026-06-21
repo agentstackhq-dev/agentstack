@@ -2,6 +2,7 @@ import type { ProviderControlPlaneService } from "./provider-control-plane.js";
 import type {
   ProviderExactIdentityProofLabel,
   ProviderExecutionResult,
+  ProviderIdentityCandidateLabel,
   ProviderLiveFactLabel,
   ProviderLiveIdentityConfidence
 } from "./provider-executor.js";
@@ -36,19 +37,13 @@ export type ProviderProofContract = {
 export type ProviderIdentityReadCommandId =
   | "clerk.doctor-agent"
   | "clerk.env-pull-agent"
+  | "clerk.apps-list-json"
   | "clerk.config-pull-agent"
   | "convex.env-list-preview-deployment"
   | "vercel.env-ls-preview"
   | "eas.env-list-preview";
 
-export type ProviderIdentityCandidateCategory =
-  | "stable-provider-identity"
-  | "manifest-resource-name-match"
-  | "ledger-external-id-match"
-  | "provider-owner-identity"
-  | "provider-resource-id"
-  | "provider-environment-scope"
-  | "provider-project-link-proof";
+export type ProviderIdentityCandidateCategory = ProviderIdentityCandidateLabel;
 
 export type ProviderIdentityReadPlan = {
   service: ProviderProofService;
@@ -75,6 +70,20 @@ export type ProviderIdentityProofResult =
   | {
       proof: "ambiguous";
       evaluator: "identity-read-plan";
+      missing: ProviderProofRequirementLabel[];
+    };
+
+export type ProviderIdentityCandidateProofResult =
+  | {
+      proof: "unavailable";
+      evaluator: "unavailable";
+      labels: [];
+      missing: ProviderProofRequirementLabel[];
+    }
+  | {
+      proof: "ambiguous";
+      evaluator: "provider-specific-identity-candidate-parser";
+      labels: ProviderIdentityCandidateLabel[];
       missing: ProviderProofRequirementLabel[];
     };
 
@@ -176,7 +185,7 @@ const identityReadPlans: Record<ProviderProofService, ProviderIdentityReadPlan> 
   clerk: {
     service: "clerk",
     exactIdentityAvailable: false,
-    readCommands: ["clerk.doctor-agent", "clerk.env-pull-agent", "clerk.config-pull-agent"],
+    readCommands: ["clerk.doctor-agent", "clerk.env-pull-agent", "clerk.config-pull-agent", "clerk.apps-list-json"],
     requiredCandidateCategories: [
       "stable-provider-identity",
       "manifest-resource-name-match",
@@ -316,6 +325,53 @@ export function evaluateProviderIdentityProof(
   };
 }
 
+export function evaluateProviderIdentityCandidateProof(
+  service: ProviderControlPlaneService,
+  readResults: readonly ProviderExecutionResult[]
+): ProviderIdentityCandidateProofResult {
+  const plan = getProviderIdentityReadPlan(service);
+
+  if (readResults.length === 0 || readResults.some((result) => result.status !== "success")) {
+    return {
+      proof: "unavailable",
+      evaluator: "unavailable",
+      labels: [],
+      missing: plan.missingUntilParsersExist
+    };
+  }
+
+  const labels = new Set<ProviderIdentityCandidateLabel>();
+  for (const result of readResults) {
+    if (
+      result.service !== service ||
+      result.identityCandidates?.kind !== "provider-identity-candidates" ||
+      result.identityCandidates.evaluator !== "provider-specific-identity-candidate-parser"
+    ) {
+      continue;
+    }
+    for (const label of result.identityCandidates.labels) {
+      labels.add(label);
+    }
+  }
+
+  const sortedLabels = [...labels].sort();
+  if (sortedLabels.length === 0) {
+    return {
+      proof: "unavailable",
+      evaluator: "unavailable",
+      labels: [],
+      missing: plan.missingUntilParsersExist
+    };
+  }
+
+  return {
+    proof: "ambiguous",
+    evaluator: "provider-specific-identity-candidate-parser",
+    labels: sortedLabels,
+    missing: missingIdentityProofForCandidateLabels(plan, labels)
+  };
+}
+
 export function evaluateProviderExactIdentityProof(
   service: ProviderControlPlaneService,
   readResults: readonly ProviderExecutionResult[]
@@ -378,6 +434,20 @@ export function evaluateProviderExactIdentityProof(
     labels: sortedLabels,
     missing: []
   };
+}
+
+function missingIdentityProofForCandidateLabels(
+  plan: ProviderIdentityReadPlan,
+  labels: ReadonlySet<ProviderIdentityCandidateLabel>
+): ProviderProofRequirementLabel[] {
+  const missingCandidateCategories = plan.requiredCandidateCategories.filter((category) => !labels.has(category));
+  const missing = [
+    providerSpecificIdentityParserBlocker,
+    ...(labels.has("stable-provider-identity") ? [] : ["stable-provider-identity" as const]),
+    ledgerComparableIdentityBlocker,
+    ...missingCandidateCategories.filter((category) => category !== "stable-provider-identity")
+  ];
+  return [...new Set(missing)];
 }
 
 export function evaluateProviderDriftProof(

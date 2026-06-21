@@ -514,6 +514,63 @@ describe("provider control plane", () => {
     expect(JSON.stringify(inventory)).not.toContain("dashboard.");
   });
 
+  it("uses identity candidates only to reduce missing proof guidance while keeping identity ambiguous", async () => {
+    const inventory = await createLiveProviderInventory({
+      localInventory: await createProviderInventory({
+        cwd: "/tmp/no-state",
+        manifest: createDefaultManifest("acme-crm"),
+        service: "clerk",
+        environment: "preview",
+        ledgerRows: []
+      }),
+      readResults: [
+        {
+          service: "clerk",
+          environment: "preview",
+          commandKind: "auth.apps.list",
+          status: "success",
+          exitCode: 0,
+          durationMs: 12,
+          stdoutSummary: "<redacted provider stdout: 1 line, 42 bytes>",
+          stderrSummary: "",
+          stdoutLines: 1,
+          stderrLines: 0,
+          stdoutBytes: 42,
+          stderrBytes: 0,
+          outputRedacted: true,
+          identityCandidates: {
+            kind: "provider-identity-candidates",
+            evaluator: "provider-specific-identity-candidate-parser",
+            labels: [
+              "stable-provider-identity",
+              "provider-owner-identity",
+              "provider-resource-id",
+              "provider-environment-scope"
+            ]
+          }
+        }
+      ]
+    });
+
+    expect(inventory.rows[0]).toMatchObject({
+      liveStatus: "unknown",
+      identityMatch: "ambiguous",
+      identityScope: "none",
+      permissionSummary: "read-ok",
+      missingProof: [
+        "provider-specific-identity-parser",
+        "ledger-comparable-identity",
+        "manifest-resource-name-match",
+        "ledger-external-id-match"
+      ]
+    });
+    expect(confirmLiveProviderInventoryIdentity(inventory)).toEqual({
+      ok: false,
+      reason: "identity-ambiguous"
+    });
+    expect(JSON.stringify(inventory)).not.toContain("exact");
+  });
+
   it("writes local provider link state only when the ledger row is planned or active", async () => {
     const dir = await mkdtemp(join(tmpdir(), "agentstack-provider-link-"));
     try {

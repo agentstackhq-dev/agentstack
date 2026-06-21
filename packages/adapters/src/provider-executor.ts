@@ -50,10 +50,25 @@ export type ProviderExactIdentityProofLabel =
   | "provider-environment-scope"
   | "provider-project-link-proof";
 
+export type ProviderIdentityCandidateLabel =
+  | "stable-provider-identity"
+  | "manifest-resource-name-match"
+  | "ledger-external-id-match"
+  | "provider-owner-identity"
+  | "provider-resource-id"
+  | "provider-environment-scope"
+  | "provider-project-link-proof";
+
 export type ProviderExactIdentityProofArtifact = {
   kind: "provider-exact-identity-proof";
   evaluator: "provider-specific-identity-parser";
   labels: ProviderExactIdentityProofLabel[];
+};
+
+export type ProviderIdentityCandidatesArtifact = {
+  kind: "provider-identity-candidates";
+  evaluator: "provider-specific-identity-candidate-parser";
+  labels: readonly ProviderIdentityCandidateLabel[];
 };
 
 const PROVIDER_LIVE_FACT_LABELS = new Set<string>([
@@ -69,6 +84,16 @@ const PROVIDER_EXACT_IDENTITY_PROOF_LABELS = new Set<string>([
   "provider-specific-identity-parser",
   "stable-provider-identity",
   "ledger-comparable-identity",
+  "manifest-resource-name-match",
+  "ledger-external-id-match",
+  "provider-owner-identity",
+  "provider-resource-id",
+  "provider-environment-scope",
+  "provider-project-link-proof"
+]);
+
+const PROVIDER_IDENTITY_CANDIDATE_LABELS = new Set<string>([
+  "stable-provider-identity",
   "manifest-resource-name-match",
   "ledger-external-id-match",
   "provider-owner-identity",
@@ -94,6 +119,7 @@ export type ProviderExecutionResult = {
   resourceNames?: string[];
   providerResourceId?: string;
   liveIdentityFacts?: ProviderLiveIdentityFacts;
+  identityCandidates?: ProviderIdentityCandidatesArtifact;
   exactIdentityProof?: ProviderExactIdentityProofArtifact;
   failureClass?: ProviderFailureClass;
 };
@@ -113,6 +139,7 @@ export type ProviderExecutionResultInput = {
   secretValues?: string[];
   providerResourceId?: string;
   liveIdentityFacts?: ProviderLiveIdentityFacts;
+  identityCandidates?: ProviderIdentityCandidatesArtifact;
   exactIdentityProof?: ProviderExactIdentityProofArtifact;
   captureOutput?: "redacted-summary" | "redacted-text";
 };
@@ -169,6 +196,8 @@ export function createProviderExecutionResult(
       : undefined,
     liveIdentityFacts:
       status === "success" ? normalizeLiveIdentityFacts(input.liveIdentityFacts) : undefined,
+    identityCandidates:
+      status === "success" ? normalizeIdentityCandidates(input.identityCandidates) : undefined,
     exactIdentityProof:
       status === "success" ? normalizeExactIdentityProof(input.exactIdentityProof) : undefined
   };
@@ -198,6 +227,31 @@ function normalizeLiveIdentityFacts(
     identityConfidence: "partial",
     facts: allowedFacts
   };
+}
+
+function normalizeIdentityCandidates(
+  artifact: ProviderIdentityCandidatesArtifact | undefined
+): ProviderIdentityCandidatesArtifact | undefined {
+  if (
+    !artifact ||
+    artifact.kind !== "provider-identity-candidates" ||
+    artifact.evaluator !== "provider-specific-identity-candidate-parser" ||
+    !Array.isArray(artifact.labels)
+  ) {
+    return undefined;
+  }
+
+  const labels = artifact.labels.filter((label): label is ProviderIdentityCandidateLabel =>
+    PROVIDER_IDENTITY_CANDIDATE_LABELS.has(label)
+  );
+
+  return labels.length > 0
+    ? {
+        kind: "provider-identity-candidates",
+        evaluator: "provider-specific-identity-candidate-parser",
+        labels: [...new Set(labels)].sort()
+      }
+    : undefined;
 }
 
 function normalizeExactIdentityProof(

@@ -2039,12 +2039,13 @@ describe("runAgentstack", () => {
     expect(output).toContain("WARN provider inspect clerk preview");
     expect(output).toContain("Evidence: live-read");
     expect(output).toContain("Mutation: none");
-    expect(output.join("\n")).toContain("Commands: 3");
-    expect(output.join("\n")).toContain("Results: 3");
+    expect(output.join("\n")).toContain("Commands: 4");
+    expect(output.join("\n")).toContain("Results: 4");
     expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
       "exec clerk doctor --mode agent",
       "exec clerk env pull --mode agent",
-      "exec clerk config pull --mode agent"
+      "exec clerk config pull --mode agent",
+      "exec clerk apps list --json"
     ]);
     expect(output.join("\n")).not.toMatch(/\b(init|deploy|set|remove)\b/);
     expect(output.join("\n")).toContain("<redacted provider stdout: 2 lines, 88 bytes>");
@@ -2848,9 +2849,9 @@ describe("runAgentstack", () => {
     expect(code).toBe(1);
     expect(output).toContain("FAIL provider inventory clerk preview");
     expect(output).not.toContain("PASS provider inventory clerk preview");
-    expect(output.join("\n")).toContain("Commands: 3");
-    expect(output.join("\n")).toContain("Results: 3");
-    expect(output.join("\n")).toContain("Failed: 2");
+    expect(output.join("\n")).toContain("Commands: 4");
+    expect(output.join("\n")).toContain("Results: 4");
+    expect(output.join("\n")).toContain("Failed: 3");
     expect(output.join("\n")).toContain(
       "live=auth-failed identity=ambiguous identity-scope=none permission=read-failed drift=unknown missing=successful-live-read"
     );
@@ -2860,7 +2861,8 @@ describe("runAgentstack", () => {
     expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
       "exec clerk doctor --mode agent",
       "exec clerk env pull --mode agent",
-      "exec clerk config pull --mode agent"
+      "exec clerk config pull --mode agent",
+      "exec clerk apps list --json"
     ]);
   });
 
@@ -2899,7 +2901,8 @@ describe("runAgentstack", () => {
     expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
       "exec clerk doctor --mode agent",
       "exec clerk env pull --mode agent",
-      "exec clerk config pull --mode agent"
+      "exec clerk config pull --mode agent",
+      "exec clerk apps list --json"
     ]);
   });
 
@@ -2989,9 +2992,9 @@ describe("runAgentstack", () => {
     expect(output).not.toContain("PASS provider inventory clerk preview");
     expect(output).toContain("Evidence: live-read-inventory");
     expect(output).toContain("Mutation: none");
-    expect(output.join("\n")).toContain("Commands: 3");
-    expect(output.join("\n")).toContain("Results: 3");
-    expect(output.join("\n")).toContain("Failed: 3");
+    expect(output.join("\n")).toContain("Commands: 4");
+    expect(output.join("\n")).toContain("Results: 4");
+    expect(output.join("\n")).toContain("Failed: 4");
     expect(output.join("\n")).toContain(
       "live=auth-failed identity=ambiguous identity-scope=none permission=read-failed drift=unknown missing=successful-live-read"
     );
@@ -3498,6 +3501,7 @@ describe("runAgentstack", () => {
       "exec clerk doctor --mode agent",
       "exec clerk env pull --mode agent",
       "exec clerk config pull --mode agent",
+      "exec clerk apps list --json",
       "exec convex env --deployment <preview-deployment-name> list",
       "exec vercel env ls preview",
       "exec eas env:list --environment preview"

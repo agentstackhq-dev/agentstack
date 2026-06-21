@@ -322,6 +322,99 @@ describe("provider executor artifacts", () => {
     expect(JSON.stringify(result)).not.toContain("RAW_PROVIDER_ID");
   });
 
+  it("stores sanitized provider identity candidate artifacts separately from exact proof", () => {
+    const result = createProviderExecutionResult({
+      service: "clerk",
+      environment: "preview",
+      commandKind: "auth.apps.list",
+      command: { id: "clerk.apps-list-json", args: ["pnpm", "exec", "clerk", "apps", "list", "--json"] },
+      result: { exitCode: 0, stdout: JSON.stringify([{ id: "app_raw", ownerId: "org_raw" }]), stderr: "", durationMs: 12 },
+      identityCandidates: {
+        kind: "provider-identity-candidates",
+        evaluator: "provider-specific-identity-candidate-parser",
+        labels: [
+          "provider-resource-id",
+          "stable-provider-identity",
+          "provider-owner-identity",
+          "provider-resource-id",
+          "provider-environment-scope"
+        ]
+      }
+    });
+
+    expect(result.identityCandidates).toEqual({
+      kind: "provider-identity-candidates",
+      evaluator: "provider-specific-identity-candidate-parser",
+      labels: [
+        "provider-environment-scope",
+        "provider-owner-identity",
+        "provider-resource-id",
+        "stable-provider-identity"
+      ]
+    });
+    expect(result.exactIdentityProof).toBeUndefined();
+    expect(JSON.stringify(result)).not.toContain("app_raw");
+    expect(JSON.stringify(result)).not.toContain("org_raw");
+  });
+
+  it("drops malformed and raw-looking provider identity candidate labels", () => {
+    const result = createProviderExecutionResult({
+      service: "clerk",
+      environment: "preview",
+      commandKind: "auth.apps.list",
+      command: { id: "clerk.apps-list-json", args: ["pnpm", "exec", "clerk", "apps", "list", "--json"] },
+      result: {
+        exitCode: 0,
+        stdout: "dashboard.clerk.com app_raw org_raw https://example.test sk_live_1234567890 prj_123",
+        stderr: "",
+        durationMs: 12
+      },
+      identityCandidates: {
+        kind: "provider-identity-candidates",
+        evaluator: "provider-specific-identity-candidate-parser",
+        labels: [
+          "stable-provider-identity",
+          "dashboard.clerk.com",
+          "app_raw",
+          "org_raw",
+          "https://example.test",
+          "sk_live_1234567890",
+          "prj_123"
+        ]
+      } as never
+    });
+
+    expect(result.identityCandidates).toEqual({
+      kind: "provider-identity-candidates",
+      evaluator: "provider-specific-identity-candidate-parser",
+      labels: ["stable-provider-identity"]
+    });
+    expect(JSON.stringify(result)).not.toContain("dashboard.clerk.com");
+    expect(JSON.stringify(result)).not.toContain("app_raw");
+    expect(JSON.stringify(result)).not.toContain("org_raw");
+    expect(JSON.stringify(result)).not.toContain("https://example.test");
+    expect(JSON.stringify(result)).not.toContain("sk_live");
+    expect(JSON.stringify(result)).not.toContain("prj_");
+  });
+
+  it("drops provider identity candidate artifacts from failed command results", () => {
+    const result = createProviderExecutionResult({
+      service: "clerk",
+      environment: "preview",
+      commandKind: "auth.apps.list",
+      command: { id: "clerk.apps-list-json", args: ["pnpm", "exec", "clerk", "apps", "list", "--json"] },
+      result: { exitCode: 1, stdout: "app_raw", stderr: "auth failed", durationMs: 12 },
+      identityCandidates: {
+        kind: "provider-identity-candidates",
+        evaluator: "provider-specific-identity-candidate-parser",
+        labels: ["stable-provider-identity"]
+      }
+    });
+
+    expect(result.identityCandidates).toBeUndefined();
+    expect(JSON.stringify(result)).not.toContain("app_raw");
+  });
+
   it("classifies timeout failures", () => {
     expect(classifyProviderFailure({ exitCode: 124, stdout: "", stderr: "command timed out" })).toBe(
       "timeout"

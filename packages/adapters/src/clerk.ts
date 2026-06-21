@@ -13,6 +13,7 @@ export type ClerkCommandKind =
   | "auth.diagnostics"
   | "auth.env.pull"
   | "auth.config.pull"
+  | "auth.apps.list"
   | "auth.production.status"
   | "env.pull"
   | "env.review";
@@ -37,6 +38,7 @@ export type ClerkTarget = {
   diagnosticsCommand: ClerkCliCommand;
   envPullCommand: ClerkCliCommand;
   configPullCommand: ClerkCliCommand;
+  appsListCommand: ClerkCliCommand;
   productionStatusCommand?: ClerkCliCommand;
   requiredEnv: string[];
   warnings: string[];
@@ -105,6 +107,13 @@ export function createClerkTarget(environment: EnvironmentName): ClerkTarget {
       `Inspect Clerk ${clerkEnvironment} configuration for ${environment}.`,
       false
     ),
+    appsListCommand: command(
+      environment,
+      "auth.apps.list",
+      ["pnpm", "exec", "clerk", "apps", "list", "--json"],
+      `Inspect Clerk ${clerkEnvironment} applications list for ${environment}.`,
+      false
+    ),
     productionStatusCommand: isProduction
       ? command(
           environment,
@@ -132,6 +141,7 @@ export function createClerkCommandPlan(input: ClerkCommandPlanInput): ClerkComma
           target.diagnosticsCommand,
           target.envPullCommand,
           target.configPullCommand,
+          target.appsListCommand,
           ...(target.productionStatusCommand ? [target.productionStatusCommand] : [])
         ]
       : []),
@@ -155,7 +165,8 @@ export async function inspectClerkReadOnly(
   const commands = [
     target.diagnosticsCommand,
     target.envPullCommand,
-    target.configPullCommand
+    target.configPullCommand,
+    target.appsListCommand
   ];
   const results: ProviderExecutionResult[] = [];
 
@@ -179,7 +190,8 @@ export async function inspectClerkReadOnly(
         command,
         result,
         secretValues: options.secretValues,
-        liveIdentityFacts: liveIdentityFactsForClerkRead(command.kind, result.exitCode)
+        liveIdentityFacts: liveIdentityFactsForClerkRead(command.kind, result.exitCode),
+        identityCandidates: identityCandidatesForClerkRead(command.kind, options.environment, result)
       })
     );
   }
@@ -203,6 +215,89 @@ function liveIdentityFactsForClerkRead(
   const fact = factByCommandKind[commandKind];
 
   return fact ? { identityConfidence: "partial", facts: [fact] } : undefined;
+}
+
+function identityCandidatesForClerkRead(
+  commandKind: ClerkCommandKind,
+  environment: EnvironmentName,
+  result: { exitCode: number; stdout: string }
+) {
+  if (commandKind !== "auth.apps.list" || result.exitCode !== 0) {
+    return undefined;
+  }
+
+  const expectedClerkEnvironment = environment === "production" ? "production" : "development";
+  const apps = parseClerkAppsList(result.stdout);
+  const labels = new Set<"stable-provider-identity" | "provider-owner-identity" | "provider-resource-id" | "provider-environment-scope">();
+
+  for (const app of apps) {
+    if (
+      !hasString(app.id) ||
+      !hasOwnerIdentity(app) ||
+      !hasMatchingEnvironmentScope(app, expectedClerkEnvironment)
+    ) {
+      continue;
+    }
+
+    labels.add("stable-provider-identity");
+    labels.add("provider-owner-identity");
+    if (hasString(app.resourceId) || hasString(app.resource_id)) {
+      labels.add("provider-resource-id");
+    }
+    labels.add("provider-environment-scope");
+  }
+
+  return labels.size > 0
+    ? {
+        kind: "provider-identity-candidates" as const,
+        evaluator: "provider-specific-identity-candidate-parser" as const,
+        labels: [...labels]
+      }
+    : undefined;
+}
+
+function parseClerkAppsList(stdout: string): Record<string, unknown>[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch {
+    return [];
+  }
+
+  const apps = Array.isArray(parsed)
+    ? parsed
+    : isRecord(parsed) && Array.isArray(parsed.data)
+      ? parsed.data
+      : [];
+
+  return apps.filter(isRecord);
+}
+
+function hasOwnerIdentity(app: Record<string, unknown>): boolean {
+  return (
+    hasString(app.ownerId) ||
+    hasString(app.owner_id) ||
+    hasString(app.organizationId) ||
+    hasString(app.organization_id) ||
+    hasString(app.teamId) ||
+    hasString(app.team_id)
+  );
+}
+
+function hasMatchingEnvironmentScope(
+  app: Record<string, unknown>,
+  expectedClerkEnvironment: "development" | "production"
+): boolean {
+  const scope = app.environment ?? app.instanceEnvironmentType ?? app.environmentType ?? app.scope;
+  return typeof scope === "string" && scope.toLowerCase() === expectedClerkEnvironment;
+}
+
+function hasString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function operationCommand(operation: ProviderOperation): ClerkCliCommand[] {
