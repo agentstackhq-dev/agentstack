@@ -2922,7 +2922,7 @@ describe("runAgentstack", () => {
     expect(code).toBe(0);
     expect(output).toContain("PASS provider inventory eas preview");
     expect(output.join("\n")).toContain(
-      "live=found identity=ambiguous identity-scope=partial permission=read-ok drift=unknown facts=env-list-read,expected-env-names,preview-environment missing=ledger-comparable-identity,provider-environment-scope,provider-owner-identity,provider-project-link-proof,provider-resource-id,provider-specific-identity-parser,stable-provider-identity"
+      "live=found identity=ambiguous identity-scope=partial permission=read-ok drift=unknown facts=env-list-read,expected-env-names,preview-environment missing=ledger-comparable-identity,ledger-external-id-match,manifest-resource-name-match,provider-owner-identity,provider-project-link-proof,provider-resource-id,provider-specific-identity-parser,stable-provider-identity"
     );
     expect(output.join("\n")).not.toContain("SENTRY_AUTH_TOKEN");
     expect(output.join("\n")).not.toContain("secret-eas-token");
@@ -4195,9 +4195,11 @@ describe("runAgentstack", () => {
     expect(output).toContain("Local mutation: none");
     expect(output).toContain("Provider mutation: none");
     expect(output).toContain("Ledger mutation: none");
-    expect(output.join("\n")).toContain("missing=ledger-comparable-identity,provider-environment-scope,provider-owner-identity,provider-project-link-proof,provider-resource-id,provider-specific-identity-parser,stable-provider-identity");
     expect(output.join("\n")).toContain(
-      "Identity proof requirements: ledger-comparable-identity,provider-environment-scope,provider-owner-identity,provider-project-link-proof,provider-resource-id,provider-specific-identity-parser,stable-provider-identity"
+      "missing=ledger-comparable-identity,ledger-external-id-match,manifest-resource-name-match,provider-owner-identity,provider-project-link-proof,provider-resource-id,provider-specific-identity-parser,stable-provider-identity"
+    );
+    expect(output.join("\n")).toContain(
+      "Identity proof requirements: ledger-comparable-identity,ledger-external-id-match,manifest-resource-name-match,provider-owner-identity,provider-project-link-proof,provider-resource-id,provider-specific-identity-parser,stable-provider-identity"
     );
     expect(output.join("\n")).not.toContain("Provider ledger proposal");
     expect(output.join("\n")).not.toContain("SENTRY_AUTH_TOKEN");

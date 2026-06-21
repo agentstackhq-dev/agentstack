@@ -692,6 +692,68 @@ describe("provider control plane", () => {
     expect(JSON.stringify(inventory)).not.toContain("provider-project-link-proof");
   });
 
+  it("keeps EAS inventory ambiguous when preview env-list candidates are present", async () => {
+    const inventory = await createLiveProviderInventory({
+      localInventory: await createProviderInventory({
+        cwd: "/tmp/no-state",
+        manifest: createDefaultManifest("acme-crm"),
+        service: "eas",
+        environment: "preview",
+        ledgerRows: []
+      }),
+      readResults: [
+        {
+          service: "eas",
+          environment: "preview",
+          commandKind: "mobile.env.list",
+          status: "success",
+          exitCode: 0,
+          durationMs: 12,
+          stdoutSummary: "<redacted provider stdout: 2 lines, 90 bytes>",
+          stderrSummary: "",
+          stdoutLines: 2,
+          stderrLines: 0,
+          stdoutBytes: 90,
+          stderrBytes: 0,
+          outputRedacted: true,
+          identityCandidates: {
+            kind: "provider-identity-candidates",
+            evaluator: "provider-specific-identity-candidate-parser",
+            labels: ["provider-environment-scope"]
+          },
+          liveIdentityFacts: {
+            identityConfidence: "partial",
+            facts: ["expected-env-names", "preview-environment", "env-list-read"]
+          }
+        }
+      ]
+    });
+
+    expect(inventory.rows[0]).toMatchObject({
+      liveStatus: "found",
+      identityMatch: "ambiguous",
+      identityScope: "partial",
+      permissionSummary: "read-ok",
+      missingProof: [
+        "provider-specific-identity-parser",
+        "stable-provider-identity",
+        "ledger-comparable-identity",
+        "manifest-resource-name-match",
+        "ledger-external-id-match",
+        "provider-owner-identity",
+        "provider-resource-id",
+        "provider-project-link-proof"
+      ]
+    });
+    expect(confirmLiveProviderInventoryIdentity(inventory)).toEqual({
+      ok: false,
+      reason: "identity-ambiguous"
+    });
+    expect(JSON.stringify(inventory)).not.toContain("identityMatch\":\"matched");
+    expect(JSON.stringify(inventory)).not.toContain("identityScope\":\"exact");
+    expect(JSON.stringify(inventory)).not.toContain("permissionSummary\":\"mutate-ok");
+  });
+
   it("writes local provider link state only when the ledger row is planned or active", async () => {
     const dir = await mkdtemp(join(tmpdir(), "agentstack-provider-link-"));
     try {

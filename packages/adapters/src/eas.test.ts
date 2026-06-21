@@ -208,6 +208,42 @@ describe("eas command planner", () => {
     expect(JSON.stringify(results)).not.toContain("secret-token");
   });
 
+  it("attaches only sanitized environment-scope candidates from structured preview env-list evidence", async () => {
+    const results = await inspectEasPreviewReadOnly({
+      environment: "preview",
+      executor: {
+        async execute() {
+          return {
+            exitCode: 0,
+            stdout: [
+              "Name              Value                         Environment",
+              "EXPO_PUBLIC_APP_URL https://preview.example.test preview",
+              "SENTRY_AUTH_TOKEN  eas-token-secret             preview",
+              "EXPO_PROJECT_ID    12345678-abcd                preview"
+            ].join("\n"),
+            stderr: "",
+            durationMs: 6
+          };
+        }
+      },
+      secretValues: ["eas-token-secret"]
+    });
+
+    expect(results[0]?.identityCandidates).toEqual({
+      kind: "provider-identity-candidates",
+      evaluator: "provider-specific-identity-candidate-parser",
+      labels: ["provider-environment-scope"]
+    });
+    expect(results[0]?.exactIdentityProof).toBeUndefined();
+    expect(JSON.stringify(results)).not.toContain("EXPO_PUBLIC_APP_URL");
+    expect(JSON.stringify(results)).not.toContain("SENTRY_AUTH_TOKEN");
+    expect(JSON.stringify(results)).not.toContain("EXPO_PROJECT_ID");
+    expect(JSON.stringify(results)).not.toContain("12345678-abcd");
+    expect(JSON.stringify(results)).not.toContain("https://preview.example.test");
+    expect(JSON.stringify(results)).not.toContain("eas-token-secret");
+    expect(JSON.stringify(results)).not.toContain("provider-project-link-proof");
+  });
+
   it("parses EAS preview env-list partial facts from pipe-delimited table rows", async () => {
     const results = await inspectEasPreviewReadOnly({
       environment: "preview",
@@ -272,8 +308,37 @@ describe("eas command planner", () => {
     });
 
     expect(results[0]?.liveIdentityFacts).toBeUndefined();
+    expect(results[0]?.identityCandidates).toBeUndefined();
     expect(results[0]?.stdoutSummary).not.toContain("EXPO_PUBLIC_APP_URL");
     expect(results[0]?.stdoutSummary).not.toContain("https://secret.example.test");
+  });
+
+  it("keeps EAS inspect ambiguous when structured env-list output lacks environment columns", async () => {
+    const results = await inspectEasPreviewReadOnly({
+      environment: "preview",
+      executor: {
+        async execute() {
+          return {
+            exitCode: 0,
+            stdout: [
+              "Name                Value",
+              "EXPO_PUBLIC_APP_URL https://preview.example.test",
+              "SENTRY_AUTH_TOKEN   eas-token-secret"
+            ].join("\n"),
+            stderr: "",
+            durationMs: 1
+          };
+        }
+      },
+      secretValues: ["eas-token-secret"]
+    });
+
+    expect(results[0]?.liveIdentityFacts).toBeUndefined();
+    expect(results[0]?.identityCandidates).toBeUndefined();
+    expect(JSON.stringify(results)).not.toContain("EXPO_PUBLIC_APP_URL");
+    expect(JSON.stringify(results)).not.toContain("SENTRY_AUTH_TOKEN");
+    expect(JSON.stringify(results)).not.toContain("https://preview.example.test");
+    expect(JSON.stringify(results)).not.toContain("eas-token-secret");
   });
 
   it("requires EAS expected env name and preview environment in the same parsed row", async () => {
@@ -292,6 +357,7 @@ describe("eas command planner", () => {
     });
 
     expect(results[0]?.liveIdentityFacts).toBeUndefined();
+    expect(results[0]?.identityCandidates).toBeUndefined();
   });
 
   it("parses EAS preview env-list partial facts from comma-separated environment cells", async () => {
@@ -335,6 +401,7 @@ describe("eas command planner", () => {
     });
 
     expect(results[0]?.liveIdentityFacts).toBeUndefined();
+    expect(results[0]?.identityCandidates).toBeUndefined();
     expect(JSON.stringify(results)).not.toContain("secret-token");
     expect(JSON.stringify(results)).not.toContain("preview-environment");
   });
@@ -359,6 +426,7 @@ describe("eas command planner", () => {
     });
 
     expect(results[0]?.liveIdentityFacts).toBeUndefined();
+    expect(results[0]?.identityCandidates).toBeUndefined();
     expect(JSON.stringify(results)).not.toContain("secret-token");
     expect(JSON.stringify(results)).not.toContain("preview-environment");
   });
@@ -383,6 +451,7 @@ describe("eas command planner", () => {
     });
 
     expect(results[0]?.liveIdentityFacts).toBeUndefined();
+    expect(results[0]?.identityCandidates).toBeUndefined();
     expect(JSON.stringify(results)).not.toContain("preview-environment");
     expect(JSON.stringify(results)).not.toContain("https://preview.example.test");
   });
@@ -406,6 +475,7 @@ describe("eas command planner", () => {
     });
 
     expect(results[0]?.liveIdentityFacts).toBeUndefined();
+    expect(results[0]?.identityCandidates).toBeUndefined();
     expect(JSON.stringify(results)).not.toContain("preview-environment");
   });
 
@@ -428,6 +498,7 @@ describe("eas command planner", () => {
     });
 
     expect(results[0]?.liveIdentityFacts).toBeUndefined();
+    expect(results[0]?.identityCandidates).toBeUndefined();
     expect(JSON.stringify(results)).not.toContain("preview-environment");
   });
 

@@ -4,6 +4,7 @@ import {
   createProviderExecutionResult,
   type ProviderCommandExecutor,
   type ProviderExecutionResult,
+  type ProviderIdentityCandidatesArtifact,
   type ProviderLiveIdentityFacts
 } from "./provider-executor.js";
 import type { ProviderOperation } from "./provider-operations.js";
@@ -161,6 +162,7 @@ export async function inspectEasPreviewReadOnly(
       env: options.env,
       timeoutMs: options.timeoutMs
     });
+    const liveIdentityFacts = parseEasPreviewEnvListFacts(result.stdout, result.exitCode);
 
     results.push(
       createProviderExecutionResult({
@@ -170,7 +172,8 @@ export async function inspectEasPreviewReadOnly(
         command,
         result,
         secretValues: options.secretValues,
-        liveIdentityFacts: parseEasPreviewEnvListFacts(result.stdout, result.exitCode)
+        liveIdentityFacts,
+        identityCandidates: easPreviewIdentityCandidates(liveIdentityFacts)
       })
     );
   }
@@ -193,6 +196,26 @@ function parseEasPreviewEnvListFacts(stdout: string, exitCode: number): Provider
   return {
     identityConfidence: "partial",
     facts: ["expected-env-names", "preview-environment", "env-list-read"]
+  };
+}
+
+function easPreviewIdentityCandidates(
+  liveIdentityFacts: ProviderLiveIdentityFacts | undefined
+): ProviderIdentityCandidatesArtifact | undefined {
+  if (
+    !liveIdentityFacts ||
+    liveIdentityFacts.identityConfidence !== "partial" ||
+    !liveIdentityFacts.facts.includes("expected-env-names") ||
+    !liveIdentityFacts.facts.includes("preview-environment") ||
+    !liveIdentityFacts.facts.includes("env-list-read")
+  ) {
+    return undefined;
+  }
+
+  return {
+    kind: "provider-identity-candidates",
+    evaluator: "provider-specific-identity-candidate-parser",
+    labels: ["provider-environment-scope"]
   };
 }
 
