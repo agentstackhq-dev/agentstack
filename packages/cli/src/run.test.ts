@@ -2032,6 +2032,9 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).not.toContain(rowId);
     expect(output.join("\n")).not.toContain(externalId);
     expect(output.join("\n")).not.toContain("live-read");
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
     expect(providerExecutions).toHaveLength(0);
   });
 
@@ -2053,6 +2056,31 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).not.toContain("before running provider apply");
     expect(output.join("\n")).not.toContain(malformedValue);
     expect(output.join("\n")).not.toContain(malformedRow);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+    expect(providerExecutions).toHaveLength(0);
+  });
+
+  it("blocks provider inventory local validation failures without telemetry writes", async () => {
+    await writeProviderEnvManifest();
+    await writeLocalEnvValues({
+      preview: { convex: { OPENAI_API_KEY: "sk-local-provider-value" } }
+    });
+    await rm(join(dir, "convex/schema.ts"));
+
+    const code = await runAgentstack(["provider", "inventory", "--service", "convex", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("live-read should not run")
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL template.anchor.missing");
+    expect(output.join("\n")).toContain("Path: convex/schema.ts");
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
     expect(providerExecutions).toHaveLength(0);
   });
 
@@ -2105,6 +2133,48 @@ describe("runAgentstack", () => {
     expect(linkState).toContain("acme-crm-preview");
     expect(linkState).not.toContain(rowId);
     expect(linkState).not.toContain(externalId);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+    expect(providerExecutions).toHaveLength(0);
+  });
+
+  it("blocks provider link local validation failures without provider-links or telemetry writes", async () => {
+    await writeProviderEnvManifest();
+    await writeLocalEnvValues({
+      preview: { convex: { OPENAI_API_KEY: "sk-local-provider-value" } }
+    });
+    await rm(join(dir, "convex/schema.ts"));
+
+    const code = await runAgentstack(
+      [
+        "provider",
+        "link",
+        "--service",
+        "convex",
+        "--env",
+        "preview",
+        "--resource-type",
+        "deployment",
+        "--name",
+        "acme-crm-preview"
+      ],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: createMockProviderExecutor("live-read should not run")
+      }
+    );
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL template.anchor.missing");
+    expect(output.join("\n")).toContain("Path: convex/schema.ts");
+    await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
     expect(providerExecutions).toHaveLength(0);
   });
 
@@ -2138,6 +2208,9 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).not.toContain("Blocks: provider apply");
     expect(output.join("\n")).not.toContain("before running provider apply");
     await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
       code: "ENOENT"
     });
     expect(providerExecutions).toHaveLength(0);

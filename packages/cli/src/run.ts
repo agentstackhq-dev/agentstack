@@ -1164,14 +1164,6 @@ async function providerInventoryCommand(argv: string[], io: RunIo): Promise<numb
   const validation = await runLocalValidationGate(io.cwd);
   validation.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
   if (validation.diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
-    await recordCommandEvent(io, {
-      name: "agentstack.provider.inventory.completed",
-      environment,
-      journey: "provider-inventory",
-      command: ["provider", "inventory", ...argv].join(" "),
-      status: "fail",
-      state: { service, diagnostics: validation.diagnostics.length }
-    });
     return 1;
   }
 
@@ -1187,14 +1179,6 @@ async function providerInventoryCommand(argv: string[], io: RunIo): Promise<numb
         message: redactProviderText(error instanceof Error ? error.message : String(error))
       })
     );
-    await recordCommandEvent(io, {
-      name: "agentstack.provider.inventory.completed",
-      environment,
-      journey: "provider-inventory",
-      command: ["provider", "inventory", ...argv].join(" "),
-      status: "fail",
-      state: { service, reason: "ledger-invalid" }
-    });
     return 1;
   }
 
@@ -1210,21 +1194,6 @@ async function providerInventoryCommand(argv: string[], io: RunIo): Promise<numb
   io.write(`Evidence: ${inventory.evidence}`);
   io.write("Mutation: none");
   inventory.rows.forEach((row) => io.write(formatProviderInventoryRow(row)));
-
-  await recordCommandEvent(io, {
-    name: "agentstack.provider.inventory.completed",
-    environment,
-    journey: "provider-inventory",
-    command: ["provider", "inventory", ...argv].join(" "),
-    status: "ok",
-    state: {
-      service,
-      evidence: inventory.evidence,
-      rows: inventory.rows.length,
-      ledgerStatuses: inventory.rows.map((row) => row.ledgerStatus),
-      localLinks: inventory.rows.map((row) => row.localLink)
-    }
-  });
   return 0;
 }
 
@@ -1240,14 +1209,6 @@ async function providerLinkCommand(argv: string[], io: RunIo): Promise<number> {
   const validation = await runLocalValidationGate(io.cwd);
   validation.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
   if (validation.diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
-    await recordCommandEvent(io, {
-      name: "agentstack.provider.link.completed",
-      environment,
-      journey: "provider-link",
-      command: ["provider", "link", ...argv].join(" "),
-      status: "fail",
-      state: { service, diagnostics: validation.diagnostics.length }
-    });
     return 1;
   }
 
@@ -1263,14 +1224,6 @@ async function providerLinkCommand(argv: string[], io: RunIo): Promise<number> {
         message: redactProviderText(error instanceof Error ? error.message : String(error))
       })
     );
-    await recordCommandEvent(io, {
-      name: "agentstack.provider.link.completed",
-      environment,
-      journey: "provider-link",
-      command: ["provider", "link", ...argv].join(" "),
-      status: "fail",
-      state: { service, reason: "ledger-invalid" }
-    });
     return 1;
   }
 
@@ -1285,29 +1238,12 @@ async function providerLinkCommand(argv: string[], io: RunIo): Promise<number> {
 
   if (!result.ok) {
     io.write(providerLinkLedgerDiagnostic(result.decision));
-    await recordCommandEvent(io, {
-      name: "agentstack.provider.link.completed",
-      environment,
-      journey: "provider-link",
-      command: ["provider", "link", ...argv].join(" "),
-      status: "fail",
-      state: { service, resourceType, reason: `ledger-${result.decision.reason}` }
-    });
     return 1;
   }
 
   io.write(`LINKED provider ${service} ${environment}`);
   io.write("Evidence: ledger-local-inventory");
   io.write("Mutation scope: local Agentstack provider link state");
-
-  await recordCommandEvent(io, {
-    name: "agentstack.provider.link.completed",
-    environment,
-    journey: "provider-link",
-    command: ["provider", "link", ...argv].join(" "),
-    status: "ok",
-    state: { service, resourceType, ledgerStatus: result.link.ledgerStatus }
-  });
   return 0;
 }
 
