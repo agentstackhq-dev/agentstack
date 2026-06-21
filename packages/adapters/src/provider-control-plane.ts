@@ -24,6 +24,11 @@ export type ProviderInventoryIdentityMatch = "not-checked" | "matched" | "mismat
 export type ProviderInventoryPermissionSummary = "not-checked" | "read-ok" | "read-failed";
 export type ProviderInventoryDriftSummary = "not-checked" | "none" | "possible" | "unknown";
 export type ProviderInventoryIdentityScope = ProviderLiveIdentityConfidence;
+export type ProviderIdentityProofMissingLabel =
+  | "ledger-comparable-identity"
+  | "provider-specific-identity-parser"
+  | "stable-provider-identity"
+  | "successful-live-read";
 export type ProviderLinkLedgerStatus = Extract<ProviderLedgerStatus, "planned" | "active">;
 
 export type ProviderLinkState = {
@@ -70,6 +75,7 @@ export type ProviderInventoryRow = {
   permissionSummary?: ProviderInventoryPermissionSummary;
   driftSummary?: ProviderInventoryDriftSummary;
   facts?: ProviderLiveFactLabel[];
+  missingProof?: ProviderIdentityProofMissingLabel[];
 };
 
 export type ProviderInventoryLiveReadSummary = {
@@ -168,6 +174,7 @@ export async function createLiveProviderInventory(input: LiveProviderInventoryIn
   const authFailed = input.readResults.some((result) => result.failureClass === "auth");
   const notFound = input.readResults.some((result) => result.failureClass === "not-found");
   const liveFacts = summarizeLiveIdentityFacts(input.readResults);
+  const missingProof = summarizeMissingIdentityProof(input.readResults, liveFacts.identityScope);
   const liveStatus: ProviderInventoryLiveStatus = authFailed
     ? "auth-failed"
     : notFound
@@ -190,7 +197,8 @@ export async function createLiveProviderInventory(input: LiveProviderInventoryIn
       identityScope: liveFacts.identityScope,
       permissionSummary,
       driftSummary: "unknown",
-      facts: liveFacts.facts.length > 0 ? liveFacts.facts : undefined
+      facts: liveFacts.facts.length > 0 ? liveFacts.facts : undefined,
+      missingProof
     }))
   };
 }
@@ -225,6 +233,21 @@ function summarizeLiveIdentityFacts(readResults: ProviderExecutionResult[]): {
   }
 
   return { identityScope, facts: [...facts].sort() };
+}
+
+function summarizeMissingIdentityProof(
+  readResults: ProviderExecutionResult[],
+  identityScope: ProviderInventoryIdentityScope
+): ProviderIdentityProofMissingLabel[] {
+  if (readResults.some((result) => result.status === "failed")) {
+    return ["successful-live-read"];
+  }
+
+  if (identityScope === "partial") {
+    return ["ledger-comparable-identity", "stable-provider-identity"];
+  }
+
+  return ["provider-specific-identity-parser", "stable-provider-identity"];
 }
 
 export async function linkLedgerBackedProviderResource(input: ProviderLinkInput): Promise<ProviderLinkResult> {

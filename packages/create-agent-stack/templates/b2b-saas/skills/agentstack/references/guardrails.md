@@ -4,4 +4,5 @@
 - Add app-specific env values through `agentstack.config.json`; do not hardcode provider state.
 - Use `@app/theme`, `@app/ui`, `@app/telemetry`, and `packages/domain/src/saas-spine.ts` before duplicating shared logic.
 - Treat preview, deploy, and mobile commands as local rehearsals in this prototype.
+- Treat live inventory `missing=` labels and live link/adopt `Identity proof requirements:` summaries as sanitized blockers only. They do not prove exact provider identity.
 - Preserve docs under `docs/agentstack/` as the human-readable source for generated conventions.

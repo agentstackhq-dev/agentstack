@@ -6,14 +6,15 @@ This file is the canonical resume and progress artifact for Agentstack consumer 
 
 ## Current State
 
-Current phase: truthful local quality validation is the latest substantive implementation checkpoint, building on live-safe provider link/adopt confirmation modes, sanitized partial live inventory identity facts, bounded live provider inventory, Vercel preview provider live-read inspect, failure-diagnostic redaction hardening, and provider inventory/link/adopt; this file intentionally avoids self-referencing its containing commit hash. Use `git log --oneline -n 5` for exact HEAD.
+Current phase: sanitized live identity proof requirements are the latest substantive implementation checkpoint, building on truthful local quality validation, live-safe provider link/adopt confirmation modes, sanitized partial live inventory identity facts, bounded live provider inventory, Vercel preview provider live-read inspect, failure-diagnostic redaction hardening, and provider inventory/link/adopt; this file intentionally avoids self-referencing its containing commit hash. Use `git log --oneline -n 5` for exact HEAD.
 
 Overall status: not complete. Agentstack is about 38-40% of the way toward consumer production readiness from a consumer perspective. The current product state is a local command-contract and rehearsal prototype with credible local telemetry and provider boundaries, not a consumer-ready production framework.
 
-Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI routing, local env graph rehearsal, structural validation, local package quality validation via `agentstack validate --quality`, generated guidance/skills, local wide-event telemetry, OTLP-shaped local export, provider command plans for Clerk/Convex/Vercel/EAS, Clerk/Convex/Vercel preview/EAS preview live-read inspect, ledger-gated Convex and Vercel preview apply, local provider inventory/link/adopt, explicit bounded live provider inventory via `--source live` or `--live`, sanitized partial live identity facts for Vercel preview and EAS preview env-list reads, and live-safe refusal modes for provider link/adopt via `--source live`. It still lacks a truthful live validation runner, broad provider discovery/adoption, broad real provider provisioning, a real generated SaaS runtime, real OTel/network/hosted observability, preview deploy/build smoke evidence, production release gates, hosted control-plane state, and public package installability.
+Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI routing, local env graph rehearsal, structural validation, local package quality validation via `agentstack validate --quality`, generated guidance/skills, local wide-event telemetry, OTLP-shaped local export, provider command plans for Clerk/Convex/Vercel/EAS, Clerk/Convex/Vercel preview/EAS preview live-read inspect, ledger-gated Convex and Vercel preview apply, local provider inventory/link/adopt, explicit bounded live provider inventory via `--source live` or `--live`, sanitized partial live identity facts and missing-proof labels for Vercel preview and EAS preview env-list reads, and live-safe refusal modes for provider link/adopt via `--source live` with sanitized identity proof requirement summaries. It still lacks exact live identity proof, a truthful live validation runner, broad provider discovery/adoption, broad real provider provisioning, a real generated SaaS runtime, real OTel/network/hosted observability, preview deploy/build smoke evidence, production release gates, hosted control-plane state, and public package installability.
 
 ## Recent Completed Commits
 
+- `d263de9` docs: record quality validation checkpoint.
 - `3c27690` feat: add truthful local quality validation.
 - `bb4badb` docs: record live link confirmation checkpoint.
 - `efdc973` feat: gate provider link on live confirmation.
@@ -56,9 +57,9 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 ## Latest Truth
 
 - Provider inventory defaults to local-control-plane only. It derives rows from the manifest, `.agentstack/provider-links.json`, and matching provider ledger rows. Local inventory writes no files, does not call provider CLIs, and does not treat `.agentstack/local-cloud.json` as external provider truth.
-- Live provider inventory is explicit with `--source live` or `--live`. It starts from local inventory, calls only existing read-only inspect primitives, prints `Evidence: live-read-inventory`, `Mutation: none`, command/result counts, and redacted live-read fields. Provider command success is treated as read evidence, not exact existence proof. Vercel preview `env ls preview` and EAS preview `env:list --environment preview` can now produce sanitized partial proof labels (`identity-scope=partial`, `facts=expected-env-names,preview-environment,env-list-read`) while still keeping `identity=ambiguous`; actual env names, provider IDs, URLs, tokens, raw output snippets, ledger row IDs, and exact project/app identity are not printed or stored in inventory. Generic Clerk/Convex successful reads remain `identity-scope=none` and ambiguous. Provider read failures print `FAIL provider inventory <service> <env>` and return nonzero while preserving summary and row diagnostics. Vercel and EAS production live inventory fail before executor use.
-- Provider link defaults to local state only. It requires a matching `planned` or `active` ledger row and writes only `.agentstack/provider-links.json`, while printing explicit local/provider/ledger mutation boundaries. `provider link --source live` requires the same ledger row before executor use, runs only read-only live inventory/inspect, and currently refuses partial or ambiguous identity with no writes.
-- Provider adopt defaults to print-only. It prints a redacted ledger proposal and writes no files, while printing explicit local/provider/ledger mutation boundaries. `provider adopt --source live` does not require an existing ledger row, runs only read-only live inventory/inspect, and currently refuses partial or ambiguous identity with no proposal or writes.
+- Live provider inventory is explicit with `--source live` or `--live`. It starts from local inventory, calls only existing read-only inspect primitives, prints `Evidence: live-read-inventory`, `Mutation: none`, command/result counts, and redacted live-read fields. Provider command success is treated as read evidence, not exact existence proof. Vercel preview `env ls preview` and EAS preview `env:list --environment preview` can now produce sanitized partial proof labels (`identity-scope=partial`, `facts=expected-env-names,preview-environment,env-list-read`, `missing=ledger-comparable-identity,stable-provider-identity`) while still keeping `identity=ambiguous`; actual env names, provider IDs, URLs, tokens, raw output snippets, ledger row IDs, and exact project/app identity are not printed or stored in inventory. Generic Clerk/Convex successful reads remain `identity-scope=none` and ambiguous with sanitized missing-proof labels such as `provider-specific-identity-parser,stable-provider-identity`. Provider read failures print `FAIL provider inventory <service> <env>` and return nonzero while preserving `identity-scope=none`, summary, row diagnostics, and a truthful missing label such as `successful-live-read`. Vercel and EAS production live inventory fail before executor use.
+- Provider link defaults to local state only. It requires a matching `planned` or `active` ledger row and writes only `.agentstack/provider-links.json`, while printing explicit local/provider/ledger mutation boundaries. `provider link --source live` requires the same ledger row before executor use, runs only read-only live inventory/inspect, and currently refuses partial or ambiguous identity with one sanitized identity proof requirement summary and no writes.
+- Provider adopt defaults to print-only. It prints a redacted ledger proposal and writes no files, while printing explicit local/provider/ledger mutation boundaries. `provider adopt --source live` does not require an existing ledger row, runs only read-only live inventory/inspect, and currently refuses partial or ambiguous identity with one sanitized identity proof requirement summary, no proposal, and no writes.
 - Provider plan prints `Evidence: provider-command-plan`.
 - Clerk inspect, Convex inspect, Vercel preview inspect, and EAS preview inspect have live-read semantics where implemented.
 - Supported live mutation remains narrow: ledger-gated Convex apply and ledger-gated Vercel preview deploy apply. Clerk apply, Vercel env/production apply, EAS init/env/build/apply, and broad provider provisioning are still unavailable.
@@ -106,6 +107,9 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 - Review cleanup tightened the quality command failure regression to assert no provider executor use, no `.agentstack/events.jsonl`, and no `.agentstack/local-cloud.json` on command failure.
 - Review cleanup aligned the consumer roadmap with the split validation contract: bare `agentstack validate` is local-structure, `agentstack validate --quality` runs local package commands with `Evidence: local-quality`, `agentstack validate --cloud` remains local rehearsal, and live validation remains future work.
 - Review cleanup replaced the stale prototype package-script snippet in `docs/superpowers/plans/2026-06-20-agentstack-prototype-slice-1.md` with the current green-field script surface: `validate:quality`, `preview:validate`, and `prod:validate`.
+- Added provider-neutral sanitized missing-proof labels to live inventory rows so partial Vercel/EAS preview reads explain the absence of stable provider and ledger-comparable identity, successful Clerk/Convex no-fact reads explain the missing provider-specific parser and stable identity, and failed reads preserve `identity-scope=none` with a truthful `successful-live-read` blocker.
+- Added live link/adopt refusal summaries that print one sanitized `Identity proof requirements:` line after the inventory rows while continuing to refuse exact confirmation and write no provider-links, events, local-cloud, ledger, or provider resources.
+- Updated both generated template mirrors, AGENTS guidance, Agentstack skill references, and generated-doc tests to teach that `missing=` and `Identity proof requirements:` are blockers only, not exact provider identity proof.
 
 ## Current Blockers And Gaps
 
@@ -138,7 +142,19 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 
 ## Last Known Verification Evidence
 
-Most recent final orchestrator verification for the local quality validation slice:
+Most recent final orchestrator verification for the sanitized live identity proof requirements slice:
+
+- Spec review passed with no blocking issues and confirmed the slice keeps live rows ambiguous, adds no exact/matched identity path, and keeps live link/adopt refusal before write paths.
+- Quality review passed after one P2 cleanup: row-level `missing=` output is now normalized at the print boundary with a formatter regression test.
+- `pnpm vitest run packages/adapters/src/provider-control-plane.test.ts packages/cli/src/run.test.ts packages/create-agent-stack/src/generate.test.ts` passed: 3 files / 199 tests.
+- `diff -qr templates/b2b-saas packages/create-agent-stack/templates/b2b-saas` passed with no output.
+- `git diff -- docs/provider-resource-ledger.md` was empty.
+- `git diff --check` passed with no output.
+- `pnpm typecheck` passed.
+- `pnpm test` passed: 27 files / 377 tests.
+- No provider CLIs were run directly, and no real provider resources were created, mutated, adopted, linked, or deleted.
+
+Previous final orchestrator verification for the local quality validation slice:
 
 - `pnpm vitest run packages/cli/src/run.test.ts --testNamePattern "fails local package quality validation"` passed: 1 file / 1 selected test.
 - Stale cloud-validation package-alias scan across package JSON, templates, packages, and docs passed with no output after the review cleanup.

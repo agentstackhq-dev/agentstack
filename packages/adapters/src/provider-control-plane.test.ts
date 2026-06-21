@@ -153,14 +153,15 @@ describe("provider control plane", () => {
     });
 
     expect(inventory.evidence).toBe("live-read-inventory");
-    expect(inventory.rows[0]).toMatchObject({
-      liveStatus: "unknown",
-      identityMatch: "ambiguous",
-      identityScope: "none",
-      permissionSummary: "read-ok",
-      driftSummary: "unknown",
-      externalIdSummary: "none"
-    });
+      expect(inventory.rows[0]).toMatchObject({
+        liveStatus: "unknown",
+        identityMatch: "ambiguous",
+        identityScope: "none",
+        permissionSummary: "read-ok",
+        driftSummary: "unknown",
+        missingProof: ["provider-specific-identity-parser", "stable-provider-identity"],
+        externalIdSummary: "none"
+      });
     expect(inventory.rows[0]?.facts).toBeUndefined();
     expect(inventory.liveReadSummary).toEqual({ commands: 1, results: 1, succeeded: 1, failed: 0 });
     expect(JSON.stringify(inventory)).not.toContain("raw-provider-id-should-not-leak");
@@ -198,14 +199,15 @@ describe("provider control plane", () => {
       ]
     });
 
-    expect(inventory.rows[0]).toMatchObject({
-      liveStatus: "found",
-      identityMatch: "ambiguous",
-      identityScope: "partial",
-      permissionSummary: "read-ok",
-      driftSummary: "unknown",
-      facts: ["env-list-read", "expected-env-names", "preview-environment"]
-    });
+      expect(inventory.rows[0]).toMatchObject({
+        liveStatus: "found",
+        identityMatch: "ambiguous",
+        identityScope: "partial",
+        permissionSummary: "read-ok",
+        driftSummary: "unknown",
+        facts: ["env-list-read", "expected-env-names", "preview-environment"],
+        missingProof: ["ledger-comparable-identity", "stable-provider-identity"]
+      });
     expect(JSON.stringify(inventory)).not.toContain("NEXT_PUBLIC_APP_URL");
     expect(JSON.stringify(inventory)).not.toContain("raw-provider-output");
   });
@@ -242,13 +244,14 @@ describe("provider control plane", () => {
       ]
     });
 
-    expect(inventory.rows[0]).toMatchObject({
-      liveStatus: "unknown",
-      identityMatch: "ambiguous",
-      identityScope: "none",
-      permissionSummary: "read-ok",
-      driftSummary: "unknown"
-    });
+      expect(inventory.rows[0]).toMatchObject({
+        liveStatus: "unknown",
+        identityMatch: "ambiguous",
+        identityScope: "none",
+        permissionSummary: "read-ok",
+        driftSummary: "unknown",
+        missingProof: ["provider-specific-identity-parser", "stable-provider-identity"]
+      });
     expect(JSON.stringify(inventory)).not.toContain("identityScope\":\"exact");
   });
 
@@ -281,13 +284,14 @@ describe("provider control plane", () => {
       ]
     });
 
-    expect(inventory.rows[0]).toMatchObject({
-      liveStatus: "auth-failed",
-      identityMatch: "ambiguous",
-      identityScope: "none",
-      permissionSummary: "read-failed",
-      driftSummary: "unknown"
-    });
+      expect(inventory.rows[0]).toMatchObject({
+        liveStatus: "auth-failed",
+        identityMatch: "ambiguous",
+        identityScope: "none",
+        permissionSummary: "read-failed",
+        driftSummary: "unknown",
+        missingProof: ["successful-live-read"]
+      });
     expect(inventory.rows[0]?.facts).toBeUndefined();
     expect(inventory.liveReadSummary).toEqual({ commands: 1, results: 1, succeeded: 0, failed: 1 });
   });

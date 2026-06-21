@@ -1434,6 +1434,7 @@ async function providerLinkCommand(argv: string[], io: RunIo): Promise<number> {
     if (!confirmation.ok) {
       io.write(`FAIL provider.link.${confirmation.reason}`);
       writeProviderConfirmationInventory(io, inventory);
+      writeProviderIdentityProofRequirements(io, inventory);
       return 1;
     }
   }
@@ -1507,6 +1508,7 @@ async function providerAdoptCommand(argv: string[], io: RunIo): Promise<number> 
     if (!confirmation.ok) {
       io.write(`FAIL provider.adopt.${confirmation.reason}`);
       writeProviderConfirmationInventory(io, inventory);
+      writeProviderIdentityProofRequirements(io, inventory);
       return 1;
     }
   }
@@ -1612,6 +1614,15 @@ function writeProviderConfirmationInventory(io: RunIo, inventory: ProviderInvent
   inventory.rows.forEach((row) => io.write(formatProviderInventoryRow(row)));
 }
 
+function writeProviderIdentityProofRequirements(io: RunIo, inventory: ProviderInventory): void {
+  const labels = [
+    ...new Set(inventory.rows.flatMap((row) => row.missingProof ?? []))
+  ].sort();
+  if (labels.length > 0) {
+    io.write(`Identity proof requirements: ${labels.join(",")}`);
+  }
+}
+
 type ProviderLedgerDiagnosticCommand = "provider apply" | "provider inventory" | "provider link";
 
 export function providerLedgerDiagnostic(
@@ -1673,7 +1684,7 @@ function formatExpectedLedgerMatch(expected: ProviderLedgerExpectedMatch): strin
   return `${expected.provider} ${expected.environment} ${expected.resourceType} ${expected.resourceName}`;
 }
 
-function formatProviderInventoryRow(row: ProviderInventoryRow): string {
+export function formatProviderInventoryRow(row: ProviderInventoryRow): string {
   const fields = [
     "Resource:",
     row.service,
@@ -1696,8 +1707,15 @@ function formatProviderInventoryRow(row: ProviderInventoryRow): string {
     if (row.facts && row.facts.length > 0) {
       fields.push(`facts=${row.facts.join(",")}`);
     }
+    if (row.missingProof && row.missingProof.length > 0) {
+      fields.push(`missing=${normalizeProviderIdentityProofLabels(row.missingProof).join(",")}`);
+    }
   }
   return fields.join(" ");
+}
+
+function normalizeProviderIdentityProofLabels(labels: string[]): string[] {
+  return [...new Set(labels)].sort();
 }
 
 async function readProviderLedgerRowsIfPresent(cwd: string): Promise<ReturnType<typeof parseProviderLedger>> {

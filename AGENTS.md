@@ -5,4 +5,5 @@
 - When a design changes, replace the old path coherently across code, templates, docs, tests, and generated guidance. Do not preserve the old path just in case.
 - Treat compatibility code as tech debt by default. If you believe compatibility is required, stop and ask before implementing it.
 - Keep generated templates, package-local template mirrors, docs, tests, and validation gates aligned in the same change.
+- Treat live provider inventory identity as ambiguous unless exact proof is explicitly implemented; sanitized `missing=` labels and `Identity proof requirements:` summaries are blockers, not identity matches.
 - Run the focused tests for the files you changed, then run `pnpm typecheck` and `pnpm test` before finalizing framework changes.

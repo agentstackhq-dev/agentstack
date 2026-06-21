@@ -240,6 +240,8 @@ describe("generateProject", () => {
       expect(generatedEnvironmentDocs).toContain("Ledger mutation: none");
       expect(generatedEnvironmentDocs).toContain("Local adopt is the default source mode");
       expect(generatedEnvironmentDocs).toContain("FAIL provider.link.identity-ambiguous");
+      expect(generatedEnvironmentDocs).toContain("missing=ledger-comparable-identity,stable-provider-identity");
+      expect(generatedEnvironmentDocs).toContain("Identity proof requirements:");
       expect(generatedEnvironmentDocs).toContain("There is no `--live` shorthand for adopt");
       expect(generatedEnvironmentDocs).toContain("not proof of external provider existence");
       expect(generatedEnvironmentDocs).toContain("ledger-gated through supported provider apply commands");
@@ -248,9 +250,11 @@ describe("generateProject", () => {
       expect(generatedPreviewDocs).toContain("provider link --service convex --env preview");
       expect(generatedPreviewDocs).toContain("provider adopt --service convex --env preview");
       expect(generatedPreviewDocs).toContain("does not mutate the root provider ledger");
+      expect(generatedPreviewDocs).toContain("sanitized identity proof requirements");
       const generatedWorkflowDocs = await readFile(join(targetDir, "docs/agentstack/workflows.md"), "utf8");
       expect(generatedWorkflowDocs).toContain("simulator state");
       expect(generatedWorkflowDocs).toContain("not proof of external provider existence");
+      expect(generatedWorkflowDocs).toContain("sanitized `missing=` identity proof labels");
       await expect(readFile(join(targetDir, "docs/provider-resource-ledger.md"), "utf8")).resolves.toContain(
         "## Ledger"
       );
