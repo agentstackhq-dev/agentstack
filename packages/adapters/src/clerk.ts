@@ -208,7 +208,7 @@ export async function inspectClerkReadOnly(
         secretValues: options.secretValues,
         liveIdentityFacts:
           liveCoherenceFactsForClerkExactAppsList(command.kind, options.environment, exactIdentityProof) ??
-          liveIdentityFactsForClerkRead(command.kind, result.exitCode),
+          liveIdentityFactsForClerkRead(command.kind, options.environment, result),
         identityCandidates: identityCandidatesForClerkRead(command.kind, options.environment, result),
         exactIdentityProof
       })
@@ -235,20 +235,81 @@ function liveCoherenceFactsForClerkExactAppsList(
 
 function liveIdentityFactsForClerkRead(
   commandKind: ClerkCommandKind,
-  exitCode: number
+  environment: EnvironmentName,
+  result: { exitCode: number; stdout: string }
 ): { identityConfidence: "partial"; facts: ProviderLiveFactLabel[] } | undefined {
-  if (exitCode !== 0) {
+  if (result.exitCode !== 0) {
     return undefined;
   }
 
-  const factByCommandKind: Partial<Record<ClerkCommandKind, ProviderLiveFactLabel>> = {
-    "auth.diagnostics": "diagnostics-read",
-    "auth.env.pull": "provider-env-read",
-    "auth.config.pull": "provider-config-read"
-  };
-  const fact = factByCommandKind[commandKind];
+  if (commandKind === "auth.diagnostics") {
+    return { identityConfidence: "partial", facts: ["diagnostics-read"] };
+  }
 
-  return fact ? { identityConfidence: "partial", facts: [fact] } : undefined;
+  if (environment !== "preview") {
+    return undefined;
+  }
+
+  if (commandKind === "auth.env.pull") {
+    return liveCoherenceFactsForClerkEnvPull(result.stdout);
+  }
+
+  if (commandKind === "auth.config.pull") {
+    return liveCoherenceFactsForClerkConfigPull(result.stdout);
+  }
+
+  return undefined;
+}
+
+function liveCoherenceFactsForClerkEnvPull(
+  stdout: string
+): { identityConfidence: "partial"; facts: ProviderLiveFactLabel[] } | undefined {
+  const parsed = parseStrictClerkObject(stdout);
+  if (!parsed || !hasMatchingEnvironmentScope(parsed, "development") || !Array.isArray(parsed.keys)) {
+    return undefined;
+  }
+
+  const hasRequiredClerkKey = parsed.keys.some(
+    (entry) => isRecord(entry) && readFirstString(entry.name, entry.key) === "CLERK_SECRET_KEY"
+  );
+  if (!hasRequiredClerkKey) {
+    return undefined;
+  }
+
+  return {
+    identityConfidence: "partial",
+    facts: ["clerk-env-key-presence", "provider-env-read", "preview-environment"]
+  };
+}
+
+function liveCoherenceFactsForClerkConfigPull(
+  stdout: string
+): { identityConfidence: "partial"; facts: ProviderLiveFactLabel[] } | undefined {
+  const parsed = parseStrictClerkObject(stdout);
+  if (!parsed || !hasMatchingEnvironmentScope(parsed, "development")) {
+    return undefined;
+  }
+
+  if (
+    !hasClerkRedirectConfig(parsed.redirects, parsed.redirectUrls, parsed.redirect_urls) ||
+    !hasClerkWebhookConfig(parsed.webhooks, parsed.webhookEndpoints, parsed.webhook_endpoints) ||
+    !hasClerkOrganizationConfig(parsed.organizations, parsed.organizationSettings, parsed.organization_settings) ||
+    !hasClerkBillingConfig(parsed.billing, parsed.billingSettings, parsed.billing_settings)
+  ) {
+    return undefined;
+  }
+
+  return {
+    identityConfidence: "partial",
+    facts: [
+      "clerk-billing-config-present",
+      "clerk-organization-config-present",
+      "clerk-redirect-config-present",
+      "clerk-webhook-config-present",
+      "provider-config-read",
+      "preview-environment"
+    ]
+  };
 }
 
 function identityCandidatesForClerkRead(
@@ -390,6 +451,17 @@ function parseClerkAppsList(stdout: string): Record<string, unknown>[] {
   return apps.filter(isRecord);
 }
 
+function parseStrictClerkObject(stdout: string): Record<string, unknown> | undefined {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch {
+    return undefined;
+  }
+
+  return isRecord(parsed) ? parsed : undefined;
+}
+
 function hasOwnerIdentity(app: Record<string, unknown>): boolean {
   return (
     hasString(app.ownerId) ||
@@ -429,6 +501,67 @@ function readFirstMatchingString(expected: string, ...values: unknown[]): string
     }
   }
   return undefined;
+}
+
+function hasClerkRedirectConfig(...values: unknown[]): boolean {
+  return values.some((value) =>
+    hasNonEmptyRecordArray(value, hasRedirectRecord) || hasNonEmptyRecordWithKnownEntry(value, hasRedirectRecord)
+  );
+}
+
+function hasClerkWebhookConfig(...values: unknown[]): boolean {
+  return values.some((value) =>
+    hasNonEmptyRecordArray(value, hasWebhookRecord) || hasNonEmptyRecordWithKnownEntry(value, hasWebhookRecord)
+  );
+}
+
+function hasClerkOrganizationConfig(...values: unknown[]): boolean {
+  return values.some((value) => isRecord(value) && hasKnownOrganizationField(value));
+}
+
+function hasClerkBillingConfig(...values: unknown[]): boolean {
+  return values.some((value) => isRecord(value) && hasKnownBillingField(value));
+}
+
+function hasNonEmptyRecordArray(
+  value: unknown,
+  predicate: (record: Record<string, unknown>) => boolean
+): boolean {
+  return Array.isArray(value) && value.some((entry) => isRecord(entry) && predicate(entry));
+}
+
+function hasNonEmptyRecordWithKnownEntry(
+  value: unknown,
+  predicate: (record: Record<string, unknown>) => boolean
+): boolean {
+  return isRecord(value) && Object.values(value).some((entry) => isRecord(entry) && predicate(entry));
+}
+
+function hasRedirectRecord(record: Record<string, unknown>): boolean {
+  return hasString(record.url) || hasString(record.redirectUrl) || hasString(record.redirect_url);
+}
+
+function hasWebhookRecord(record: Record<string, unknown>): boolean {
+  return hasString(record.endpoint) || hasString(record.url) || hasString(record.webhookUrl) || hasString(record.webhook_url);
+}
+
+function hasKnownOrganizationField(record: Record<string, unknown>): boolean {
+  return (
+    typeof record.enabled === "boolean" ||
+    typeof record.allowInvitations === "boolean" ||
+    typeof record.allow_invitations === "boolean" ||
+    typeof record.maxAllowedMemberships === "number" ||
+    typeof record.max_allowed_memberships === "number"
+  );
+}
+
+function hasKnownBillingField(record: Record<string, unknown>): boolean {
+  return (
+    typeof record.enabled === "boolean" ||
+    hasString(record.provider) ||
+    hasString(record.billingProvider) ||
+    hasString(record.billing_provider)
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

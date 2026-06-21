@@ -1116,6 +1116,115 @@ describe("provider proof contracts", () => {
     });
   });
 
+  it("returns partial sanitized drift evidence for Clerk preview config/env coherence only with exact apps-list identity", () => {
+    const exactAppsListResult = {
+      service: "clerk",
+      environment: "preview",
+      commandKind: "auth.apps.list",
+      status: "success",
+      exitCode: 0,
+      durationMs: 5,
+      stdoutSummary: "<redacted provider stdout: 1 lines, 180 bytes>",
+      stderrSummary: "",
+      stdoutLines: 1,
+      stderrLines: 0,
+      stdoutBytes: 180,
+      stderrBytes: 0,
+      outputRedacted: true,
+      liveIdentityFacts: {
+        identityConfidence: "partial",
+        facts: ["apps-list-read", "expected-resource-shape", "preview-environment"]
+      },
+      exactIdentityProof: {
+        kind: "provider-exact-identity-proof",
+        evaluator: "provider-specific-identity-parser",
+        labels: [
+          "ledger-comparable-identity",
+          "ledger-external-id-match",
+          "manifest-resource-name-match",
+          "provider-environment-scope",
+          "provider-owner-identity",
+          "provider-resource-id",
+          "provider-specific-identity-parser",
+          "stable-provider-identity"
+        ],
+        comparisons: [
+          { label: "stable-provider-identity", outcome: "matched" },
+          { label: "ledger-comparable-identity", outcome: "matched" },
+          { label: "manifest-resource-name-match", outcome: "matched" },
+          { label: "ledger-external-id-match", outcome: "matched" },
+          { label: "provider-owner-identity", outcome: "matched" },
+          { label: "provider-resource-id", outcome: "matched" },
+          { label: "provider-environment-scope", outcome: "matched" }
+        ]
+      }
+    } satisfies Parameters<typeof evaluateProviderDriftProof>[1][number];
+    const envResult = {
+      service: "clerk",
+      environment: "preview",
+      commandKind: "auth.env.pull",
+      status: "success",
+      exitCode: 0,
+      durationMs: 5,
+      stdoutSummary: "<redacted provider stdout: 1 lines, 140 bytes>",
+      stderrSummary: "",
+      stdoutLines: 1,
+      stderrLines: 0,
+      stdoutBytes: 140,
+      stderrBytes: 0,
+      outputRedacted: true,
+      liveIdentityFacts: {
+        identityConfidence: "partial",
+        facts: ["clerk-env-key-presence", "provider-env-read", "preview-environment"]
+      }
+    } satisfies Parameters<typeof evaluateProviderDriftProof>[1][number];
+    const configResult = {
+      service: "clerk",
+      environment: "preview",
+      commandKind: "auth.config.pull",
+      status: "success",
+      exitCode: 0,
+      durationMs: 5,
+      stdoutSummary: "<redacted provider stdout: 1 lines, 260 bytes>",
+      stderrSummary: "",
+      stdoutLines: 1,
+      stderrLines: 0,
+      stdoutBytes: 260,
+      stderrBytes: 0,
+      outputRedacted: true,
+      liveIdentityFacts: {
+        identityConfidence: "partial",
+        facts: [
+          "clerk-billing-config-present",
+          "clerk-organization-config-present",
+          "clerk-redirect-config-present",
+          "clerk-webhook-config-present",
+          "provider-config-read",
+          "preview-environment"
+        ]
+      }
+    } satisfies Parameters<typeof evaluateProviderDriftProof>[1][number];
+
+    expect(evaluateProviderDriftProof("clerk", [envResult, configResult, exactAppsListResult])).toEqual({
+      proof: "partial",
+      evaluator: "clerk-config-preview",
+      evidence: [
+        "apps-list-read",
+        "clerk-billing-config-present",
+        "clerk-env-key-presence",
+        "clerk-organization-config-present",
+        "clerk-redirect-config-present",
+        "clerk-webhook-config-present",
+        "expected-resource-shape",
+        "preview-environment",
+        "provider-config-read",
+        "provider-env-read"
+      ]
+    });
+
+    expect(evaluateProviderDriftProof("clerk", [envResult, configResult])).toEqual({ proof: "unavailable" });
+  });
+
   it("keeps Clerk drift proof unavailable without strict exact apps-list live coherence", () => {
     const baseResult = {
       service: "clerk",

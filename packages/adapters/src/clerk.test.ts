@@ -165,8 +165,8 @@ describe("clerk command planner", () => {
     ]);
     expect(results.map((result) => result.liveIdentityFacts)).toEqual([
       { identityConfidence: "partial", facts: ["diagnostics-read"] },
-      { identityConfidence: "partial", facts: ["provider-env-read"] },
-      { identityConfidence: "partial", facts: ["provider-config-read"] },
+      undefined,
+      undefined,
       undefined
     ]);
     expect(calls.map((call) => call.join(" "))).not.toContain("pnpm exec clerk init -y");
@@ -232,13 +232,213 @@ describe("clerk command planner", () => {
     expect(results.map((result) => result.liveIdentityFacts)).toEqual([
       { identityConfidence: "partial", facts: ["diagnostics-read"] },
       undefined,
-      { identityConfidence: "partial", facts: ["provider-config-read"] },
+      undefined,
       undefined
     ]);
     expect(results[1]).toMatchObject({
       status: "failed",
       failureClass: "auth"
     });
+  });
+
+  it("attaches sanitized Clerk preview env coherence facts only for strict provider-owned env JSON", async () => {
+    const rawEnvValue = "sk_test_provider_owned_secret";
+    const results = await inspectClerkReadOnly({
+      environment: "preview",
+      executor: {
+        async execute(_command, args) {
+          return {
+            exitCode: 0,
+            stdout:
+              args.join(" ") === "exec clerk env pull --mode agent"
+                ? JSON.stringify({
+                    environment: "development",
+                    keys: [
+                      { name: "CLERK_SECRET_KEY", value: rawEnvValue },
+                      { name: "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", value: "pk_test_provider_owned_secret" }
+                    ]
+                  })
+                : "ok",
+            stderr: "",
+            durationMs: 5
+          };
+        }
+      }
+    });
+
+    expect(results[1]?.liveIdentityFacts).toEqual({
+      identityConfidence: "partial",
+      facts: ["clerk-env-key-presence", "provider-env-read", "preview-environment"]
+    });
+    expect(results[1]?.exactIdentityProof).toBeUndefined();
+    expect(JSON.stringify(results)).not.toContain(rawEnvValue);
+    expect(JSON.stringify(results)).not.toContain("pk_test_provider_owned_secret");
+  });
+
+  it("attaches sanitized Clerk preview config coherence facts only for strict provider-owned config JSON", async () => {
+    const results = await inspectClerkReadOnly({
+      environment: "preview",
+      executor: {
+        async execute(_command, args) {
+          return {
+            exitCode: 0,
+            stdout:
+              args.join(" ") === "exec clerk config pull --mode agent"
+                ? JSON.stringify({
+                    environment: "development",
+                    redirects: [{ url: "https://preview.example.test/sign-in" }],
+                    webhooks: [{ endpoint: "https://preview.example.test/api/raw-provider-webhook" }],
+                    organizations: { enabled: true },
+                    billing: { enabled: true }
+                  })
+                : "ok",
+            stderr: "",
+            durationMs: 5
+          };
+        }
+      }
+    });
+
+    expect(results[2]?.liveIdentityFacts).toEqual({
+      identityConfidence: "partial",
+      facts: [
+        "clerk-billing-config-present",
+        "clerk-organization-config-present",
+        "clerk-redirect-config-present",
+        "clerk-webhook-config-present",
+        "provider-config-read",
+        "preview-environment"
+      ]
+    });
+    expect(results[2]?.exactIdentityProof).toBeUndefined();
+    const serialized = JSON.stringify(results);
+    expect(serialized).not.toContain("preview.example.test");
+    expect(serialized).not.toContain("raw-provider-webhook");
+  });
+
+  it("does not attach Clerk preview config facts for empty or wrong-shaped config categories", async () => {
+    const invalidConfigOutputs = [
+      JSON.stringify({
+        environment: "development",
+        redirects: {},
+        webhooks: {},
+        organizations: {},
+        billing: {}
+      }),
+      JSON.stringify({
+        environment: "development",
+        redirects: [],
+        webhooks: [],
+        organizations: { enabled: true },
+        billing: { enabled: true }
+      }),
+      JSON.stringify({
+        environment: "development",
+        redirects: ["https://preview.example.test/sign-in"],
+        webhooks: ["https://preview.example.test/api/raw-provider-webhook"],
+        organizations: { enabled: true },
+        billing: { enabled: true }
+      }),
+      JSON.stringify({
+        environment: "development",
+        redirects: [{ url: "https://preview.example.test/sign-in" }],
+        webhooks: [{ endpoint: "https://preview.example.test/api/raw-provider-webhook" }],
+        organizations: { unknown: true },
+        billing: { unknown: true }
+      })
+    ];
+
+    for (const stdout of invalidConfigOutputs) {
+      const results = await inspectClerkReadOnly({
+        environment: "preview",
+        executor: {
+          async execute(_command, args) {
+            return {
+              exitCode: 0,
+              stdout: args.join(" ") === "exec clerk config pull --mode agent" ? stdout : "ok",
+              stderr: "",
+              durationMs: 5
+            };
+          }
+        }
+      });
+
+      expect(results[2]?.liveIdentityFacts).toBeUndefined();
+      expect(results[2]?.exactIdentityProof).toBeUndefined();
+      const serialized = JSON.stringify(results);
+      expect(serialized).not.toContain("preview.example.test");
+      expect(serialized).not.toContain("raw-provider-webhook");
+    }
+  });
+
+  it("does not attach Clerk env or config coherence facts for malformed, loose, array, missing-category, or failed reads", async () => {
+    const invalidOutputs = [
+      "{ malformed",
+      "CLERK_SECRET_KEY=sk_test_provider_owned_secret",
+      JSON.stringify([{ name: "CLERK_SECRET_KEY", value: "sk_test_provider_owned_secret" }]),
+      JSON.stringify({ environment: "development", keys: [{ name: "UNRELATED", value: "raw" }] }),
+      JSON.stringify({ environment: "development", redirects: [{ url: "https://preview.example.test" }] })
+    ];
+
+    for (const stdout of invalidOutputs) {
+      const results = await inspectClerkReadOnly({
+        environment: "preview",
+        executor: {
+          async execute(_command, args) {
+            const joinedArgs = args.join(" ");
+            return {
+              exitCode: 0,
+              stdout:
+                joinedArgs === "exec clerk env pull --mode agent" ||
+                joinedArgs === "exec clerk config pull --mode agent"
+                  ? stdout
+                  : "ok",
+              stderr: "",
+              durationMs: 5
+            };
+          }
+        }
+      });
+
+      expect(results[1]?.liveIdentityFacts).toBeUndefined();
+      expect(results[2]?.liveIdentityFacts).toBeUndefined();
+      expect(results[1]?.exactIdentityProof).toBeUndefined();
+      expect(results[2]?.exactIdentityProof).toBeUndefined();
+      const serialized = JSON.stringify(results);
+      expect(serialized).not.toContain("sk_test_provider_owned_secret");
+      expect(serialized).not.toContain("preview.example.test");
+    }
+
+    const failedResults = await inspectClerkReadOnly({
+      environment: "preview",
+      executor: {
+        async execute(_command, args) {
+          const isEnvOrConfig =
+            args.join(" ") === "exec clerk env pull --mode agent" ||
+            args.join(" ") === "exec clerk config pull --mode agent";
+          return {
+            exitCode: isEnvOrConfig ? 1 : 0,
+            stdout: isEnvOrConfig
+              ? JSON.stringify({
+                  environment: "development",
+                  keys: [{ name: "CLERK_SECRET_KEY", value: "sk_test_provider_owned_secret" }],
+                  redirects: [{ url: "https://preview.example.test" }],
+                  webhooks: [{ endpoint: "https://preview.example.test/webhook" }],
+                  organizations: { enabled: true },
+                  billing: { enabled: true }
+                })
+              : "ok",
+            stderr: isEnvOrConfig ? "auth failed" : "",
+            durationMs: 5
+          };
+        }
+      }
+    });
+
+    expect(failedResults[1]?.liveIdentityFacts).toBeUndefined();
+    expect(failedResults[2]?.liveIdentityFacts).toBeUndefined();
+    expect(JSON.stringify(failedResults)).not.toContain("sk_test_provider_owned_secret");
+    expect(JSON.stringify(failedResults)).not.toContain("preview.example.test");
   });
 
   it("attaches sanitized identity candidate labels for a matching Clerk apps list fixture", async () => {

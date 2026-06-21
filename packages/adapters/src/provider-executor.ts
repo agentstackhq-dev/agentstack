@@ -34,7 +34,12 @@ export type ProviderLiveFactLabel =
   | "apps-list-read"
   | "diagnostics-read"
   | "provider-env-read"
-  | "provider-config-read";
+  | "provider-config-read"
+  | "clerk-env-key-presence"
+  | "clerk-redirect-config-present"
+  | "clerk-webhook-config-present"
+  | "clerk-organization-config-present"
+  | "clerk-billing-config-present";
 
 export type ProviderLiveIdentityFacts = {
   identityConfidence: ProviderLiveIdentityConfidence;
@@ -99,7 +104,12 @@ const PROVIDER_LIVE_FACT_LABELS = new Set<string>([
   "apps-list-read",
   "diagnostics-read",
   "provider-env-read",
-  "provider-config-read"
+  "provider-config-read",
+  "clerk-env-key-presence",
+  "clerk-redirect-config-present",
+  "clerk-webhook-config-present",
+  "clerk-organization-config-present",
+  "clerk-billing-config-present"
 ]);
 
 const PROVIDER_EXACT_IDENTITY_PROOF_LABELS = new Set<string>([

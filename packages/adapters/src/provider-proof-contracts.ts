@@ -116,7 +116,7 @@ export type ProviderDriftProofResult =
   | { proof: "unavailable" }
   | {
       proof: "partial";
-      evaluator: "env-list-preview" | "clerk-apps-list-preview";
+      evaluator: "env-list-preview" | "clerk-apps-list-preview" | "clerk-config-preview";
       evidence: ProviderLiveFactLabel[];
     };
 
@@ -535,6 +535,15 @@ export function evaluateProviderDriftProof(
 }
 
 const clerkAppsListPreviewFacts = ["apps-list-read", "expected-resource-shape", "preview-environment"] as const;
+const clerkEnvPreviewFacts = ["clerk-env-key-presence", "provider-env-read", "preview-environment"] as const;
+const clerkConfigPreviewFacts = [
+  "clerk-billing-config-present",
+  "clerk-organization-config-present",
+  "clerk-redirect-config-present",
+  "clerk-webhook-config-present",
+  "provider-config-read",
+  "preview-environment"
+] as const;
 const clerkExactAppsListComparisonLabels = [
   "stable-provider-identity",
   "ledger-comparable-identity",
@@ -592,9 +601,50 @@ function evaluateClerkAppsListPreviewDriftProof(
     return { proof: "unavailable" };
   }
 
+  const hasCompleteClerkEnvPreviewEvidence = readResults.some((result) =>
+    hasClerkLiveFacts(result, "auth.env.pull", clerkEnvPreviewFacts)
+  );
+  const hasCompleteClerkConfigPreviewEvidence = readResults.some((result) =>
+    hasClerkLiveFacts(result, "auth.config.pull", clerkConfigPreviewFacts)
+  );
+
+  if (hasCompleteClerkEnvPreviewEvidence && hasCompleteClerkConfigPreviewEvidence) {
+    return {
+      proof: "partial",
+      evaluator: "clerk-config-preview",
+      evidence: [
+        ...new Set([
+          ...clerkAppsListPreviewFacts,
+          ...clerkEnvPreviewFacts,
+          ...clerkConfigPreviewFacts
+        ])
+      ].sort()
+    };
+  }
+
   return {
     proof: "partial",
     evaluator: "clerk-apps-list-preview",
     evidence: [...clerkAppsListPreviewFacts].sort()
   };
+}
+
+function hasClerkLiveFacts(
+  result: ProviderExecutionResult,
+  commandKind: "auth.env.pull" | "auth.config.pull",
+  requiredFacts: readonly ProviderLiveFactLabel[]
+): boolean {
+  if (
+    result.service !== "clerk" ||
+    result.environment !== "preview" ||
+    result.commandKind !== commandKind ||
+    result.status !== "success" ||
+    result.liveIdentityFacts?.identityConfidence !== "partial" ||
+    result.outputRedacted !== true
+  ) {
+    return false;
+  }
+
+  const facts = new Set(result.liveIdentityFacts.facts);
+  return requiredFacts.every((fact) => facts.has(fact));
 }

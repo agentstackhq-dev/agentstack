@@ -2869,21 +2869,34 @@ describe("runAgentstack", () => {
   });
 
   it("renders all-success Clerk live inventory with sorted command-level partial facts", async () => {
-    let callIndex = 0;
     const code = await runAgentstack(["provider", "inventory", "--service", "clerk", "--env", "preview", "--source", "live"], {
       cwd: dir,
       write: (line) => output.push(line),
       providerExecutor: {
         async execute(command, args, options) {
           providerExecutions.push({ command, args, stdin: options.stdin });
-          callIndex += 1;
+          const joinedArgs = args.join(" ");
           return {
             exitCode: 0,
-            stdout: [
-              `RAW_PROVIDER_ID=secret-${callIndex}`,
-              "NEXT_PUBLIC_APP_URL=https://secret.example.test",
-              "CLERK_SECRET_KEY=sk_live_secret_should_not_leak"
-            ].join("\n"),
+            stdout:
+              joinedArgs === "exec clerk env pull --mode agent"
+                ? JSON.stringify({
+                    environment: "development",
+                    keys: [{ name: "CLERK_SECRET_KEY", value: "sk_live_secret_should_not_leak" }]
+                  })
+                : joinedArgs === "exec clerk config pull --mode agent"
+                  ? JSON.stringify({
+                      environment: "development",
+                      redirects: [{ url: "https://secret.example.test/sign-in" }],
+                      webhooks: [{ endpoint: "https://secret.example.test/raw-webhook" }],
+                      organizations: { enabled: true },
+                      billing: { enabled: true }
+                    })
+                  : [
+                      "RAW_PROVIDER_ID=secret-diagnostics",
+                      "NEXT_PUBLIC_APP_URL=https://secret.example.test",
+                      "CLERK_SECRET_KEY=sk_live_secret_should_not_leak"
+                    ].join("\n"),
             stderr: "",
             durationMs: 12
           };
@@ -2894,11 +2907,12 @@ describe("runAgentstack", () => {
     expect(code).toBe(0);
     expect(output).toContain("PASS provider inventory clerk preview");
     expect(output.join("\n")).toContain(
-      "live=found identity=ambiguous identity-scope=partial permission=read-ok drift=unknown facts=diagnostics-read,provider-config-read,provider-env-read missing=ledger-comparable-identity,provider-environment-scope,provider-owner-identity,provider-resource-id,provider-specific-identity-parser,stable-provider-identity"
+      "live=found identity=ambiguous identity-scope=partial permission=read-ok drift=unknown facts=clerk-billing-config-present,clerk-env-key-presence,clerk-organization-config-present,clerk-redirect-config-present,clerk-webhook-config-present,diagnostics-read,preview-environment,provider-config-read,provider-env-read missing=ledger-comparable-identity,provider-environment-scope,provider-owner-identity,provider-resource-id,provider-specific-identity-parser,stable-provider-identity"
     );
     expect(output.join("\n")).not.toContain("RAW_PROVIDER_ID");
     expect(output.join("\n")).not.toContain("NEXT_PUBLIC_APP_URL");
     expect(output.join("\n")).not.toContain("https://secret.example.test");
+    expect(output.join("\n")).not.toContain("raw-webhook");
     expect(output.join("\n")).not.toContain("sk_live_secret_should_not_leak");
     expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
       "exec clerk doctor --mode agent",
@@ -3314,6 +3328,17 @@ describe("runAgentstack", () => {
         }
       ]
     });
+    const envPull = JSON.stringify({
+      environment: "development",
+      keys: [{ name: "CLERK_SECRET_KEY", value: "sk_test_provider_env_should_not_print" }]
+    });
+    const configPull = JSON.stringify({
+      environment: "development",
+      redirects: [{ url: "https://preview.example.test/sign-in" }],
+      webhooks: [{ endpoint: "https://preview.example.test/api/raw-provider-webhook" }],
+      organizations: { enabled: true },
+      billing: { enabled: true }
+    });
 
     const code = await runAgentstack(
       [
@@ -3336,7 +3361,14 @@ describe("runAgentstack", () => {
             providerExecutions.push({ command, args, stdin: options.stdin });
             return {
               exitCode: 0,
-              stdout: args.join(" ") === "exec clerk apps list --json" ? appsList : "ok",
+              stdout:
+                args.join(" ") === "exec clerk env pull --mode agent"
+                  ? envPull
+                  : args.join(" ") === "exec clerk config pull --mode agent"
+                    ? configPull
+                    : args.join(" ") === "exec clerk apps list --json"
+                      ? appsList
+                      : "ok",
               stderr: "",
               durationMs: 12
             };
@@ -3355,10 +3387,13 @@ describe("runAgentstack", () => {
     expect(output).toContain("Exact identity evidence: available");
     expect(output).toContain("Exact identity evaluator: provider-exact-identity");
     expect(output).toContain("Drift proof: partial");
-    expect(output).toContain("Drift evaluator: clerk-apps-list-preview");
+    expect(output).toContain("Drift evaluator: clerk-config-preview");
     expect(output).toContain("Readiness: refused");
     expect(output).toContain("Reason: drift-unproven");
     expect(rendered).not.toContain("Drift proof: exact");
+    expect(rendered).not.toContain("sk_test_provider_env_should_not_print");
+    expect(rendered).not.toContain("preview.example.test");
+    expect(rendered).not.toContain("raw-provider-webhook");
     expect(rendered).not.toContain(rowId);
     expect(rendered).not.toContain(externalId);
     expect(rendered).not.toContain(owner);
@@ -3852,6 +3887,17 @@ describe("runAgentstack", () => {
         }
       ]
     });
+    const envPull = JSON.stringify({
+      environment: "development",
+      keys: [{ name: "CLERK_SECRET_KEY", value: "sk_test_live_provider_env_should_not_print" }]
+    });
+    const configPull = JSON.stringify({
+      environment: "development",
+      redirects: [{ url: "https://preview.example.test/live-sign-in" }],
+      webhooks: [{ endpoint: "https://preview.example.test/api/live-provider-webhook" }],
+      organizations: { enabled: true },
+      billing: { enabled: true }
+    });
 
     const code = await runAgentstack(["validate", "--live", "--env", "preview"], {
       cwd: dir,
@@ -3861,7 +3907,14 @@ describe("runAgentstack", () => {
           providerExecutions.push({ command, args, stdin: options.stdin });
           return {
             exitCode: 0,
-            stdout: args.join(" ") === "exec clerk apps list --json" ? appsList : "ok",
+            stdout:
+              args.join(" ") === "exec clerk env pull --mode agent"
+                ? envPull
+                : args.join(" ") === "exec clerk config pull --mode agent"
+                  ? configPull
+                  : args.join(" ") === "exec clerk apps list --json"
+                    ? appsList
+                    : "ok",
             stderr: "",
             durationMs: 12
           };
@@ -3881,10 +3934,13 @@ describe("runAgentstack", () => {
     expect(rendered).toContain("Exact identity evidence: available");
     expect(rendered).toContain("Exact identity evaluator: provider-exact-identity");
     expect(rendered).toContain("Drift proof: partial");
-    expect(rendered).toContain("Drift evaluator: clerk-apps-list-preview");
+    expect(rendered).toContain("Drift evaluator: clerk-config-preview");
     expect(rendered).toContain(
       "Provider proof readiness is refused because exact drift/live coherence is not proven for every enabled provider"
     );
+    expect(rendered).not.toContain("sk_test_live_provider_env_should_not_print");
+    expect(rendered).not.toContain("preview.example.test");
+    expect(rendered).not.toContain("live-provider-webhook");
     expect(rendered).not.toContain(rowId);
     expect(rendered).not.toContain(externalId);
     expect(rendered).not.toContain(owner);
