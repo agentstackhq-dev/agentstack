@@ -6,7 +6,7 @@ This file is the canonical resume and progress artifact for Agentstack consumer 
 
 ## Current State
 
-Current phase: Wave 2 provider inventory/link/adopt checkpoint, readiness roadmap refresh, and progress checkpoint/progress file are committed through `4ac7d86` (`docs: record latest progress head`).
+Current phase: Wave 2 provider inventory/link/adopt checkpoint, readiness roadmap refresh, and progress checkpoint are committed. The latest substantive implementation checkpoint remains provider inventory/link/adopt plus provider link/inventory telemetry cleanup; this file intentionally avoids self-referencing its containing commit hash. Use `git log --oneline -n 5` for exact HEAD.
 
 Overall status: not complete. Agentstack is about 38-40% of the way toward consumer production readiness from a consumer perspective. The current product state is a local command-contract and rehearsal prototype with credible local telemetry and provider boundaries, not a consumer-ready production framework.
 
@@ -14,6 +14,7 @@ Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI rou
 
 ## Recent Completed Commits
 
+- `7e3dbeb` docs: repair progress head reference.
 - `4ac7d86` docs: record latest progress head.
 - `7c6fecc` docs: align progress checkpoint with head.
 - `7e6c244` docs: update readiness progress checkpoint.
@@ -31,6 +32,8 @@ Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI rou
 - `2d0bdbb` feat: require explicit provider env ownership.
 - `2f9c6b4` feat: add credential-safe provider execution.
 - `ab40312` feat: add structured telemetry inspector.
+
+Because this file is committed after it is edited, the commit containing the latest progress-only wording may appear above this list in git log.
 
 ## Provider Ledger State
 
@@ -91,7 +94,7 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 
 ## Last Known Verification Evidence
 
-Most recent final verification after commits `07f23d8`, `7e6c244`, `7c6fecc`, and `4ac7d86`:
+Most recent final verification recorded before this progress wording update:
 
 - `git diff --check` passed.
 - `diff -ru templates/b2b-saas/docs/agentstack packages/create-agent-stack/templates/b2b-saas/docs/agentstack` passed.
@@ -101,4 +104,4 @@ Most recent final verification after commits `07f23d8`, `7e6c244`, `7c6fecc`, an
 
 ## Worktree State Expectation
 
-After commit `4ac7d86`, the expected worktree state is clean. `docs/provider-resource-ledger.md` should have no diff.
+After committing this progress update, the expected worktree state is clean. `docs/provider-resource-ledger.md` should have no diff.
