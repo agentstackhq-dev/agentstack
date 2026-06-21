@@ -2172,6 +2172,99 @@ describe("runAgentstack", () => {
     expect(providerExecutions).toHaveLength(0);
   });
 
+  it("renders live provider inventory from read-only inspect results without writing local state", async () => {
+    const rowId = "row-secret-live-inventory-123";
+    const externalId = "https://dashboard.convex.dev/d/live-secret-preview";
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: rowId,
+        provider: "convex",
+        resourceType: "deployment",
+        environment: "preview",
+        name: "acme-crm-preview",
+        status: "active",
+        externalId,
+        cleanupCommand: "delete through Convex dashboard",
+        evidence: "docs/evidence/convex-preview.md"
+      })
+    ]);
+    const ledgerPath = join(dir, "docs", "provider-resource-ledger.md");
+    const ledgerBefore = await readFile(ledgerPath, "utf8");
+
+    const code = await runAgentstack(["provider", "inventory", "--service", "convex", "--env", "preview", "--source", "live"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("LIVE_PROVIDER_ID=raw-secret-provider-id")
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS provider inventory convex preview");
+    expect(output).toContain("Evidence: live-read-inventory");
+    expect(output).toContain("Mutation: none");
+    expect(output.join("\n")).toContain("Commands: 1");
+    expect(output.join("\n")).toContain("Results: 1");
+    expect(output.join("\n")).toContain("live=unknown identity=ambiguous permission=read-ok drift=unknown");
+    expect(output.join("\n")).not.toContain(rowId);
+    expect(output.join("\n")).not.toContain(externalId);
+    expect(output.join("\n")).not.toContain("raw-secret-provider-id");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec convex env --deployment <preview-deployment-name> list"
+    ]);
+    await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+    expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
+  });
+
+  it("supports --live as provider inventory shorthand", async () => {
+    const code = await runAgentstack(["provider", "inventory", "--service", "eas", "--env", "preview", "--live"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("EXPO_TOKEN=secret-eas-token")
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("Evidence: live-read-inventory");
+    expect(output.join("\n")).toContain("Commands: 1");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec eas env:list --environment preview"
+    ]);
+    expect(output.join("\n")).not.toContain("secret-eas-token");
+  });
+
+  it("rejects unsupported provider inventory source values before executor use", async () => {
+    const code = await runAgentstack(["provider", "inventory", "--service", "convex", "--env", "preview", "--source", "remote"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("live-read should not run")
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL provider.inventory.validation");
+    expect(output.join("\n")).toContain("Unsupported provider inventory source: remote");
+    expect(providerExecutions).toHaveLength(0);
+  });
+
+  it("rejects live Vercel and EAS production inventory before executor use", async () => {
+    for (const service of ["vercel", "eas"] as const) {
+      output = [];
+      providerExecutions = [];
+      const code = await runAgentstack(["provider", "inventory", "--service", service, "--env", "production", "--source", "live"], {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: createMockProviderExecutor("live-read should not run")
+      });
+
+      expect(code).toBe(1);
+      expect(output.join("\n")).toContain("FAIL provider.inventory.unsupported");
+      expect(output.join("\n")).toContain(`${service === "vercel" ? "Vercel" : "EAS"} live inventory supports preview read-only inspect only`);
+      expect(providerExecutions).toHaveLength(0);
+    }
+  });
+
   it("blocks provider inventory malformed ledger rows with inventory-specific diagnostics", async () => {
     const malformedValue = "malformed-inventory-row-value";
     const malformedRow = `| convex-preview | convex | deployment | preview | Platform | ${malformedValue} |`;

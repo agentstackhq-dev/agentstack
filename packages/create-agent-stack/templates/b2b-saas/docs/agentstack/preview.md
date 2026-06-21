@@ -160,13 +160,21 @@ Evidence: provider-command-plan
 
 EAS env create/update/delete commands are printed with redacted value placeholders. EAS Build uses server-side EAS env values, not local CI variables alone.
 
-Print the local provider inventory control-plane view without live provider discovery:
+Print the default local provider inventory control-plane view without provider executor use:
 
 ```bash
 node scripts/agentstack.mjs provider inventory --service convex --env preview
 ```
 
 Expected output includes either `Evidence: local-inventory` or `Evidence: ledger-local-inventory`. Inventory reads manifest expectations, local provider links, and matching ledger rows only. It writes no files, does not call provider CLIs, does not prove the provider resource exists externally, and does not treat `.agentstack/local-cloud.json` sync links as external truth.
+
+Run bounded read-only live inventory when you need live read evidence without mutation:
+
+```bash
+node scripts/agentstack.mjs provider inventory --service convex --env preview --source live
+```
+
+Expected output includes `Evidence: live-read-inventory`, `Mutation: none`, command/result counts, and redacted live status fields. Live inventory calls only the selected service's existing read-only inspect primitive. It is not broad provider discovery, provisioning, adoption, or reconciliation.
 
 Write a local provider link after adding a matching planned or active ledger row:
 

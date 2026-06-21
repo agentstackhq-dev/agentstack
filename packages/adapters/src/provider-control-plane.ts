@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { AgentstackManifest } from "@agentstack/core";
+import type { ProviderExecutionResult } from "./provider-executor.js";
 import {
   enforceProviderLedgerResource,
   type ProviderLedgerDecision,
@@ -10,9 +11,14 @@ import {
 
 export type ProviderControlPlaneService = "clerk" | "convex" | "vercel" | "eas";
 export type ProviderControlPlaneEnvironment = "preview" | "production";
-export type ProviderInventoryEvidence = "local-inventory" | "ledger-local-inventory";
+export type ProviderInventorySource = "local" | "live";
+export type ProviderInventoryEvidence = "local-inventory" | "ledger-local-inventory" | "live-read-inventory";
 export type ProviderLocalLinkStatus = "linked" | "missing";
 export type ProviderInventoryRowEvidence = "expected" | "ledger";
+export type ProviderInventoryLiveStatus = "not-checked" | "found" | "not-found" | "auth-failed" | "unknown";
+export type ProviderInventoryIdentityMatch = "not-checked" | "matched" | "mismatched" | "ambiguous";
+export type ProviderInventoryPermissionSummary = "not-checked" | "read-ok" | "read-failed";
+export type ProviderInventoryDriftSummary = "not-checked" | "none" | "possible" | "unknown";
 export type ProviderLinkLedgerStatus = Extract<ProviderLedgerStatus, "planned" | "active">;
 
 export type ProviderLinkState = {
@@ -41,6 +47,7 @@ export type ProviderInventory = {
   environment: ProviderControlPlaneEnvironment;
   evidence: ProviderInventoryEvidence;
   rows: ProviderInventoryRow[];
+  liveReadSummary?: ProviderInventoryLiveReadSummary;
 };
 
 export type ProviderInventoryRow = {
@@ -52,6 +59,22 @@ export type ProviderInventoryRow = {
   localLink: ProviderLocalLinkStatus;
   ledgerStatus: ProviderLedgerStatus | "missing";
   externalIdSummary: "none" | "redacted";
+  liveStatus?: ProviderInventoryLiveStatus;
+  identityMatch?: ProviderInventoryIdentityMatch;
+  permissionSummary?: ProviderInventoryPermissionSummary;
+  driftSummary?: ProviderInventoryDriftSummary;
+};
+
+export type ProviderInventoryLiveReadSummary = {
+  commands: number;
+  results: number;
+  succeeded: number;
+  failed: number;
+};
+
+export type LiveProviderInventoryInput = {
+  localInventory: ProviderInventory;
+  readResults: ProviderExecutionResult[];
 };
 
 export type ProviderLinkInput = {
@@ -126,6 +149,34 @@ export async function createProviderInventory(input: ProviderInventoryInput): Pr
         externalIdSummary: ledgerRow?.externalIdOrUrl.trim() ? "redacted" : "none"
       }
     ]
+  };
+}
+
+export async function createLiveProviderInventory(input: LiveProviderInventoryInput): Promise<ProviderInventory> {
+  const summary = summarizeLiveReadResults(input.readResults);
+  const failed = input.readResults.some((result) => result.status === "failed");
+  const authFailed = input.readResults.some((result) => result.failureClass === "auth");
+  const notFound = input.readResults.some((result) => result.failureClass === "not-found");
+  const liveStatus: ProviderInventoryLiveStatus = authFailed
+    ? "auth-failed"
+    : notFound
+      ? "not-found"
+      : failed
+        ? "unknown"
+        : "unknown";
+  const permissionSummary: ProviderInventoryPermissionSummary = failed ? "read-failed" : "read-ok";
+
+  return {
+    ...input.localInventory,
+    evidence: "live-read-inventory",
+    liveReadSummary: summary,
+    rows: input.localInventory.rows.map((row) => ({
+      ...row,
+      liveStatus,
+      identityMatch: "ambiguous",
+      permissionSummary,
+      driftSummary: "unknown"
+    }))
   };
 }
 
@@ -257,6 +308,16 @@ function linkMatches(
     link.resourceType === resource.resourceType &&
     link.name === resource.name
   );
+}
+
+function summarizeLiveReadResults(results: ProviderExecutionResult[]): ProviderInventoryLiveReadSummary {
+  const failed = results.filter((result) => result.status === "failed").length;
+  return {
+    commands: results.length,
+    results: results.length,
+    succeeded: results.length - failed,
+    failed
+  };
 }
 
 function ledgerMatches(

@@ -5,6 +5,7 @@ import { createDefaultManifest } from "@agentstack/core";
 import { describe, expect, it } from "vitest";
 import {
   buildProviderAdoptProposal,
+  createLiveProviderInventory,
   createProviderInventory,
   linkLedgerBackedProviderResource,
   readProviderLinkState
@@ -52,6 +53,7 @@ describe("provider control plane", () => {
       expect(JSON.stringify(inventory)).not.toContain("local-cloud");
       expect(JSON.stringify(inventory)).not.toContain("external-exists");
       expect(JSON.stringify(inventory)).not.toContain("live-read");
+      expect(inventory.rows[0]).not.toHaveProperty("liveStatus");
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -118,6 +120,85 @@ describe("provider control plane", () => {
     await expect(
       createProviderInventory({ cwd: "/tmp/no-state", manifest, service: "eas", environment: "preview", ledgerRows: [] })
     ).resolves.toMatchObject({ rows: [expect.objectContaining({ resourceType: "project", name: "acme-crm" })] });
+  });
+
+  it("projects successful live read results as bounded ambiguous read evidence without leaking provider output", async () => {
+    const inventory = await createLiveProviderInventory({
+      localInventory: await createProviderInventory({
+        cwd: "/tmp/no-state",
+        manifest: createDefaultManifest("acme-crm"),
+        service: "convex",
+        environment: "preview",
+        ledgerRows: []
+      }),
+      readResults: [
+        {
+          service: "convex",
+          environment: "preview",
+          commandKind: "env.list",
+          status: "success",
+          exitCode: 0,
+          durationMs: 12,
+          stdoutSummary: "<redacted provider stdout: 1 line, 42 bytes>",
+          stderrSummary: "",
+          stdoutLines: 1,
+          stderrLines: 0,
+          stdoutBytes: 42,
+          stderrBytes: 0,
+          outputRedacted: true,
+          providerResourceId: "raw-provider-id-should-not-leak"
+        }
+      ]
+    });
+
+    expect(inventory.evidence).toBe("live-read-inventory");
+    expect(inventory.rows[0]).toMatchObject({
+      liveStatus: "unknown",
+      identityMatch: "ambiguous",
+      permissionSummary: "read-ok",
+      driftSummary: "unknown",
+      externalIdSummary: "none"
+    });
+    expect(inventory.liveReadSummary).toEqual({ commands: 1, results: 1, succeeded: 1, failed: 0 });
+    expect(JSON.stringify(inventory)).not.toContain("raw-provider-id-should-not-leak");
+  });
+
+  it("maps auth-failed live reads to auth-failed and read-failed without exposing raw diagnostics", async () => {
+    const inventory = await createLiveProviderInventory({
+      localInventory: await createProviderInventory({
+        cwd: "/tmp/no-state",
+        manifest: createDefaultManifest("acme-crm"),
+        service: "clerk",
+        environment: "preview",
+        ledgerRows: []
+      }),
+      readResults: [
+        {
+          service: "clerk",
+          environment: "preview",
+          commandKind: "env.pull",
+          status: "failed",
+          exitCode: 1,
+          durationMs: 12,
+          stdoutSummary: "",
+          stderrSummary: "<redacted provider stderr: 1 line, 99 bytes>",
+          stdoutLines: 0,
+          stderrLines: 1,
+          stdoutBytes: 0,
+          stderrBytes: 99,
+          outputRedacted: true,
+          failureClass: "auth"
+        }
+      ]
+    });
+
+    expect(inventory.rows[0]).toMatchObject({
+      liveStatus: "auth-failed",
+      identityMatch: "ambiguous",
+      permissionSummary: "read-failed",
+      driftSummary: "unknown"
+    });
+    expect(inventory.liveReadSummary).toEqual({ commands: 1, results: 1, succeeded: 0, failed: 1 });
   });
 
   it("writes local provider link state only when the ledger row is planned or active", async () => {

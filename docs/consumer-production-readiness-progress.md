@@ -6,11 +6,11 @@ This file is the canonical resume and progress artifact for Agentstack consumer 
 
 ## Current State
 
-Current phase: Vercel preview provider live-read inspect plus failure-diagnostic redaction hardening is the latest substantive implementation checkpoint, building on provider inventory/link/adopt plus provider link/inventory telemetry cleanup; this file intentionally avoids self-referencing its containing commit hash. Use `git log --oneline -n 5` for exact HEAD.
+Current phase: live provider inventory source is the latest substantive implementation checkpoint, building on Vercel preview provider live-read inspect plus failure-diagnostic redaction hardening and provider inventory/link/adopt; this file intentionally avoids self-referencing its containing commit hash. Use `git log --oneline -n 5` for exact HEAD.
 
 Overall status: not complete. Agentstack is about 38-40% of the way toward consumer production readiness from a consumer perspective. The current product state is a local command-contract and rehearsal prototype with credible local telemetry and provider boundaries, not a consumer-ready production framework.
 
-Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI routing, local env graph rehearsal, structural validation, generated guidance/skills, local wide-event telemetry, OTLP-shaped local export, provider command plans for Clerk/Convex/Vercel/EAS, Clerk/Convex/Vercel preview/EAS preview live-read inspect, ledger-gated Convex and Vercel preview apply, and local provider inventory/link/adopt. It still lacks a truthful live validation runner, live provider inventory/discovery/adoption, broad real provider provisioning, a real generated SaaS runtime, real OTel/network/hosted observability, preview deploy/build smoke evidence, production release gates, hosted control-plane state, and public package installability.
+Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI routing, local env graph rehearsal, structural validation, generated guidance/skills, local wide-event telemetry, OTLP-shaped local export, provider command plans for Clerk/Convex/Vercel/EAS, Clerk/Convex/Vercel preview/EAS preview live-read inspect, ledger-gated Convex and Vercel preview apply, local provider inventory/link/adopt, and explicit bounded live provider inventory via `--source live` or `--live`. It still lacks a truthful live validation runner, broad provider discovery/adoption, broad real provider provisioning, a real generated SaaS runtime, real OTel/network/hosted observability, preview deploy/build smoke evidence, production release gates, hosted control-plane state, and public package installability.
 
 ## Recent Completed Commits
 
@@ -46,7 +46,8 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 
 ## Latest Truth
 
-- Provider inventory is local-control-plane only. It derives rows from the manifest, `.agentstack/provider-links.json`, and matching provider ledger rows. It writes no files, does not call provider CLIs, does not print `Evidence: live-read`, and does not treat `.agentstack/local-cloud.json` as external provider truth.
+- Provider inventory defaults to local-control-plane only. It derives rows from the manifest, `.agentstack/provider-links.json`, and matching provider ledger rows. Local inventory writes no files, does not call provider CLIs, and does not treat `.agentstack/local-cloud.json` as external provider truth.
+- Live provider inventory is explicit with `--source live` or `--live`. It starts from local inventory, calls only existing read-only inspect primitives, prints `Evidence: live-read-inventory`, `Mutation: none`, command/result counts, and redacted live-read fields. Provider command success is treated as read evidence, not exact existence proof; rows are `unknown`/`ambiguous` unless a future provider-specific parser can prove identity. Vercel and EAS production live inventory fail before executor use.
 - Provider link is local state only. It requires a matching `planned` or `active` ledger row and writes only `.agentstack/provider-links.json`. It does not mutate providers, telemetry, local-cloud state, or `docs/provider-resource-ledger.md`.
 - Provider adopt is print-only. It prints a redacted ledger proposal and writes no files.
 - Provider plan prints `Evidence: provider-command-plan`.
@@ -70,11 +71,16 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 - Corrected Vercel preview inspect failure classification so preview executor failures are reported as execution failures instead of unsupported-environment failures, while Vercel production inspect remains unavailable before executor use.
 - Added regression coverage that Vercel preview inspect leaves `docs/provider-resource-ledger.md` byte-for-byte unchanged.
 - Updated generated release docs to state that Clerk inspect, Vercel preview inspect, and EAS preview inspect are read-only, with Vercel production inspect/apply still unavailable.
+- Added `agentstack provider inventory --source live` and `--live` for bounded read-only live inventory while preserving default local-only inventory.
+- Added live inventory row fields for live status, identity match, permission summary, and drift summary without serializing raw provider IDs, URLs, tokens, secrets, or ledger row IDs.
+- Reused only existing read-only inspect primitives: Clerk read-only inspect, Convex read-only inspect, Vercel preview read-only inspect, and EAS preview read-only inspect.
+- Kept Vercel and EAS production live inventory unsupported before executor use.
+- Updated generated Agentstack docs in both template mirrors to describe local default inventory and explicit bounded live inventory.
 
 ## Current Blockers And Gaps
 
 - No truthful live validation runner exists yet.
-- Live provider inventory/discovery/adoption is not implemented; current inventory/link/adopt is local-control-plane only.
+- Broad provider discovery/adoption is not implemented; live inventory is bounded read-only evidence and not discovery, provisioning, adoption, or reconciliation.
 - Vercel live-read is bounded to preview env-list inspect; production Vercel live-read remains unavailable.
 - Provider live mutation is limited to ledger-gated Convex apply and Vercel preview deploy apply.
 - Real Clerk, Convex, Vercel, and EAS create/provision/reconcile/apply coverage is missing or partial.
@@ -88,7 +94,7 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 
 1. Finish provider integration gaps first:
    - Expand Vercel live-read beyond bounded preview env-list only when production read semantics are explicitly designed.
-   - Implement live provider inventory/discovery for Clerk, Convex, Vercel, and EAS.
+   - Expand live inventory with provider-specific parsers only where exact identity matching can be proven without leaking identifiers.
    - Add live-safe link/adopt identity confirmation without writing secrets.
    - Keep all mutation paths ledger-gated and evidence-labeled.
 2. Build the truthful validation runner:
@@ -101,17 +107,15 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 
 ## Last Known Verification Evidence
 
-Most recent final verification from `04bbbbf` before this progress wording update:
+Most recent final verification from this live inventory update:
 
-- `pnpm vitest run packages/cli/src/run.test.ts -t "Vercel|provider inspect"` passed: 11 selected tests.
+- `pnpm vitest run packages/adapters/src/provider-control-plane.test.ts packages/cli/src/run.test.ts packages/create-agent-stack/src/generate.test.ts` passed: 3 files / 179 tests.
 - `pnpm typecheck` passed.
-- `pnpm test` passed: 27 files / 344 tests.
+- `pnpm test` passed: 27 files / 350 tests.
+- `diff -ru templates/b2b-saas/docs/agentstack packages/create-agent-stack/templates/b2b-saas/docs/agentstack` passed.
+- `diff -u templates/b2b-saas/package.json packages/create-agent-stack/templates/b2b-saas/package.json` passed.
 - `git diff --check` passed.
 - `git diff -- docs/provider-resource-ledger.md` returned no diff.
-
-Useful earlier verification:
-
-- `diff -ru templates/b2b-saas/docs/agentstack packages/create-agent-stack/templates/b2b-saas/docs/agentstack` passed.
 
 ## Worktree State Expectation
 

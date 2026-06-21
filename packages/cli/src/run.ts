@@ -8,6 +8,7 @@ import {
   createVercelCommandPlan,
   createProviderOperationPlan,
   buildProviderAdoptProposal,
+  createLiveProviderInventory,
   createProviderInventory,
   executeConvexApply,
   executeVercelPreviewApply,
@@ -27,6 +28,7 @@ import {
   type ProviderCommandExecutor,
   type ProviderControlPlaneService,
   type ProviderExecutionResult,
+  type ProviderInventorySource,
   type ProviderInventoryRow,
   type ProviderLedgerDecision,
   type ProviderLedgerExpectedMatch,
@@ -1223,6 +1225,21 @@ async function providerInventoryCommand(argv: string[], io: RunIo): Promise<numb
   const fix = "Run agentstack provider inventory --service convex --env preview.";
   const service = readProviderControlPlaneServiceOption(options.service, fix);
   const environment = readProviderRuntimeEnvironmentOption(options.env, fix);
+  const source = readProviderInventorySourceOption(options.source, options.live, fix);
+
+  if (source === "live" && (service === "vercel" || service === "eas") && environment !== "preview") {
+    io.write(
+      formatDiagnostic({
+        severity: "fail",
+        code: "provider.inventory.unsupported",
+        path: `${service}.${environment}`,
+        message: `${service === "vercel" ? "Vercel" : "EAS"} live inventory supports preview read-only inspect only.`,
+        fix: `Run agentstack provider inventory --service ${service} --env preview --source live.`,
+        blocks: ["provider inventory"]
+      })
+    );
+    return 1;
+  }
 
   const validation = await runLocalValidationGate(io.cwd);
   validation.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
@@ -1245,17 +1262,54 @@ async function providerInventoryCommand(argv: string[], io: RunIo): Promise<numb
     return 1;
   }
 
-  const inventory = await createProviderInventory({
+  let inventory = await createProviderInventory({
     cwd: io.cwd,
     manifest: validation.context.manifest,
     service,
     environment,
     ledgerRows
   });
+  let liveResults: ProviderExecutionResult[] = [];
+
+  if (source === "live") {
+    const secretValues =
+      service === "convex"
+        ? collectSecretValues(validation.envValues, environment, "convex")
+        : collectEnvironmentSecretValues(validation.envValues, environment);
+    try {
+      liveResults = await readLiveProviderInventory({
+        service,
+        environment,
+        manifest: validation.context.manifest,
+        executor: resolveProviderExecutor(io),
+        cwd: io.cwd,
+        secretValues
+      });
+    } catch (error) {
+      io.write(
+        formatDiagnostic({
+          severity: "fail",
+          code: "provider.inventory.execution",
+          path: `${service}.${environment}`,
+          message: redactProviderText(error instanceof Error ? error.message : String(error), { secretValues }),
+          fix,
+          blocks: ["provider inventory"]
+        })
+      );
+      return 1;
+    }
+    inventory = await createLiveProviderInventory({ localInventory: inventory, readResults: liveResults });
+  }
 
   io.write(`PASS provider inventory ${service} ${environment}`);
   io.write(`Evidence: ${inventory.evidence}`);
   io.write("Mutation: none");
+  if (inventory.liveReadSummary) {
+    io.write(`Commands: ${inventory.liveReadSummary.commands}`);
+    io.write(`Results: ${inventory.liveReadSummary.results}`);
+    io.write(`Succeeded: ${inventory.liveReadSummary.succeeded}`);
+    io.write(`Failed: ${inventory.liveReadSummary.failed}`);
+  }
   inventory.rows.forEach((row) => io.write(formatProviderInventoryRow(row)));
   return 0;
 }
@@ -1419,7 +1473,7 @@ function formatExpectedLedgerMatch(expected: ProviderLedgerExpectedMatch): strin
 }
 
 function formatProviderInventoryRow(row: ProviderInventoryRow): string {
-  return [
+  const fields = [
     "Resource:",
     row.service,
     row.environment,
@@ -1429,7 +1483,16 @@ function formatProviderInventoryRow(row: ProviderInventoryRow): string {
     `local-link=${row.localLink}`,
     `external-id=${row.externalIdSummary}`,
     `evidence=${row.evidence}`
-  ].join(" ");
+  ];
+  if (row.liveStatus || row.identityMatch || row.permissionSummary || row.driftSummary) {
+    fields.push(
+      `live=${row.liveStatus ?? "not-checked"}`,
+      `identity=${row.identityMatch ?? "not-checked"}`,
+      `permission=${row.permissionSummary ?? "not-checked"}`,
+      `drift=${row.driftSummary ?? "not-checked"}`
+    );
+  }
+  return fields.join(" ");
 }
 
 async function readProviderLedgerRowsIfPresent(cwd: string): Promise<ReturnType<typeof parseProviderLedger>> {
@@ -1480,6 +1543,83 @@ function readProviderControlPlaneServiceOption(
       `Fix: ${fix}`
     ].join("\n")
   );
+}
+
+function readProviderInventorySourceOption(
+  value: string | boolean | undefined,
+  live: string | boolean | undefined,
+  fix: string
+): ProviderInventorySource {
+  if (live === true) {
+    return "live";
+  }
+  if (live !== undefined && live !== false) {
+    throw new Error(
+      [
+        "FAIL provider.inventory.validation",
+        "Invalid --live value. Use --live without a value.",
+        `Fix: ${fix}`
+      ].join("\n")
+    );
+  }
+  if (value === undefined || value === false) {
+    return "local";
+  }
+  const source = readRequiredStringOption(value, "source", fix);
+  if (source === "local" || source === "live") {
+    return source;
+  }
+  throw new Error(
+    [
+      "FAIL provider.inventory.validation",
+      `Unsupported provider inventory source: ${source}. Expected one of: local, live.`,
+      `Fix: ${fix}`
+    ].join("\n")
+  );
+}
+
+async function readLiveProviderInventory(input: {
+  service: ProviderControlPlaneService;
+  environment: "preview" | "production";
+  manifest: AgentstackManifest;
+  executor: ProviderCommandExecutor;
+  cwd: string;
+  secretValues: string[];
+}): Promise<ProviderExecutionResult[]> {
+  if (input.service === "clerk") {
+    return inspectClerkReadOnly({
+      environment: input.environment,
+      executor: input.executor,
+      cwd: input.cwd,
+      secretValues: input.secretValues
+    });
+  }
+
+  if (input.service === "convex") {
+    return inspectConvexReadOnly({
+      manifest: input.manifest,
+      environment: input.environment,
+      executor: input.executor,
+      cwd: input.cwd,
+      secretValues: input.secretValues
+    });
+  }
+
+  if (input.service === "vercel") {
+    return inspectVercelPreviewReadOnly({
+      environment: input.environment,
+      executor: input.executor,
+      cwd: input.cwd,
+      secretValues: input.secretValues
+    });
+  }
+
+  return inspectEasPreviewReadOnly({
+    environment: input.environment,
+    executor: input.executor,
+    cwd: input.cwd,
+    secretValues: input.secretValues
+  });
 }
 
 function writeProviderExecutionDiagnostics(io: RunIo, results: ProviderExecutionResult[]): void {
