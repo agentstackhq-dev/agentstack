@@ -15,6 +15,7 @@ import {
   executeVercelPreviewApply,
   evaluateProviderDriftProof,
   evaluateProviderExactIdentityProof,
+  evaluateProviderLiveCoherenceProof,
   getProviderProofContract,
   getEnabledProviderAdapterDefinitions,
   inspectEasPreviewReadOnly,
@@ -33,6 +34,7 @@ import {
   type ProviderControlPlaneService,
   type ProviderExecutionResult,
   type ProviderDriftProofResult,
+  type ProviderLiveCoherenceProofResult,
   type ProviderInventory,
   type ProviderInventorySource,
   type ProviderInventoryRow,
@@ -1597,6 +1599,11 @@ async function providerProofCommand(argv: string[], io: RunIo): Promise<number> 
   }
 
   const contract = getProviderProofContract(service);
+  const unavailableLiveCoherence = evaluateProviderLiveCoherenceProof(
+    service,
+    evaluateProviderExactIdentityProof(service, []),
+    { proof: "unavailable" }
+  );
 
   const validation = await runLocalValidationGate(io.cwd);
   validation.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
@@ -1616,6 +1623,7 @@ async function providerProofCommand(argv: string[], io: RunIo): Promise<number> 
       identityScope: "none",
       identityCandidates: "unavailable",
       identityEvaluator: "unavailable",
+      liveCoherence: unavailableLiveCoherence,
       reason: "proof-unsupported"
     });
     return 1;
@@ -1634,6 +1642,7 @@ async function providerProofCommand(argv: string[], io: RunIo): Promise<number> 
       identityScope: "none",
       identityCandidates: "unavailable",
       identityEvaluator: "unavailable",
+      liveCoherence: unavailableLiveCoherence,
       reason: "proof-unsupported"
     });
     return 1;
@@ -1659,6 +1668,7 @@ async function providerProofCommand(argv: string[], io: RunIo): Promise<number> 
       identityScope: "none",
       identityCandidates: "unavailable",
       identityEvaluator: "unavailable",
+      liveCoherence: unavailableLiveCoherence,
       reason: ledgerDecision.reason === "missing" ? "ledger-missing" : "ledger-invalid"
     });
     return 1;
@@ -1715,11 +1725,14 @@ async function providerProofCommand(argv: string[], io: RunIo): Promise<number> 
   const row = inventory.rows[0];
   const driftProof = liveReadFailed ? undefined : evaluateProviderDriftProof(service, liveResults);
   const exactIdentityDecision = liveReadFailed
-    ? undefined
+    ? evaluateProviderExactIdentityProof(service, [])
     : evaluateProviderExactIdentityProof(service, liveResults);
-  const exactIdentityReportFields = exactIdentityDecision
-    ? formatProviderExactIdentityReportFields(exactIdentityDecision)
-    : { identityCandidates: "unavailable" as const, identityEvaluator: "unavailable" as const };
+  const exactIdentityReportFields = formatProviderExactIdentityReportFields(exactIdentityDecision);
+  const liveCoherence = evaluateProviderLiveCoherenceProof(
+    service,
+    exactIdentityDecision,
+    driftProof ?? { proof: "unavailable" }
+  );
   writeProviderProofReport(io, {
     service,
     contract,
@@ -1736,6 +1749,7 @@ async function providerProofCommand(argv: string[], io: RunIo): Promise<number> 
     identityCandidates: exactIdentityReportFields.identityCandidates,
     identityEvaluator: exactIdentityReportFields.identityEvaluator,
     driftProof,
+    liveCoherence,
     reason: liveReadFailed
       ? "live-read-failed"
       : exactIdentityDecision?.proof !== "exact"
@@ -1941,6 +1955,7 @@ function writeLiveValidationProviderProofSummary(
   const exactIdentityDecision = evaluateProviderExactIdentityProof(service, liveResults);
   const exactIdentityReportFields = formatProviderExactIdentityReportFields(exactIdentityDecision);
   const driftProof = evaluateProviderDriftProof(service, liveResults);
+  const liveCoherence = evaluateProviderLiveCoherenceProof(service, exactIdentityDecision, driftProof);
 
   io.write(`Provider proof: ${service} ${environment}`);
   io.write(`Identity proof: ${exactIdentityDecision.proof}`);
@@ -1952,6 +1967,7 @@ function writeLiveValidationProviderProofSummary(
   } else {
     io.write("Drift proof: unproven");
   }
+  writeProviderLiveCoherenceSummary(io, liveCoherence);
 }
 
 function writeLiveValidationInventory(io: RunIo, inventory: ProviderInventory): void {
@@ -2252,6 +2268,7 @@ type ProviderProofReport = {
   identityCandidates?: "available" | "unavailable";
   identityEvaluator?: ProviderExactIdentityDecision["evaluator"];
   driftProof?: ProviderDriftProofResult;
+  liveCoherence?: ProviderLiveCoherenceProofResult;
   reason:
     | "identity-ambiguous"
     | "identity-proof-unavailable"
@@ -2300,10 +2317,21 @@ function writeProviderProofReport(io: RunIo, report: ProviderProofReport): void 
   } else {
     io.write("Drift proof: unproven");
   }
+  if (report.liveCoherence) {
+    writeProviderLiveCoherenceSummary(io, report.liveCoherence);
+  }
   io.write("Readiness: refused");
   io.write(`Reason: ${report.reason}`);
   io.write(`Identity proof requirements: ${report.contract.identityProofRequirements.join(",")}`);
   io.write(`Drift proof requirements: ${report.contract.driftProofRequirements.join(",")}`);
+}
+
+function writeProviderLiveCoherenceSummary(io: RunIo, liveCoherence: ProviderLiveCoherenceProofResult): void {
+  io.write(`Live coherence: ${liveCoherence.proof}`);
+  io.write(`Live coherence evaluator: ${liveCoherence.evaluator}`);
+  if (liveCoherence.blockers.length > 0) {
+    io.write(`Live coherence blockers: ${liveCoherence.blockers.join(",")}`);
+  }
 }
 
 function providerProofLedgerStatus(

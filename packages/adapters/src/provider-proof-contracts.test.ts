@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   evaluateProviderDriftProof,
   evaluateProviderExactIdentityProof,
+  evaluateProviderLiveCoherenceProof,
   evaluateProviderIdentityCandidateProof,
   evaluateProviderIdentityProof,
   getProviderIdentityReadPlan,
@@ -561,6 +562,136 @@ describe("provider proof contracts", () => {
       missing: []
     });
     expect(evaluateProviderDriftProof("vercel", readResults)).toEqual({ proof: "unavailable" });
+  });
+
+  it("blocks live coherence when exact identity only has partial drift evidence", () => {
+    const exactIdentity = {
+      proof: "exact",
+      evaluator: "provider-exact-identity",
+      labels: [
+        "ledger-comparable-identity",
+        "ledger-external-id-match",
+        "manifest-resource-name-match",
+        "provider-environment-scope",
+        "provider-owner-identity",
+        "provider-project-link-proof",
+        "provider-resource-id",
+        "provider-specific-identity-parser",
+        "stable-provider-identity"
+      ],
+      missing: []
+    } satisfies ReturnType<typeof evaluateProviderExactIdentityProof>;
+    const driftProof = {
+      proof: "partial",
+      evaluator: "env-list-preview",
+      evidence: ["env-list-read", "expected-env-names", "preview-environment"]
+    } satisfies ReturnType<typeof evaluateProviderDriftProof>;
+
+    expect(evaluateProviderLiveCoherenceProof("vercel", exactIdentity, driftProof)).toEqual({
+      proof: "blocked",
+      evaluator: "provider-live-coherence",
+      blockers: [
+        "provider-specific-drift-parser",
+        "expected-resource-shape",
+        "env-drift-comparison",
+        "provider-environment-scope"
+      ]
+    });
+  });
+
+  it("fail-closes blocked live coherence with a sanitized blocker when partial drift overlaps every current requirement", () => {
+    const exactIdentity = {
+      proof: "exact",
+      evaluator: "provider-exact-identity",
+      labels: [
+        "ledger-comparable-identity",
+        "ledger-external-id-match",
+        "manifest-resource-name-match",
+        "provider-environment-scope",
+        "provider-owner-identity",
+        "provider-project-link-proof",
+        "provider-resource-id",
+        "provider-specific-identity-parser",
+        "stable-provider-identity"
+      ],
+      missing: []
+    } satisfies ReturnType<typeof evaluateProviderExactIdentityProof>;
+    const driftProof = {
+      proof: "partial",
+      evaluator: "env-list-preview",
+      evidence: getProviderProofContract("vercel").driftProofRequirements
+    } as ReturnType<typeof evaluateProviderDriftProof>;
+
+    const liveCoherence = evaluateProviderLiveCoherenceProof("vercel", exactIdentity, driftProof);
+
+    expect(liveCoherence).toEqual({
+      proof: "blocked",
+      evaluator: "provider-live-coherence",
+      blockers: ["env-drift-comparison"]
+    });
+  });
+
+  it("blocks live coherence on missing exact identity with sanitized identity blockers", () => {
+    const exactIdentity = {
+      proof: "ambiguous",
+      evaluator: "provider-exact-identity",
+      labels: ["provider-specific-identity-parser"],
+      missing: ["stable-provider-identity", "ledger-comparable-identity", "provider-resource-id"]
+    } satisfies ReturnType<typeof evaluateProviderExactIdentityProof>;
+
+    expect(evaluateProviderLiveCoherenceProof("clerk", exactIdentity, { proof: "unavailable" })).toEqual({
+      proof: "blocked",
+      evaluator: "provider-live-coherence",
+      blockers: ["stable-provider-identity", "ledger-comparable-identity", "provider-resource-id"]
+    });
+  });
+
+  it("keeps live coherence unavailable when provider reads fail", () => {
+    const exactIdentity = {
+      proof: "unavailable",
+      evaluator: "unavailable",
+      labels: [],
+      missing: getProviderIdentityReadPlan("eas").missingUntilParsersExist
+    } satisfies ReturnType<typeof evaluateProviderExactIdentityProof>;
+
+    expect(evaluateProviderLiveCoherenceProof("eas", exactIdentity, { proof: "unavailable" })).toEqual({
+      proof: "unavailable",
+      evaluator: "unavailable",
+      blockers: getProviderIdentityReadPlan("eas").missingUntilParsersExist
+    });
+  });
+
+  it("never upgrades partial drift into exact live coherence", () => {
+    const readResults: ProviderExecutionResult[] = [
+      {
+        service: "vercel",
+        environment: "preview",
+        commandKind: "env.list",
+        status: "success",
+        exitCode: 0,
+        durationMs: 5,
+        stdoutSummary: "<redacted provider stdout: 2 lines, 90 bytes>",
+        stderrSummary: "",
+        stdoutLines: 2,
+        stderrLines: 0,
+        stdoutBytes: 90,
+        stderrBytes: 0,
+        outputRedacted: true,
+        liveIdentityFacts: {
+          identityConfidence: "partial",
+          facts: ["env-list-read", "expected-env-names", "preview-environment"]
+        }
+      }
+    ];
+
+    const liveCoherence = evaluateProviderLiveCoherenceProof(
+      "vercel",
+      evaluateProviderExactIdentityProof("vercel", readResults),
+      evaluateProviderDriftProof("vercel", readResults)
+    );
+
+    expect(liveCoherence.proof).toBe("unavailable");
+    expect(JSON.stringify(liveCoherence)).not.toContain("exact");
   });
 
   it("returns exact identity for Clerk from required labels and matched comparisons", () => {

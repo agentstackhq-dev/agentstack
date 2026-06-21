@@ -3388,6 +3388,11 @@ describe("runAgentstack", () => {
     expect(output).toContain("Exact identity evaluator: provider-exact-identity");
     expect(output).toContain("Drift proof: partial");
     expect(output).toContain("Drift evaluator: clerk-config-preview");
+    expect(output).toContain("Live coherence: blocked");
+    expect(output).toContain("Live coherence evaluator: provider-live-coherence");
+    expect(output).toContain(
+      "Live coherence blockers: provider-specific-drift-parser,expected-env-names,env-drift-comparison,provider-environment-scope"
+    );
     expect(output).toContain("Readiness: refused");
     expect(output).toContain("Reason: drift-unproven");
     expect(rendered).not.toContain("Drift proof: exact");
@@ -3479,6 +3484,11 @@ describe("runAgentstack", () => {
     expect(output).toContain("Exact identity evaluator: provider-exact-identity");
     expect(output).toContain("Drift proof: partial");
     expect(output).toContain("Drift evaluator: env-list-preview");
+    expect(output).toContain("Live coherence: blocked");
+    expect(output).toContain("Live coherence evaluator: provider-live-coherence");
+    expect(output).toContain(
+      "Live coherence blockers: provider-specific-drift-parser,expected-resource-shape,env-drift-comparison,provider-environment-scope"
+    );
     expect(output).toContain("Readiness: refused");
     expect(output).toContain("Reason: drift-unproven");
     expect(rendered).not.toContain(rowId);
@@ -3602,6 +3612,11 @@ describe("runAgentstack", () => {
     expect(output).toContain("Live resource: failed");
     expect(output).toContain("Identity proof: unavailable");
     expect(output).toContain("Identity scope: none");
+    expect(output).toContain("Live coherence: unavailable");
+    expect(output).toContain("Live coherence evaluator: unavailable");
+    expect(output).toContain(
+      "Live coherence blockers: provider-specific-identity-parser,stable-provider-identity,ledger-comparable-identity,provider-owner-identity,provider-resource-id,provider-environment-scope"
+    );
     expect(output).toContain("Reason: live-read-failed");
     expect(rendered).not.toContain("stdout raw secret");
     expect(rendered).not.toContain("sk_live_should_not_leak");
@@ -3741,6 +3756,9 @@ describe("runAgentstack", () => {
       expect(output).toContain("Identity scope: partial");
       expect(output).toContain("Drift proof: partial");
       expect(output).toContain("Drift evaluator: env-list-preview");
+      expect(output).toContain("Live coherence: unavailable");
+      expect(output).toContain("Live coherence evaluator: unavailable");
+      expect(rendered).toContain("Live coherence blockers:");
       expect(output).toContain("Readiness: refused");
       expect(output).toContain("Reason: identity-ambiguous");
       expect(rendered).not.toContain("NEXT_PUBLIC_APP_URL");
@@ -3834,6 +3852,8 @@ describe("runAgentstack", () => {
     expect(rendered).toContain("Exact identity evidence: unavailable");
     expect(rendered).toContain("Exact identity evaluator: unavailable");
     expect(rendered).toContain("Drift proof: unproven");
+    expect(rendered).toContain("Live coherence: unavailable");
+    expect(rendered).toContain("Live coherence evaluator: unavailable");
     expect(rendered).toContain("identity=ambiguous");
     expect(rendered).toContain("identity-scope=partial");
     expect(rendered).not.toContain("identity=matched");
@@ -3935,6 +3955,11 @@ describe("runAgentstack", () => {
     expect(rendered).toContain("Exact identity evaluator: provider-exact-identity");
     expect(rendered).toContain("Drift proof: partial");
     expect(rendered).toContain("Drift evaluator: clerk-config-preview");
+    expect(rendered).toContain("Live coherence: blocked");
+    expect(rendered).toContain("Live coherence evaluator: provider-live-coherence");
+    expect(rendered).toContain(
+      "Live coherence blockers: provider-specific-drift-parser,expected-env-names,env-drift-comparison,provider-environment-scope"
+    );
     expect(rendered).toContain(
       "Provider proof readiness is refused because exact drift/live coherence is not proven for every enabled provider"
     );
@@ -4010,6 +4035,11 @@ describe("runAgentstack", () => {
     expect(rendered).toContain("Exact identity evaluator: provider-exact-identity");
     expect(rendered).toContain("Drift proof: partial");
     expect(rendered).toContain("Drift evaluator: env-list-preview");
+    expect(rendered).toContain("Live coherence: blocked");
+    expect(rendered).toContain("Live coherence evaluator: provider-live-coherence");
+    expect(rendered).toContain(
+      "Live coherence blockers: provider-specific-drift-parser,expected-resource-shape,env-drift-comparison,provider-environment-scope"
+    );
     expect(rendered).toContain(
       "Provider proof readiness is refused because exact drift/live coherence is not proven for every enabled provider"
     );
@@ -4129,6 +4159,8 @@ describe("runAgentstack", () => {
     expect(rendered).toContain("Identity proof: unavailable");
     expect(rendered).toContain("Exact identity evidence: unavailable");
     expect(rendered).toContain("Exact identity evaluator: unavailable");
+    expect(rendered).toContain("Live coherence: unavailable");
+    expect(rendered).toContain("Live coherence evaluator: unavailable");
     expect(rendered).not.toContain("Drift evaluator: clerk-apps-list-preview");
     expect(rendered).not.toContain("app_live_clerk_secret");
     expect(rendered).not.toContain("res_live_clerk_secret");

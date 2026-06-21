@@ -120,6 +120,18 @@ export type ProviderDriftProofResult =
       evidence: ProviderLiveFactLabel[];
     };
 
+export type ProviderLiveCoherenceProofResult =
+  | {
+      proof: "unavailable";
+      evaluator: "unavailable";
+      blockers: ProviderProofRequirementLabel[];
+    }
+  | {
+      proof: "blocked";
+      evaluator: "provider-live-coherence";
+      blockers: ProviderProofRequirementLabel[];
+    };
+
 const baseIdentityRequirements = [
   "stable-provider-identity",
   "ledger-comparable-identity",
@@ -532,6 +544,46 @@ export function evaluateProviderDriftProof(
     evaluator: "env-list-preview",
     evidence: [...envListPreviewFacts].sort()
   };
+}
+
+export function evaluateProviderLiveCoherenceProof(
+  service: ProviderControlPlaneService,
+  exactIdentityDecision: ProviderExactIdentityDecision,
+  driftProof: ProviderDriftProofResult
+): ProviderLiveCoherenceProofResult {
+  if (exactIdentityDecision.proof !== "exact") {
+    if (exactIdentityDecision.proof === "unavailable") {
+      return {
+        proof: "unavailable",
+        evaluator: "unavailable",
+        blockers: exactIdentityDecision.missing
+      };
+    }
+
+    return {
+      proof: "blocked",
+      evaluator: "provider-live-coherence",
+      blockers: failClosedLiveCoherenceBlockers(exactIdentityDecision.missing)
+    };
+  }
+
+  const contract = getProviderProofContract(service);
+  const driftBlockers =
+    driftProof.proof === "partial"
+      ? contract.driftProofRequirements.filter((label) => !driftProof.evidence.includes(label as ProviderLiveFactLabel))
+      : contract.driftProofRequirements;
+
+  return {
+    proof: "blocked",
+    evaluator: "provider-live-coherence",
+    blockers: failClosedLiveCoherenceBlockers(driftBlockers)
+  };
+}
+
+function failClosedLiveCoherenceBlockers(
+  blockers: ProviderProofRequirementLabel[]
+): ProviderProofRequirementLabel[] {
+  return blockers.length > 0 ? blockers : ["env-drift-comparison"];
 }
 
 const clerkAppsListPreviewFacts = ["apps-list-read", "expected-resource-shape", "preview-environment"] as const;
