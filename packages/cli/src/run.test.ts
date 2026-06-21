@@ -1999,6 +1999,225 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("agentstack.provider.apply.completed");
   });
 
+  it("renders provider inventory from ledger-local state without leaking row ids or external ids", async () => {
+    const rowId = "row-secret-inventory-123";
+    const externalId = "https://dashboard.convex.dev/d/acme-secret-preview";
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: rowId,
+        provider: "convex",
+        resourceType: "deployment",
+        environment: "preview",
+        name: "acme-crm-preview",
+        status: "active",
+        externalId,
+        cleanupCommand: "delete through Convex dashboard",
+        evidence: "docs/evidence/convex-preview.md"
+      })
+    ]);
+
+    const code = await runAgentstack(["provider", "inventory", "--service", "convex", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("live-read should not run")
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS provider inventory convex preview");
+    expect(output).toContain("Evidence: ledger-local-inventory");
+    expect(output).toContain("Mutation: none");
+    expect(output.join("\n")).toContain(
+      "Resource: convex preview deployment acme-crm-preview ledger=active local-link=missing external-id=redacted evidence=ledger"
+    );
+    expect(output.join("\n")).not.toContain(rowId);
+    expect(output.join("\n")).not.toContain(externalId);
+    expect(output.join("\n")).not.toContain("live-read");
+    expect(providerExecutions).toHaveLength(0);
+  });
+
+  it("blocks provider inventory malformed ledger rows with inventory-specific diagnostics", async () => {
+    const malformedValue = "malformed-inventory-row-value";
+    const malformedRow = `| convex-preview | convex | deployment | preview | Platform | ${malformedValue} |`;
+    await writeProviderLedger([malformedRow]);
+
+    const code = await runAgentstack(["provider", "inventory", "--service", "convex", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("live-read should not run")
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL provider.ledger.invalid");
+    expect(output.join("\n")).toContain("Blocks: provider inventory");
+    expect(output.join("\n")).not.toContain("Blocks: provider apply");
+    expect(output.join("\n")).not.toContain("before running provider apply");
+    expect(output.join("\n")).not.toContain(malformedValue);
+    expect(output.join("\n")).not.toContain(malformedRow);
+    expect(providerExecutions).toHaveLength(0);
+  });
+
+  it("links planned provider ledger rows into provider-links state only without leaking identifiers", async () => {
+    const rowId = "row-link-secret-123";
+    const externalId = "convex-preview-secret-external-id";
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: rowId,
+        provider: "convex",
+        resourceType: "deployment",
+        environment: "preview",
+        name: "acme-crm-preview",
+        status: "planned",
+        externalId,
+        cleanupCommand: "delete through Convex dashboard",
+        evidence: "docs/evidence/convex-preview.md"
+      })
+    ]);
+    const ledgerBefore = await readFile(join(dir, "docs", "provider-resource-ledger.md"), "utf8");
+
+    const code = await runAgentstack(
+      [
+        "provider",
+        "link",
+        "--service",
+        "convex",
+        "--env",
+        "preview",
+        "--resource-type",
+        "deployment",
+        "--name",
+        "acme-crm-preview"
+      ],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: createMockProviderExecutor("live-read should not run")
+      }
+    );
+
+    expect(code).toBe(0);
+    expect(output).toContain("LINKED provider convex preview");
+    expect(output).toContain("Evidence: ledger-local-inventory");
+    expect(output).toContain("Mutation scope: local Agentstack provider link state");
+    expect(output.join("\n")).not.toContain(rowId);
+    expect(output.join("\n")).not.toContain(externalId);
+    expect(await readFile(join(dir, "docs", "provider-resource-ledger.md"), "utf8")).toBe(ledgerBefore);
+    const linkState = await readFile(join(dir, ".agentstack", "provider-links.json"), "utf8");
+    expect(linkState).toContain("acme-crm-preview");
+    expect(linkState).not.toContain(rowId);
+    expect(linkState).not.toContain(externalId);
+    expect(providerExecutions).toHaveLength(0);
+  });
+
+  it("blocks provider link without a ledger row and does not write provider-links state", async () => {
+    await writeProviderLedger([]);
+
+    const code = await runAgentstack(
+      [
+        "provider",
+        "link",
+        "--service",
+        "vercel",
+        "--env",
+        "preview",
+        "--resource-type",
+        "project",
+        "--name",
+        "acme-crm"
+      ],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: createMockProviderExecutor("live-read should not run")
+      }
+    );
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL provider.ledger.missing");
+    expect(output.join("\n")).toContain("No provider ledger row matches vercel preview project acme-crm.");
+    expect(output.join("\n")).toContain("Blocks: provider link");
+    expect(output.join("\n")).not.toContain("Blocks: provider apply");
+    expect(output.join("\n")).not.toContain("before running provider apply");
+    await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+    expect(providerExecutions).toHaveLength(0);
+  });
+
+  it("prints provider adopt proposals without mutating ledger, provider-links, telemetry, or leaking external ids", async () => {
+    const externalId = "sk_live_secret_adopt_123456";
+    await writeProviderLedger([]);
+    const ledgerBefore = await readFile(join(dir, "docs", "provider-resource-ledger.md"), "utf8");
+
+    const code = await runAgentstack(
+      [
+        "provider",
+        "adopt",
+        "--service",
+        "clerk",
+        "--env",
+        "production",
+        "--resource-type",
+        "application",
+        "--name",
+        "acme-crm",
+        "--external-id",
+        externalId,
+        "--owner",
+        "cardinal",
+        "--purpose",
+        "production auth application",
+        "--created-by",
+        "jc",
+        "--created-at",
+        "2026-06-21",
+        "--cleanup",
+        "delete through Clerk dashboard",
+        "--cleanup-trigger",
+        "project retirement",
+        "--evidence",
+        "docs/evidence/clerk-production.md",
+        "--notes",
+        "existing resource"
+      ],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: createMockProviderExecutor("live-read should not run")
+      }
+    );
+
+    expect(code).toBe(0);
+    expect(output).toContain("PROPOSED provider adopt clerk production");
+    expect(output).toContain("Evidence: local-inventory");
+    expect(output).toContain("Mutation: none");
+    expect(output.join("\n")).toContain("Provider ledger proposal");
+    expect(output.join("\n")).toContain("external id/url: redacted");
+    expect(output.join("\n")).not.toContain(externalId);
+    expect(await readFile(join(dir, "docs", "provider-resource-ledger.md"), "utf8")).toBe(ledgerBefore);
+    await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+    expect(providerExecutions).toHaveLength(0);
+  });
+
+  it("rejects stale provider command aliases as unknown commands", async () => {
+    for (const alias of ["import", "connect", "attach", "discover", "resources"]) {
+      output = [];
+      const code = await runAgentstack(["provider", alias], {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: createMockProviderExecutor("live-read should not run")
+      });
+
+      expect(code).toBe(1);
+      expect(output).toEqual(["FAIL cli.unknown-command"]);
+    }
+    expect(providerExecutions).toHaveLength(0);
+  });
+
   it("fails cloud validation when cloud state is missing", async () => {
     const code = await runAgentstack(["validate", "--cloud"], {
       cwd: dir,
@@ -3412,6 +3631,7 @@ function providerLedgerRow(input: {
   name: string;
   status: string;
   owner?: string;
+  externalId?: string;
   purpose?: string;
   createdBy?: string;
   createdAt?: string;
@@ -3426,7 +3646,7 @@ function providerLedgerRow(input: {
     input.environment,
     input.owner ?? "Platform",
     input.name,
-    "",
+    input.externalId ?? "",
     input.purpose ?? "Preview backend",
     input.createdBy ?? "Agentstack",
     input.createdAt ?? "2026-06-21",

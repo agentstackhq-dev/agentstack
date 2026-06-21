@@ -7,6 +7,8 @@ import {
   createEasCommandPlan,
   createVercelCommandPlan,
   createProviderOperationPlan,
+  buildProviderAdoptProposal,
+  createProviderInventory,
   executeConvexApply,
   executeVercelPreviewApply,
   getEnabledProviderAdapterDefinitions,
@@ -15,11 +17,16 @@ import {
   inspectConvexReadOnly,
   LocalCloudAdapter,
   enforceProviderLedgerResource,
+  linkLedgerBackedProviderResource,
+  parseProviderLedger,
+  providerLedgerPath,
   redactProviderText,
   type InspectEnvResource,
   type ProviderAdapterDefinition,
   type ProviderCommandExecutor,
+  type ProviderControlPlaneService,
   type ProviderExecutionResult,
+  type ProviderInventoryRow,
   type ProviderLedgerDecision,
   type ProviderLedgerExpectedMatch,
   type ProviderOperation
@@ -178,6 +185,18 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
 
     if (command === "provider" && subcommand === "apply") {
       return await providerApplyCommand(rest, io);
+    }
+
+    if (command === "provider" && subcommand === "inventory") {
+      return await providerInventoryCommand(rest, io);
+    }
+
+    if (command === "provider" && subcommand === "link") {
+      return await providerLinkCommand(rest, io);
+    }
+
+    if (command === "provider" && subcommand === "adopt") {
+      return await providerAdoptCommand(rest, io);
     }
 
     if (command === "prod") {
@@ -1136,15 +1155,223 @@ async function providerApplyCommand(argv: string[], io: RunIo): Promise<number> 
   return failed ? 1 : 0;
 }
 
-export function providerLedgerDiagnostic(decision: Exclude<ProviderLedgerDecision, { ok: true }>): string {
+async function providerInventoryCommand(argv: string[], io: RunIo): Promise<number> {
+  const options = parseOptions(argv);
+  const fix = "Run agentstack provider inventory --service convex --env preview.";
+  const service = readProviderControlPlaneServiceOption(options.service, fix);
+  const environment = readProviderRuntimeEnvironmentOption(options.env, fix);
+
+  const validation = await runLocalValidationGate(io.cwd);
+  validation.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
+  if (validation.diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
+    await recordCommandEvent(io, {
+      name: "agentstack.provider.inventory.completed",
+      environment,
+      journey: "provider-inventory",
+      command: ["provider", "inventory", ...argv].join(" "),
+      status: "fail",
+      state: { service, diagnostics: validation.diagnostics.length }
+    });
+    return 1;
+  }
+
+  let ledgerRows: ReturnType<typeof parseProviderLedger> = [];
+  try {
+    ledgerRows = await readProviderLedgerRowsIfPresent(io.cwd);
+  } catch (error) {
+    io.write(
+      providerInventoryLedgerDiagnostic({
+        ok: false,
+        reason: "invalid",
+        path: providerLedgerPath,
+        message: redactProviderText(error instanceof Error ? error.message : String(error))
+      })
+    );
+    await recordCommandEvent(io, {
+      name: "agentstack.provider.inventory.completed",
+      environment,
+      journey: "provider-inventory",
+      command: ["provider", "inventory", ...argv].join(" "),
+      status: "fail",
+      state: { service, reason: "ledger-invalid" }
+    });
+    return 1;
+  }
+
+  const inventory = await createProviderInventory({
+    cwd: io.cwd,
+    manifest: validation.context.manifest,
+    service,
+    environment,
+    ledgerRows
+  });
+
+  io.write(`PASS provider inventory ${service} ${environment}`);
+  io.write(`Evidence: ${inventory.evidence}`);
+  io.write("Mutation: none");
+  inventory.rows.forEach((row) => io.write(formatProviderInventoryRow(row)));
+
+  await recordCommandEvent(io, {
+    name: "agentstack.provider.inventory.completed",
+    environment,
+    journey: "provider-inventory",
+    command: ["provider", "inventory", ...argv].join(" "),
+    status: "ok",
+    state: {
+      service,
+      evidence: inventory.evidence,
+      rows: inventory.rows.length,
+      ledgerStatuses: inventory.rows.map((row) => row.ledgerStatus),
+      localLinks: inventory.rows.map((row) => row.localLink)
+    }
+  });
+  return 0;
+}
+
+async function providerLinkCommand(argv: string[], io: RunIo): Promise<number> {
+  const options = parseOptions(argv);
+  const fix =
+    "Run agentstack provider link --service convex --env preview --resource-type deployment --name acme-crm-preview.";
+  const service = readProviderControlPlaneServiceOption(options.service, fix);
+  const environment = readProviderRuntimeEnvironmentOption(options.env, fix);
+  const resourceType = readRequiredStringOption(options["resource-type"], "resource-type", fix);
+  const name = readRequiredStringOption(options.name, "name", fix);
+
+  const validation = await runLocalValidationGate(io.cwd);
+  validation.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
+  if (validation.diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
+    await recordCommandEvent(io, {
+      name: "agentstack.provider.link.completed",
+      environment,
+      journey: "provider-link",
+      command: ["provider", "link", ...argv].join(" "),
+      status: "fail",
+      state: { service, diagnostics: validation.diagnostics.length }
+    });
+    return 1;
+  }
+
+  let ledgerRows: ReturnType<typeof parseProviderLedger> = [];
+  try {
+    ledgerRows = await readProviderLedgerRowsIfPresent(io.cwd);
+  } catch (error) {
+    io.write(
+      providerLinkLedgerDiagnostic({
+        ok: false,
+        reason: "invalid",
+        path: providerLedgerPath,
+        message: redactProviderText(error instanceof Error ? error.message : String(error))
+      })
+    );
+    await recordCommandEvent(io, {
+      name: "agentstack.provider.link.completed",
+      environment,
+      journey: "provider-link",
+      command: ["provider", "link", ...argv].join(" "),
+      status: "fail",
+      state: { service, reason: "ledger-invalid" }
+    });
+    return 1;
+  }
+
+  const result = await linkLedgerBackedProviderResource({
+    cwd: io.cwd,
+    service,
+    environment,
+    resourceType,
+    name,
+    ledgerRows
+  });
+
+  if (!result.ok) {
+    io.write(providerLinkLedgerDiagnostic(result.decision));
+    await recordCommandEvent(io, {
+      name: "agentstack.provider.link.completed",
+      environment,
+      journey: "provider-link",
+      command: ["provider", "link", ...argv].join(" "),
+      status: "fail",
+      state: { service, resourceType, reason: `ledger-${result.decision.reason}` }
+    });
+    return 1;
+  }
+
+  io.write(`LINKED provider ${service} ${environment}`);
+  io.write("Evidence: ledger-local-inventory");
+  io.write("Mutation scope: local Agentstack provider link state");
+
+  await recordCommandEvent(io, {
+    name: "agentstack.provider.link.completed",
+    environment,
+    journey: "provider-link",
+    command: ["provider", "link", ...argv].join(" "),
+    status: "ok",
+    state: { service, resourceType, ledgerStatus: result.link.ledgerStatus }
+  });
+  return 0;
+}
+
+async function providerAdoptCommand(argv: string[], io: RunIo): Promise<number> {
+  const options = parseOptions(argv);
+  const fix =
+    "Run agentstack provider adopt --service clerk --env production --resource-type application --name acme-crm --external-id <id> --owner <owner> --purpose <purpose> --created-by <name> --created-at <date> --cleanup <procedure> --cleanup-trigger <trigger> --evidence <path>.";
+  const service = readProviderControlPlaneServiceOption(options.service, fix);
+  const environment = readProviderRuntimeEnvironmentOption(options.env, fix);
+  const resourceType = readRequiredStringOption(options["resource-type"], "resource-type", fix);
+  const name = readRequiredStringOption(options.name, "name", fix);
+  const externalIdOrUrl = readRequiredStringOption(options["external-id"], "external-id", fix);
+  const ownerAccountOrProject = readRequiredStringOption(options.owner, "owner", fix);
+  const purpose = readRequiredStringOption(options.purpose, "purpose", fix);
+  const createdBy = readRequiredStringOption(options["created-by"], "created-by", fix);
+  const createdAt = readRequiredStringOption(options["created-at"], "created-at", fix);
+  const cleanupCommandOrProcedure = readRequiredStringOption(options.cleanup, "cleanup", fix);
+  const expectedCleanupTriggerOrDate = readRequiredStringOption(options["cleanup-trigger"], "cleanup-trigger", fix);
+  const evidenceLinkOrPath = readRequiredStringOption(options.evidence, "evidence", fix);
+  const notes = typeof options.notes === "string" ? options.notes : "";
+
+  const validation = await runLocalValidationGate(io.cwd);
+  validation.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
+  if (validation.diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
+    return 1;
+  }
+
+  const proposal = buildProviderAdoptProposal({
+    service,
+    environment,
+    resourceType,
+    name,
+    externalIdOrUrl,
+    ownerAccountOrProject,
+    purpose,
+    createdBy,
+    createdAt,
+    expectedCleanupTriggerOrDate,
+    cleanupCommandOrProcedure,
+    evidenceLinkOrPath,
+    notes
+  });
+
+  io.write(`PROPOSED provider adopt ${service} ${environment}`);
+  io.write("Evidence: local-inventory");
+  io.write("Mutation: none");
+  proposal.lines.forEach((line) => io.write(line));
+  return 0;
+}
+
+type ProviderLedgerDiagnosticCommand = "provider apply" | "provider inventory" | "provider link";
+
+export function providerLedgerDiagnostic(
+  decision: Exclude<ProviderLedgerDecision, { ok: true }>,
+  command: ProviderLedgerDiagnosticCommand = "provider apply"
+): string {
   if (decision.reason === "missing") {
     return formatDiagnostic({
       severity: "fail",
       code: "provider.ledger.missing",
       path: decision.path,
       message: `No provider ledger row matches ${formatExpectedLedgerMatch(decision.expected)}.`,
-      fix: "Add a planned or active row to docs/provider-resource-ledger.md before running provider apply.",
-      blocks: ["provider apply"]
+      fix: `Add a planned or active row to docs/provider-resource-ledger.md before running ${command}.`,
+      blocks: [command]
     });
   }
 
@@ -1155,7 +1382,7 @@ export function providerLedgerDiagnostic(decision: Exclude<ProviderLedgerDecisio
       path: decision.path,
       message: decision.message,
       fix: "Fix the Ledger section table shape and statuses in docs/provider-resource-ledger.md.",
-      blocks: ["provider apply"]
+      blocks: [command]
     });
   }
 
@@ -1165,8 +1392,8 @@ export function providerLedgerDiagnostic(decision: Exclude<ProviderLedgerDecisio
       code: "provider.ledger.incomplete",
       path: decision.path,
       message: `Provider ledger row for ${formatExpectedLedgerMatch(decision.row)} is missing required fields: ${decision.missingFields.join(", ")}.`,
-      fix: "Complete the planned or active ledger row before running provider apply.",
-      blocks: ["provider apply"]
+      fix: `Complete the planned or active ledger row before running ${command}.`,
+      blocks: [command]
     });
   }
 
@@ -1176,12 +1403,48 @@ export function providerLedgerDiagnostic(decision: Exclude<ProviderLedgerDecisio
     path: decision.path,
     message: `Provider ledger row for ${formatExpectedLedgerMatch(decision.row)} has blocked status. Status: ${decision.row.status}.`,
     fix: "Move the ledger row to planned or active only when the resource is approved for mutation.",
-    blocks: ["provider apply"]
+    blocks: [command]
   });
+}
+
+export function providerLinkLedgerDiagnostic(decision: Exclude<ProviderLedgerDecision, { ok: true }>): string {
+  return providerLedgerDiagnostic(decision, "provider link");
+}
+
+export function providerInventoryLedgerDiagnostic(decision: Exclude<ProviderLedgerDecision, { ok: true }>): string {
+  return providerLedgerDiagnostic(decision, "provider inventory");
 }
 
 function formatExpectedLedgerMatch(expected: ProviderLedgerExpectedMatch): string {
   return `${expected.provider} ${expected.environment} ${expected.resourceType} ${expected.resourceName}`;
+}
+
+function formatProviderInventoryRow(row: ProviderInventoryRow): string {
+  return [
+    "Resource:",
+    row.service,
+    row.environment,
+    row.resourceType,
+    row.name,
+    `ledger=${row.ledgerStatus}`,
+    `local-link=${row.localLink}`,
+    `external-id=${row.externalIdSummary}`,
+    `evidence=${row.evidence}`
+  ].join(" ");
+}
+
+async function readProviderLedgerRowsIfPresent(cwd: string): Promise<ReturnType<typeof parseProviderLedger>> {
+  let text: string;
+  try {
+    text = await readFile(join(cwd, providerLedgerPath), "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return [];
+    }
+    throw error;
+  }
+
+  return parseProviderLedger(text);
 }
 
 function readProviderRuntimeEnvironmentOption(
@@ -1197,6 +1460,24 @@ function readProviderRuntimeEnvironmentOption(
     [
       "FAIL cli.option.invalid",
       "Invalid --env value: development. Expected one of: preview, production.",
+      `Fix: ${fix}`
+    ].join("\n")
+  );
+}
+
+function readProviderControlPlaneServiceOption(
+  value: string | boolean | undefined,
+  fix: string
+): ProviderControlPlaneService {
+  const service = readRequiredStringOption(value, "service", fix);
+  if (service === "clerk" || service === "convex" || service === "vercel" || service === "eas") {
+    return service;
+  }
+
+  throw new Error(
+    [
+      "FAIL cli.option.invalid",
+      `Invalid --service value: ${service}. Expected one of: clerk, convex, vercel, eas.`,
       `Fix: ${fix}`
     ].join("\n")
   );
