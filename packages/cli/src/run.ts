@@ -927,7 +927,9 @@ async function providerInspectCommand(argv: string[], io: RunIo): Promise<number
           severity: "fail",
           code: "provider.inspect.execution",
           path: `${service}.${environment}`,
-          message: error instanceof Error ? error.message : String(error),
+          message: redactProviderText(error instanceof Error ? error.message : String(error), {
+            secretValues
+          }),
           fix: "Run agentstack provider inspect --service vercel --env preview.",
           blocks: ["provider inspect"]
         })

@@ -1661,7 +1661,7 @@ describe("runAgentstack", () => {
         providerExecutor: {
           async execute(command, args) {
             providerExecutions.push({ command, args });
-            throw new Error("vercel cli unavailable");
+            throw new Error("vercel cli unavailable: VERCEL_TOKEN=local-vercel-secret");
           }
         }
       }
@@ -1673,6 +1673,7 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).not.toContain("unsupported-environment");
     expect(output.join("\n")).toContain("FAIL provider.inspect.execution");
     expect(output.join("\n")).toContain("vercel cli unavailable");
+    expect(output.join("\n")).not.toContain("local-vercel-secret");
     expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
       "exec vercel env ls preview"
     ]);

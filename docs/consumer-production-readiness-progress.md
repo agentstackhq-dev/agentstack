@@ -109,3 +109,8 @@ Most recent final verification recorded before this progress wording update:
 ## Worktree State Expectation
 
 After committing this progress update, the expected worktree state is clean. `docs/provider-resource-ledger.md` should have no diff.
+
+## Vercel Inspect Failure Diagnostic Hardening
+
+- Redacted Vercel preview provider inspect execution-failure diagnostics with the provider text redactor so CLI/tool errors cannot print token-shaped values.
+- Added regression coverage that `provider.inspect.execution` remains the failure classification while raw Vercel token-like values are omitted from output.
