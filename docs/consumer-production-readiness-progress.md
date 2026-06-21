@@ -14,6 +14,8 @@ Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI rou
 
 ## Recent Completed Commits
 
+- `1dea6bb` feat: add provider identity candidates.
+- `3dc964d` docs: record exact identity checkpoint.
 - `4a64cdd` feat: add provider exact identity decision contract.
 - `1343a04` docs: record provider identity checkpoint.
 - `9cb2a67` feat: add provider identity read plans.
