@@ -571,14 +571,6 @@ async function providerInventoryCommand(argv: string[], io: RunIo): Promise<numb
   io.write(`Evidence: ${inventory.evidence}`);
   io.write("Mutation: none");
   inventory.rows.forEach((row) => io.write(formatInventoryRow(row)));
-  await recordCommandEvent(io, {
-    name: "agentstack.provider.inventory.completed",
-    environment,
-    journey: "provider-inventory",
-    command: ["provider", "inventory", ...argv].join(" "),
-    status: "ok",
-    state: { service, evidence: inventory.evidence, resources: inventory.rows.length }
-  });
   return 0;
 }
 ```
@@ -619,14 +611,6 @@ async function providerLinkCommand(argv: string[], io: RunIo): Promise<number> {
   io.write("Evidence: ledger-local-inventory");
   io.write("Mutation scope: local Agentstack provider link state");
   io.write(`Resource: ${service} ${environment} ${resourceType} ${name} ledger=${result.ledgerStatus} external-id=redacted`);
-  await recordCommandEvent(io, {
-    name: "agentstack.provider.link.completed",
-    environment,
-    journey: "provider-link",
-    command: ["provider", "link", ...argv].join(" "),
-    status: "ok",
-    state: { service, resourceType }
-  });
   return 0;
 }
 ```
@@ -788,11 +772,11 @@ Add this exact semantics to `docs/agentstack/environments.md` in both template t
 ```md
 ### Provider Inventory, Link, and Adopt
 
-Use `agentstack provider inventory --service <clerk|convex|vercel|eas> --env <preview|production>` to inspect Agentstack's local control-plane view of expected provider resources. Inventory is read-only, prints `Evidence: local-inventory` or `Evidence: ledger-local-inventory`, and does not call provider CLIs. It does not treat `.agentstack/local-cloud.json` as external provider evidence; sync local service links are simulator state only.
+Use `agentstack provider inventory --service <clerk|convex|vercel|eas> --env <preview|production>` to inspect Agentstack's local control-plane view of expected provider resources. Inventory is read-only, prints `Evidence: local-inventory` or `Evidence: ledger-local-inventory`, writes no files, and does not call provider CLIs. It does not treat `.agentstack/local-cloud.json` as external provider evidence; sync local service links are simulator state only.
 
-Use `agentstack provider link --service <service> --env <env> --resource-type <type> --name <name>` only after the root provider ledger has a matching `planned` or `active` row. Link writes `.agentstack/provider-links.json` in the local project and does not mutate providers or `docs/provider-resource-ledger.md`. Output redacts provider ledger row IDs and external IDs.
+Use `agentstack provider link --service <service> --env <env> --resource-type <type> --name <name>` only after the root provider ledger has a matching `planned` or `active` row. Link writes only `.agentstack/provider-links.json` in the local project and does not mutate providers, telemetry, local-cloud state, or `docs/provider-resource-ledger.md`. Output redacts provider ledger row IDs and external IDs.
 
-Use `agentstack provider adopt --service <service> --env <env> --resource-type <type> --name <name> --external-id <id-or-url> --owner <owner> --purpose <purpose> --created-by <name> --created-at <yyyy-mm-dd> --cleanup <procedure> --cleanup-trigger <trigger> --evidence <path>` to print a safe ledger proposal. Adopt is print-only direct-command documentation only in this slice; it does not write the root ledger and does not write local link state. Generated package scripts intentionally omit adopt because a generic script cannot provide the required ledger fields.
+Use `agentstack provider adopt --service <service> --env <env> --resource-type <type> --name <name> --external-id <id-or-url> --owner <owner> --purpose <purpose> --created-by <name> --created-at <yyyy-mm-dd> --cleanup <procedure> --cleanup-trigger <trigger> --evidence <path>` to print a safe ledger proposal. Adopt is print-only direct-command documentation only in this slice and writes no files. Generated package scripts intentionally omit adopt because a generic script cannot provide the required ledger fields.
 ```
 
 Add preview usage to `docs/agentstack/preview.md` in both template trees:

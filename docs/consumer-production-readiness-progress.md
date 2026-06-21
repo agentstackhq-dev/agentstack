@@ -2,101 +2,116 @@
 
 Date: 2026-06-21
 
-This file is the canonical resume and progress artifact for Agentstack consumer production readiness work. It must be updated before ending every roadmap work turn so the next worker can resume from the current truth without reconstructing state from scattered notes.
+This file is the canonical resume and progress artifact for Agentstack consumer production readiness work. Update it before ending every roadmap work turn so the next worker can resume from current truth without reconstructing state from scattered notes.
 
 ## Current State
 
-Current phase: Wave 0 implementation checkpoint committed: truth labels, provider ledger enforcement, and template alignment are implemented.
+Current phase: Wave 2 provider inventory/link/adopt checkpoint is committed through `ee12b8b` (`Make provider inventory and link telemetry-free`) with follow-up docs/template clarifications in progress.
 
-Overall status: not complete. Agentstack is roughly 35-40% of the way toward consumer production readiness according to the roadmap. The current product state is a stronger command-contract and provider-boundary prototype, not a consumer-ready production framework.
+Overall status: not complete. Agentstack is about 38-40% of the way toward consumer production readiness from a consumer perspective. The current product state is a local command-contract and rehearsal prototype with credible local telemetry and provider boundaries, not a consumer-ready production framework.
 
-The prototype now has explicit evidence tiers in command output, ledger-gated supported provider mutations, strict provider-ledger parsing, and generated project ledger docs. It still lacks truthful live validation, complete live provider inventory/link/adopt flows, a real generated SaaS runtime, and production-grade release gates.
+Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI routing, local env graph rehearsal, structural validation, generated guidance/skills, local wide-event telemetry, OTLP-shaped local export, provider command plans for Clerk/Convex/Vercel/EAS, ledger-gated Convex and Vercel preview apply, and local provider inventory/link/adopt. It still lacks a truthful live validation runner, live provider inventory/discovery/adoption, broad real provider provisioning, a real generated SaaS runtime, real OTel/network/hosted observability, preview deploy/build smoke evidence, production release gates, hosted control-plane state, and public package installability.
 
 ## Recent Completed Commits
 
-- Current checkpoint: feat: gate provider mutations with ledger evidence.
-- f38e341 docs: plan wave 0 provider readiness.
-- 1a8fd1f docs: add consumer production readiness progress.
-- e3bb39c docs: add consumer production readiness roadmap.
-- d366e33 feat: execute bounded vercel and eas provider actions.
-- 2d0bdbb feat: require explicit provider env ownership.
-- 2f9c6b4 feat: add credential-safe provider execution.
-- ab40312 feat: add structured telemetry inspector.
+- `ee12b8b` Make provider inventory and link telemetry-free.
+- `2ae435a` docs: expose provider inventory link workflows.
+- `e1a51c4` feat: add provider inventory link adopt commands.
+- `d5c351d` feat: add provider control-plane intents.
+- `95a3262` docs: plan provider inventory link adopt.
+- `e2f3aa1` feat: gate provider mutations with ledger evidence.
+- `f38e341` docs: plan wave 0 provider readiness.
+- `1a8fd1f` docs: add consumer readiness progress log.
+- `e3bb39c` docs: add consumer production readiness roadmap.
+- `d366e33` feat: execute bounded vercel and eas provider actions.
+- `2d0bdbb` feat: require explicit provider env ownership.
+- `2f9c6b4` feat: add credential-safe provider execution.
+- `ab40312` feat: add structured telemetry inspector.
 
 ## Provider Ledger State
 
 The provider resource ledger exists at `docs/provider-resource-ledger.md`.
 
-No real external provider resources are recorded in the ledger. No external Clerk, Convex, Vercel, EAS, telemetry, or similar provider resources were created, mutated, adopted, linked, or deleted in this progress update.
+No real external provider resources are recorded in the ledger. No real Clerk, Convex, Vercel, EAS, telemetry, billing, hosted-control-plane, or similar provider resources were created, mutated, adopted, linked, or deleted in this progress update. `docs/provider-resource-ledger.md` should remain unchanged.
 
-## Completed Work This Turn
+## Latest Truth
 
-- Implemented strict provider ledger parsing in `packages/adapters/src/provider-ledger.ts`, scoped to the `## Ledger` section and the current 16-column schema only.
-- Added provider ledger enforcement before supported live mutation executors run.
-- Added non-mutating provider-plan ledger advisory status for supported apply targets.
-- Added explicit evidence labels:
-  - `local-rehearsal` for local-cloud validation, sync, deploy rehearsal, production provision rehearsal, and mobile build rehearsal.
-  - `provider-command-plan` for provider plan.
-  - `live-read` for provider inspect.
-  - `live-mutation` for supported provider apply.
-- Updated provider apply diagnostics so missing, invalid, incomplete, and blocked ledger states fail before executor resolution.
-- Removed raw ledger row content and row IDs from CLI diagnostics/advisory output; regression tests cover secret-like row content and secret-like IDs.
-- Cleaned source-spec and docs references so the active manifest format is `agentstack.config.json`, not a TypeScript manifest path.
-- Added generated project `docs/provider-resource-ledger.md` to both the root template and package-local template mirror, with generator coverage.
-- Updated README, generated template docs, and spin-up pages to describe evidence tiers, ledger-gated mutations, and local/live boundaries truthfully.
-- Confirmed that no provider resources were created, changed, adopted, linked, or deleted during this implementation slice.
+- Provider inventory is local-control-plane only. It derives rows from the manifest, `.agentstack/provider-links.json`, and matching provider ledger rows. It writes no files, does not call provider CLIs, does not print `Evidence: live-read`, and does not treat `.agentstack/local-cloud.json` as external provider truth.
+- Provider link is local state only. It requires a matching `planned` or `active` ledger row and writes only `.agentstack/provider-links.json`. It does not mutate providers, telemetry, local-cloud state, or `docs/provider-resource-ledger.md`.
+- Provider adopt is print-only. It prints a redacted ledger proposal and writes no files.
+- Provider plan prints `Evidence: provider-command-plan`.
+- Clerk inspect, Convex inspect, and EAS preview inspect have live-read semantics where implemented; Vercel live-read remains missing.
+- Supported live mutation remains narrow: ledger-gated Convex apply and ledger-gated Vercel preview deploy apply. Clerk apply, Vercel env/production apply, EAS init/env/build/apply, and broad provider provisioning are still unavailable.
+- `agentstack validate` validates manifest/env/guidance/theme/source-secret/generated anchors. It does not yet run lint, format, typecheck, tests, Convex checks, or full runtime checks.
+- `agentstack validate --cloud` is honest local rehearsal. It checks local-cloud state and prints `Evidence: local-rehearsal`; it is not live provider validation.
+- Local telemetry is a redacted wide-event JSONL store with observe query/timeline/trace/journey/errors/webhook/component/compare/export commands and OTLP-shaped local export artifacts. There is no real OTel SDK/network exporter, hosted indexing, provider log join, or production observability platform.
+- The generated runtime has one real vertical: workspace-status. Web and mobile do not use Clerk or Convex runtime SDKs for production SaaS flows. Convex schema only materializes `workspaceStatuses`. `packages/ui` is primitive metadata, not a functional UI component library.
+
+## Completed Work This Documentation Turn
+
+- Refreshed `docs/consumer-production-readiness-roadmap.md` from the authoritative source spec and current committed state.
+- Updated the readiness estimate to 38-40% and described the product as a local command-contract/rehearsal prototype, not consumer production-ready.
+- Added a source-spec capability matrix with implemented, partial, missing, and misleading-risk statuses.
+- Clarified what exists now versus what is still missing for a consumer path from `npx create-agent-stack` to real production environments.
+- Documented strict provider-resource tracking discipline and cleanup flow.
+- Re-prioritized the finish plan around provider integration gaps first, then truthful validation, runtime completeness, library/UI completeness, preview evidence, production/hosted platform, and public release hardening.
+- Preserved the current uncommitted docs/template clarifications that provider inventory writes no files, provider link writes only `.agentstack/provider-links.json`, and provider adopt writes no files.
 
 ## Current Blockers And Gaps
 
-- Provider ledger enforcement is wired only for currently supported live mutations: Convex preview/production apply and Vercel preview apply. Other provider apply paths remain unsupported.
-- Evidence labels are implemented for current command surfaces, but there is not yet a separate truthful live validation runner.
-- Manifest format cleanup is complete for this slice, but broader manifest/schema ergonomics still need production hardening.
-- The truthful validation runner has not been started.
-- Provider inventory, link, and adopt flows are not implemented.
-- The generated SaaS runtime is not real.
-- UI primitives, runtime package boundaries, hosted account connection design, and production release gates remain future roadmap work.
+- No truthful live validation runner exists yet.
+- Live provider inventory/discovery/adoption is not implemented; current inventory/link/adopt is local-control-plane only.
+- Vercel live-read parity is missing.
+- Provider live mutation is limited to ledger-gated Convex apply and Vercel preview deploy apply.
+- Real Clerk, Convex, Vercel, and EAS create/provision/reconcile/apply coverage is missing or partial.
+- Generated SaaS runtime is not real: no Clerk auth/org runtime, billing/webhooks, entitlements, audit, or protected end-to-end Convex data path across web/mobile.
+- UI package is not a functional primitive library.
+- Observability is local JSONL plus OTLP-shaped artifact export only.
+- Preview deploy/build smoke evidence and production release gates remain local/rehearsal-oriented.
+- Hosted control plane and public packaging/installability are missing.
 
-## In Progress And Next Concrete Actions
+## Next Concrete Actions
 
-1. Start the next provider-integration slice with live provider inventory/link/adopt design and tests before broadening mutation support.
-2. Add a truthful validation runner that separates local validation, local-cloud rehearsal, live inventory, deployed runtime evidence, auth evidence, billing/webhook evidence, mobile evidence, and telemetry evidence.
-3. Keep `docs/provider-resource-ledger.md` updated before any real Clerk, Convex, Vercel, EAS, telemetry, or billing resources are created, adopted, linked, mutated, or cleaned up.
+1. Finish provider integration gaps first:
+   - Add Vercel live-read.
+   - Implement live provider inventory/discovery for Clerk, Convex, Vercel, and EAS.
+   - Add live-safe link/adopt identity confirmation without writing secrets.
+   - Keep all mutation paths ledger-gated and evidence-labeled.
+2. Build the truthful validation runner:
+   - Make `agentstack validate` run lint, format, typecheck, tests, Convex checks, generated-boundary checks, theme checks, telemetry checks, secret scanning, and manifest validation.
+   - Split local rehearsal from live provider validation where command names or output could mislead consumers.
+3. Start the real generated SaaS runtime after provider identity and validation semantics are credible:
+   - Clerk auth/orgs, Convex protected data, billing/webhooks, entitlements, audit, web/mobile parity, and functional unstyled UI primitives.
+4. Continue to keep template docs and `packages/create-agent-stack/templates` mirrors aligned in the same changes.
+5. Update `docs/provider-resource-ledger.md` before any real provider resource is created, adopted, linked, mutated, or cleaned up.
 
 ## Last Known Verification Evidence
+
+Most recent full framework verification before this docs refresh:
 
 - `pnpm vitest run packages/adapters/src/provider-ledger.test.ts packages/cli/src/run.test.ts packages/create-agent-stack/src/generate.test.ts` passed: 3 files / 159 tests.
 - `pnpm typecheck` passed.
 - `pnpm test` passed: 26 files / 323 tests.
 - `git diff --check` passed.
 - `diff -ru templates/b2b-saas/docs packages/create-agent-stack/templates/b2b-saas/docs` passed.
-- `rg -n "agentstack\\.config\\.ts|TypeScript manifest|config reader fallback|fallback lookup path"` over README, source spec, templates, package template mirrors, spin-up site, and packages returned no matches.
-- `rg -n "decision\\.row\\.id|Ledger: (planned|active) <id>|Ledger: blocked <status> <id>|row IDs are printed|row ids are printed|raw ledger row IDs|raw ledger row ids"` over CLI, tests, docs, templates, and spin-up site returned no matches.
 - `git diff -- docs/provider-resource-ledger.md` returned no diff.
 
-## Delegated-Agent Outcomes
+Required verification for this documentation refresh:
 
-- Manifest/spec cleanup worker aligned active docs on `agentstack.config.json`.
-- Test worker added red coverage for provider ledger parsing/enforcement and apply gating.
-- Implementation workers added provider ledger parsing, provider apply gates, plan advisory status, evidence labels, and generated docs/template updates.
-- Spec reviewer initially failed on evidence-label and provider-plan status details; follow-up worker fixed those gaps.
-- Quality reviewer failed on raw invalid-row leakage and missing generated ledger docs; follow-up workers fixed both.
-- Final reviewer initially failed on raw ledger row ID leakage in plan/apply output; follow-up workers removed IDs from CLI output and docs, then added secret-like ID regressions.
-- Final verification passed after the reviewer fixes.
-- No active external provider resources are recorded.
+- `git diff --check`.
+- `diff -ru templates/b2b-saas/docs/agentstack packages/create-agent-stack/templates/b2b-saas/docs/agentstack`.
+- `git diff -- docs/provider-resource-ledger.md`.
 
 ## Worktree State Expectation
 
-After the Wave 0 implementation checkpoint commit, the expected worktree state is clean. The next uncommitted work should start from provider inventory/link/adopt or truthful validation runner work, not more Wave 0 drift.
+After this documentation refresh, expected uncommitted work should include only:
 
-The Wave 0 implementation checkpoint covers:
-
-- `packages/adapters/src/provider-ledger.ts`
-- `packages/adapters/src/provider-ledger.test.ts`
-- `packages/cli/src/run.ts`
-- `packages/cli/src/run.test.ts`
-- `packages/create-agent-stack/src/generate.test.ts`
-- root and package-local generated template docs
-- README and spin-up site docs
+- `docs/consumer-production-readiness-roadmap.md`
 - `docs/consumer-production-readiness-progress.md`
+- `docs/superpowers/plans/2026-06-21-agentstack-wave-2-provider-inventory-link-adopt.md`
+- `templates/b2b-saas/docs/agentstack/environments.md`
+- `templates/b2b-saas/docs/agentstack/preview.md`
+- `templates/b2b-saas/docs/agentstack/workflows.md`
+- corresponding package-local template mirrors under `packages/create-agent-stack/templates/b2b-saas/docs/agentstack/`
 
-No provider CLIs were run for this implementation checkpoint, and no external provider resources were created, mutated, adopted, linked, or deleted.
+`docs/provider-resource-ledger.md` should have no diff.

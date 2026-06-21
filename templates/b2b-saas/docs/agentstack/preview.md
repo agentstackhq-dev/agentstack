@@ -166,7 +166,7 @@ Print the local provider inventory control-plane view without live provider disc
 node scripts/agentstack.mjs provider inventory --service convex --env preview
 ```
 
-Expected output includes either `Evidence: local-inventory` or `Evidence: ledger-local-inventory`. Inventory reads manifest expectations, local provider links, and matching ledger rows only. It does not call provider CLIs, does not prove the provider resource exists externally, and does not treat `.agentstack/local-cloud.json` sync links as external truth.
+Expected output includes either `Evidence: local-inventory` or `Evidence: ledger-local-inventory`. Inventory reads manifest expectations, local provider links, and matching ledger rows only. It writes no files, does not call provider CLIs, does not prove the provider resource exists externally, and does not treat `.agentstack/local-cloud.json` sync links as external truth.
 
 Write a local provider link after adding a matching planned or active ledger row:
 
