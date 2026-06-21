@@ -164,7 +164,14 @@ describe("provider control plane", () => {
       permissionSummary: "read-ok",
       driftSummary: "unknown",
       facts: ["provider-env-read"],
-      missingProof: ["ledger-comparable-identity", "stable-provider-identity"],
+      missingProof: [
+        "provider-specific-identity-parser",
+        "stable-provider-identity",
+        "ledger-comparable-identity",
+        "provider-owner-identity",
+        "provider-resource-id",
+        "provider-environment-scope"
+      ],
       externalIdSummary: "none"
     });
     expect(inventory.liveReadSummary).toEqual({ commands: 1, results: 1, succeeded: 1, failed: 0 });
@@ -210,7 +217,15 @@ describe("provider control plane", () => {
         permissionSummary: "read-ok",
         driftSummary: "unknown",
         facts: ["env-list-read", "expected-env-names", "preview-environment"],
-        missingProof: ["ledger-comparable-identity", "stable-provider-identity"]
+        missingProof: [
+          "provider-specific-identity-parser",
+          "stable-provider-identity",
+          "ledger-comparable-identity",
+          "provider-owner-identity",
+          "provider-resource-id",
+          "provider-project-link-proof",
+          "provider-environment-scope"
+        ]
       });
     expect(JSON.stringify(inventory)).not.toContain("NEXT_PUBLIC_APP_URL");
     expect(JSON.stringify(inventory)).not.toContain("raw-provider-output");
@@ -254,7 +269,15 @@ describe("provider control plane", () => {
         identityScope: "none",
         permissionSummary: "read-ok",
         driftSummary: "unknown",
-        missingProof: ["provider-specific-identity-parser", "stable-provider-identity"]
+        missingProof: [
+          "provider-specific-identity-parser",
+          "stable-provider-identity",
+          "ledger-comparable-identity",
+          "provider-owner-identity",
+          "provider-resource-id",
+          "provider-project-link-proof",
+          "provider-environment-scope"
+        ]
       });
     expect(JSON.stringify(inventory)).not.toContain("identityScope\":\"exact");
   });
@@ -428,6 +451,67 @@ describe("provider control plane", () => {
       reason: "live-read"
     });
     expect(JSON.stringify(partialInventory)).not.toContain("identityScope\":\"exact");
+  });
+
+  it("matches live inventory identity only when sanitized exact proof artifacts satisfy the shared contract", async () => {
+    const inventory = await createLiveProviderInventory({
+      localInventory: await createProviderInventory({
+        cwd: "/tmp/no-state",
+        manifest: createDefaultManifest("acme-crm"),
+        service: "vercel",
+        environment: "preview",
+        ledgerRows: []
+      }),
+      readResults: [
+        {
+          service: "vercel",
+          environment: "preview",
+          commandKind: "env.list",
+          status: "success",
+          exitCode: 0,
+          durationMs: 12,
+          stdoutSummary: "<redacted provider stdout: 1 line, 42 bytes>",
+          stderrSummary: "",
+          stdoutLines: 1,
+          stderrLines: 0,
+          stdoutBytes: 42,
+          stderrBytes: 0,
+          outputRedacted: true,
+          exactIdentityProof: {
+            kind: "provider-exact-identity-proof",
+            evaluator: "provider-specific-identity-parser",
+            labels: [
+              "provider-specific-identity-parser",
+              "stable-provider-identity",
+              "ledger-comparable-identity",
+              "manifest-resource-name-match",
+              "ledger-external-id-match",
+              "provider-owner-identity",
+              "provider-resource-id",
+              "provider-environment-scope",
+              "provider-project-link-proof"
+            ]
+          },
+          liveIdentityFacts: {
+            identityConfidence: "partial",
+            facts: ["env-list-read"]
+          }
+        }
+      ]
+    });
+
+    expect(inventory.rows[0]).toMatchObject({
+      liveStatus: "found",
+      identityMatch: "matched",
+      identityScope: "partial",
+      permissionSummary: "read-ok",
+      driftSummary: "unknown",
+      facts: ["env-list-read"]
+    });
+    expect(inventory.rows[0]?.missingProof).toBeUndefined();
+    expect(confirmLiveProviderInventoryIdentity(inventory)).toEqual({ ok: true });
+    expect(JSON.stringify(inventory)).not.toContain("prj_");
+    expect(JSON.stringify(inventory)).not.toContain("dashboard.");
   });
 
   it("writes local provider link state only when the ledger row is planned or active", async () => {

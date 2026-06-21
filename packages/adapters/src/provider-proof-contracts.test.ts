@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   evaluateProviderDriftProof,
+  evaluateProviderExactIdentityProof,
   evaluateProviderIdentityProof,
   getProviderIdentityReadPlan,
   getProviderProofContract,
@@ -322,6 +323,166 @@ describe("provider proof contracts", () => {
       expect(getProviderProofContract(service).exactIdentityAvailable).toBe(false);
       expect(getProviderProofContract(service).liveIdentityConfidence).toBe("none");
     }
+  });
+
+  it("returns exact identity only from sanitized exact proof artifacts with every required label", () => {
+    const result = evaluateProviderExactIdentityProof("vercel", [
+      {
+        service: "vercel",
+        environment: "preview",
+        commandKind: "env.list",
+        status: "success",
+        exitCode: 0,
+        durationMs: 5,
+        stdoutSummary: "<redacted provider stdout: 1 line, 42 bytes>",
+        stderrSummary: "",
+        stdoutLines: 1,
+        stderrLines: 0,
+        stdoutBytes: 42,
+        stderrBytes: 0,
+        outputRedacted: true,
+        liveIdentityFacts: {
+          identityConfidence: "partial",
+          facts: ["env-list-read"]
+        },
+        exactIdentityProof: {
+          kind: "provider-exact-identity-proof",
+          evaluator: "provider-specific-identity-parser",
+          labels: [
+            "provider-specific-identity-parser",
+            "stable-provider-identity",
+            "ledger-comparable-identity",
+            "manifest-resource-name-match",
+            "ledger-external-id-match",
+            "provider-owner-identity",
+            "provider-resource-id",
+            "provider-environment-scope",
+            "provider-project-link-proof"
+          ]
+        }
+      }
+    ]);
+
+    expect(result).toEqual({
+      proof: "exact",
+      evaluator: "provider-exact-identity",
+      labels: [
+        "ledger-comparable-identity",
+        "ledger-external-id-match",
+        "manifest-resource-name-match",
+        "provider-environment-scope",
+        "provider-owner-identity",
+        "provider-project-link-proof",
+        "provider-resource-id",
+        "provider-specific-identity-parser",
+        "stable-provider-identity"
+      ],
+      missing: []
+    });
+  });
+
+  it("keeps partial live facts ambiguous when no exact proof artifact exists", () => {
+    expect(
+      evaluateProviderExactIdentityProof("vercel", [
+        {
+          service: "vercel",
+          environment: "preview",
+          commandKind: "env.list",
+          status: "success",
+          exitCode: 0,
+          durationMs: 5,
+          stdoutSummary: "<redacted provider stdout: 1 line, 42 bytes>",
+          stderrSummary: "",
+          stdoutLines: 1,
+          stderrLines: 0,
+          stdoutBytes: 42,
+          stderrBytes: 0,
+          outputRedacted: true,
+          liveIdentityFacts: {
+            identityConfidence: "partial",
+            facts: ["env-list-read", "expected-env-names", "preview-environment"]
+          }
+        }
+      ])
+    ).toEqual({
+      proof: "unavailable",
+      evaluator: "unavailable",
+      labels: [],
+      missing: getProviderIdentityReadPlan("vercel").missingUntilParsersExist
+    });
+  });
+
+  it("keeps exact-looking artifacts unavailable when any live read failed", () => {
+    expect(
+      evaluateProviderExactIdentityProof("clerk", [
+        {
+          service: "clerk",
+          environment: "preview",
+          commandKind: "config.pull",
+          status: "failed",
+          exitCode: 1,
+          durationMs: 5,
+          stdoutSummary: "",
+          stderrSummary: "<redacted provider stderr: 1 line, 42 bytes>",
+          stdoutLines: 0,
+          stderrLines: 1,
+          stdoutBytes: 0,
+          stderrBytes: 42,
+          outputRedacted: true,
+          failureClass: "auth",
+          exactIdentityProof: {
+            kind: "provider-exact-identity-proof",
+            evaluator: "provider-specific-identity-parser",
+            labels: ["provider-specific-identity-parser", "stable-provider-identity"]
+          }
+        }
+      ])
+    ).toEqual({
+      proof: "unavailable",
+      evaluator: "unavailable",
+      labels: [],
+      missing: getProviderIdentityReadPlan("clerk").missingUntilParsersExist
+    });
+  });
+
+  it("blocks exact identity when parser evidence or service-required labels are missing", () => {
+    expect(
+      evaluateProviderExactIdentityProof("eas", [
+        {
+          service: "eas",
+          environment: "preview",
+          commandKind: "mobile.env.list",
+          status: "success",
+          exitCode: 0,
+          durationMs: 5,
+          stdoutSummary: "<redacted provider stdout: 1 line, 42 bytes>",
+          stderrSummary: "",
+          stdoutLines: 1,
+          stderrLines: 0,
+          stdoutBytes: 42,
+          stderrBytes: 0,
+          outputRedacted: true,
+          exactIdentityProof: {
+            kind: "provider-exact-identity-proof",
+            evaluator: "provider-specific-identity-parser",
+            labels: ["stable-provider-identity", "ledger-comparable-identity"]
+          }
+        }
+      ])
+    ).toEqual({
+      proof: "ambiguous",
+      evaluator: "provider-exact-identity",
+      labels: ["ledger-comparable-identity", "stable-provider-identity"],
+      missing: [
+        "provider-specific-identity-parser",
+        "manifest-resource-name-match",
+        "ledger-external-id-match",
+        "provider-owner-identity",
+        "provider-resource-id",
+        "provider-project-link-proof",
+        "provider-environment-scope"
+      ]
+    });
   });
 
   it("returns partial sanitized drift evidence for Vercel and EAS preview env-list facts", () => {

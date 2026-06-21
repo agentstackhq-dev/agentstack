@@ -7,6 +7,10 @@ import type {
   ProviderLiveIdentityConfidence
 } from "./provider-executor.js";
 import {
+  evaluateProviderExactIdentityProof,
+  type ProviderProofRequirementLabel
+} from "./provider-proof-contracts.js";
+import {
   enforceProviderLedgerResource,
   type ProviderLedgerDecision,
   type ProviderLedgerRow,
@@ -24,11 +28,7 @@ export type ProviderInventoryIdentityMatch = "not-checked" | "matched" | "mismat
 export type ProviderInventoryPermissionSummary = "not-checked" | "read-ok" | "read-failed";
 export type ProviderInventoryDriftSummary = "not-checked" | "none" | "possible" | "unknown";
 export type ProviderInventoryIdentityScope = ProviderLiveIdentityConfidence;
-export type ProviderIdentityProofMissingLabel =
-  | "ledger-comparable-identity"
-  | "provider-specific-identity-parser"
-  | "stable-provider-identity"
-  | "successful-live-read";
+export type ProviderIdentityProofMissingLabel = ProviderProofRequirementLabel | "successful-live-read";
 export type ProviderLinkLedgerStatus = Extract<ProviderLedgerStatus, "planned" | "active">;
 
 export type ProviderLinkState = {
@@ -86,7 +86,8 @@ export type ProviderInventoryLiveReadSummary = {
 };
 
 export type ProviderLiveConfirmation =
-  { ok: false; reason: "live-read" | "identity-ambiguous" };
+  | { ok: true }
+  | { ok: false; reason: "live-read" | "identity-ambiguous" };
 
 export type LiveProviderInventoryInput = {
   localInventory: ProviderInventory;
@@ -174,7 +175,8 @@ export async function createLiveProviderInventory(input: LiveProviderInventoryIn
   const authFailed = input.readResults.some((result) => result.failureClass === "auth");
   const notFound = input.readResults.some((result) => result.failureClass === "not-found");
   const liveFacts = summarizeLiveIdentityFacts(input.readResults);
-  const missingProof = summarizeMissingIdentityProof(input.readResults, liveFacts.identityScope);
+  const exactIdentityDecision = evaluateProviderExactIdentityProof(input.localInventory.service, input.readResults);
+  const missingProof = summarizeMissingIdentityProof(input.readResults, exactIdentityDecision.missing);
   const liveStatus: ProviderInventoryLiveStatus = authFailed
     ? "auth-failed"
     : notFound
@@ -193,12 +195,12 @@ export async function createLiveProviderInventory(input: LiveProviderInventoryIn
     rows: input.localInventory.rows.map((row) => ({
       ...row,
       liveStatus,
-      identityMatch: "ambiguous",
+      identityMatch: exactIdentityDecision.proof === "exact" ? "matched" : "ambiguous",
       identityScope: liveFacts.identityScope,
       permissionSummary,
       driftSummary: "unknown",
       facts: liveFacts.facts.length > 0 ? liveFacts.facts : undefined,
-      missingProof
+      missingProof: missingProof.length > 0 ? missingProof : undefined
     }))
   };
 }
@@ -206,6 +208,10 @@ export async function createLiveProviderInventory(input: LiveProviderInventoryIn
 export function confirmLiveProviderInventoryIdentity(inventory: ProviderInventory): ProviderLiveConfirmation {
   if ((inventory.liveReadSummary?.failed ?? 0) > 0) {
     return { ok: false, reason: "live-read" };
+  }
+
+  if (inventory.rows.every((row) => row.identityMatch === "matched")) {
+    return { ok: true };
   }
 
   return { ok: false, reason: "identity-ambiguous" };
@@ -241,17 +247,13 @@ function summarizeLiveIdentityFacts(readResults: ProviderExecutionResult[]): {
 
 function summarizeMissingIdentityProof(
   readResults: ProviderExecutionResult[],
-  identityScope: ProviderInventoryIdentityScope
+  exactMissing: ProviderProofRequirementLabel[]
 ): ProviderIdentityProofMissingLabel[] {
   if (readResults.some((result) => result.status === "failed")) {
     return ["successful-live-read"];
   }
 
-  if (identityScope === "partial") {
-    return ["ledger-comparable-identity", "stable-provider-identity"];
-  }
-
-  return ["provider-specific-identity-parser", "stable-provider-identity"];
+  return exactMissing;
 }
 
 export async function linkLedgerBackedProviderResource(input: ProviderLinkInput): Promise<ProviderLinkResult> {

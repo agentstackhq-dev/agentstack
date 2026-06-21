@@ -1,5 +1,6 @@
 import type { ProviderControlPlaneService } from "./provider-control-plane.js";
 import type {
+  ProviderExactIdentityProofLabel,
   ProviderExecutionResult,
   ProviderLiveFactLabel,
   ProviderLiveIdentityConfidence
@@ -74,6 +75,20 @@ export type ProviderIdentityProofResult =
   | {
       proof: "ambiguous";
       evaluator: "identity-read-plan";
+      missing: ProviderProofRequirementLabel[];
+    };
+
+export type ProviderExactIdentityDecision =
+  | {
+      proof: "exact";
+      evaluator: "provider-exact-identity";
+      labels: ProviderExactIdentityProofLabel[];
+      missing: [];
+    }
+  | {
+      proof: "ambiguous" | "unavailable";
+      evaluator: "provider-exact-identity" | "unavailable";
+      labels: ProviderExactIdentityProofLabel[];
       missing: ProviderProofRequirementLabel[];
     };
 
@@ -298,6 +313,70 @@ export function evaluateProviderIdentityProof(
     proof: "ambiguous",
     evaluator: "identity-read-plan",
     missing
+  };
+}
+
+export function evaluateProviderExactIdentityProof(
+  service: ProviderControlPlaneService,
+  readResults: readonly ProviderExecutionResult[]
+): ProviderExactIdentityDecision {
+  const plan = getProviderIdentityReadPlan(service);
+  const labels = new Set<ProviderExactIdentityProofLabel>();
+
+  if (readResults.length === 0 || readResults.some((result) => result.status !== "success")) {
+    return {
+      proof: "unavailable",
+      evaluator: "unavailable",
+      labels: [],
+      missing: plan.missingUntilParsersExist
+    };
+  }
+
+  for (const result of readResults) {
+    if (
+      result.service !== service ||
+      result.exactIdentityProof?.kind !== "provider-exact-identity-proof" ||
+      result.exactIdentityProof.evaluator !== "provider-specific-identity-parser"
+    ) {
+      continue;
+    }
+    for (const label of result.exactIdentityProof.labels) {
+      labels.add(label);
+    }
+  }
+
+  const required = [
+    "provider-specific-identity-parser",
+    "stable-provider-identity",
+    "ledger-comparable-identity",
+    ...plan.requiredCandidateCategories
+  ] as const satisfies readonly ProviderProofRequirementLabel[];
+  const missing = [...new Set(required.filter((label) => !labels.has(label as ProviderExactIdentityProofLabel)))];
+  const sortedLabels = [...labels].sort();
+
+  if (sortedLabels.length === 0) {
+    return {
+      proof: "unavailable",
+      evaluator: "unavailable",
+      labels: [],
+      missing: plan.missingUntilParsersExist
+    };
+  }
+
+  if (missing.length > 0) {
+    return {
+      proof: "ambiguous",
+      evaluator: "provider-exact-identity",
+      labels: sortedLabels,
+      missing
+    };
+  }
+
+  return {
+    proof: "exact",
+    evaluator: "provider-exact-identity",
+    labels: sortedLabels,
+    missing: []
   };
 }
 

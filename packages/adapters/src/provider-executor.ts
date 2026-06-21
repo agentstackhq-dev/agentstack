@@ -39,6 +39,23 @@ export type ProviderLiveIdentityFacts = {
   facts: ProviderLiveFactLabel[];
 };
 
+export type ProviderExactIdentityProofLabel =
+  | "provider-specific-identity-parser"
+  | "stable-provider-identity"
+  | "ledger-comparable-identity"
+  | "manifest-resource-name-match"
+  | "ledger-external-id-match"
+  | "provider-owner-identity"
+  | "provider-resource-id"
+  | "provider-environment-scope"
+  | "provider-project-link-proof";
+
+export type ProviderExactIdentityProofArtifact = {
+  kind: "provider-exact-identity-proof";
+  evaluator: "provider-specific-identity-parser";
+  labels: ProviderExactIdentityProofLabel[];
+};
+
 const PROVIDER_LIVE_FACT_LABELS = new Set<string>([
   "expected-env-names",
   "preview-environment",
@@ -46,6 +63,18 @@ const PROVIDER_LIVE_FACT_LABELS = new Set<string>([
   "diagnostics-read",
   "provider-env-read",
   "provider-config-read"
+]);
+
+const PROVIDER_EXACT_IDENTITY_PROOF_LABELS = new Set<string>([
+  "provider-specific-identity-parser",
+  "stable-provider-identity",
+  "ledger-comparable-identity",
+  "manifest-resource-name-match",
+  "ledger-external-id-match",
+  "provider-owner-identity",
+  "provider-resource-id",
+  "provider-environment-scope",
+  "provider-project-link-proof"
 ]);
 
 export type ProviderExecutionResult = {
@@ -65,6 +94,7 @@ export type ProviderExecutionResult = {
   resourceNames?: string[];
   providerResourceId?: string;
   liveIdentityFacts?: ProviderLiveIdentityFacts;
+  exactIdentityProof?: ProviderExactIdentityProofArtifact;
   failureClass?: ProviderFailureClass;
 };
 
@@ -83,6 +113,7 @@ export type ProviderExecutionResultInput = {
   secretValues?: string[];
   providerResourceId?: string;
   liveIdentityFacts?: ProviderLiveIdentityFacts;
+  exactIdentityProof?: ProviderExactIdentityProofArtifact;
   captureOutput?: "redacted-summary" | "redacted-text";
 };
 
@@ -137,7 +168,9 @@ export function createProviderExecutionResult(
       ? redactProviderText(input.providerResourceId, { secretValues: input.secretValues })
       : undefined,
     liveIdentityFacts:
-      status === "success" ? normalizeLiveIdentityFacts(input.liveIdentityFacts) : undefined
+      status === "success" ? normalizeLiveIdentityFacts(input.liveIdentityFacts) : undefined,
+    exactIdentityProof:
+      status === "success" ? normalizeExactIdentityProof(input.exactIdentityProof) : undefined
   };
 
   if (status === "failed") {
@@ -165,6 +198,31 @@ function normalizeLiveIdentityFacts(
     identityConfidence: "partial",
     facts: allowedFacts
   };
+}
+
+function normalizeExactIdentityProof(
+  proof: ProviderExactIdentityProofArtifact | undefined
+): ProviderExactIdentityProofArtifact | undefined {
+  if (
+    !proof ||
+    proof.kind !== "provider-exact-identity-proof" ||
+    proof.evaluator !== "provider-specific-identity-parser" ||
+    !Array.isArray(proof.labels)
+  ) {
+    return undefined;
+  }
+
+  const labels = proof.labels.filter((label): label is ProviderExactIdentityProofLabel =>
+    PROVIDER_EXACT_IDENTITY_PROOF_LABELS.has(label)
+  );
+
+  return labels.length > 0
+    ? {
+        kind: "provider-exact-identity-proof",
+        evaluator: "provider-specific-identity-parser",
+        labels: [...new Set(labels)].sort()
+      }
+    : undefined;
 }
 
 export function classifyProviderFailure(

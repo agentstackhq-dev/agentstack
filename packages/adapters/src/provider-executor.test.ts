@@ -242,6 +242,86 @@ describe("provider executor artifacts", () => {
     expect(result.liveIdentityFacts).toBeUndefined();
   });
 
+  it("stores sanitized exact identity proof artifacts separately from partial live facts", () => {
+    const result = createProviderExecutionResult({
+      service: "vercel",
+      environment: "preview",
+      commandKind: "env.list",
+      command: { id: "vercel.env.list", args: ["exec", "vercel", "env", "ls", "preview"] },
+      result: { exitCode: 0, stdout: "Project prj_raw_secret", stderr: "", durationMs: 12 },
+      exactIdentityProof: {
+        kind: "provider-exact-identity-proof",
+        evaluator: "provider-specific-identity-parser",
+        labels: [
+          "provider-specific-identity-parser",
+          "stable-provider-identity",
+          "ledger-comparable-identity",
+          "manifest-resource-name-match",
+          "ledger-external-id-match",
+          "provider-owner-identity",
+          "provider-resource-id",
+          "provider-environment-scope",
+          "provider-project-link-proof"
+        ]
+      },
+      liveIdentityFacts: {
+        identityConfidence: "partial",
+        facts: ["env-list-read", "expected-env-names", "preview-environment"]
+      }
+    });
+
+    expect(result.liveIdentityFacts?.identityConfidence).toBe("partial");
+    expect(result.exactIdentityProof?.labels).toContain("provider-specific-identity-parser");
+    expect(JSON.stringify(result)).not.toContain("prj_raw_secret");
+  });
+
+  it("drops exact identity proof artifacts from failed command results", () => {
+    const result = createProviderExecutionResult({
+      service: "vercel",
+      environment: "preview",
+      commandKind: "env.list",
+      command: { id: "vercel.env.list", args: ["exec", "vercel", "env", "ls", "preview"] },
+      result: { exitCode: 1, stdout: "Project prj_raw_secret", stderr: "auth failed", durationMs: 12 },
+      exactIdentityProof: {
+        kind: "provider-exact-identity-proof",
+        evaluator: "provider-specific-identity-parser",
+        labels: ["provider-specific-identity-parser", "stable-provider-identity"]
+      }
+    });
+
+    expect(result.exactIdentityProof).toBeUndefined();
+    expect(JSON.stringify(result)).not.toContain("prj_raw_secret");
+  });
+
+  it("drops malformed exact identity proof labels", () => {
+    const result = createProviderExecutionResult({
+      service: "clerk",
+      environment: "preview",
+      commandKind: "config.pull",
+      command: { id: "clerk.config.pull", args: ["clerk", "config", "pull", "--mode", "agent"] },
+      result: { exitCode: 0, stdout: "owner raw-org-name", stderr: "", durationMs: 12 },
+      exactIdentityProof: {
+        kind: "provider-exact-identity-proof",
+        evaluator: "provider-specific-identity-parser",
+        labels: [
+          "provider-specific-identity-parser",
+          "https://dashboard.clerk.com/raw-org",
+          "RAW_PROVIDER_ID",
+          "stable-provider-identity"
+        ]
+      } as never
+    });
+
+    expect(result.exactIdentityProof).toEqual({
+      kind: "provider-exact-identity-proof",
+      evaluator: "provider-specific-identity-parser",
+      labels: ["provider-specific-identity-parser", "stable-provider-identity"]
+    });
+    expect(JSON.stringify(result)).not.toContain("raw-org-name");
+    expect(JSON.stringify(result)).not.toContain("dashboard.clerk.com");
+    expect(JSON.stringify(result)).not.toContain("RAW_PROVIDER_ID");
+  });
+
   it("classifies timeout failures", () => {
     expect(classifyProviderFailure({ exitCode: 124, stdout: "", stderr: "command timed out" })).toBe(
       "timeout"

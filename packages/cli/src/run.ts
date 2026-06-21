@@ -14,6 +14,7 @@ import {
   executeConvexApply,
   executeVercelPreviewApply,
   evaluateProviderDriftProof,
+  evaluateProviderExactIdentityProof,
   getProviderProofContract,
   getEnabledProviderAdapterDefinitions,
   inspectEasPreviewReadOnly,
@@ -38,6 +39,7 @@ import {
   type ProviderLedgerDecision,
   type ProviderLedgerExpectedMatch,
   type ProviderProofContract,
+  type ProviderExactIdentityDecision,
   type ProviderOperation
 } from "@agentstack/adapters";
 import {
@@ -1694,6 +1696,12 @@ async function providerProofCommand(argv: string[], io: RunIo): Promise<number> 
 
   const row = inventory.rows[0];
   const driftProof = liveReadFailed ? undefined : evaluateProviderDriftProof(service, liveResults);
+  const exactIdentityDecision = liveReadFailed
+    ? undefined
+    : evaluateProviderExactIdentityProof(service, liveResults);
+  const exactIdentityReportFields = exactIdentityDecision
+    ? formatProviderExactIdentityReportFields(exactIdentityDecision)
+    : { identityCandidates: "unavailable" as const, identityEvaluator: "unavailable" as const };
   writeProviderProofReport(io, {
     service,
     contract,
@@ -1701,12 +1709,22 @@ async function providerProofCommand(argv: string[], io: RunIo): Promise<number> 
     ledger: providerProofAllowedLedgerStatus(ledgerDecision.row.status),
     localLink,
     liveResource: liveReadFailed ? "failed" : "read",
-    identityProof: liveReadFailed ? "unavailable" : "ambiguous",
+    identityProof: liveReadFailed
+      ? "unavailable"
+      : exactIdentityDecision?.proof === "exact"
+        ? "exact"
+        : "ambiguous",
     identityScope: liveReadFailed ? "none" : row?.identityScope === "partial" ? "partial" : "none",
-    identityCandidates: "unavailable",
-    identityEvaluator: "unavailable",
+    identityCandidates: exactIdentityReportFields.identityCandidates,
+    identityEvaluator: exactIdentityReportFields.identityEvaluator,
     driftProof,
-    reason: liveReadFailed ? "live-read-failed" : driftProof?.proof === "partial" ? "drift-unproven" : "identity-ambiguous"
+    reason: liveReadFailed
+      ? "live-read-failed"
+      : exactIdentityDecision?.proof !== "exact"
+        ? "identity-ambiguous"
+        : driftProof?.proof === "partial"
+          ? "drift-unproven"
+          : "identity-ambiguous"
   });
   return 1;
 }
@@ -2123,10 +2141,10 @@ type ProviderProofReport = {
   ledger: "planned" | "active" | "missing" | "invalid" | `blocked ${string}`;
   localLink: "linked" | "missing" | "not-read";
   liveResource: "read" | "not-read" | "failed" | "unsupported";
-  identityProof: "ambiguous" | "unavailable";
+  identityProof: ProviderExactIdentityDecision["proof"];
   identityScope: "partial" | "none";
-  identityCandidates?: "unavailable";
-  identityEvaluator?: "unavailable";
+  identityCandidates?: "available" | "unavailable";
+  identityEvaluator?: ProviderExactIdentityDecision["evaluator"];
   driftProof?: ProviderDriftProofResult;
   reason:
     | "identity-ambiguous"
@@ -2138,6 +2156,16 @@ type ProviderProofReport = {
     | "ledger-invalid"
     | "local-validation-failed";
 };
+
+export function formatProviderExactIdentityReportFields(decision: ProviderExactIdentityDecision): {
+  identityCandidates: "available" | "unavailable";
+  identityEvaluator: ProviderExactIdentityDecision["evaluator"];
+} {
+  return {
+    identityCandidates: decision.labels.length > 0 ? "available" : "unavailable",
+    identityEvaluator: decision.labels.length > 0 ? decision.evaluator : "unavailable"
+  };
+}
 
 function writeProviderProofReport(io: RunIo, report: ProviderProofReport): void {
   io.write(`FAIL provider proof ${report.service} preview`);

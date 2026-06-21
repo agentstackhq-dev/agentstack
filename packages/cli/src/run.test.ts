@@ -7,7 +7,7 @@ import { createDefaultManifest, defaultThemeTokens } from "@agentstack/core";
 import type { ProviderCommandExecutor } from "@agentstack/adapters";
 import { createWideEvent, JsonlTelemetryStore } from "@agentstack/telemetry";
 import { runAgentstack } from "./index.js";
-import { formatProviderInventoryRow } from "./run.js";
+import { formatProviderExactIdentityReportFields, formatProviderInventoryRow } from "./run.js";
 
 const packageDir = dirname(dirname(fileURLToPath(import.meta.url)));
 const packageManifestPath = join(packageDir, "package.json");
@@ -2704,7 +2704,7 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("Commands: 1");
     expect(output.join("\n")).toContain("Results: 1");
     expect(output.join("\n")).toContain(
-      "live=found identity=ambiguous identity-scope=partial permission=read-ok drift=unknown facts=provider-env-read missing=ledger-comparable-identity,stable-provider-identity"
+      "live=found identity=ambiguous identity-scope=partial permission=read-ok drift=unknown facts=provider-env-read missing=ledger-comparable-identity,provider-environment-scope,provider-owner-identity,provider-resource-id,provider-specific-identity-parser,stable-provider-identity"
     );
     expect(output.join("\n")).not.toContain(rowId);
     expect(output.join("\n")).not.toContain(externalId);
@@ -2750,6 +2750,54 @@ describe("runAgentstack", () => {
     );
   });
 
+  it("reports exact identity candidates only when sanitized proof labels exist", () => {
+    expect(
+      formatProviderExactIdentityReportFields({
+        proof: "unavailable",
+        evaluator: "unavailable",
+        labels: [],
+        missing: ["provider-specific-identity-parser"]
+      })
+    ).toEqual({
+      identityCandidates: "unavailable",
+      identityEvaluator: "unavailable"
+    });
+
+    expect(
+      formatProviderExactIdentityReportFields({
+        proof: "ambiguous",
+        evaluator: "provider-exact-identity",
+        labels: ["provider-specific-identity-parser"],
+        missing: ["stable-provider-identity"]
+      })
+    ).toEqual({
+      identityCandidates: "available",
+      identityEvaluator: "provider-exact-identity"
+    });
+
+    expect(
+      formatProviderExactIdentityReportFields({
+        proof: "exact",
+        evaluator: "provider-exact-identity",
+        labels: [
+          "ledger-comparable-identity",
+          "ledger-external-id-match",
+          "manifest-resource-name-match",
+          "provider-environment-scope",
+          "provider-owner-identity",
+          "provider-project-link-proof",
+          "provider-resource-id",
+          "provider-specific-identity-parser",
+          "stable-provider-identity"
+        ],
+        missing: []
+      })
+    ).toEqual({
+      identityCandidates: "available",
+      identityEvaluator: "provider-exact-identity"
+    });
+  });
+
   it("renders sanitized partial Vercel preview live identity facts without leaking raw output", async () => {
     const code = await runAgentstack(["provider", "inventory", "--service", "vercel", "--env", "preview", "--source", "live"], {
       cwd: dir,
@@ -2767,7 +2815,7 @@ describe("runAgentstack", () => {
     expect(code).toBe(0);
     expect(output).toContain("PASS provider inventory vercel preview");
     expect(output.join("\n")).toContain(
-      "live=found identity=ambiguous identity-scope=partial permission=read-ok drift=unknown facts=env-list-read,expected-env-names,preview-environment missing=ledger-comparable-identity,stable-provider-identity"
+      "live=found identity=ambiguous identity-scope=partial permission=read-ok drift=unknown facts=env-list-read,expected-env-names,preview-environment missing=ledger-comparable-identity,provider-environment-scope,provider-owner-identity,provider-project-link-proof,provider-resource-id,provider-specific-identity-parser,stable-provider-identity"
     );
     expect(output.join("\n")).not.toContain("NEXT_PUBLIC_APP_URL");
     expect(output.join("\n")).not.toContain("API_TOKEN");
@@ -2842,7 +2890,7 @@ describe("runAgentstack", () => {
     expect(code).toBe(0);
     expect(output).toContain("PASS provider inventory clerk preview");
     expect(output.join("\n")).toContain(
-      "live=found identity=ambiguous identity-scope=partial permission=read-ok drift=unknown facts=diagnostics-read,provider-config-read,provider-env-read missing=ledger-comparable-identity,stable-provider-identity"
+      "live=found identity=ambiguous identity-scope=partial permission=read-ok drift=unknown facts=diagnostics-read,provider-config-read,provider-env-read missing=ledger-comparable-identity,provider-environment-scope,provider-owner-identity,provider-resource-id,provider-specific-identity-parser,stable-provider-identity"
     );
     expect(output.join("\n")).not.toContain("RAW_PROVIDER_ID");
     expect(output.join("\n")).not.toContain("NEXT_PUBLIC_APP_URL");
@@ -2871,7 +2919,7 @@ describe("runAgentstack", () => {
     expect(code).toBe(0);
     expect(output).toContain("PASS provider inventory eas preview");
     expect(output.join("\n")).toContain(
-      "live=found identity=ambiguous identity-scope=partial permission=read-ok drift=unknown facts=env-list-read,expected-env-names,preview-environment missing=ledger-comparable-identity,stable-provider-identity"
+      "live=found identity=ambiguous identity-scope=partial permission=read-ok drift=unknown facts=env-list-read,expected-env-names,preview-environment missing=ledger-comparable-identity,provider-environment-scope,provider-owner-identity,provider-project-link-proof,provider-resource-id,provider-specific-identity-parser,stable-provider-identity"
     );
     expect(output.join("\n")).not.toContain("SENTRY_AUTH_TOKEN");
     expect(output.join("\n")).not.toContain("secret-eas-token");
@@ -3355,7 +3403,7 @@ describe("runAgentstack", () => {
       expect(output).toContain("Drift proof: partial");
       expect(output).toContain("Drift evaluator: env-list-preview");
       expect(output).toContain("Readiness: refused");
-      expect(output).toContain("Reason: drift-unproven");
+      expect(output).toContain("Reason: identity-ambiguous");
       expect(rendered).not.toContain("NEXT_PUBLIC_APP_URL");
       expect(rendered).not.toContain("EXPO_PUBLIC_APP_URL");
       expect(rendered).not.toContain("https://secret.example.test");
@@ -3934,9 +3982,9 @@ describe("runAgentstack", () => {
     expect(output).toContain("Provider mutation: none");
     expect(output).toContain("Ledger mutation: none");
     expect(output.join("\n")).toContain("facts=env-list-read,expected-env-names,preview-environment");
-    expect(output.join("\n")).toContain("missing=ledger-comparable-identity,stable-provider-identity");
+    expect(output.join("\n")).toContain("missing=ledger-comparable-identity,provider-environment-scope,provider-owner-identity,provider-project-link-proof,provider-resource-id,provider-specific-identity-parser,stable-provider-identity");
     expect(output.join("\n")).toContain(
-      "Identity proof requirements: ledger-comparable-identity,stable-provider-identity"
+      "Identity proof requirements: ledger-comparable-identity,provider-environment-scope,provider-owner-identity,provider-project-link-proof,provider-resource-id,provider-specific-identity-parser,stable-provider-identity"
     );
     expect(output.join("\n")).not.toContain("NEXT_PUBLIC_APP_URL");
     expect(output.join("\n")).not.toContain("prj_secret");
@@ -4143,9 +4191,9 @@ describe("runAgentstack", () => {
     expect(output).toContain("Local mutation: none");
     expect(output).toContain("Provider mutation: none");
     expect(output).toContain("Ledger mutation: none");
-    expect(output.join("\n")).toContain("missing=ledger-comparable-identity,stable-provider-identity");
+    expect(output.join("\n")).toContain("missing=ledger-comparable-identity,provider-environment-scope,provider-owner-identity,provider-project-link-proof,provider-resource-id,provider-specific-identity-parser,stable-provider-identity");
     expect(output.join("\n")).toContain(
-      "Identity proof requirements: ledger-comparable-identity,stable-provider-identity"
+      "Identity proof requirements: ledger-comparable-identity,provider-environment-scope,provider-owner-identity,provider-project-link-proof,provider-resource-id,provider-specific-identity-parser,stable-provider-identity"
     );
     expect(output.join("\n")).not.toContain("Provider ledger proposal");
     expect(output.join("\n")).not.toContain("SENTRY_AUTH_TOKEN");
