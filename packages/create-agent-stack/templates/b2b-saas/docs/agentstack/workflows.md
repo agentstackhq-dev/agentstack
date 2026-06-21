@@ -19,12 +19,14 @@ Use a tight validation loop after generation and while changing product code:
 6. Use `agentstack env set --env preview --surface <surface> --name <name> --value <value>` for local validation state only when required custom env values are missing.
 7. Run `pnpm run preview:plan` before applying local-cloud preview state.
 8. Run `pnpm run preview:apply` to reconcile linked services and local provider env resource rehearsal into `.agentstack/local-cloud.json`; sync refuses to plan or apply provider env resources until declared values are present and valid.
-9. Run `pnpm run preview:validate` before rehearsing a preview deploy. It checks linked services plus provider env resource presence and drift without reading raw env values from local-cloud state.
-10. Run `pnpm run preview:deploy` to plan the local preview deploy rehearsal.
-11. Run `pnpm run preview:deploy:apply` only when you want `.agentstack/deployments/preview.json` written.
-12. Run `pnpm run mobile:build:preview` to plan the local mobile build rehearsal.
-13. Run `pnpm run mobile:build:preview:apply` only when you want `.agentstack/builds/mobile-preview.json` written.
-14. Inspect behavior with `pnpm run observe:timeline`, `node scripts/agentstack.mjs observe timeline --env development --journey billing`, or `node scripts/agentstack.mjs observe timeline --env preview --journey mobile-build` when billing plans, events, jobs, or cloud state are involved.
-15. Re-run validation before handing work off.
+9. Run `pnpm run provider:clerk:inspect:preview` or `pnpm run provider:convex:inspect:preview` when provider diagnostics are required. These are explicit provider reads, not plan/sync/deploy side effects.
+10. Run `pnpm run provider:convex:apply:preview` only when you want explicit Convex preview provider execution. Clerk apply is unavailable; production Convex apply requires `--confirm-production`.
+11. Run `pnpm run preview:validate` before rehearsing a preview deploy. It checks linked services plus provider env resource presence and drift without reading raw env values from local-cloud state.
+12. Run `pnpm run preview:deploy` to plan the local preview deploy rehearsal.
+13. Run `pnpm run preview:deploy:apply` only when you want `.agentstack/deployments/preview.json` written.
+14. Run `pnpm run mobile:build:preview` to plan the local mobile build rehearsal.
+15. Run `pnpm run mobile:build:preview:apply` only when you want `.agentstack/builds/mobile-preview.json` written.
+16. Inspect behavior with `pnpm run observe:timeline`, `node scripts/agentstack.mjs observe timeline --env development --journey billing`, or `node scripts/agentstack.mjs observe timeline --env preview --journey mobile-build` when billing plans, events, jobs, or cloud state are involved.
+17. Re-run validation before handing work off.
 
-The preview deploy and mobile build workflows are local-only. They rehearse the Agentstack path and write local-cloud state; they do not deploy to real providers or submit EAS builds. Local provider env resource rehearsal stores redacted/hash-only metadata, never raw environment values. Clerk, Convex, Vercel, and EAS command-plan adapters read the same resource contract used by the current bounded provider rehearsal surfaces.
+The preview deploy and mobile build workflows are local-only. They rehearse the Agentstack path and write local-cloud state; they do not deploy to Vercel or submit EAS builds. Local provider env resource rehearsal stores redacted/hash-only metadata, never raw environment values. Provider execution happens only through explicit `agentstack provider inspect/apply`: Clerk inspect is read-only, Convex apply executes provider commands, and Vercel/EAS stay command-plan/rehearsal surfaces.

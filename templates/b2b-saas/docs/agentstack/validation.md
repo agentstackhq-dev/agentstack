@@ -2,7 +2,7 @@
 
 Start with `pnpm run inspect` when you enter the generated repo. It prints the app slug, framework and guidance versions, generated anchor counts, enabled services, preview local-cloud state, provider adapter contract status, and pending provider operation IDs without mutating anything.
 
-Provider adapters marked `contract-only` have a normalized provider boundary, but real provider mutations still run as local-cloud rehearsal in this prototype. Pending provider operation IDs are stable and redacted. Environment operations expose variable names only, never values or hashes. An `env.set` operation can appear before a local value is available; sync remains the actionability gate.
+Provider adapters marked `contract-only` have a normalized provider boundary. Pending provider operation IDs are stable and redacted. Environment operations expose variable names only, never values or hashes. An `env.set` operation can appear before a local value is available; sync remains the actionability gate. Provider execution happens only through explicit `agentstack provider inspect/apply`; plan, sync, deploy, build, doctor, and dev commands do not execute provider CLIs.
 
 Run `pnpm run validate` for local checks before completion.
 
@@ -14,7 +14,7 @@ Run `pnpm run theme:validate` when editing `packages/theme/tokens.json` or `pack
 
 Required custom env declarations are satisfied from `.agentstack/env-values.json` using the environment -> surface -> variable shape documented in `docs/agentstack/environments.md`. `agentstack env set` writes that local validation state only; it does not create or update provider resources.
 
-Local validation also scans source, docs, and `.env` files for raw secret-like values. Use `agentstack sync --env <env>` for local provider env resource rehearsal after values exist. Sync refuses missing or invalid declared values before planning or applying provider env resources. Applied sync records provider env resources in `.agentstack/local-cloud.json` with redacted/hash-only metadata such as `valueHash`, never raw env values. Clerk, Convex, Vercel, and EAS command-plan adapters print bounded provider CLI command shapes; direct provider execution and provider secret stores are outside the current generated framework boundary.
+Local validation also scans source, docs, and `.env` files for raw secret-like values. Use `agentstack sync --env <env>` for local provider env resource rehearsal after values exist. Sync refuses missing or invalid declared values before planning or applying provider env resources. Applied sync records provider env resources in `.agentstack/local-cloud.json` with redacted/hash-only metadata such as `valueHash`, never raw env values. Clerk, Convex, Vercel, and EAS command-plan adapters print bounded provider CLI command shapes. Clerk/Convex inspect is explicit provider diagnostics, and Convex apply is explicit provider execution.
 
 Run `pnpm run env:inspect` when provider state, environment sync, or deployment readiness needs deeper detail after `pnpm run doctor`. Use `pnpm run preview:plan` to plan local-cloud repair, `pnpm run preview:apply` to apply it, `pnpm run preview:validate` to compare expected preview state with configured services and provider env resources, and `pnpm run preview:deploy` to rehearse deploy planning locally. `validate --cloud` reports missing, stale, or drifted provider env resources through the same local-cloud contract that command-plan adapters read.
 

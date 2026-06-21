@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createDefaultManifest, defaultThemeTokens } from "@agentstack/core";
+import type { ProviderCommandExecutor } from "@agentstack/adapters";
 import { createWideEvent, JsonlTelemetryStore } from "@agentstack/telemetry";
 import { runAgentstack } from "./index.js";
 
@@ -13,10 +14,12 @@ const packageShimPath = join(packageDir, "src/bin.js");
 
 let dir: string;
 let output: string[];
+let providerExecutions: Array<{ command: string; args: string[]; stdin?: string }>;
 
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), "agentstack-cli-"));
   output = [];
+  providerExecutions = [];
   const manifest = createDefaultManifest("acme-crm");
   await writeFile(
     join(dir, "agentstack.config.json"),
@@ -1196,7 +1199,8 @@ describe("runAgentstack", () => {
 
     const code = await runAgentstack(["provider", "plan", "--service", "convex", "--env", "preview"], {
       cwd: dir,
-      write: (line) => output.push(line)
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor()
     });
 
     expect(code).toBe(0);
@@ -1208,6 +1212,7 @@ describe("runAgentstack", () => {
     );
     expect(output.join("\n")).toContain("<secret from .agentstack/env-values.json>");
     expect(output.join("\n")).not.toContain("sk-local-provider-value");
+    expect(providerExecutions).toHaveLength(0);
   });
 
   it("prints explicit confirmation requirements for production Convex provider plans", async () => {
@@ -1361,6 +1366,192 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(1);
     expect(output.join("\n")).toContain("FAIL provider.service.unsupported");
+  });
+
+  it("inspects Convex preview without raw secrets", async () => {
+    await writeProviderEnvManifest();
+    await writeLocalEnvValues({
+      preview: { convex: { OPENAI_API_KEY: "sk-local-provider-value" } }
+    });
+
+    const code = await runAgentstack(["provider", "inspect", "--service", "convex", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor(
+        "OPENAI_API_KEY=provider-owned-secret-value\nSTRIPE_SECRET_KEY=sk_live_not_known_locally"
+      )
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("WARN provider inspect convex preview");
+    expect(output.join("\n")).toContain("Target: <preview-deployment-name>");
+    expect(output.join("\n")).toContain("Required env: CONVEX_DEPLOY_KEY");
+    expect(output.join("\n")).toContain("Operations: 2");
+    expect(output.join("\n")).toContain("Commands: 1");
+    expect(output.join("\n")).toContain("Results: 1");
+    expect(output.join("\n")).toContain("<redacted provider stdout: 2 lines, 86 bytes>");
+    expect(output.join("\n")).not.toContain("sk-local-provider-value");
+    expect(output.join("\n")).not.toContain("provider-owned-secret-value");
+    expect(output.join("\n")).not.toContain("sk_live_not_known_locally");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec convex env --deployment <preview-deployment-name> list"
+    ]);
+  });
+
+  it("inspects Clerk preview with read-only commands and no mutation language", async () => {
+    const code = await runAgentstack(["provider", "inspect", "--service", "clerk", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor(
+        "CLERK_SECRET_KEY=provider-owned-secret-value\nSTRIPE_SECRET_KEY=sk_live_not_known_locally"
+      )
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("WARN provider inspect clerk preview");
+    expect(output.join("\n")).toContain("Commands: 3");
+    expect(output.join("\n")).toContain("Results: 3");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec clerk doctor --mode agent",
+      "exec clerk env pull --mode agent",
+      "exec clerk config pull --mode agent"
+    ]);
+    expect(output.join("\n")).not.toMatch(/\b(init|deploy|set|remove)\b/);
+    expect(output.join("\n")).toContain("<redacted provider stdout: 2 lines, 88 bytes>");
+    expect(output.join("\n")).not.toContain("provider-owned-secret-value");
+    expect(output.join("\n")).not.toContain("sk_live_not_known_locally");
+  });
+
+  it("rejects provider inspect for Vercel and EAS in this slice", async () => {
+    const vercelCode = await runAgentstack(
+      ["provider", "inspect", "--service", "vercel", "--env", "preview"],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: createMockProviderExecutor()
+      }
+    );
+    const easCode = await runAgentstack(["provider", "inspect", "--service", "eas", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor()
+    });
+
+    expect(vercelCode).toBe(1);
+    expect(easCode).toBe(1);
+    expect(output.join("\n")).toContain("FAIL provider.service.unsupported");
+  });
+
+  it("rejects development env for provider inspect and apply", async () => {
+    const inspectCode = await runAgentstack(
+      ["provider", "inspect", "--service", "convex", "--env", "development"],
+      { cwd: dir, write: (line) => output.push(line), providerExecutor: createMockProviderExecutor() }
+    );
+    const applyCode = await runAgentstack(
+      ["provider", "apply", "--service", "convex", "--env", "development"],
+      { cwd: dir, write: (line) => output.push(line), providerExecutor: createMockProviderExecutor() }
+    );
+
+    expect(inspectCode).toBe(1);
+    expect(applyCode).toBe(1);
+    expect(output.join("\n")).toContain("FAIL cli.option.invalid");
+    expect(output.join("\n")).toContain("Expected one of: preview, production.");
+  });
+
+  it("applies Convex preview through the injected executor with redacted output", async () => {
+    await writeProviderEnvManifest();
+    await writeLocalEnvValues({
+      preview: { convex: { OPENAI_API_KEY: "sk-local-provider-value" } }
+    });
+
+    const code = await runAgentstack(["provider", "apply", "--service", "convex", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("set OPENAI_API_KEY=sk-local-provider-value")
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("APPLIED provider convex preview");
+    expect(output.join("\n")).toContain("Commands: 2");
+    expect(output.join("\n")).toContain("Results: 2");
+    expect(output.join("\n")).toContain("<redacted provider stdout: 1 line, 42 bytes>");
+    expect(output.join("\n")).not.toContain("sk-local-provider-value");
+    expect(providerExecutions).toHaveLength(2);
+    expect(providerExecutions[1]?.stdin).toBe("sk-local-provider-value");
+  });
+
+  it("rejects Clerk apply in this slice", async () => {
+    const code = await runAgentstack(["provider", "apply", "--service", "clerk", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor()
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL provider.apply.unsupported");
+    expect(output.join("\n")).toContain("Fix:");
+  });
+
+  it("rejects production Convex apply without confirmation", async () => {
+    const code = await runAgentstack(["provider", "apply", "--service", "convex", "--env", "production"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor()
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL provider.production.confirmation-required");
+    expect(output.join("\n")).toContain("Fix:");
+    expect(providerExecutions).toHaveLength(0);
+  });
+
+  it("applies production Convex with confirmation through the executor and redacts output", async () => {
+    const code = await runAgentstack(
+      ["provider", "apply", "--service", "convex", "--env", "production", "--confirm-production"],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: createMockProviderExecutor("deployed CONVEX_DEPLOY_KEY=prod_secret")
+      }
+    );
+
+    expect(code).toBe(0);
+    expect(output).toContain("APPLIED provider convex production");
+    expect(output.join("\n")).toContain("Commands: 1");
+    expect(output.join("\n")).toContain("Results: 1");
+    expect(output.join("\n")).toContain("<redacted provider stdout: 1 line, 38 bytes>");
+    expect(providerExecutions).toHaveLength(1);
+  });
+
+  it("records provider inspect and apply telemetry", async () => {
+    await writeProviderEnvManifest();
+    await writeLocalEnvValues({
+      preview: { convex: { OPENAI_API_KEY: "sk-local-provider-value" } }
+    });
+
+    expect(
+      await runAgentstack(["provider", "inspect", "--service", "convex", "--env", "preview"], {
+        cwd: dir,
+        write: () => undefined,
+        providerExecutor: createMockProviderExecutor()
+      })
+    ).toBe(0);
+    expect(
+      await runAgentstack(["provider", "apply", "--service", "convex", "--env", "preview"], {
+        cwd: dir,
+        write: () => undefined,
+        providerExecutor: createMockProviderExecutor()
+      })
+    ).toBe(0);
+
+    const code = await runAgentstack(["observe", "timeline", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output.join("\n")).toContain("agentstack.provider.inspect.completed");
+    expect(output.join("\n")).toContain("agentstack.provider.apply.completed");
   });
 
   it("fails cloud validation when cloud state is missing", async () => {
@@ -1517,7 +1708,7 @@ describe("runAgentstack", () => {
     expect(await runAgentstack(["validate"], { cwd: dir, write: () => undefined })).toBe(1);
     const setCode = await runAgentstack(
       ["env", "set", "--env", "preview", "--surface", "convex", "--name", "STRIPE_MODE", "--value", "sandbox"],
-      { cwd: dir, write: (line) => output.push(line) }
+      { cwd: dir, write: (line) => output.push(line), providerExecutor: createMockProviderExecutor() }
     );
     const values = JSON.parse(await readFile(join(dir, ".agentstack", "env-values.json"), "utf8"));
 
@@ -1525,6 +1716,7 @@ describe("runAgentstack", () => {
     expect(output).toContain("PASS env set preview convex.STRIPE_MODE");
     expect(output.join("\n")).not.toContain("sandbox");
     expect(values.preview.convex.STRIPE_MODE).toBe("sandbox");
+    expect(providerExecutions).toHaveLength(0);
     output = [];
     expect(await runAgentstack(["validate"], { cwd: dir, write: (line) => output.push(line) })).toBe(0);
     expect(output).toContain("PASS validate");
@@ -2674,6 +2866,20 @@ async function writeLocalEnvValues(values: unknown): Promise<void> {
     `${JSON.stringify(values, null, 2)}\n`,
     "utf8"
   );
+}
+
+function createMockProviderExecutor(stdout = "ok"): ProviderCommandExecutor {
+  return {
+    async execute(command, args, options) {
+      providerExecutions.push({ command, args, stdin: options.stdin });
+      return {
+        exitCode: 0,
+        stdout,
+        stderr: "",
+        durationMs: 12
+      };
+    }
+  };
 }
 
 function readGeneratedAnchorFixture(anchor: string): string {

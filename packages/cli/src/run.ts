@@ -1,4 +1,5 @@
 import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { spawn } from "node:child_process";
 import { dirname, join } from "node:path";
 import {
   createClerkCommandPlan,
@@ -6,10 +7,16 @@ import {
   createEasCommandPlan,
   createVercelCommandPlan,
   createProviderOperationPlan,
+  executeConvexApply,
   getEnabledProviderAdapterDefinitions,
+  inspectClerkReadOnly,
+  inspectConvexReadOnly,
   LocalCloudAdapter,
+  redactProviderText,
   type InspectEnvResource,
   type ProviderAdapterDefinition,
+  type ProviderCommandExecutor,
+  type ProviderExecutionResult,
   type ProviderOperation
 } from "@agentstack/adapters";
 import {
@@ -62,6 +69,7 @@ import { loadLocalEnvValues, loadProjectContext } from "./context.js";
 export type RunIo = {
   cwd: string;
   write: (line: string) => void;
+  providerExecutor?: ProviderCommandExecutor;
 };
 
 type ParsedOptions = Record<string, string | boolean>;
@@ -157,6 +165,14 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
 
     if (command === "provider" && subcommand === "plan") {
       return await providerPlanCommand(rest, io);
+    }
+
+    if (command === "provider" && subcommand === "inspect") {
+      return await providerInspectCommand(rest, io);
+    }
+
+    if (command === "provider" && subcommand === "apply") {
+      return await providerApplyCommand(rest, io);
     }
 
     if (command === "prod") {
@@ -660,6 +676,406 @@ function formatProviderCommandTargetLabel(kind: string, args: string[], id: stri
 function flagValue(args: string[], flag: string): string | undefined {
   const index = args.indexOf(flag);
   return index >= 0 ? args[index + 1] : undefined;
+}
+
+async function providerInspectCommand(argv: string[], io: RunIo): Promise<number> {
+  const options = parseOptions(argv);
+  const fix = "Run agentstack provider inspect --service clerk --env preview.";
+  const service = readRequiredStringOption(options.service, "service", fix);
+  const environment = readProviderRuntimeEnvironmentOption(options.env, fix);
+
+  if (service !== "clerk" && service !== "convex") {
+    io.write(
+      formatDiagnostic({
+        severity: "fail",
+        code: "provider.service.unsupported",
+        path: service,
+        message: "Only Clerk and Convex provider inspect are available in this slice.",
+        fix,
+        blocks: ["provider inspect"]
+      })
+    );
+    await recordCommandEvent(io, {
+      name: "agentstack.provider.inspect.completed",
+      environment,
+      journey: "provider-inspect",
+      command: ["provider", "inspect", ...argv].join(" "),
+      status: "fail",
+      state: { service, reason: "unsupported-service" }
+    });
+    return 1;
+  }
+
+  const validation = await runLocalValidationGate(io.cwd);
+  validation.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
+  if (validation.diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
+    await recordCommandEvent(io, {
+      name: "agentstack.provider.inspect.completed",
+      environment,
+      journey: "provider-inspect",
+      command: ["provider", "inspect", ...argv].join(" "),
+      status: "fail",
+      state: { service, diagnostics: validation.diagnostics.length }
+    });
+    return 1;
+  }
+
+  const adapter = new LocalCloudAdapter(io.cwd) as EnvAwareLocalCloudAdapter;
+  const cloudReport = await adapter.inspect(validation.context.manifest, environment, {
+    envValues: validation.envValues
+  });
+  const providerOperationPlan = createProviderOperationPlan(cloudReport);
+  const secretValues =
+    service === "convex"
+      ? collectSecretValues(validation.envValues, environment, "convex")
+      : collectEnvironmentSecretValues(validation.envValues, environment);
+  let results: ProviderExecutionResult[] = [];
+  const plan =
+    service === "clerk"
+      ? createClerkCommandPlan({
+          environment,
+          operations: providerOperationPlan.operations,
+          includeBootstrap: false
+        })
+      : createConvexCommandPlan({
+          manifest: validation.context.manifest,
+          environment,
+          operations: providerOperationPlan.operations,
+          includeDeploy: false
+        });
+
+  if (service === "clerk") {
+    results = await inspectClerkReadOnly({
+      environment,
+      executor: resolveProviderExecutor(io),
+      cwd: io.cwd,
+      secretValues
+    });
+  }
+
+  if (service === "convex") {
+    results = await inspectConvexReadOnly({
+      manifest: validation.context.manifest,
+      environment,
+      executor: resolveProviderExecutor(io),
+      cwd: io.cwd,
+      secretValues
+    });
+  }
+
+  const failed = results.some((result) => result.status === "failed");
+  const pending = providerOperationPlan.operations.some((operation) => operation.service === service);
+  const commandCount = service === "clerk" ? results.length : plan.commands.length;
+  io.write(`${failed || pending ? "WARN" : "PASS"} provider inspect ${service} ${environment}`);
+  io.write(`Target: ${formatProviderPlanTarget(plan.target)}`);
+  io.write(`Required env: ${formatList(plan.target.requiredEnv)}`);
+  io.write(`Operations: ${providerOperationPlan.operations.filter((operation) => operation.service === service).length}`);
+  io.write(`Commands: ${commandCount}`);
+  io.write(`Results: ${results.length}`);
+  writeProviderExecutionDiagnostics(io, results);
+
+  await recordCommandEvent(io, {
+    name: "agentstack.provider.inspect.completed",
+    environment,
+    journey: "provider-inspect",
+    command: ["provider", "inspect", ...argv].join(" "),
+    status: failed ? "fail" : pending ? "warn" : "ok",
+    state: {
+      service,
+      operations: providerOperationPlan.operations.filter((operation) => operation.service === service).length,
+      commands: commandCount,
+      results: results.length
+    }
+  });
+  return failed ? 1 : 0;
+}
+
+async function providerApplyCommand(argv: string[], io: RunIo): Promise<number> {
+  const options = parseOptions(argv);
+  const fix = "Run agentstack provider apply --service convex --env preview.";
+  const service = readRequiredStringOption(options.service, "service", fix);
+  const environment = readProviderRuntimeEnvironmentOption(options.env, fix);
+
+  if (service === "clerk") {
+    io.write(
+      formatDiagnostic({
+        severity: "fail",
+        code: "provider.apply.unsupported",
+        path: service,
+        message: "Clerk apply is not available in this slice; Clerk commands are inspect-only.",
+        fix: "Run agentstack provider inspect --service clerk --env preview.",
+        blocks: ["provider apply"]
+      })
+    );
+    await recordCommandEvent(io, {
+      name: "agentstack.provider.apply.completed",
+      environment,
+      journey: "provider-apply",
+      command: ["provider", "apply", ...argv].join(" "),
+      status: "fail",
+      state: { service, reason: "unsupported-service" }
+    });
+    return 1;
+  }
+
+  if (service !== "convex") {
+    io.write(
+      formatDiagnostic({
+        severity: "fail",
+        code: "provider.service.unsupported",
+        path: service,
+        message: "Only Convex provider apply is available in this slice.",
+        fix,
+        blocks: ["provider apply"]
+      })
+    );
+    await recordCommandEvent(io, {
+      name: "agentstack.provider.apply.completed",
+      environment,
+      journey: "provider-apply",
+      command: ["provider", "apply", ...argv].join(" "),
+      status: "fail",
+      state: { service, reason: "unsupported-service" }
+    });
+    return 1;
+  }
+
+  if (environment === "production" && options["confirm-production"] !== true) {
+    io.write(
+      formatDiagnostic({
+        severity: "fail",
+        code: "provider.production.confirmation-required",
+        path: "production.convex",
+        message: "Convex production apply requires --confirm-production.",
+        fix: "Run agentstack provider apply --service convex --env production --confirm-production.",
+        blocks: ["provider apply"]
+      })
+    );
+    await recordCommandEvent(io, {
+      name: "agentstack.provider.apply.completed",
+      environment,
+      journey: "provider-apply",
+      command: ["provider", "apply", ...argv].join(" "),
+      status: "fail",
+      state: { service, reason: "confirmation-required" }
+    });
+    return 1;
+  }
+
+  const validation = await runLocalValidationGate(io.cwd);
+  validation.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
+  if (validation.diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
+    await recordCommandEvent(io, {
+      name: "agentstack.provider.apply.completed",
+      environment,
+      journey: "provider-apply",
+      command: ["provider", "apply", ...argv].join(" "),
+      status: "fail",
+      state: { service, diagnostics: validation.diagnostics.length }
+    });
+    return 1;
+  }
+
+  const adapter = new LocalCloudAdapter(io.cwd) as EnvAwareLocalCloudAdapter;
+  const cloudReport = await adapter.inspect(validation.context.manifest, environment, {
+    envValues: validation.envValues
+  });
+  const providerOperationPlan = createProviderOperationPlan(cloudReport);
+  const operations = providerOperationPlan.operations.filter((operation) => operation.service === "convex");
+  const plan = createConvexCommandPlan({
+    manifest: validation.context.manifest,
+    environment,
+    operations,
+    includeDeploy: true
+  });
+  const secretValues = collectSecretValues(validation.envValues, environment, "convex");
+  const results = await executeConvexApply({
+    manifest: validation.context.manifest,
+    environment,
+    operations,
+    includeDeploy: true,
+    executor: resolveProviderExecutor(io),
+    cwd: io.cwd,
+    confirmProduction: options["confirm-production"] === true,
+    stdinByCommandId: buildConvexStdinByCommandId(operations, validation.envValues, environment),
+    secretValues
+  });
+  const failed = results.some((result) => result.status === "failed");
+  const label = results.length > 0 ? "APPLIED" : "PASS";
+
+  io.write(`${label} provider convex ${environment}`);
+  io.write(`Target: ${formatProviderPlanTarget(plan.target)}`);
+  io.write(`Required env: ${formatList(plan.target.requiredEnv)}`);
+  io.write(`Operations: ${operations.length}`);
+  io.write(`Commands: ${plan.commands.length}`);
+  io.write(`Results: ${results.length}`);
+  writeProviderExecutionDiagnostics(io, results);
+
+  await recordCommandEvent(io, {
+    name: "agentstack.provider.apply.completed",
+    environment,
+    journey: "provider-apply",
+    command: ["provider", "apply", ...argv].join(" "),
+    status: failed ? "fail" : "ok",
+    state: {
+      service,
+      operations: operations.length,
+      commands: plan.commands.length,
+      results: results.length
+    }
+  });
+  return failed ? 1 : 0;
+}
+
+function readProviderRuntimeEnvironmentOption(
+  value: string | boolean | undefined,
+  fix: string
+): "preview" | "production" {
+  const environment = readEnvironmentOption(value, { flag: "env", fix });
+  if (environment === "preview" || environment === "production") {
+    return environment;
+  }
+
+  throw new Error(
+    [
+      "FAIL cli.option.invalid",
+      "Invalid --env value: development. Expected one of: preview, production.",
+      `Fix: ${fix}`
+    ].join("\n")
+  );
+}
+
+function writeProviderExecutionDiagnostics(io: RunIo, results: ProviderExecutionResult[]): void {
+  if (results.length === 0) {
+    io.write("Diagnostics: none");
+    return;
+  }
+
+  io.write("Diagnostics:");
+  for (const result of results) {
+    const stdout = result.stdoutSummary ? ` stdout=${result.stdoutSummary}` : "";
+    const stderr = result.stderrSummary ? ` stderr=${result.stderrSummary}` : "";
+    const failure = result.failureClass ? ` failure=${result.failureClass}` : "";
+    io.write(`- ${result.commandKind} ${result.status} exit=${result.exitCode}${failure}${stdout}${stderr}`);
+  }
+}
+
+function collectSecretValues(
+  envValues: EnvValueState,
+  environment: EnvironmentName,
+  service: SurfaceName
+): string[] {
+  return Object.values(envValues[environment]?.[service] ?? {}).filter(
+    (value): value is string => typeof value === "string" && value.length > 0
+  );
+}
+
+function collectEnvironmentSecretValues(
+  envValues: EnvValueState,
+  environment: EnvironmentName
+): string[] {
+  return surfaceValues.flatMap((surface) => collectSecretValues(envValues, environment, surface));
+}
+
+function buildConvexStdinByCommandId(
+  operations: ProviderOperation[],
+  envValues: EnvValueState,
+  environment: EnvironmentName
+): Record<string, string> {
+  const values: Record<string, string> = {};
+  for (const operation of operations) {
+    if (operation.kind !== "env.set" || operation.service !== "convex") {
+      continue;
+    }
+    const name = operation.target.startsWith("env:") ? operation.target.slice("env:".length) : undefined;
+    const value =
+      name && isSurface(operation.scope) ? envValues[environment]?.[operation.scope]?.[name] : undefined;
+    if (typeof value === "string") {
+      values[operation.id] = value;
+    }
+  }
+  return values;
+}
+
+function resolveProviderExecutor(io: RunIo): ProviderCommandExecutor {
+  return io.providerExecutor ?? createChildProcessProviderExecutor();
+}
+
+function createChildProcessProviderExecutor(): ProviderCommandExecutor {
+  return {
+    execute(command, args, options) {
+      return new Promise((resolve) => {
+        const startedAt = Date.now();
+        const child = spawn(command, args, {
+          cwd: options.cwd,
+          env: { ...process.env, ...options.env },
+          stdio: ["pipe", "pipe", "pipe"]
+        });
+        let stdout = "";
+        let stderr = "";
+        let settled = false;
+        const timeout =
+          options.timeoutMs === undefined
+            ? undefined
+            : setTimeout(() => {
+                if (!settled) {
+                  child.kill("SIGTERM");
+                  settled = true;
+                  resolve({
+                    exitCode: 124,
+                    stdout,
+                    stderr: `${stderr}\nProvider command timed out.`.trim(),
+                    durationMs: Date.now() - startedAt
+                  });
+                }
+              }, options.timeoutMs);
+
+        child.stdout.setEncoding("utf8");
+        child.stderr.setEncoding("utf8");
+        child.stdout.on("data", (chunk) => {
+          stdout += redactProviderText(String(chunk));
+        });
+        child.stderr.on("data", (chunk) => {
+          stderr += redactProviderText(String(chunk));
+        });
+        child.on("error", (error) => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          if (timeout) {
+            clearTimeout(timeout);
+          }
+          resolve({
+            exitCode: 1,
+            stdout,
+            stderr: error.message,
+            durationMs: Date.now() - startedAt
+          });
+        });
+        child.on("close", (exitCode) => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          if (timeout) {
+            clearTimeout(timeout);
+          }
+          resolve({
+            exitCode: exitCode ?? 1,
+            stdout,
+            stderr,
+            durationMs: Date.now() - startedAt
+          });
+        });
+        if (options.stdin !== undefined) {
+          child.stdin.end(options.stdin);
+        } else {
+          child.stdin.end();
+        }
+      });
+    }
+  };
 }
 
 async function prodCommand(argv: string[], io: RunIo): Promise<number> {

@@ -112,7 +112,7 @@
               <div class="flow-step"><strong>Generated script</strong><span>Stable project entrypoint with installed-bin or source-prototype resolution.</span><code>scripts/agentstack.mjs</code></div>
               <div class="flow-step"><strong>CLI context</strong><span>Finds config, local state files, telemetry path, and cwd-specific project data.</span><code>context.ts</code></div>
               <div class="flow-step"><strong>Core contract</strong><span>Parses manifest and produces diagnostics, plans, or normalized validation state.</span><code>core/src/*.ts</code></div>
-              <div class="flow-step"><strong>Adapter boundary</strong><span>Reads/writes local-cloud rehearsal state or prints command-plan provider operations.</span><code>adapters/src</code></div>
+              <div class="flow-step"><strong>Adapter boundary</strong><span>Reads/writes local-cloud rehearsal state, prints command plans, or runs explicit provider inspect/apply.</span><code>adapters/src</code></div>
               <div class="flow-step"><strong>Telemetry</strong><span>Records redacted command events and makes timelines queryable.</span><code>events.jsonl</code></div>
               <div class="flow-step"><strong>Generated app</strong><span>Receives new anchors, docs, env state, local deploy/build artifacts.</span><code>app root</code></div>
             </div>
@@ -126,12 +126,12 @@
                 <tr>
                   <td>Cloud providers</td>
                   <td><code>.agentstack/local-cloud.json</code> simulates linked services per environment, and <code>.agentstack/deployments/preview.json</code> records local preview deploy rehearsal output.</td>
-                  <td><code>inspect</code> shows <code>contract-only</code> or per-provider <code>command-plan</code> adapter status with stable pending operation IDs. Clerk, Convex, Vercel, and EAS command planning print redacted <code>pnpm exec clerk</code>, <code>pnpm exec convex</code>, <code>pnpm exec vercel</code>, and <code>pnpm exec eas</code> command shapes without executing provider mutations.</td>
+                  <td><code>inspect</code> shows <code>contract-only</code> or per-provider <code>command-plan</code> adapter status with stable pending operation IDs. Provider plan prints redacted <code>pnpm exec clerk</code>, <code>pnpm exec convex</code>, <code>pnpm exec vercel</code>, and <code>pnpm exec eas</code> command shapes without executing provider commands. Provider inspect is explicit Clerk/Convex diagnostics, and provider apply is explicit Convex execution.</td>
                 </tr>
                 <tr>
                   <td>Env values</td>
                   <td><code>.agentstack/env-values.json</code> satisfies required custom env declarations locally.</td>
-                  <td>Provider env operations expose surface scope and variable names only. Command plans label values as coming from <code>.agentstack/env-values.json</code>, Clerk Dashboard, or provider-owned env commands; values and hashes stay out of operation IDs, inspect output, and command output. Vercel plans require <code>VERCEL_TOKEN</code>, EAS plans require <code>EXPO_TOKEN</code>, and production command plans mark confirmation while provider execution remains bounded to wrapper and rehearsal surfaces.</td>
+                  <td>Provider env operations expose surface scope and variable names only. Command plans label values as coming from <code>.agentstack/env-values.json</code>, Clerk Dashboard, or provider-owned env commands; values and hashes stay out of operation IDs, inspect output, and command output. Convex inspect/apply requires <code>CONVEX_DEPLOY_KEY</code>, Clerk inspect requires an authenticated Clerk CLI or <code>CLERK_SECRET_KEY</code>, Vercel plans require <code>VERCEL_TOKEN</code>, and EAS plans require <code>EXPO_TOKEN</code>.</td>
                 </tr>
                 <tr>
                   <td>Telemetry</td>
@@ -184,7 +184,7 @@
                   The repo already models provider intent, required tokens, production confirmation,
                   env resource scope, and operation IDs. It intentionally stops before remote mutation.
                   That means local validation and command plans can be reviewed today, while direct
-                  provider execution stays bounded to provider wrappers and rehearsals.
+                  provider execution runs only through explicit provider inspect/apply.
                 </p>
               </div>
             </div>
@@ -196,10 +196,10 @@
               <thead><tr><th>Question</th><th>Owned by</th><th>Current answer</th></tr></thead>
               <tbody>
                 <tr><td>What should the app contain?</td><td><code>agentstack.config.json</code> and <code>@agentstack/core</code></td><td>Surfaces, services, env declarations, telemetry policy, generated anchors, guidance version.</td></tr>
-                <tr><td>How does an agent run the workflow?</td><td><code>@agentstack/cli</code> and generated scripts</td><td>Inspect, doctor, dev preflight, validate, env inspect/set, sync, deploy, build mobile, observe.</td></tr>
-                <tr><td>Where is provider state?</td><td><code>@agentstack/adapters</code></td><td><code>.agentstack/local-cloud.json</code> plus redacted command-plan operations for provider CLIs.</td></tr>
+                <tr><td>How does an agent run the workflow?</td><td><code>@agentstack/cli</code> and generated scripts</td><td>Inspect, doctor, dev preflight, validate, env inspect/set, sync, provider plan/inspect/apply, deploy, build mobile, observe.</td></tr>
+                <tr><td>Where is provider state?</td><td><code>@agentstack/adapters</code></td><td><code>.agentstack/local-cloud.json</code>, redacted command-plan operations, and explicit Clerk/Convex diagnostics or Convex apply results.</td></tr>
                 <tr><td>Where is incident evidence?</td><td><code>@agentstack/telemetry</code></td><td><code>.agentstack/events.jsonl</code> and local <code>OTLP-shaped JSON</code> exports.</td></tr>
-                <tr><td>What is still a gap?</td><td>Outside the current boundary</td><td>Remote provider mutation, hosted telemetry ingestion, production servers, Stripe provider execution, app-store submission.</td></tr>
+                <tr><td>What is still a gap?</td><td>Outside the current boundary</td><td>Vercel/EAS provider execution, hosted telemetry ingestion, production servers, Stripe provider execution, app-store submission.</td></tr>
               </tbody>
             </table>
           </section>

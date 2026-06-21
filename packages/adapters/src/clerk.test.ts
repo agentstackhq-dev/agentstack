@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createClerkCommandPlan, createClerkTarget } from "./clerk.js";
+import { createClerkCommandPlan, createClerkTarget, inspectClerkReadOnly } from "./clerk.js";
 
 describe("clerk command planner", () => {
   it("plans preview setup with agent-safe Clerk CLI commands", () => {
@@ -130,5 +130,70 @@ describe("clerk command planner", () => {
         requiresConfirmation: true
       })
     ]);
+  });
+
+  it("executes only read-only Clerk inspect commands and redacts diagnostics", async () => {
+    const calls: string[][] = [];
+    const results = await inspectClerkReadOnly({
+      environment: "production",
+      executor: {
+        async execute(command, args) {
+          calls.push([command, ...args]);
+          return {
+            exitCode: 0,
+            stdout: `CLERK_SECRET_KEY=sk_test_1234567890abcdef ${command}`,
+            stderr: "",
+            durationMs: 5
+          };
+        }
+      },
+      secretValues: ["explicit-secret-value"]
+    });
+
+    expect(calls).toEqual([
+      ["pnpm", "exec", "clerk", "doctor", "--mode", "agent"],
+      ["pnpm", "exec", "clerk", "env", "pull", "--mode", "agent"],
+      ["pnpm", "exec", "clerk", "config", "pull", "--mode", "agent"]
+    ]);
+    expect(results.map((result) => result.commandKind)).toEqual([
+      "auth.diagnostics",
+      "auth.env.pull",
+      "auth.config.pull"
+    ]);
+    expect(calls.map((call) => call.join(" "))).not.toContain("pnpm exec clerk init -y");
+    expect(calls.map((call) => call.join(" "))).not.toContain(
+      "pnpm exec clerk deploy --mode agent"
+    );
+    expect(JSON.stringify(results)).not.toContain("sk_test_");
+    expect(JSON.stringify(results)).not.toContain("explicit-secret-value");
+  });
+
+  it("does not store unknown provider-owned secrets from Clerk inspect output", async () => {
+    const results = await inspectClerkReadOnly({
+      environment: "preview",
+      executor: {
+        async execute() {
+          return {
+            exitCode: 0,
+            stdout: "CLERK_SECRET_KEY=provider-owned-secret-value\nSTRIPE_SECRET_KEY=sk_live_not_known_locally",
+            stderr: "",
+            durationMs: 5
+          };
+        }
+      }
+    });
+
+    expect(results).toHaveLength(3);
+    expect(results[1]).toEqual(
+      expect.objectContaining({
+        service: "clerk",
+        environment: "preview",
+        commandKind: "auth.env.pull",
+        stdoutSummary: "<redacted provider stdout: 2 lines, 88 bytes>",
+        outputRedacted: true
+      })
+    );
+    expect(JSON.stringify(results)).not.toContain("provider-owned-secret-value");
+    expect(JSON.stringify(results)).not.toContain("sk_live_not_known_locally");
   });
 });

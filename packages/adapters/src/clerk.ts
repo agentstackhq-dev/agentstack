@@ -1,5 +1,10 @@
 import type { EnvironmentName } from "@agentstack/core";
 
+import {
+  createProviderExecutionResult,
+  type ProviderCommandExecutor,
+  type ProviderExecutionResult
+} from "./provider-executor.js";
 import type { ProviderOperation } from "./provider-operations.js";
 
 export type ClerkCommandKind =
@@ -48,6 +53,15 @@ export type ClerkCommandPlan = {
   environment: EnvironmentName;
   target: ClerkTarget;
   commands: ClerkCliCommand[];
+};
+
+export type InspectClerkReadOnlyOptions = {
+  environment: EnvironmentName;
+  executor: ProviderCommandExecutor;
+  cwd?: string;
+  env?: Record<string, string | undefined>;
+  timeoutMs?: number;
+  secretValues?: string[];
 };
 
 export function createClerkTarget(environment: EnvironmentName): ClerkTarget {
@@ -131,6 +145,44 @@ export function createClerkCommandPlan(input: ClerkCommandPlanInput): ClerkComma
     target,
     commands
   };
+}
+
+export async function inspectClerkReadOnly(
+  options: InspectClerkReadOnlyOptions
+): Promise<ProviderExecutionResult[]> {
+  const target = createClerkTarget(options.environment);
+  const commands = [
+    target.diagnosticsCommand,
+    target.envPullCommand,
+    target.configPullCommand
+  ];
+  const results: ProviderExecutionResult[] = [];
+
+  for (const command of commands) {
+    const [executable, ...args] = command.args;
+    if (!executable) {
+      throw new Error(`Clerk command ${command.id} has no executable.`);
+    }
+
+    const result = await options.executor.execute(executable, args, {
+      cwd: options.cwd,
+      env: options.env,
+      timeoutMs: options.timeoutMs
+    });
+
+    results.push(
+      createProviderExecutionResult({
+        service: "clerk",
+        environment: options.environment,
+        commandKind: command.kind,
+        command,
+        result,
+        secretValues: options.secretValues
+      })
+    );
+  }
+
+  return results;
 }
 
 function operationCommand(operation: ProviderOperation): ClerkCliCommand[] {

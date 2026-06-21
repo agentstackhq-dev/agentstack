@@ -12,7 +12,9 @@
 - Validate theme changes with `pnpm run theme:validate`; normal `pnpm run validate` also checks token shape.
 - Style UI through `@app/theme` token roles and `@app/ui` primitives before adding surface-specific components.
 - Treat `workspace status` as the reference runnable slice: shared domain model, Convex boundary, web/mobile rendering, unstyled UI primitives, and local docs.
-- Use framework package scripts and generated docs instead of provider dashboards.
+- Use framework package scripts and generated docs before provider dashboards.
+- Use `provider plan` for deterministic provider command plans, `provider inspect` for explicit Clerk/Convex diagnostics, and `provider apply` only for explicit Convex execution.
+- Development provider inspect/apply is rejected. Clerk apply is unavailable. Convex production apply requires `--confirm-production`.
 - Treat preview commands as local-cloud preview state only. Agentstack records and inspects local JSONL telemetry plus local OTLP-shaped artifacts; hosted/network provider telemetry is outside the current generated framework boundary.
 - Use telemetry primitives for product events and operational traces.
 - Add typed product telemetry with `agentstack add event <name> --journey <journey> --surfaces web,mobile,convex --state key:type`.
@@ -29,6 +31,6 @@
 - Inspect generated-event command history with `agentstack observe timeline --journey telemetry-generation --env development`.
 - For incidents, pivot from broad `observe query` or `observe timeline` output into focused modes: `trace`, `journey`, `errors`, `webhook`, `component`, and `compare`.
 - Treat observability output as redacted local `.agentstack/events.jsonl` evidence. Local `OTLP-shaped JSON` artifacts are available through `agentstack observe export`; network OTLP export, hosted telemetry providers, and provider dashboards are not configured in this prototype.
-- Rehearse releases with `pnpm run preview:deploy` and `pnpm run preview:deploy:apply`; they do not deploy to real providers.
+- Rehearse releases with `pnpm run preview:deploy` and `pnpm run preview:deploy:apply`; they do not deploy to Vercel.
 - Rehearse mobile builds with `pnpm run mobile:build:development`, `pnpm run mobile:build:preview`, and `pnpm run mobile:build:preview:apply`; they write local `.agentstack/builds/` artifacts only when apply is used.
 - Use `apps/mobile/eas.json` and `apps/mobile/app.config.ts` as generated anchors for Expo/EAS configuration tied to `agentstack.config.json`.

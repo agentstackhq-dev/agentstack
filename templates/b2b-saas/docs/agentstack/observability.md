@@ -6,6 +6,8 @@ Use `agentstack observe` commands with filters for environment, surface, event n
 
 The local generated prototype records framework command events in `.agentstack/events.jsonl`. Local JSONL remains the source for local inspection: it does not configure network export, provider ingestion, or provider dashboard links. Use `pnpm run observe:timeline` to inspect a redacted preview timeline.
 
+Provider reads and execution emit redacted command telemetry. `agentstack.provider.inspect.completed` records explicit Clerk or Convex provider diagnostics, and `agentstack.provider.apply.completed` records explicit Convex provider execution. Event state must not include raw provider output, environment values, tokens, or credentials.
+
 Use `node scripts/agentstack.mjs observe export --env preview --format otlp-json` when an agent needs a portable file for handoff. The command writes an `OTLP-shaped JSON` local export artifact from the same redacted store query output used by inspection commands. `pnpm run telemetry:export:preview` and `pnpm run telemetry:export:production` are convenience scripts for preview and production local export artifacts; no network export or hosted provider is configured by default.
 
 ## Typed App Events

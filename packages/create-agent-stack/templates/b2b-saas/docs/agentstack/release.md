@@ -13,13 +13,13 @@ Expected output includes `PLAN deploy preview` for the plan step and `APPLIED de
 
 Mobile build rehearsal output includes `PLAN mobile build preview` and `APPLIED mobile build preview`. Apply writes `.agentstack/builds/mobile-preview.json` and records `agentstack.mobile.build.completed` telemetry on the `mobile-build` journey.
 
-This rehearsal does not deploy to real providers or submit EAS builds. Direct provider execution, live Stripe integration, hosted/network telemetry export, provider dashboards, and retention are outside the current generated framework boundary.
+This rehearsal does not deploy to Vercel or submit EAS builds. Provider execution is explicit only through `agentstack provider inspect/apply`; Clerk inspect is read-only, Convex apply is supported, and Vercel/EAS remain command-plan/rehearsal surfaces. Live Stripe integration, hosted/network telemetry export, provider dashboards, and retention are outside the current generated framework boundary.
 
 Run release validation before production release rehearsal so environment sync, provider readiness, and generated boundaries are checked together.
 
 ## Local Production Release Rehearsal
 
-Production release commands are local rehearsals. They inspect, plan, validate, and write local Agentstack artifacts only; no real Convex, Clerk, Vercel, EAS, Stripe, telemetry-provider, or other provider APIs are called.
+Production release commands are local rehearsals. They inspect, plan, validate, and write local Agentstack artifacts only; they do not call Vercel, EAS, Stripe, telemetry-provider, or other deployment APIs. Convex production provider apply is separate and requires `--confirm-production`.
 
 ```bash
 pnpm run prod:prepare

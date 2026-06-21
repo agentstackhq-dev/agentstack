@@ -11,4 +11,4 @@ Expected shape:
 - `@app/ui` contributes unstyled primitive metadata for status presentation states.
 - Docs explain the path as the current generated app pattern for additional workspace-status-adjacent surfaces.
 
-This vertical is local generated app behavior. Preview deploys, production deploys, provider command plans, EAS builds, hosted telemetry export, and provider mutations remain rehearsals in this slice.
+This vertical is local generated app behavior. Preview deploys, production deploys, provider command plans, EAS builds, and hosted telemetry export remain rehearsals in this slice. Provider execution is explicit only through `agentstack provider inspect/apply`.

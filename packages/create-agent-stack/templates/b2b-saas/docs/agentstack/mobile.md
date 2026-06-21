@@ -37,7 +37,7 @@ pnpm run provider:eas:preview
 pnpm run provider:eas:production
 ```
 
-Use `pnpm run provider:eas:preview` or `pnpm run provider:eas:production` to print the EAS command plan without executing provider mutations. Generated projects install `eas-cli` locally, so planned commands use `pnpm exec eas`.
+Use `pnpm run provider:eas:preview` or `pnpm run provider:eas:production` to print the EAS command plan without executing provider commands. Generated projects install `eas-cli` locally, so planned commands use `pnpm exec eas`.
 
 The EAS provider plan includes `eas project:init --non-interactive`, `eas env:list --environment <env>`, and `eas build -p all -e <profile> --json --non-interactive`. Env create/update/delete commands are planned from Agentstack provider operations and label values as coming from `.agentstack/env-values.json`; raw values and secrets are not printed.
 

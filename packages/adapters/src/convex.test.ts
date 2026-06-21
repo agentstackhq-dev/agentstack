@@ -1,7 +1,12 @@
 import { createDefaultManifest } from "@agentstack/core";
 import { describe, expect, it } from "vitest";
 
-import { createConvexCommandPlan, createConvexTarget } from "./convex.js";
+import {
+  createConvexCommandPlan,
+  createConvexTarget,
+  executeConvexApply,
+  inspectConvexReadOnly
+} from "./convex.js";
 
 describe("convex command planner", () => {
   it("plans preview target commands with preview deploy key requirements", () => {
@@ -132,5 +137,149 @@ describe("convex command planner", () => {
         args: ["pnpm", "exec", "convex", "env", "--prod", "remove", "LEGACY_KEY"]
       })
     ]);
+  });
+
+  it("executes preview command plans through an artifact-safe executor", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    const calls: Array<{ command: string; args: string[]; stdin?: string }> = [];
+    const results = await executeConvexApply({
+      manifest,
+      environment: "preview",
+      operations: [
+        {
+          id: "preview.convex.env.set.convex.OPENAI_API_KEY",
+          environment: "preview",
+          service: "convex",
+          kind: "env.set",
+          scope: "convex",
+          target: "env:OPENAI_API_KEY",
+          source: "env.missing",
+          summary: "Set OPENAI_API_KEY for convex convex in preview.",
+          secret: true,
+          requiresConfirmation: false
+        }
+      ],
+      includeDeploy: true,
+      executor: {
+        async execute(command, args, options) {
+          calls.push({ command, args, stdin: options.stdin });
+          return {
+            exitCode: 0,
+            stdout: `ok ${command} ${args.join(" ")} sk_live_1234567890abcdef`,
+            stderr: "",
+            durationMs: 7
+          };
+        }
+      },
+      stdinByCommandId: {
+        "preview.convex.env.set.convex.OPENAI_API_KEY": "raw-secret-value"
+      },
+      secretValues: ["raw-secret-value"]
+    });
+
+    expect(calls.map((call) => [call.command, ...call.args])).toEqual([
+      ["pnpm", "exec", "convex", "deploy", "--preview-name", "acme-crm-preview"],
+      [
+        "pnpm",
+        "exec",
+        "convex",
+        "env",
+        "--deployment",
+        "<preview-deployment-name>",
+        "set",
+        "OPENAI_API_KEY"
+      ]
+    ]);
+    expect(calls[1]?.stdin).toBe("raw-secret-value");
+    expect(results.every((result) => result.status === "success")).toBe(true);
+    expect(JSON.stringify(results)).not.toContain("raw-secret-value");
+    expect(JSON.stringify(results)).not.toContain("sk_live_");
+  });
+
+  it("inspects Convex read-only diagnostics through the executor", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    const calls: Array<{ command: string; args: string[]; stdin?: string }> = [];
+    const results = await inspectConvexReadOnly({
+      manifest,
+      environment: "preview",
+      executor: {
+        async execute(command, args, options) {
+          calls.push({ command, args, stdin: options.stdin });
+          return {
+            exitCode: 0,
+            stdout: "OPENAI_API_KEY=sk_live_1234567890abcdef",
+            stderr: "",
+            durationMs: 9
+          };
+        }
+      },
+      secretValues: ["sk_live_1234567890abcdef"]
+    });
+
+    expect(calls.map((call) => [call.command, ...call.args])).toEqual([
+      ["pnpm", "exec", "convex", "env", "--deployment", "<preview-deployment-name>", "list"]
+    ]);
+    expect(calls[0]?.stdin).toBeUndefined();
+    expect(results).toEqual([
+      expect.objectContaining({
+        service: "convex",
+        environment: "preview",
+        commandKind: "env.list",
+        status: "success",
+        stdoutSummary: "<redacted provider stdout: 1 line, 39 bytes>",
+        stdoutLines: 1,
+        stdoutBytes: 39,
+        outputRedacted: true
+      })
+    ]);
+    expect(JSON.stringify(results)).not.toContain("sk_live_");
+  });
+
+  it("does not store unknown provider-owned secrets from Convex inspect output", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    const results = await inspectConvexReadOnly({
+      manifest,
+      environment: "preview",
+      executor: {
+        async execute() {
+          return {
+            exitCode: 0,
+            stdout: "OPENAI_API_KEY=provider-owned-secret-value\nSTRIPE_SECRET_KEY=sk_live_not_known_locally",
+            stderr: "",
+            durationMs: 9
+          };
+        }
+      }
+    });
+
+    expect(results[0]).toEqual(
+      expect.objectContaining({
+        service: "convex",
+        environment: "preview",
+        commandKind: "env.list",
+        stdoutSummary: "<redacted provider stdout: 2 lines, 86 bytes>",
+        outputRedacted: true
+      })
+    );
+    expect(JSON.stringify(results)).not.toContain("provider-owned-secret-value");
+    expect(JSON.stringify(results)).not.toContain("sk_live_not_known_locally");
+  });
+
+  it("rejects production apply without explicit confirmation", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+
+    await expect(
+      executeConvexApply({
+        manifest,
+        environment: "production",
+        operations: [],
+        includeDeploy: true,
+        executor: {
+          async execute() {
+            return { exitCode: 0, stdout: "", stderr: "", durationMs: 1 };
+          }
+        }
+      })
+    ).rejects.toThrow("Convex production apply requires explicit confirmation.");
   });
 });

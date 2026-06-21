@@ -97,7 +97,7 @@ export function createEasTarget(environment: EnvironmentName): EasTarget {
     warnings: [
       "EAS Build uses EAS server env values; local CI variables and .env files are not a substitute.",
       "Review Expo credentials and app-store readiness before running store-distribution builds.",
-      "App-store submission is future provider coverage; this plan does not run eas submit."
+      "App-store submission is outside this command-plan boundary; this plan does not run eas submit."
     ],
     requiresConfirmation
   };

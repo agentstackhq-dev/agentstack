@@ -100,7 +100,7 @@
               The generated app now includes one intentionally small vertical slice. It is local
               product behavior across shared domain, Convex, web, mobile, and unstyled UI
               primitives. It does not make preview deploys, production deploys, EAS builds, or
-              provider mutation real.
+              Vercel deploys or EAS builds real.
             </p>
             <pre><code>packages/domain/src/workspace-status.ts     shared status model and fixture
 packages/ui/src/index.ts                   unstyled status primitive metadata
@@ -160,7 +160,7 @@ pnpm run validate                       Clerk identity, Clerk webhooks, billing,
                 <tr>
                   <td>Lifecycle preflight</td>
                   <td>Run <code>inspect</code>, <code>doctor</code>, then <code>dev</code> before provider-facing work.</td>
-                  <td><code>dev</code> runs the local workspace-status preflight; provider execution remains bounded by command-plan and rehearsal surfaces where direct provider mutation is not implemented.</td>
+                  <td><code>dev</code> runs the local workspace-status preflight; provider execution happens only through explicit provider inspect/apply.</td>
                 </tr>
                 <tr>
                   <td>Agent guidance</td>
