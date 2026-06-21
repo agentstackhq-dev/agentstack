@@ -6,7 +6,7 @@ This file is the canonical resume and progress artifact for Agentstack consumer 
 
 ## Current State
 
-Current phase: shared exact identity comparison hardening is the latest substantive implementation checkpoint, building on EAS preview identity candidate guidance, Convex preview identity candidate guidance, Vercel preview identity candidate guidance, sanitized provider identity candidate artifacts, provider exact identity decision contracts, provider identity read-plan contracts, provider proof drift evidence, the provider proof-contract command, aggregate preview provider reconciliation plan artifacts, sanitized Clerk/Convex command-level partial live-read facts, structurally parsed EAS/Vercel preview partial-proof evidence, aggregate preview provider planning, first aggregate live validation truthful refusal, sanitized live identity proof requirements, truthful local quality validation, live-safe provider link/adopt confirmation modes, bounded live provider inventory, Vercel preview provider live-read inspect, failure-diagnostic redaction hardening, and provider inventory/link/adopt; this file intentionally avoids self-referencing its containing commit hash. Use `git log --oneline -n 5` for exact HEAD.
+Current phase: narrow Clerk preview application provider-proof exact identity parsing is the latest substantive implementation checkpoint, building on shared exact identity comparison hardening, EAS preview identity candidate guidance, Convex preview identity candidate guidance, Vercel preview identity candidate guidance, sanitized provider identity candidate artifacts, provider exact identity decision contracts, provider identity read-plan contracts, provider proof drift evidence, the provider proof-contract command, aggregate preview provider reconciliation plan artifacts, sanitized Clerk/Convex command-level partial live-read facts, structurally parsed EAS/Vercel preview partial-proof evidence, aggregate preview provider planning, first aggregate live validation truthful refusal, sanitized live identity proof requirements, truthful local quality validation, live-safe provider link/adopt confirmation modes, bounded live provider inventory, Vercel preview provider live-read inspect, failure-diagnostic redaction hardening, and provider inventory/link/adopt; this file intentionally avoids self-referencing its containing commit hash. Use `git log --oneline -n 5` for exact HEAD.
 
 Overall status: not complete. Agentstack is about 40-42% of the way toward consumer production readiness from a consumer perspective. The current product state is a local command-contract and rehearsal prototype with credible local telemetry and provider boundaries, not a consumer-ready production framework.
 
@@ -14,6 +14,8 @@ Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI rou
 
 ## Recent Completed Commits
 
+- `a3287ee` feat: add clerk exact proof parser.
+- `54307c4` docs: record exact comparison checkpoint.
 - `b1da6e9` feat: require exact identity comparisons.
 - `88716ad` feat: add eas identity candidates.
 - `e66045b` feat: add convex identity candidates.
@@ -241,7 +243,23 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 
 ## Last Known Verification Evidence
 
-Most recent final orchestrator verification for the shared exact identity comparison hardening slice:
+Most recent final orchestrator verification for the Clerk exact proof parser slice:
+
+- Feature commit `a3287ee` (`feat: add clerk exact proof parser`) followed previous progress checkpoint `54307c4` (`docs: record exact comparison checkpoint`).
+- Exact proof is available only for narrow Clerk preview application provider proof after strict `{ data: [...] }` apps-list JSON plus manifest/ledger comparison gates. Top-level arrays fail closed.
+- Live inventory, live link/adopt, `validate --live`, Convex, Vercel, and EAS remain ambiguous, candidate-only, missing, or refused as appropriate.
+- Docs and templates were swept for stale exact wording. No external resources were created, mutated, adopted, linked, or deleted, and no ledger changes were made.
+- Parent focused verification passed: `pnpm vitest run packages/adapters/src/clerk.test.ts packages/adapters/src/provider-proof-contracts.test.ts packages/cli/src/run.test.ts packages/create-agent-stack/src/generate.test.ts` passed: 4 files / 264 tests.
+- Template mirror diffs were clean.
+- Stale-language `rg` checks were clean.
+- Ledger diff passed with no output for `docs/provider-resource-ledger.md` and template mirrors.
+- `.agentstack/local-cloud.json`, `.agentstack/provider-links.json`, and `.agentstack/events.jsonl` were absent.
+- `git diff --check` passed.
+- `pnpm typecheck` passed.
+- `pnpm test` passed: 28 files / 485 tests.
+- No provider CLIs were run directly.
+
+Previous final orchestrator verification for the shared exact identity comparison hardening slice:
 
 - Feature commit `b1da6e9` (`feat: require exact identity comparisons`) followed previous progress checkpoint `425dab8` (`docs: record eas candidate checkpoint`).
 - Exact proof now requires sanitized required labels plus matched comparison evidence. Label-only exact artifacts no longer produce exact proof or `identity=matched`.
