@@ -8,6 +8,8 @@
     "build:development": "node ../../scripts/agentstack.mjs build mobile --env development",
     "build:preview": "node ../../scripts/agentstack.mjs build mobile --env preview",
     "build:preview:apply": "node ../../scripts/agentstack.mjs build mobile --env preview --apply",
-    "build:production": "node ../../scripts/agentstack.mjs build mobile --env production"
+    "build:production": "node ../../scripts/agentstack.mjs build mobile --env production",
+    "provider:eas:preview": "node ../../scripts/agentstack.mjs provider plan --service eas --env preview",
+    "provider:eas:production": "node ../../scripts/agentstack.mjs provider plan --service eas --env production"
   }
 }

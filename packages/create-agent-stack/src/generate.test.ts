@@ -116,8 +116,15 @@ describe("generateProject", () => {
       expect(packageManifest.devDependencies).toMatchObject({
         clerk: expect.any(String),
         convex: "^1.41.0",
+        "eas-cli": "^20.3.0",
         vercel: "^54.14.5"
       });
+      expect(packageManifest.scripts["provider:eas:preview"]).toBe(
+        "node scripts/agentstack.mjs provider plan --service eas --env preview"
+      );
+      expect(packageManifest.scripts["provider:eas:production"]).toBe(
+        "node scripts/agentstack.mjs provider plan --service eas --env production"
+      );
       expect(manifest.generated.requiredAnchors).toEqual(
         expect.arrayContaining([
           "apps/mobile/app.config.ts",
@@ -136,7 +143,9 @@ describe("generateProject", () => {
         "build:development": "node ../../scripts/agentstack.mjs build mobile --env development",
         "build:preview": "node ../../scripts/agentstack.mjs build mobile --env preview",
         "build:preview:apply": "node ../../scripts/agentstack.mjs build mobile --env preview --apply",
-        "build:production": "node ../../scripts/agentstack.mjs build mobile --env production"
+        "build:production": "node ../../scripts/agentstack.mjs build mobile --env production",
+        "provider:eas:preview": "node ../../scripts/agentstack.mjs provider plan --service eas --env preview",
+        "provider:eas:production": "node ../../scripts/agentstack.mjs provider plan --service eas --env production"
       });
       await expect(readFile(join(targetDir, "apps/mobile/eas.json"), "utf8")).resolves.toContain(
         '"developmentClient": true'

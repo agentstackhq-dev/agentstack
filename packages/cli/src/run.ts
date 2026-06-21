@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import {
   createClerkCommandPlan,
   createConvexCommandPlan,
+  createEasCommandPlan,
   createVercelCommandPlan,
   createProviderOperationPlan,
   getEnabledProviderAdapterDefinitions,
@@ -511,13 +512,13 @@ async function providerPlanCommand(argv: string[], io: RunIo): Promise<number> {
     fix
   });
 
-  if (service !== "clerk" && service !== "convex" && service !== "vercel") {
+  if (service !== "clerk" && service !== "convex" && service !== "vercel" && service !== "eas") {
     io.write(
       formatDiagnostic({
         severity: "fail",
         code: "provider.service.unsupported",
         path: String(options.service ?? "missing"),
-        message: "Clerk, Convex, and Vercel provider command planners are available in this slice.",
+        message: "Clerk, Convex, Vercel, and EAS provider command planners are available in this slice.",
         fix,
         blocks: ["provider plan"]
       })
@@ -566,11 +567,17 @@ async function providerPlanCommand(argv: string[], io: RunIo): Promise<number> {
             operations: providerOperationPlan.operations,
             includeDeploy: true
           })
-        : createVercelCommandPlan({
-            environment,
-            operations: providerOperationPlan.operations,
-            includeDeploy: true
-          });
+        : service === "vercel"
+          ? createVercelCommandPlan({
+              environment,
+              operations: providerOperationPlan.operations,
+              includeDeploy: true
+            })
+          : createEasCommandPlan({
+              environment,
+              operations: providerOperationPlan.operations,
+              includeBuild: true
+            });
 
   io.write(`PLAN provider ${plan.service} ${environment}`);
   io.write(`Target: ${formatProviderPlanTarget(plan.target)}`);
@@ -614,8 +621,15 @@ function formatProviderPlanTarget(target: {
   applicationSelector?: string;
   deploymentSelector?: string;
   vercelEnvironment?: string;
+  easEnvironment?: string;
 }): string {
-  return target.applicationSelector ?? target.deploymentSelector ?? target.vercelEnvironment ?? "unknown";
+  return (
+    target.applicationSelector ??
+    target.deploymentSelector ??
+    target.vercelEnvironment ??
+    target.easEnvironment ??
+    "unknown"
+  );
 }
 
 function formatProviderCommandTargetLabel(kind: string, args: string[], id: string): string {
@@ -627,11 +641,20 @@ function formatProviderCommandTargetLabel(kind: string, args: string[], id: stri
     return args[5] ?? kind;
   }
 
+  if ((kind === "env.create" || kind === "env.update" || kind === "env.delete") && args[3]?.startsWith("env:")) {
+    return flagValue(args, kind === "env.create" ? "--name" : "--variable-name") ?? kind;
+  }
+
   if (kind === "env.pull" || kind === "env.review") {
     return id.split(".").at(-1) ?? kind;
   }
 
   return kind;
+}
+
+function flagValue(args: string[], flag: string): string | undefined {
+  const index = args.indexOf(flag);
+  return index >= 0 ? args[index + 1] : undefined;
 }
 
 async function prodCommand(argv: string[], io: RunIo): Promise<number> {

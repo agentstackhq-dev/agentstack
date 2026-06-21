@@ -2,7 +2,7 @@
 
 This is a local preview deploy rehearsal. It exercises Agentstack planning, local-cloud preview state, validation, deployment artifact writing, and deployment telemetry without deploying to real Convex, Clerk, Vercel, EAS, Stripe, or telemetry-provider APIs.
 
-Convex and Vercel also have command-plan surfaces. `convex:command-plan` and `vercel:command-plan` mean Agentstack knows the current provider CLI deploy and env command shapes and can print the commands an operator would run, but this slice still does not execute provider mutations. Generated projects include the Convex and Vercel packages so `pnpm exec convex` and `pnpm exec vercel` resolve locally.
+Clerk, Convex, Vercel, and EAS have command-plan surfaces. `clerk:command-plan`, `convex:command-plan`, `vercel:command-plan`, and `eas:command-plan` mean Agentstack knows current provider CLI command shapes and can print the commands an operator would run, but this slice still does not execute provider mutations. Generated projects include the Clerk, Convex, Vercel, and EAS CLI packages so `pnpm exec clerk`, `pnpm exec convex`, `pnpm exec vercel`, and `pnpm exec eas` resolve locally.
 
 ## Commands
 
@@ -79,6 +79,21 @@ pnpm exec convex deploy --preview-name __APP_SLUG__-preview
 
 Convex env set/remove commands are printed with redacted values. Secret and non-secret values use `.agentstack/env-values.json` as the value source label, not the raw value. Preview env commands use `convex env --deployment <preview-deployment-name> set/remove ...` until `pnpm exec convex deploy --preview-name __APP_SLUG__-preview` has created a concrete Convex preview deployment name.
 
+Plan real Clerk preview commands without running them:
+
+```bash
+pnpm run provider:clerk:preview
+```
+
+Expected output includes Clerk initialization, diagnostic, env pull, and config pull commands:
+
+```text
+pnpm exec clerk init -y
+pnpm exec clerk doctor --mode agent
+pnpm exec clerk env pull --mode agent
+pnpm exec clerk config pull --mode agent
+```
+
 Plan real Vercel preview commands without running them:
 
 ```bash
@@ -94,6 +109,23 @@ pnpm exec vercel deploy --target=preview
 ```
 
 Vercel env add/update/remove commands are printed with redacted values. Secret and non-secret values use `.agentstack/env-values.json` as the value source label, not the raw value.
+
+Plan real EAS preview commands without running them:
+
+```bash
+pnpm run provider:eas:preview
+```
+
+Expected output includes the Expo token requirement and planned project/env/build commands:
+
+```text
+EXPO_TOKEN
+pnpm exec eas project:init --non-interactive
+pnpm exec eas env:list --environment preview
+pnpm exec eas build -p all -e preview --json --non-interactive
+```
+
+EAS env create/update/delete commands are printed with redacted value placeholders. EAS Build uses server-side EAS env values, not local CI variables alone.
 
 Apply the local preview deploy rehearsal:
 
@@ -132,8 +164,8 @@ agentstack.deploy.completed
 ## Non-Goals
 
 - This is not a real provider deployment.
-- It does not create or mutate Convex, Clerk, Vercel, EAS, Stripe, or telemetry-provider resources. Convex and Vercel command planning prints real CLI command shapes only.
+- It does not create or mutate Convex, Clerk, Vercel, EAS, Stripe, or telemetry-provider resources. Clerk, Convex, Vercel, and EAS command planning prints real CLI command shapes only.
 - It does not prove production readiness.
 - It does not replace provider credentials, real CI/CD, app builds, smoke tests, or production release approval.
 
-Use this runbook to rehearse the framework path before connecting real provider adapters in future Agentstack releases.
+Use this runbook to rehearse the framework path before enabling real provider apply automation in future Agentstack releases.

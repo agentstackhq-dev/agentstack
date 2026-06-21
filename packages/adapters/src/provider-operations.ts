@@ -73,7 +73,7 @@ export const providerAdapterDefinitions: Record<ServiceName, ProviderAdapterDefi
     service: "eas",
     displayName: "EAS",
     capabilities: ["service.lifecycle", "env.sync", "mobile.build"],
-    realAdapterStatus: "contract-only"
+    realAdapterStatus: "command-plan"
   }
 };
 

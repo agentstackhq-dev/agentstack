@@ -4,7 +4,7 @@ Agentstack is an agent-first control framework for B2B SaaS teams building on Co
 
 This prototype proves the local command contract: generate a project, inspect lifecycle state, run doctor-style preflight checks, validate the framework manifest, inspect environment state, plan and apply local-cloud sync, validate a named environment, rehearse local provider env resources, rehearse local preview and production deploy flows, inspect redacted command telemetry from the CLI, and write an `OTLP-shaped JSON` local export artifact for agent handoff. It does not provision real provider resources yet.
 
-The current cloud implementation is a filesystem-backed local-cloud adapter. `agentstack inspect --env <env>` shows provider adapter contract status and pending provider operation IDs so agents can see the provider boundary before real API calls exist. `contract-only` means a normalized provider boundary exists, while provider mutations still run as local-cloud rehearsal in this prototype. `convex:command-plan` and `vercel:command-plan` mean Agentstack can print real provider CLI deploy/env command shapes without executing provider mutations. `agentstack env set` writes local validation values only. `agentstack sync --env <env>` refuses missing or invalid custom env values before planning or applying provider env resources. Applied sync reconciles local provider env resource rehearsal into `.agentstack/local-cloud.json` with redacted/hash-only metadata, never raw env values. Provider operation IDs are stable and redacted; env operations expose variable names only, never values or hashes. An `env.set` operation can appear before a local value is available; sync remains the actionability gate. Convex and Vercel command output uses `.agentstack/env-values.json` as the value source label and never prints raw env values. Real Clerk, EAS, Stripe, and telemetry adapters will implement the same validation, sync, deploy, and inspection contracts later.
+The current cloud implementation is a filesystem-backed local-cloud adapter. `agentstack inspect --env <env>` shows provider adapter contract status and pending provider operation IDs so agents can see the provider boundary before real API calls exist. `contract-only` means a normalized provider boundary exists, while provider mutations still run as local-cloud rehearsal in this prototype. `clerk:command-plan`, `convex:command-plan`, `vercel:command-plan`, and `eas:command-plan` mean Agentstack can print real provider CLI command shapes without executing provider mutations. `agentstack env set` writes local validation values only. `agentstack sync --env <env>` refuses missing or invalid custom env values before planning or applying provider env resources. Applied sync reconciles local provider env resource rehearsal into `.agentstack/local-cloud.json` with redacted/hash-only metadata, never raw env values. Provider operation IDs are stable and redacted; env operations expose variable names only, never values or hashes. An `env.set` operation can appear before a local value is available; sync remains the actionability gate. Provider command output labels values as coming from `.agentstack/env-values.json`, Clerk Dashboard, or provider-owned env commands and never prints raw env values. Real Stripe and hosted telemetry adapters will implement the same validation, sync, deploy, and inspection contracts later.
 
 ## Local Smoke
 
@@ -38,7 +38,9 @@ pnpm run dev
 pnpm run preview:deploy
 pnpm run preview:deploy:apply
 pnpm run provider:convex:preview
+pnpm run provider:clerk:preview
 pnpm run provider:vercel:preview
+pnpm run provider:eas:preview
 pnpm run prod:prepare
 pnpm run prod:provision
 pnpm run prod:provision:apply
@@ -46,7 +48,9 @@ pnpm run prod:validate
 pnpm run prod:deploy
 pnpm run prod:deploy:apply
 pnpm run provider:convex:production
+pnpm run provider:clerk:production
 pnpm run provider:vercel:production
+pnpm run provider:eas:production
 pnpm run mobile:build:preview
 pnpm run mobile:build:preview:apply
 pnpm run telemetry:export:preview
@@ -80,7 +84,9 @@ PASS dev preflight preview
 PLAN deploy preview
 APPLIED deploy preview
 PLAN provider convex preview
+PLAN provider clerk preview
 PLAN provider vercel preview
+PLAN provider eas preview
 PASS prod prepare production
 PLAN prod provision production
 APPLIED prod provision production
@@ -88,7 +94,9 @@ PASS validate --release production
 PLAN deploy production
 APPLIED deploy production
 PLAN provider convex production
+PLAN provider clerk production
 PLAN provider vercel production
+PLAN provider eas production
 PLAN mobile build preview
 APPLIED mobile build preview
 EXPORTED observe otlp-json preview <event-count>
@@ -120,7 +128,9 @@ agentstack.event.added
 - `pnpm run preview:deploy` plans the local preview deploy rehearsal without writing `.agentstack/deployments/preview.json`.
 - `pnpm run preview:deploy:apply` applies the local preview deploy rehearsal, writes `.agentstack/deployments/preview.json`, and records `agentstack.deploy.completed` telemetry.
 - `pnpm run provider:convex:preview` prints a Convex command plan without running provider mutations. Generated projects include the Convex package so `pnpm exec convex` resolves locally. Preview planning requires `CONVEX_DEPLOY_KEY`, plans `pnpm exec convex deploy --preview-name <app-slug>-preview`, labels env values as coming from `.agentstack/env-values.json`, and leaves preview env commands scoped to `convex env --deployment <preview-deployment-name>` until the preview deployment exists.
+- `pnpm run provider:clerk:preview` prints a Clerk command plan without running provider mutations. Generated projects include the Clerk CLI package so `pnpm exec clerk` resolves locally. Preview planning includes `clerk init -y`, `clerk doctor --mode agent`, `clerk env pull --mode agent`, and `clerk config pull --mode agent`.
 - `pnpm run provider:vercel:preview` prints a Vercel command plan without running provider mutations. Generated projects include the Vercel package so `pnpm exec vercel` resolves locally. Preview planning requires `VERCEL_TOKEN`, requires a linked project from `vercel link` or `.vercel/project.json`, plans `pnpm exec vercel deploy --target=preview`, and labels env values as coming from `.agentstack/env-values.json`.
+- `pnpm run provider:eas:preview` prints an EAS command plan without running provider mutations. Generated projects include `eas-cli` so `pnpm exec eas` resolves locally. Preview planning requires `EXPO_TOKEN`, plans `eas project:init --non-interactive`, `eas env:list --environment preview`, `eas build -p all -e preview --json --non-interactive`, and redacted EAS env create/update/delete commands.
 - `pnpm run prod:prepare` checks production release readiness and reports repair commands before provision or deploy work.
 - `pnpm run prod:provision` plans production local-cloud state without writing state.
 - `pnpm run prod:provision:apply` applies local production state.
@@ -128,7 +138,9 @@ agentstack.event.added
 - `pnpm run prod:deploy` plans the local production deploy rehearsal without writing a deployment artifact.
 - `pnpm run prod:deploy:apply` applies the local production deployment artifact only and requires explicit production confirmation through the generated script.
 - `pnpm run provider:convex:production` prints a Convex production command plan without running provider mutations. It requires `CONVEX_DEPLOY_KEY`, plans `pnpm exec convex deploy`, scopes env commands to production, and marks production confirmation as required for a future provider apply slice.
+- `pnpm run provider:clerk:production` prints a Clerk production command plan without running provider mutations. It requires `CLERK_SECRET_KEY`, includes the same Clerk inspection commands plus `clerk deploy --mode agent`, and marks production confirmation as required for a future provider apply slice.
 - `pnpm run provider:vercel:production` prints a Vercel production command plan without running provider mutations. It requires `VERCEL_TOKEN`, requires the linked Vercel project, plans `pnpm exec vercel --prod`, and marks production confirmation as required for a future provider apply slice.
+- `pnpm run provider:eas:production` prints an EAS production command plan without running provider mutations. It requires `EXPO_TOKEN`, plans store-distribution EAS builds with production confirmation, and leaves app-store submission as future provider coverage.
 - `pnpm run mobile:build:preview` plans the local mobile/EAS preview build rehearsal without writing `.agentstack/builds/mobile-preview.json`.
 - `pnpm run mobile:build:preview:apply` applies the local mobile build rehearsal, writes `.agentstack/builds/mobile-preview.json`, and records `agentstack.mobile.build.completed` telemetry.
 - `pnpm run observe:timeline` queries redacted local command telemetry.

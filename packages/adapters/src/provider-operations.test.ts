@@ -73,7 +73,7 @@ describe("provider operations", () => {
     expect(providerAdapterDefinitions.clerk.realAdapterStatus).toBe("command-plan");
     expect(providerAdapterDefinitions.convex.realAdapterStatus).toBe("command-plan");
     expect(providerAdapterDefinitions.vercel.realAdapterStatus).toBe("command-plan");
-    expect(providerAdapterDefinitions.eas.realAdapterStatus).toBe("contract-only");
+    expect(providerAdapterDefinitions.eas.realAdapterStatus).toBe("command-plan");
     expect(providerAdapterDefinitions.clerk.capabilities).toEqual(
       expect.arrayContaining([
         "service.lifecycle",

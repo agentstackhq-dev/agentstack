@@ -188,7 +188,7 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("Environment: preview");
     expect(output.join("\n")).toContain("Generated anchors:");
     expect(output.join("\n")).toContain(
-      "Provider adapters: clerk:command-plan,convex:command-plan,vercel:command-plan,eas:contract-only"
+      "Provider adapters: clerk:command-plan,convex:command-plan,vercel:command-plan,eas:command-plan"
     );
     expect(output.join("\n")).toContain("Provider operations: none");
     expect(output.join("\n")).toContain("Cloud missing: none");
@@ -203,7 +203,7 @@ describe("runAgentstack", () => {
     expect(code).toBe(0);
     expect(output).toContain("WARN inspect acme-crm");
     expect(output.join("\n")).toContain(
-      "Provider adapters: clerk:command-plan,convex:command-plan,vercel:command-plan,eas:contract-only"
+      "Provider adapters: clerk:command-plan,convex:command-plan,vercel:command-plan,eas:command-plan"
     );
     expect(output.join("\n")).toContain("preview.clerk.service.link");
     expect(output.join("\n")).toContain("preview.convex.service.link");
@@ -1260,6 +1260,51 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("- web.deploy [requires-confirmation] pnpm exec vercel --prod");
   });
 
+  it("prints redacted EAS provider command plans", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.environments = ["preview"];
+    manifest.surfaces = ["mobile"];
+    manifest.env.custom.EXPO_PUBLIC_API_URL = {
+      surfaces: ["mobile"],
+      environments: ["preview"],
+      required: true,
+      secret: false
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    await writeLocalEnvValues({
+      preview: { mobile: { EXPO_PUBLIC_API_URL: "https://api.example.test" } }
+    });
+
+    const code = await runAgentstack(["provider", "plan", "--service", "eas", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PLAN provider eas preview");
+    expect(output.join("\n")).toContain("Target: preview");
+    expect(output.join("\n")).toContain("Required env: EXPO_TOKEN");
+    expect(output.join("\n")).toContain("pnpm exec eas project:init --non-interactive");
+    expect(output.join("\n")).toContain("pnpm exec eas env:list --environment preview");
+    expect(output.join("\n")).toContain("pnpm exec eas build -p all -e preview --json --non-interactive");
+    expect(output.join("\n")).toContain("EXPO_PUBLIC_API_URL: <value from .agentstack/env-values.json>");
+    expect(output.join("\n")).not.toContain("https://api.example.test");
+  });
+
+  it("prints explicit confirmation requirements for production EAS provider plans", async () => {
+    const code = await runAgentstack(["provider", "plan", "--service", "eas", "--env", "production"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PLAN provider eas production");
+    expect(output.join("\n")).toContain("Requires confirmation: yes");
+    expect(output.join("\n")).toContain(
+      "- mobile.build [requires-confirmation] pnpm exec eas build -p all -e production --json --non-interactive"
+    );
+  });
+
   it("prints redacted Clerk provider command plans", async () => {
     const manifest = createDefaultManifest("acme-crm");
     manifest.environments = ["preview"];
@@ -1306,7 +1351,7 @@ describe("runAgentstack", () => {
   });
 
   it("rejects provider plan for unsupported services", async () => {
-    const code = await runAgentstack(["provider", "plan", "--service", "eas", "--env", "preview"], {
+    const code = await runAgentstack(["provider", "plan", "--service", "railway", "--env", "preview"], {
       cwd: dir,
       write: (line) => output.push(line)
     });

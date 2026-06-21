@@ -13,7 +13,7 @@ agentstack env set --env preview --surface convex --name STRIPE_MODE --value san
 
 Use `agentstack env inspect --env preview` or `pnpm run env:inspect` to confirm whether declared bindings are present without exposing secret values.
 
-Use `agentstack inspect --env preview` or `pnpm run inspect` to see provider adapter contract status and pending provider operation IDs. `contract-only` means the provider boundary is normalized, but mutations are still local-cloud rehearsal here. `clerk:command-plan`, `convex:command-plan`, and `vercel:command-plan` mean Agentstack can plan current provider CLI command shapes without executing them. Operation IDs are stable and redacted; env operations include surface scope and variable names only, never values or hashes. An `env.set` operation can appear before a local value is available; sync remains the actionability gate.
+Use `agentstack inspect --env preview` or `pnpm run inspect` to see provider adapter contract status and pending provider operation IDs. `contract-only` means the provider boundary is normalized, but mutations are still local-cloud rehearsal here. `clerk:command-plan`, `convex:command-plan`, `vercel:command-plan`, and `eas:command-plan` mean Agentstack can plan current provider CLI command shapes without executing them. Operation IDs are stable and redacted; env operations include surface scope and variable names only, never values or hashes. An `env.set` operation can appear before a local value is available; sync remains the actionability gate.
 
 Missing `.agentstack/env-values.json` is treated as an empty value set. Invalid JSON or non-string values fail `validate` and `validate:cloud`.
 
@@ -31,8 +31,14 @@ Use `pnpm run provider:vercel:preview` to print real Vercel preview commands wit
 
 Use `pnpm run provider:vercel:production` to print real Vercel production commands without running provider mutations. Production planning requires `VERCEL_TOKEN`, requires the same linked Vercel project, prints `pnpm exec vercel --prod`, and marks production confirmation as required for the future provider apply slice.
 
+Use `pnpm run provider:eas:preview` to print real EAS preview commands without running provider mutations. Generated projects include `eas-cli` so `pnpm exec eas` resolves locally. Preview planning requires `EXPO_TOKEN`, prints `pnpm exec eas project:init --non-interactive`, `pnpm exec eas env:list --environment preview`, and `pnpm exec eas build -p all -e preview --json --non-interactive`.
+
+Use `pnpm run provider:eas:production` to print real EAS production commands without running provider mutations. Production planning requires `EXPO_TOKEN`, prints the production EAS env/build command plan, and marks production confirmation as required for the future provider apply slice. App-store submission is future provider coverage and is not automated by this plan.
+
 Provider command output is redacted. Env add/update/remove command plans identify variable names and whether input comes from `.agentstack/env-values.json`; Clerk env pull plans identify values as coming from Clerk Dashboard or `clerk env pull`. They do not print raw values, hashes, or secrets. Vercel env plans map missing values to `pnpm exec vercel env add`, drifted values to `pnpm exec vercel env update`, and stale values to `pnpm exec vercel env rm`.
+
+EAS env plans map missing mobile values to `pnpm exec eas env:create`, drifted values to `pnpm exec eas env:update`, and stale values to `pnpm exec eas env:delete`. Non-secret Agentstack values use EAS `plaintext` visibility; secret values use `secret` visibility. Mobile env values for EAS Build must be present in EAS server env storage, not only in local CI settings or `.env` files.
 
 Clerk publishable keys, `CLERK_SECRET_KEY`, and `CLERK_WEBHOOK_SIGNING_SECRET` stay provider-owned. Synchronize them through the Clerk command plan and dashboard review rather than committing generated source changes that contain key material.
 
-`validate --cloud --env <env>` checks linked services and provider env resource presence or drift against local-cloud state. Clerk, Convex, and Vercel command planning are real-provider command surfaces, but provider mutation is still intentionally manual. Real EAS adapters will implement the same operation kinds later.
+`validate --cloud --env <env>` checks linked services and provider env resource presence or drift against local-cloud state. Clerk, Convex, Vercel, and EAS command planning are real-provider command surfaces, but provider mutation is still intentionally manual.
