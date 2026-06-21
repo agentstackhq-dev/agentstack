@@ -14,6 +14,7 @@ Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI rou
 
 ## Recent Completed Commits
 
+- `610bde5` docs: record structured vercel evidence checkpoint.
 - `4709145` fix: parse vercel preview evidence structurally.
 - `dec24b2` fix: require structured vercel preview evidence.
 - `d7aa7e5` fix: constrain live inventory identity facts.
@@ -120,15 +121,15 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 
 ## Last Known Verification Evidence
 
-Most recent worker verification for the Vercel environment-column evidence follow-up:
+Most recent final orchestrator verification after `610bde5`:
 
 - `pnpm vitest run packages/adapters/src/provider-control-plane.test.ts packages/adapters/src/provider-executor.test.ts packages/adapters/src/vercel.test.ts packages/adapters/src/eas.test.ts packages/cli/src/run.test.ts` passed: 5 files / 196 tests.
 - `pnpm typecheck` passed.
 - `pnpm test` passed: 27 files / 362 tests.
-- `diff -ru templates/b2b-saas/docs/agentstack packages/create-agent-stack/templates/b2b-saas/docs/agentstack` passed with no output.
-- `git diff --check` passed with no output.
-- `git diff -- docs/provider-resource-ledger.md` passed with no output.
-- `git status --short --branch` showed only the intended follow-up edits before commit.
+- `diff -ru templates/b2b-saas/docs/agentstack packages/create-agent-stack/templates/b2b-saas/docs/agentstack && git diff --check` passed with no output.
+- `git status --short --branch` showed only `## agentstack-prototype`.
+- `git diff -- docs/provider-resource-ledger.md` was empty.
+- Re-review passed all parser/code checks after `4709145`; the only remaining issue was progress commit-list omission, which `610bde5` addressed.
 
 ## Worktree State Expectation
 
