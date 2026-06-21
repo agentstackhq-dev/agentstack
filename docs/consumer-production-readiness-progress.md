@@ -14,6 +14,7 @@ Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI rou
 
 ## Recent Completed Commits
 
+- `b864bc8` feat: explain missing live identity proof.
 - `d263de9` docs: record quality validation checkpoint.
 - `3c27690` feat: add truthful local quality validation.
 - `bb4badb` docs: record live link confirmation checkpoint.
