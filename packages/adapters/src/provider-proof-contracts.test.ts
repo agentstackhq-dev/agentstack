@@ -510,6 +510,48 @@ describe("provider proof contracts", () => {
     });
   });
 
+  it("uses Vercel candidates to remove only project-link and environment-scope missing labels", () => {
+    const result = evaluateProviderIdentityCandidateProof("vercel", [
+      {
+        service: "vercel",
+        environment: "preview",
+        commandKind: "env.list",
+        status: "success",
+        exitCode: 0,
+        durationMs: 5,
+        stdoutSummary: "<redacted provider stdout: 2 lines, 90 bytes>",
+        stderrSummary: "",
+        stdoutLines: 2,
+        stderrLines: 0,
+        stdoutBytes: 90,
+        stderrBytes: 0,
+        outputRedacted: true,
+        identityCandidates: {
+          kind: "provider-identity-candidates",
+          evaluator: "provider-specific-identity-candidate-parser",
+          labels: ["provider-environment-scope", "provider-project-link-proof"]
+        }
+      }
+    ]);
+
+    expect(result).toEqual({
+      proof: "ambiguous",
+      evaluator: "provider-specific-identity-candidate-parser",
+      labels: ["provider-environment-scope", "provider-project-link-proof"],
+      missing: [
+        "provider-specific-identity-parser",
+        "stable-provider-identity",
+        "ledger-comparable-identity",
+        "manifest-resource-name-match",
+        "ledger-external-id-match",
+        "provider-owner-identity",
+        "provider-resource-id"
+      ]
+    });
+    expect(result.missing).not.toContain("provider-project-link-proof");
+    expect(result.missing).not.toContain("provider-environment-scope");
+  });
+
   it("keeps identity candidates unavailable for failed or empty read results", () => {
     expect(evaluateProviderIdentityCandidateProof("clerk", [])).toEqual({
       proof: "unavailable",

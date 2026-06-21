@@ -263,6 +263,14 @@ function summarizeMissingIdentityProof(
     return ["successful-live-read"];
   }
 
+  if (exactMissing.length === 0) {
+    return [];
+  }
+
+  if (exactMissing.some((label) => !candidateMissing.includes(label))) {
+    return candidateMissing;
+  }
+
   return candidateMissing.length < exactMissing.length ? candidateMissing : exactMissing;
 }
 

@@ -1,9 +1,13 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { EnvironmentName } from "@agentstack/core";
 
 import {
   createProviderExecutionResult,
   type ProviderCommandExecutor,
   type ProviderExecutionResult,
+  type ProviderIdentityCandidateLabel,
+  type ProviderIdentityCandidatesArtifact,
   type ProviderLiveIdentityFacts
 } from "./provider-executor.js";
 import type { ProviderOperation } from "./provider-operations.js";
@@ -144,6 +148,13 @@ export async function inspectVercelPreviewReadOnly(
       timeoutMs: options.timeoutMs
     });
 
+    const liveIdentityFacts = parseVercelPreviewEnvListFacts(result.stdout, result.exitCode);
+    const identityCandidates = await parseVercelPreviewIdentityCandidates({
+      cwd: options.cwd,
+      exitCode: result.exitCode,
+      liveIdentityFacts
+    });
+
     results.push(
       createProviderExecutionResult({
         service: "vercel",
@@ -152,7 +163,8 @@ export async function inspectVercelPreviewReadOnly(
         command,
         result,
         secretValues: options.secretValues,
-        liveIdentityFacts: parseVercelPreviewEnvListFacts(result.stdout, result.exitCode)
+        liveIdentityFacts,
+        identityCandidates
       })
     );
   }
@@ -176,6 +188,68 @@ function parseVercelPreviewEnvListFacts(stdout: string, exitCode: number): Provi
     identityConfidence: "partial",
     facts: ["expected-env-names", "preview-environment", "env-list-read"]
   };
+}
+
+async function parseVercelPreviewIdentityCandidates(input: {
+  cwd: string | undefined;
+  exitCode: number;
+  liveIdentityFacts: ProviderLiveIdentityFacts | undefined;
+}): Promise<ProviderIdentityCandidatesArtifact | undefined> {
+  if (input.exitCode !== 0) {
+    return undefined;
+  }
+
+  const labels: ProviderIdentityCandidateLabel[] = [];
+  if (hasVercelPreviewEnvironmentScope(input.liveIdentityFacts)) {
+    labels.push("provider-environment-scope");
+  }
+  if (await hasVercelLocalProjectLink(input.cwd)) {
+    labels.push("provider-project-link-proof");
+  }
+
+  return labels.length > 0
+    ? {
+        kind: "provider-identity-candidates",
+        evaluator: "provider-specific-identity-candidate-parser",
+        labels
+      }
+    : undefined;
+}
+
+function hasVercelPreviewEnvironmentScope(facts: ProviderLiveIdentityFacts | undefined): boolean {
+  if (facts?.identityConfidence !== "partial") {
+    return false;
+  }
+  const labels = new Set(facts.facts);
+  return (
+    labels.has("env-list-read") &&
+    labels.has("expected-env-names") &&
+    labels.has("preview-environment")
+  );
+}
+
+async function hasVercelLocalProjectLink(cwd: string | undefined): Promise<boolean> {
+  if (!cwd) {
+    return false;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(await readFile(join(cwd, ".vercel", "project.json"), "utf8"));
+  } catch {
+    return false;
+  }
+
+  if (!parsed || typeof parsed !== "object") {
+    return false;
+  }
+
+  const project = parsed as { projectId?: unknown; orgId?: unknown };
+  return isNonEmptyString(project.projectId) && isNonEmptyString(project.orgId);
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 function parseVercelEnvListRows(stdout: string): Array<{ name: string; environments: string[] }> {

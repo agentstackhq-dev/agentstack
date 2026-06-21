@@ -1,3 +1,6 @@
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -173,6 +176,51 @@ describe("vercel command planner", () => {
     expect(JSON.stringify(results)).not.toContain("https://preview.example.test");
   });
 
+  it("attaches sanitized preview identity candidates from env-list proof and local project link", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "agentstack-vercel-candidates-"));
+    try {
+      await mkdir(join(dir, ".vercel"), { recursive: true });
+      await writeFile(
+        join(dir, ".vercel", "project.json"),
+        JSON.stringify({
+          projectId: "prj_raw_project_secret",
+          orgId: "org_raw_owner_secret"
+        }),
+        "utf8"
+      );
+
+      const results = await inspectVercelPreviewReadOnly({
+        environment: "preview",
+        cwd: dir,
+        executor: {
+          async execute() {
+            return {
+              exitCode: 0,
+              stdout: [
+                "Name Value Environment",
+                "NEXT_PUBLIC_APP_URL https://preview-secret.example.test preview"
+              ].join("\n"),
+              stderr: "",
+              durationMs: 9
+            };
+          }
+        }
+      });
+
+      expect(results[0]?.identityCandidates).toEqual({
+        kind: "provider-identity-candidates",
+        evaluator: "provider-specific-identity-candidate-parser",
+        labels: ["provider-environment-scope", "provider-project-link-proof"]
+      });
+      expect(results[0]?.exactIdentityProof).toBeUndefined();
+      expect(JSON.stringify(results)).not.toContain("prj_raw_project_secret");
+      expect(JSON.stringify(results)).not.toContain("org_raw_owner_secret");
+      expect(JSON.stringify(results)).not.toContain("https://preview-secret.example.test");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("keeps Vercel inspect ambiguous when env-list output has no expected env proof", async () => {
     const results = await inspectVercelPreviewReadOnly({
       environment: "preview",
@@ -266,6 +314,52 @@ describe("vercel command planner", () => {
     expect(results[0]?.liveIdentityFacts).toBeUndefined();
     expect(results[0]?.stdoutSummary).not.toContain("NEXT_PUBLIC_APP_URL");
     expect(results[0]?.stdoutSummary).not.toContain("https://secret.example.test");
+  });
+
+  it("does not attach Vercel identity candidates for missing project links or loose env-list output", async () => {
+    const missingLinkDir = await mkdtemp(join(tmpdir(), "agentstack-vercel-missing-link-"));
+    const malformedLinkDir = await mkdtemp(join(tmpdir(), "agentstack-vercel-malformed-link-"));
+    try {
+      await mkdir(join(malformedLinkDir, ".vercel"), { recursive: true });
+      await writeFile(join(malformedLinkDir, ".vercel", "project.json"), "{ invalid json", "utf8");
+
+      const missingLinkResults = await inspectVercelPreviewReadOnly({
+        environment: "preview",
+        cwd: missingLinkDir,
+        executor: {
+          async execute() {
+            return {
+              exitCode: 0,
+              stdout: ["Name Environment", "NEXT_PUBLIC_APP_URL preview"].join("\n"),
+              stderr: "",
+              durationMs: 1
+            };
+          }
+        }
+      });
+      const malformedLinkResults = await inspectVercelPreviewReadOnly({
+        environment: "preview",
+        cwd: malformedLinkDir,
+        executor: {
+          async execute() {
+            return {
+              exitCode: 0,
+              stdout: "preview has NEXT_PUBLIC_APP_URL somewhere",
+              stderr: "",
+              durationMs: 1
+            };
+          }
+        }
+      });
+
+      expect(missingLinkResults[0]?.identityCandidates?.labels).toEqual(["provider-environment-scope"]);
+      expect(JSON.stringify(missingLinkResults)).not.toContain("provider-project-link-proof");
+      expect(malformedLinkResults[0]?.identityCandidates).toBeUndefined();
+      expect(JSON.stringify(malformedLinkResults)).not.toContain("provider-environment-scope");
+    } finally {
+      await rm(missingLinkDir, { recursive: true, force: true });
+      await rm(malformedLinkDir, { recursive: true, force: true });
+    }
   });
 
   it("requires Vercel expected env name and preview environment in the same parsed row", async () => {
