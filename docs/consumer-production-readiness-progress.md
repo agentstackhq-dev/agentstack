@@ -14,6 +14,8 @@ Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI rou
 
 ## Recent Completed Commits
 
+- `69fc31e` feat: add clerk config proof evidence.
+- `45464e4` docs: align vercel proof readiness state.
 - `5136745` feat: add vercel exact project proof.
 - `66bfb77` docs: record live validation proof checkpoint.
 - `73f7a30` feat: add live validation proof summaries.
