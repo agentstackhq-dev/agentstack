@@ -47,7 +47,7 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 ## Latest Truth
 
 - Provider inventory defaults to local-control-plane only. It derives rows from the manifest, `.agentstack/provider-links.json`, and matching provider ledger rows. Local inventory writes no files, does not call provider CLIs, and does not treat `.agentstack/local-cloud.json` as external provider truth.
-- Live provider inventory is explicit with `--source live` or `--live`. It starts from local inventory, calls only existing read-only inspect primitives, prints `Evidence: live-read-inventory`, `Mutation: none`, command/result counts, and redacted live-read fields. Provider command success is treated as read evidence, not exact existence proof; rows are `unknown`/`ambiguous` unless a future provider-specific parser can prove identity. Vercel and EAS production live inventory fail before executor use.
+- Live provider inventory is explicit with `--source live` or `--live`. It starts from local inventory, calls only existing read-only inspect primitives, prints `Evidence: live-read-inventory`, `Mutation: none`, command/result counts, and redacted live-read fields. Provider command success is treated as read evidence, not exact existence proof; rows are `unknown`/`ambiguous` unless a future provider-specific parser can prove identity. Provider read failures print `FAIL provider inventory <service> <env>` and return nonzero while preserving summary and row diagnostics. Vercel and EAS production live inventory fail before executor use.
 - Provider link is local state only. It requires a matching `planned` or `active` ledger row and writes only `.agentstack/provider-links.json`. It does not mutate providers, telemetry, local-cloud state, or `docs/provider-resource-ledger.md`.
 - Provider adopt is print-only. It prints a redacted ledger proposal and writes no files.
 - Provider plan prints `Evidence: provider-command-plan`.
@@ -76,6 +76,7 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 - Reused only existing read-only inspect primitives: Clerk read-only inspect, Convex read-only inspect, Vercel preview read-only inspect, and EAS preview read-only inspect.
 - Kept Vercel and EAS production live inventory unsupported before executor use.
 - Updated generated Agentstack docs in both template mirrors to describe local default inventory and explicit bounded live inventory.
+- Corrected live inventory failure semantics so failed provider read results now print `FAIL provider inventory <service> <env>` and return nonzero while keeping redacted evidence, summary counts, and row diagnostics visible.
 
 ## Current Blockers And Gaps
 
@@ -107,13 +108,12 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 
 ## Last Known Verification Evidence
 
-Most recent final verification from this live inventory update:
+Most recent final verification from this live inventory failure-semantics fix:
 
-- `pnpm vitest run packages/adapters/src/provider-control-plane.test.ts packages/cli/src/run.test.ts packages/create-agent-stack/src/generate.test.ts` passed: 3 files / 179 tests.
+- `pnpm vitest run packages/cli/src/run.test.ts -t "provider inventory|live inventory|live-read-inventory"` passed: 7 selected tests.
+- `pnpm vitest run packages/adapters/src/provider-control-plane.test.ts packages/cli/src/run.test.ts` passed: 2 files / 170 tests.
 - `pnpm typecheck` passed.
-- `pnpm test` passed: 27 files / 350 tests.
-- `diff -ru templates/b2b-saas/docs/agentstack packages/create-agent-stack/templates/b2b-saas/docs/agentstack` passed.
-- `diff -u templates/b2b-saas/package.json packages/create-agent-stack/templates/b2b-saas/package.json` passed.
+- `pnpm test` passed: 27 files / 351 tests.
 - `git diff --check` passed.
 - `git diff -- docs/provider-resource-ledger.md` returned no diff.
 

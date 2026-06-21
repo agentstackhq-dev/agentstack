@@ -1301,7 +1301,8 @@ async function providerInventoryCommand(argv: string[], io: RunIo): Promise<numb
     inventory = await createLiveProviderInventory({ localInventory: inventory, readResults: liveResults });
   }
 
-  io.write(`PASS provider inventory ${service} ${environment}`);
+  const hasFailedLiveRead = (inventory.liveReadSummary?.failed ?? 0) > 0;
+  io.write(`${hasFailedLiveRead ? "FAIL" : "PASS"} provider inventory ${service} ${environment}`);
   io.write(`Evidence: ${inventory.evidence}`);
   io.write("Mutation: none");
   if (inventory.liveReadSummary) {
@@ -1311,7 +1312,7 @@ async function providerInventoryCommand(argv: string[], io: RunIo): Promise<numb
     io.write(`Failed: ${inventory.liveReadSummary.failed}`);
   }
   inventory.rows.forEach((row) => io.write(formatProviderInventoryRow(row)));
-  return 0;
+  return hasFailedLiveRead ? 1 : 0;
 }
 
 async function providerLinkCommand(argv: string[], io: RunIo): Promise<number> {

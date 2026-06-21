@@ -2235,6 +2235,35 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).not.toContain("secret-eas-token");
   });
 
+  it("fails live provider inventory when a read-only provider command fails", async () => {
+    const code = await runAgentstack(["provider", "inventory", "--service", "clerk", "--env", "preview", "--source", "live"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: {
+        async execute(command, args) {
+          providerExecutions.push({ command, args });
+          return {
+            exitCode: 1,
+            stdout: "",
+            stderr: "unauthorized CLERK_SECRET_KEY=sk_live_secret_should_not_leak",
+            durationMs: 12
+          };
+        }
+      }
+    });
+
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL provider inventory clerk preview");
+    expect(output).not.toContain("PASS provider inventory clerk preview");
+    expect(output).toContain("Evidence: live-read-inventory");
+    expect(output).toContain("Mutation: none");
+    expect(output.join("\n")).toContain("Commands: 3");
+    expect(output.join("\n")).toContain("Results: 3");
+    expect(output.join("\n")).toContain("Failed: 3");
+    expect(output.join("\n")).toContain("live=auth-failed identity=ambiguous permission=read-failed drift=unknown");
+    expect(output.join("\n")).not.toContain("sk_live_secret_should_not_leak");
+  });
+
   it("rejects unsupported provider inventory source values before executor use", async () => {
     const code = await runAgentstack(["provider", "inventory", "--service", "convex", "--env", "preview", "--source", "remote"], {
       cwd: dir,
