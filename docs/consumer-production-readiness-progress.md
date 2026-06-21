@@ -6,7 +6,7 @@ This file is the canonical resume and progress artifact for Agentstack consumer 
 
 ## Current State
 
-Current phase: Wave 2 provider inventory/link/adopt checkpoint is committed through `ee12b8b` (`Make provider inventory and link telemetry-free`) with follow-up docs/template clarifications in progress.
+Current phase: Wave 2 provider inventory/link/adopt checkpoint and follow-up docs/template clarifications are committed through `07f23d8` (`docs: refresh consumer production readiness plan`).
 
 Overall status: not complete. Agentstack is about 38-40% of the way toward consumer production readiness from a consumer perspective. The current product state is a local command-contract and rehearsal prototype with credible local telemetry and provider boundaries, not a consumer-ready production framework.
 
@@ -14,6 +14,7 @@ Agentstack now has bootstrap generation, `agentstack.config.json`, broad CLI rou
 
 ## Recent Completed Commits
 
+- `07f23d8` docs: refresh consumer production readiness plan.
 - `ee12b8b` Make provider inventory and link telemetry-free.
 - `2ae435a` docs: expose provider inventory link workflows.
 - `e1a51c4` feat: add provider inventory link adopt commands.
@@ -55,7 +56,7 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 - Clarified what exists now versus what is still missing for a consumer path from `npx create-agent-stack` to real production environments.
 - Documented strict provider-resource tracking discipline and cleanup flow.
 - Re-prioritized the finish plan around provider integration gaps first, then truthful validation, runtime completeness, library/UI completeness, preview evidence, production/hosted platform, and public release hardening.
-- Preserved the current uncommitted docs/template clarifications that provider inventory writes no files, provider link writes only `.agentstack/provider-links.json`, and provider adopt writes no files.
+- Committed and aligned docs/template clarifications that provider inventory writes no files, provider link writes only `.agentstack/provider-links.json`, and provider adopt writes no files.
 
 ## Current Blockers And Gaps
 
@@ -87,31 +88,14 @@ No real external provider resources are recorded in the ledger. No real Clerk, C
 
 ## Last Known Verification Evidence
 
-Most recent full framework verification before this docs refresh:
+Most recent final verification after commit `07f23d8` and this progress checkpoint:
 
-- `pnpm vitest run packages/adapters/src/provider-ledger.test.ts packages/cli/src/run.test.ts packages/create-agent-stack/src/generate.test.ts` passed: 3 files / 159 tests.
-- `pnpm typecheck` passed.
-- `pnpm test` passed: 26 files / 323 tests.
 - `git diff --check` passed.
-- `diff -ru templates/b2b-saas/docs packages/create-agent-stack/templates/b2b-saas/docs` passed.
+- `diff -ru templates/b2b-saas/docs/agentstack packages/create-agent-stack/templates/b2b-saas/docs/agentstack` passed.
 - `git diff -- docs/provider-resource-ledger.md` returned no diff.
-
-Required verification for this documentation refresh:
-
-- `git diff --check`.
-- `diff -ru templates/b2b-saas/docs/agentstack packages/create-agent-stack/templates/b2b-saas/docs/agentstack`.
-- `git diff -- docs/provider-resource-ledger.md`.
+- `pnpm typecheck` passed.
+- `pnpm test` passed: 27 files / 339 tests.
 
 ## Worktree State Expectation
 
-After this documentation refresh, expected uncommitted work should include only:
-
-- `docs/consumer-production-readiness-roadmap.md`
-- `docs/consumer-production-readiness-progress.md`
-- `docs/superpowers/plans/2026-06-21-agentstack-wave-2-provider-inventory-link-adopt.md`
-- `templates/b2b-saas/docs/agentstack/environments.md`
-- `templates/b2b-saas/docs/agentstack/preview.md`
-- `templates/b2b-saas/docs/agentstack/workflows.md`
-- corresponding package-local template mirrors under `packages/create-agent-stack/templates/b2b-saas/docs/agentstack/`
-
-`docs/provider-resource-ledger.md` should have no diff.
+After commit `07f23d8`, the expected worktree state is clean. `docs/provider-resource-ledger.md` should have no diff.
