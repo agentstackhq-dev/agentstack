@@ -5242,36 +5242,128 @@ describe("runAgentstack", () => {
     });
   });
 
-  it("rejects live Vercel and EAS production link before executor use", async () => {
-    for (const service of ["vercel", "eas"] as const) {
-      output = [];
-      providerExecutions = [];
-      const code = await runAgentstack(
-        [
-          "provider",
-          "link",
-          "--service",
-          service,
-          "--env",
-          "production",
-          "--resource-type",
-          "project",
-          "--name",
-          "acme-crm",
-          "--source",
-          "live"
-        ],
-        {
-          cwd: dir,
-          write: (line) => output.push(line),
-          providerExecutor: createMockProviderExecutor("live-read should not run")
-        }
-      );
+  it("runs Vercel production link live confirmation as read-only refusal while EAS stays blocked", async () => {
+    await writeVercelProductionEnvManifest();
+    await writeLocalEnvValues({
+      production: { web: { NEXT_PUBLIC_APP_URL: "https://local-link-secret.example.test" } }
+    });
+    const rowId = "row-secret-vercel-production-link";
+    const externalId = "prj_live_vercel_link_secret";
+    const owner = "team_live_vercel_link_secret";
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: rowId,
+        provider: "vercel",
+        resourceType: "project",
+        environment: "production",
+        name: "acme-crm",
+        status: "active",
+        owner,
+        externalId,
+        cleanupCommand: "delete through Vercel dashboard",
+        evidence: "docs/evidence/vercel-production.md"
+      })
+    ]);
+    const ledgerBefore = await readFile(join(dir, "docs", "provider-resource-ledger.md"), "utf8");
 
-      expect(code).toBe(1);
-      expect(output.join("\n")).toContain("FAIL provider.link.unsupported");
-      expect(providerExecutions).toHaveLength(0);
-    }
+    const code = await runAgentstack(
+      [
+        "provider",
+        "link",
+        "--service",
+        "vercel",
+        "--env",
+        "production",
+        "--resource-type",
+        "project",
+        "--name",
+        "acme-crm",
+        "--source",
+        "live"
+      ],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: {
+          async execute(command, args, options) {
+            providerExecutions.push({ command, args, stdin: options.stdin });
+            return {
+              exitCode: 0,
+              stdout:
+                args.join(" ") === "exec vercel project ls --json"
+                  ? JSON.stringify([{ id: externalId, name: "acme-crm", accountId: owner }])
+                  : [
+                      "name value environments",
+                      "NEXT_PUBLIC_APP_URL https://provider-link-secret.example.test production"
+                    ].join("\n"),
+              stderr: "",
+              durationMs: 12
+            };
+          }
+        }
+      }
+    );
+
+    const rendered = output.join("\n");
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL provider.link.identity-ambiguous");
+    expect(output).toContain("Evidence: live-read-inventory");
+    expect(output).toContain("Local mutation: none");
+    expect(output).toContain("Provider mutation: none");
+    expect(output).toContain("Ledger mutation: none");
+    expect(rendered).toContain("Commands: 2");
+    expect(rendered).toContain("Results: 2");
+    expect(rendered).toContain("Succeeded: 2");
+    expect(rendered).toContain("facts=env-list-read,expected-env-names,production-environment");
+    expect(rendered).toContain(
+      "Identity proof requirements: ledger-comparable-identity,ledger-external-id-match,manifest-resource-name-match,provider-project-link-proof,provider-specific-identity-parser"
+    );
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec vercel env ls production",
+      "exec vercel project ls --json"
+    ]);
+    expect(providerExecutions.map((execution) => execution.args.join(" ")).join("\n")).not.toMatch(
+      /\b(deploy|add|update|remove|rm)\b/
+    );
+    expect(rendered).not.toContain("https://local-link-secret.example.test");
+    expect(rendered).not.toContain("provider-link-secret");
+    expect(rendered).not.toContain(rowId);
+    expect(rendered).not.toContain(externalId);
+    expect(rendered).not.toContain(owner);
+    await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await readFile(join(dir, "docs", "provider-resource-ledger.md"), "utf8")).toBe(ledgerBefore);
+
+    output = [];
+    providerExecutions = [];
+    const easCode = await runAgentstack(
+      [
+        "provider",
+        "link",
+        "--service",
+        "eas",
+        "--env",
+        "production",
+        "--resource-type",
+        "project",
+        "--name",
+        "acme-crm",
+        "--source",
+        "live"
+      ],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: createMockProviderExecutor("live-read should not run")
+      }
+    );
+
+    expect(easCode).toBe(1);
+    expect(output.join("\n")).toContain("FAIL provider.link.unsupported");
+    expect(providerExecutions).toHaveLength(0);
   });
 
   it("prints provider adopt proposals without mutating ledger, provider-links, telemetry, or leaking external ids", async () => {
@@ -5486,7 +5578,7 @@ describe("runAgentstack", () => {
     }
   });
 
-  it("rejects unsupported provider adopt source and live production Vercel/EAS before executor use", async () => {
+  it("rejects unsupported provider adopt source, reads Vercel production, and blocks EAS production", async () => {
     const unsupported = await runAgentstack(["provider", "adopt", "--service", "clerk", "--env", "preview", "--source", "remote"], {
       cwd: dir,
       write: (line) => output.push(line),
@@ -5506,18 +5598,77 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("FAIL provider.adopt.validation");
     expect(providerExecutions).toHaveLength(0);
 
-    for (const service of ["vercel", "eas"] as const) {
-      output = [];
-      providerExecutions = [];
-      const code = await runAgentstack(["provider", "adopt", "--service", service, "--env", "production", "--source", "live"], {
+    await writeVercelProductionEnvManifest();
+    await writeLocalEnvValues({
+      production: { web: { NEXT_PUBLIC_APP_URL: "https://local-adopt-secret.example.test" } }
+    });
+    output = [];
+    providerExecutions = [];
+    const externalId = "prj_live_vercel_adopt_secret";
+    const owner = "team_live_vercel_adopt_secret";
+    const vercelCode = await runAgentstack(
+      ["provider", "adopt", "--service", "vercel", "--env", "production", "--source", "live"],
+      {
         cwd: dir,
         write: (line) => output.push(line),
-        providerExecutor: createMockProviderExecutor("live-read should not run")
-      });
-      expect(code).toBe(1);
-      expect(output.join("\n")).toContain("FAIL provider.adopt.unsupported");
-      expect(providerExecutions).toHaveLength(0);
-    }
+        providerExecutor: {
+          async execute(command, args, options) {
+            providerExecutions.push({ command, args, stdin: options.stdin });
+            return {
+              exitCode: 0,
+              stdout:
+                args.join(" ") === "exec vercel project ls --json"
+                  ? JSON.stringify([{ id: externalId, name: "acme-crm", accountId: owner }])
+                  : ["name value environments", "NEXT_PUBLIC_APP_URL https://provider-adopt-secret.example.test production"].join("\n"),
+              stderr: "",
+              durationMs: 12
+            };
+          }
+        }
+      }
+    );
+    const rendered = output.join("\n");
+    expect(vercelCode).toBe(1);
+    expect(output).toContain("FAIL provider.adopt.identity-ambiguous");
+    expect(output).toContain("Evidence: live-read-inventory");
+    expect(output).toContain("Local mutation: none");
+    expect(output).toContain("Provider mutation: none");
+    expect(output).toContain("Ledger mutation: none");
+    expect(rendered).toContain("Commands: 2");
+    expect(rendered).toContain("Results: 2");
+    expect(rendered).toContain("Succeeded: 2");
+    expect(rendered).toContain("facts=env-list-read,expected-env-names,production-environment");
+    expect(rendered).toContain(
+      "Identity proof requirements: ledger-comparable-identity,ledger-external-id-match,manifest-resource-name-match,provider-project-link-proof,provider-specific-identity-parser"
+    );
+    expect(rendered).not.toContain("Provider ledger proposal");
+    expect(rendered).not.toContain("https://local-adopt-secret.example.test");
+    expect(rendered).not.toContain("provider-adopt-secret");
+    expect(rendered).not.toContain(externalId);
+    expect(rendered).not.toContain(owner);
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec vercel env ls production",
+      "exec vercel project ls --json"
+    ]);
+    expect(providerExecutions.map((execution) => execution.args.join(" ")).join("\n")).not.toMatch(
+      /\b(deploy|add|update|remove|rm)\b/
+    );
+    await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+
+    output = [];
+    providerExecutions = [];
+    const easCode = await runAgentstack(["provider", "adopt", "--service", "eas", "--env", "production", "--source", "live"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("live-read should not run")
+    });
+    expect(easCode).toBe(1);
+    expect(output.join("\n")).toContain("FAIL provider.adopt.unsupported");
+    expect(providerExecutions).toHaveLength(0);
   });
 
   it("rejects stale provider command aliases as unknown commands", async () => {
@@ -6919,6 +7070,20 @@ async function writeProviderEnvManifest(): Promise<void> {
     required: true,
     secret: true,
     providerTargets: convexPreviewTarget
+  };
+  await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+}
+
+async function writeVercelProductionEnvManifest(): Promise<void> {
+  const manifest = createDefaultManifest("acme-crm");
+  manifest.environments = ["production"];
+  manifest.surfaces = ["web"];
+  manifest.env.custom.NEXT_PUBLIC_APP_URL = {
+    surfaces: ["web"],
+    environments: ["production"],
+    required: true,
+    secret: false,
+    providerTargets: vercelProductionTarget
   };
   await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
 }

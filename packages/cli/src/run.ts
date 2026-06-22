@@ -1979,13 +1979,13 @@ async function providerLinkCommand(argv: string[], io: RunIo): Promise<number> {
   const resourceType = readRequiredStringOption(options["resource-type"], "resource-type", fix);
   const name = readRequiredStringOption(options.name, "name", fix);
 
-  if (source === "live" && (service === "vercel" || service === "eas") && environment !== "preview") {
+  if (source === "live" && service === "eas" && environment !== "preview") {
     io.write(
       formatDiagnostic({
         severity: "fail",
         code: "provider.link.unsupported",
         path: `${service}.${environment}`,
-        message: `${service === "vercel" ? "Vercel" : "EAS"} live link confirmation supports preview read-only inspect only.`,
+        message: "EAS live link confirmation supports preview read-only inspect only.",
         fix: `Run agentstack provider link --service ${service} --env preview --resource-type ${resourceType} --name ${name} --source live.`,
         blocks: ["provider link"]
       })
@@ -2079,13 +2079,13 @@ async function providerAdoptCommand(argv: string[], io: RunIo): Promise<number> 
   const environment = readProviderRuntimeEnvironmentOption(options.env, fix);
   const source = readProviderSourceOption(options.source, options.live, fix, "provider.adopt");
 
-  if (source === "live" && (service === "vercel" || service === "eas") && environment !== "preview") {
+  if (source === "live" && service === "eas" && environment !== "preview") {
     io.write(
       formatDiagnostic({
         severity: "fail",
         code: "provider.adopt.unsupported",
         path: `${service}.${environment}`,
-        message: `${service === "vercel" ? "Vercel" : "EAS"} live adopt confirmation supports preview read-only inspect only.`,
+        message: "EAS live adopt confirmation supports preview read-only inspect only.",
         fix: `Run agentstack provider adopt --service ${service} --env preview --source live.`,
         blocks: ["provider adopt"]
       })
