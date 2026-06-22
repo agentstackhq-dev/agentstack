@@ -1880,6 +1880,55 @@ function buildLiveValidationVercelExactProofContext(input: {
   };
 }
 
+function buildProviderAdoptExactProofContext(input: {
+  service: ProviderControlPlaneService;
+  environment: "preview" | "production";
+  manifest: AgentstackManifest;
+  resourceType: string | undefined;
+  name: string | undefined;
+  externalIdOrUrl: string | undefined;
+  ownerAccountOrProject: string | undefined;
+}): {
+  clerkExactProofContext?: ClerkExactProofContext;
+  vercelExactProofContext?: VercelExactProofContext;
+} {
+  if (
+    input.resourceType === undefined ||
+    input.name === undefined ||
+    input.externalIdOrUrl === undefined ||
+    input.ownerAccountOrProject === undefined
+  ) {
+    return {};
+  }
+
+  const manifestResource = expectedProviderProofResource(input.manifest, input.service, input.environment);
+  if (input.resourceType !== manifestResource.resourceType || input.name !== manifestResource.name) {
+    return {};
+  }
+
+  if (input.service === "clerk" && input.resourceType === "application") {
+    return {
+      clerkExactProofContext: {
+        expectedResourceName: input.name,
+        ledgerExternalIdOrUrl: input.externalIdOrUrl,
+        ledgerOwnerAccountOrProject: input.ownerAccountOrProject
+      }
+    };
+  }
+
+  if (input.service === "vercel" && input.resourceType === "project") {
+    return {
+      vercelExactProofContext: {
+        expectedResourceName: input.name,
+        ledgerExternalIdOrUrl: input.externalIdOrUrl,
+        ledgerOwnerAccountOrProject: input.ownerAccountOrProject
+      }
+    };
+  }
+
+  return {};
+}
+
 function writeLiveValidationProviderProofSummary(
   io: RunIo,
   service: ProviderControlPlaneService,
@@ -2028,6 +2077,10 @@ async function providerAdoptCommand(argv: string[], io: RunIo): Promise<number> 
   const service = readProviderControlPlaneServiceOption(options.service, fix);
   const environment = readProviderRuntimeEnvironmentOption(options.env, fix);
   const source = readProviderSourceOption(options.source, options.live, fix, "provider.adopt");
+  const adoptResourceType = readOptionalStringOption(options["resource-type"]);
+  const adoptName = readOptionalStringOption(options.name);
+  const adoptExternalIdOrUrl = readOptionalStringOption(options["external-id"]);
+  const adoptOwnerAccountOrProject = readOptionalStringOption(options.owner);
 
   const validation = await runLocalValidationGate(io.cwd);
   validation.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
@@ -2036,6 +2089,15 @@ async function providerAdoptCommand(argv: string[], io: RunIo): Promise<number> 
   }
 
   if (source === "live") {
+    const adoptExactProofContext = buildProviderAdoptExactProofContext({
+      service,
+      environment,
+      manifest: validation.context.manifest,
+      resourceType: adoptResourceType,
+      name: adoptName,
+      externalIdOrUrl: adoptExternalIdOrUrl,
+      ownerAccountOrProject: adoptOwnerAccountOrProject
+    });
     const confirmationRead = await readLiveInventoryForConfirmation({
       io,
       validation,
@@ -2044,13 +2106,14 @@ async function providerAdoptCommand(argv: string[], io: RunIo): Promise<number> 
       environment,
       failureCode: "provider.adopt.live-read",
       fix,
-      blocks: ["provider adopt"]
+      blocks: ["provider adopt"],
+      ...adoptExactProofContext
     });
     if (confirmationRead === undefined) {
       return 1;
     }
 
-    const { inventory } = confirmationRead;
+    const { inventory, liveResults } = confirmationRead;
     const confirmation = confirmLiveProviderInventoryIdentity(inventory);
     if (!confirmation.ok) {
       io.write(`FAIL provider.adopt.${confirmation.reason}`);
@@ -2058,6 +2121,14 @@ async function providerAdoptCommand(argv: string[], io: RunIo): Promise<number> 
       writeProviderIdentityProofRequirements(io, inventory);
       return 1;
     }
+
+    const exactIdentityDecision = evaluateProviderExactIdentityProof(service, liveResults);
+    const driftProof = evaluateProviderDriftProof(service, liveResults);
+    const liveCoherence = evaluateProviderLiveCoherenceProof(service, exactIdentityDecision, driftProof);
+    io.write(`FAIL provider.adopt.live-coherence-${liveCoherence.proof}`);
+    writeProviderConfirmationInventory(io, inventory);
+    writeProviderLiveCoherenceSummary(io, liveCoherence);
+    return 1;
   }
 
   const resourceType = readRequiredStringOption(options["resource-type"], "resource-type", fix);
@@ -2106,6 +2177,8 @@ async function readLiveInventoryForConfirmation(input: {
   failureCode: "provider.link.live-read" | "provider.adopt.live-read";
   fix: string;
   blocks: string[];
+  clerkExactProofContext?: ClerkExactProofContext;
+  vercelExactProofContext?: VercelExactProofContext;
 }): Promise<{ inventory: ProviderInventory; liveResults: ProviderExecutionResult[] } | undefined> {
   let inventory = await createProviderInventory({
     cwd: input.io.cwd,
@@ -2128,18 +2201,22 @@ async function readLiveInventoryForConfirmation(input: {
       executor: resolveProviderExecutor(input.io),
       cwd: input.io.cwd,
       secretValues,
-      clerkExactProofContext: buildLiveValidationClerkExactProofContext({
-        service: input.service,
-        environment: input.environment,
-        manifest: input.validation.context.manifest,
-        ledgerRows: input.ledgerRows
-      }),
-      vercelExactProofContext: buildLiveValidationVercelExactProofContext({
-        service: input.service,
-        environment: input.environment,
-        manifest: input.validation.context.manifest,
-        ledgerRows: input.ledgerRows
-      })
+      clerkExactProofContext:
+        input.clerkExactProofContext ??
+        buildLiveValidationClerkExactProofContext({
+          service: input.service,
+          environment: input.environment,
+          manifest: input.validation.context.manifest,
+          ledgerRows: input.ledgerRows
+        }),
+      vercelExactProofContext:
+        input.vercelExactProofContext ??
+        buildLiveValidationVercelExactProofContext({
+          service: input.service,
+          environment: input.environment,
+          manifest: input.validation.context.manifest,
+          ledgerRows: input.ledgerRows
+        })
     });
   } catch (error) {
     input.io.write(
@@ -4464,6 +4541,10 @@ function readRequiredStringOption(
   }
 
   throwMissingOption(flag, fix);
+}
+
+function readOptionalStringOption(value: string | boolean | undefined): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
 async function findExistingFeatureFiles(

@@ -236,7 +236,7 @@ node scripts/agentstack.mjs provider link --service convex --env preview --resou
 ```
 
 Link requires a matching `planned` or `active` row in `docs/provider-resource-ledger.md` and writes only `.agentstack/provider-links.json`. It does not mutate the root provider ledger, telemetry, local-cloud state, or provider resources.
-Use `--source live` to require the same ledger gate and then run only read-only live inventory/inspect before confirming. Current live evidence is partial or ambiguous only, so live link refuses with sanitized identity proof requirements and no local, provider, or ledger mutation.
+Use `--source live` to require the same ledger gate and then run only read-only live inventory/inspect before confirming. Ledger-backed Clerk/Vercel live link can surface exact `identity=matched` evidence where provider-owned proof context matches, but it still refuses with `provider.link.live-coherence-blocked|unavailable` until exact live coherence exists; ambiguous evidence still prints sanitized identity proof requirements. No live-link refusal writes local, provider, telemetry, local-cloud, provider-link, or ledger state.
 
 Print a redacted adopt proposal for operator review:
 
@@ -245,7 +245,7 @@ node scripts/agentstack.mjs provider adopt --service convex --env preview --reso
 ```
 
 Adopt is print-only in this slice. It does not mutate the root provider ledger, `.agentstack/provider-links.json`, telemetry, local-cloud state, or provider resources. Generated package scripts intentionally expose inventory/link only, not adopt, because adopt needs operator-specific external ID, owner, purpose, creation, cleanup, and evidence fields. Review the proposal and manually update the ledger before running link or any supported provider apply command.
-Use `--source live` to run only read-only live inventory/inspect without requiring an existing ledger row. Current live evidence is partial or ambiguous only, so live adopt refuses with sanitized identity proof requirements, without printing a proposal or writing local, provider, or ledger state. Link and adopt do not support the inventory-only `--live` shorthand.
+Use `--source live` to run only read-only live inventory/inspect without requiring an existing ledger row. Clerk/Vercel live adopt can use the supplied resource type, name, external ID, and owner as exact proof context when that resource also matches the manifest; matching provider-owned evidence may surface `identity=matched`. Exact identity still does not print a proposal or authorize adoption while live coherence is blocked or unavailable: live adopt refuses with `provider.adopt.live-coherence-blocked|unavailable`. Ambiguous evidence still refuses with sanitized identity proof requirements, and every live-adopt refusal writes no local, provider, telemetry, local-cloud, provider-link, or ledger state. Link and adopt do not support the inventory-only `--live` shorthand.
 
 Inspect explicit read-only EAS preview or production env state:
 
