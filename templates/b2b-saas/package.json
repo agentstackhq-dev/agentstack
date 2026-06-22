@@ -54,6 +54,7 @@
     "provider:vercel:link:preview": "node scripts/agentstack.mjs provider link --service vercel --env preview --resource-type project --name __APP_SLUG__",
     "provider:vercel:link:production": "node scripts/agentstack.mjs provider link --service vercel --env production --resource-type project --name __APP_SLUG__",
     "provider:vercel:proof:preview": "node scripts/agentstack.mjs provider proof --service vercel --env preview --resource-type project --name __APP_SLUG__",
+    "provider:vercel:proof:production": "node scripts/agentstack.mjs provider proof --service vercel --env production --resource-type project --name __APP_SLUG__",
     "provider:eas:preview": "node scripts/agentstack.mjs provider plan --service eas --env preview",
     "provider:eas:inspect:preview": "node scripts/agentstack.mjs provider inspect --service eas --env preview",
     "provider:eas:production": "node scripts/agentstack.mjs provider plan --service eas --env production",

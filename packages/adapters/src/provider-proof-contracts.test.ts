@@ -26,7 +26,7 @@ const completeSanitizedCandidates: ProviderIdentityCandidate[] = [
 ];
 
 describe("provider proof contracts", () => {
-  it("keeps exact live identity unavailable except bounded Clerk and Vercel preview proof slices", () => {
+  it("keeps exact live identity unavailable except bounded Clerk and Vercel proof slices", () => {
     for (const service of providerProofServices) {
       const contract = getProviderProofContract(service);
 
@@ -56,7 +56,7 @@ describe("provider proof contracts", () => {
     });
     expect(getProviderProofContract("vercel").exactIdentityAvailable).toEqual({
       scope: "provider-proof",
-      environments: ["preview"],
+      environments: ["preview", "production"],
       resourceTypes: ["project"],
       evaluator: "provider-specific-identity-parser"
     });
@@ -172,11 +172,11 @@ describe("provider proof contracts", () => {
       service: "vercel",
       exactIdentityAvailable: {
         scope: "provider-proof",
-        environments: ["preview"],
+        environments: ["preview", "production"],
         resourceTypes: ["project"],
         evaluator: "provider-specific-identity-parser"
       },
-      readCommands: ["vercel.env-ls-preview", "vercel.project-ls-json"],
+      readCommands: ["vercel.env-ls-preview", "vercel.env-ls-production", "vercel.project-ls-json"],
       requiredCandidateCategories: [
         "stable-provider-identity",
         "manifest-resource-name-match",

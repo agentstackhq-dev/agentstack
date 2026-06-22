@@ -21,7 +21,7 @@ import {
   inspectEasPreviewReadOnly,
   inspectClerkReadOnly,
   inspectConvexReadOnly,
-  inspectVercelPreviewReadOnly,
+  inspectVercelReadOnly,
   LocalCloudAdapter,
   enforceProviderLedgerResource,
   linkLedgerBackedProviderResource,
@@ -1177,7 +1177,7 @@ async function providerInspectCommand(argv: string[], io: RunIo): Promise<number
 
   if (service === "vercel") {
     try {
-      results = await inspectVercelPreviewReadOnly({
+      results = await inspectVercelReadOnly({
         environment,
         executor: resolveProviderExecutor(io),
         cwd: io.cwd,
@@ -1590,7 +1590,7 @@ async function providerProofCommand(argv: string[], io: RunIo): Promise<number> 
         severity: "fail",
         code: "provider.proof.env-unsupported",
         path: `provider proof ${service}.${environment}`,
-        message: "Provider proof supports preview for all services and production for Clerk exact identity only in this slice.",
+        message: "Provider proof supports preview for all services and production for Clerk and Vercel exact identity only in this slice.",
         fix,
         blocks: ["provider proof"]
       })
@@ -2335,7 +2335,7 @@ function providerProofEnvironmentSupported(
   service: ProviderControlPlaneService,
   environment: "preview" | "production"
 ): boolean {
-  return environment === "preview" || service === "clerk";
+  return environment === "preview" || service === "clerk" || service === "vercel";
 }
 
 function writeProviderLiveCoherenceSummary(io: RunIo, liveCoherence: ProviderLiveCoherenceProofResult): void {
@@ -2647,7 +2647,7 @@ async function readLiveProviderInventory(input: {
   }
 
   if (input.service === "vercel") {
-    return inspectVercelPreviewReadOnly({
+    return inspectVercelReadOnly({
       environment: input.environment,
       executor: input.executor,
       cwd: input.cwd,

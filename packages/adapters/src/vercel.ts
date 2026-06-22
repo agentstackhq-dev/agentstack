@@ -66,7 +66,7 @@ export type ExecuteVercelPreviewApplyOptions = VercelCommandPlanInput & {
   secretValues?: string[];
 };
 
-export type InspectVercelPreviewReadOnlyOptions = {
+export type InspectVercelReadOnlyOptions = {
   environment: EnvironmentName;
   executor: ProviderCommandExecutor;
   cwd?: string;
@@ -139,19 +139,19 @@ export function createVercelCommandPlan(input: VercelCommandPlanInput): VercelCo
   };
 }
 
-export async function inspectVercelPreviewReadOnly(
-  options: InspectVercelPreviewReadOnlyOptions
+export async function inspectVercelReadOnly(
+  options: InspectVercelReadOnlyOptions
 ): Promise<ProviderExecutionResult[]> {
-  if (options.environment !== "preview") {
+  if (options.environment !== "preview" && options.environment !== "production") {
     throw new Error(
-      "Vercel runtime inspect supports preview env-list only. Production inspect, deploy, and env mutation execution are not available in this slice."
+      "Vercel runtime inspect supports preview and production env-list reads only. Development inspect, deploy, and env mutation execution are not available in this slice."
     );
   }
 
   const target = createVercelTarget(options.environment);
   const commands = [target.envListCommand, projectListCommand(options.environment)];
   const results: ProviderExecutionResult[] = [];
-  let previewEnvironmentScopeFacts: ProviderLiveIdentityFacts | undefined;
+  let environmentScopeFacts: ProviderLiveIdentityFacts | undefined;
 
   for (const command of commands) {
     const [executable, ...args] = command.args;
@@ -167,16 +167,19 @@ export async function inspectVercelPreviewReadOnly(
 
     const localProjectLink = await readVercelLocalProjectLink(options.cwd);
     const liveIdentityFacts =
-      command.kind === "env.list" ? parseVercelPreviewEnvListFacts(result.stdout, result.exitCode) : undefined;
+      command.kind === "env.list"
+        ? parseVercelEnvListFacts(result.stdout, result.exitCode, options.environment)
+        : undefined;
     if (command.kind === "env.list") {
-      previewEnvironmentScopeFacts = liveIdentityFacts;
+      environmentScopeFacts = liveIdentityFacts;
     }
     const identityCandidates =
       command.kind === "env.list"
-        ? await parseVercelPreviewIdentityCandidates({
+        ? await parseVercelIdentityCandidates({
             localProjectLink,
             exitCode: result.exitCode,
-            liveIdentityFacts
+            liveIdentityFacts,
+            environment: options.environment
           })
         : identityCandidatesForVercelProjectList(result.stdout, result.exitCode);
     const exactIdentityProof =
@@ -184,7 +187,8 @@ export async function inspectVercelPreviewReadOnly(
         ? exactIdentityProofForVercelProjectList(result.stdout, result.exitCode, {
             context: options.exactProofContext,
             localProjectLink,
-            previewEnvironmentScopeFacts
+            environmentScopeFacts,
+            environment: options.environment
           })
         : undefined;
 
@@ -206,35 +210,44 @@ export async function inspectVercelPreviewReadOnly(
   return results;
 }
 
-function parseVercelPreviewEnvListFacts(stdout: string, exitCode: number): ProviderLiveIdentityFacts | undefined {
+function parseVercelEnvListFacts(
+  stdout: string,
+  exitCode: number,
+  environment: "preview" | "production"
+): ProviderLiveIdentityFacts | undefined {
   if (exitCode !== 0) {
     return undefined;
   }
 
-  const hasExpectedPreviewEnvRow = parseVercelEnvListRows(stdout).some(
-    (row) => isExpectedVercelEnvName(row.name) && row.environments.includes("preview")
+  const hasExpectedEnvRow = parseVercelEnvListRows(stdout).some(
+    (row) => isExpectedVercelEnvName(row.name) && row.environments.includes(environment)
   );
-  if (!hasExpectedPreviewEnvRow) {
+  if (!hasExpectedEnvRow) {
     return undefined;
   }
 
   return {
     identityConfidence: "partial",
-    facts: ["expected-env-names", "preview-environment", "env-list-read"]
+    facts: [
+      "expected-env-names",
+      environment === "preview" ? "preview-environment" : "production-environment",
+      "env-list-read"
+    ]
   };
 }
 
-async function parseVercelPreviewIdentityCandidates(input: {
+async function parseVercelIdentityCandidates(input: {
   localProjectLink: VercelLocalProjectLink | undefined;
   exitCode: number;
   liveIdentityFacts: ProviderLiveIdentityFacts | undefined;
+  environment: "preview" | "production";
 }): Promise<ProviderIdentityCandidatesArtifact | undefined> {
   if (input.exitCode !== 0) {
     return undefined;
   }
 
   const labels: ProviderIdentityCandidateLabel[] = [];
-  if (hasVercelPreviewEnvironmentScope(input.liveIdentityFacts)) {
+  if (hasVercelEnvironmentScope(input.liveIdentityFacts, input.environment)) {
     labels.push("provider-environment-scope");
   }
   if (input.localProjectLink) {
@@ -250,7 +263,10 @@ async function parseVercelPreviewIdentityCandidates(input: {
     : undefined;
 }
 
-function hasVercelPreviewEnvironmentScope(facts: ProviderLiveIdentityFacts | undefined): boolean {
+function hasVercelEnvironmentScope(
+  facts: ProviderLiveIdentityFacts | undefined,
+  environment: "preview" | "production"
+): boolean {
   if (facts?.identityConfidence !== "partial") {
     return false;
   }
@@ -258,7 +274,7 @@ function hasVercelPreviewEnvironmentScope(facts: ProviderLiveIdentityFacts | und
   return (
     labels.has("env-list-read") &&
     labels.has("expected-env-names") &&
-    labels.has("preview-environment")
+    labels.has(environment === "preview" ? "preview-environment" : "production-environment")
   );
 }
 
@@ -322,14 +338,15 @@ function exactIdentityProofForVercelProjectList(
   input: {
     context: VercelExactProofContext | undefined;
     localProjectLink: VercelLocalProjectLink | undefined;
-    previewEnvironmentScopeFacts: ProviderLiveIdentityFacts | undefined;
+    environmentScopeFacts: ProviderLiveIdentityFacts | undefined;
+    environment: "preview" | "production";
   }
 ): ProviderExactIdentityProofArtifact | undefined {
   if (
     exitCode !== 0 ||
     !input.context ||
     !input.localProjectLink ||
-    !hasVercelPreviewEnvironmentScope(input.previewEnvironmentScopeFacts)
+    !hasVercelEnvironmentScope(input.environmentScopeFacts, input.environment)
   ) {
     return undefined;
   }

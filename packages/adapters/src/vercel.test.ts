@@ -7,7 +7,7 @@ import {
   createVercelCommandPlan,
   createVercelTarget,
   executeVercelPreviewApply,
-  inspectVercelPreviewReadOnly
+  inspectVercelReadOnly
 } from "./vercel.js";
 
 describe("vercel command planner", () => {
@@ -135,7 +135,7 @@ describe("vercel command planner", () => {
 
   it("executes preview env list and provider-owned project JSON reads for Vercel inspect without mutation", async () => {
     const executions: Array<{ command: string; args: string[] }> = [];
-    const results = await inspectVercelPreviewReadOnly({
+    const results = await inspectVercelReadOnly({
       environment: "preview",
       executor: {
         async execute(command, args) {
@@ -218,7 +218,7 @@ describe("vercel command planner", () => {
         "utf8"
       );
 
-      const results = await inspectVercelPreviewReadOnly({
+      const results = await inspectVercelReadOnly({
         environment: "preview",
         cwd: dir,
         executor: {
@@ -261,7 +261,7 @@ describe("vercel command planner", () => {
         "utf8"
       );
 
-      const results = await inspectVercelPreviewReadOnly({
+      const results = await inspectVercelReadOnly({
         environment: "preview",
         cwd: dir,
         exactProofContext: {
@@ -327,6 +327,87 @@ describe("vercel command planner", () => {
     }
   });
 
+  it("attaches exact sanitized Vercel production identity only from production env scope and provider-owned project JSON", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "agentstack-vercel-production-exact-"));
+    try {
+      await mkdir(join(dir, ".vercel"), { recursive: true });
+      await writeFile(
+        join(dir, ".vercel", "project.json"),
+        JSON.stringify({ projectId: "prj_raw_prod_project_secret", orgId: "team_raw_prod_owner_secret" }),
+        "utf8"
+      );
+
+      const executions: Array<{ command: string; args: string[] }> = [];
+      const results = await inspectVercelReadOnly({
+        environment: "production",
+        cwd: dir,
+        exactProofContext: {
+          expectedResourceName: "agentstack-prod",
+          ledgerExternalIdOrUrl: "prj_raw_prod_project_secret",
+          ledgerOwnerAccountOrProject: "team_raw_prod_owner_secret"
+        },
+        executor: {
+          async execute(command, args) {
+            executions.push({ command, args });
+            return {
+              exitCode: 0,
+              stdout:
+                args.join(" ") === "exec vercel project ls --json"
+                  ? JSON.stringify([
+                      {
+                        id: "prj_raw_prod_project_secret",
+                        name: "agentstack-prod",
+                        accountId: "team_raw_prod_owner_secret"
+                      }
+                    ])
+                  : ["Name Environment", "NEXT_PUBLIC_APP_URL production"].join("\n"),
+              stderr: "",
+              durationMs: 9
+            };
+          }
+        }
+      });
+
+      expect(executions).toEqual([
+        { command: "pnpm", args: ["exec", "vercel", "env", "ls", "production"] },
+        { command: "pnpm", args: ["exec", "vercel", "project", "ls", "--json"] }
+      ]);
+      expect(results[0]?.liveIdentityFacts).toEqual({
+        identityConfidence: "partial",
+        facts: ["expected-env-names", "production-environment", "env-list-read"]
+      });
+      expect(results[1]?.exactIdentityProof).toEqual({
+        kind: "provider-exact-identity-proof",
+        evaluator: "provider-specific-identity-parser",
+        labels: [
+          "ledger-comparable-identity",
+          "ledger-external-id-match",
+          "manifest-resource-name-match",
+          "provider-environment-scope",
+          "provider-owner-identity",
+          "provider-project-link-proof",
+          "provider-resource-id",
+          "provider-specific-identity-parser",
+          "stable-provider-identity"
+        ],
+        comparisons: [
+          { label: "ledger-comparable-identity", outcome: "matched" },
+          { label: "ledger-external-id-match", outcome: "matched" },
+          { label: "manifest-resource-name-match", outcome: "matched" },
+          { label: "provider-environment-scope", outcome: "matched" },
+          { label: "provider-owner-identity", outcome: "matched" },
+          { label: "provider-project-link-proof", outcome: "matched" },
+          { label: "provider-resource-id", outcome: "matched" },
+          { label: "stable-provider-identity", outcome: "matched" }
+        ]
+      });
+      expect(JSON.stringify(results)).not.toContain("prj_raw_prod_project_secret");
+      expect(JSON.stringify(results)).not.toContain("team_raw_prod_owner_secret");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("keeps local Vercel project link alone from producing provider-owned exact identity proof", async () => {
     const dir = await mkdtemp(join(tmpdir(), "agentstack-vercel-local-only-"));
     try {
@@ -337,7 +418,7 @@ describe("vercel command planner", () => {
         "utf8"
       );
 
-      const results = await inspectVercelPreviewReadOnly({
+      const results = await inspectVercelReadOnly({
         environment: "preview",
         cwd: dir,
         exactProofContext: {
@@ -388,7 +469,7 @@ describe("vercel command planner", () => {
     ];
 
     for (const stdout of outputs) {
-      const results = await inspectVercelPreviewReadOnly({
+      const results = await inspectVercelReadOnly({
         environment: "preview",
         exactProofContext: {
           expectedResourceName: "agentstack-preview",
@@ -418,7 +499,7 @@ describe("vercel command planner", () => {
   });
 
   it("keeps Vercel inspect ambiguous when env-list output has no expected env proof", async () => {
-    const results = await inspectVercelPreviewReadOnly({
+    const results = await inspectVercelReadOnly({
       environment: "preview",
       executor: {
         async execute() {
@@ -445,7 +526,7 @@ describe("vercel command planner", () => {
         "utf8"
       );
 
-      const results = await inspectVercelPreviewReadOnly({
+      const results = await inspectVercelReadOnly({
         environment: "preview",
         cwd: dir,
         exactProofContext: {
@@ -490,7 +571,7 @@ describe("vercel command planner", () => {
   });
 
   it("keeps Vercel inspect ambiguous when preview only appears inside a value", async () => {
-    const results = await inspectVercelPreviewReadOnly({
+    const results = await inspectVercelReadOnly({
       environment: "preview",
       executor: {
         async execute() {
@@ -509,7 +590,7 @@ describe("vercel command planner", () => {
   });
 
   it("keeps Vercel inspect ambiguous when preview is a bare value token without an environment header", async () => {
-    const results = await inspectVercelPreviewReadOnly({
+    const results = await inspectVercelReadOnly({
       environment: "preview",
       executor: {
         async execute() {
@@ -528,7 +609,7 @@ describe("vercel command planner", () => {
   });
 
   it("does not infer Vercel env-list facts from loose preview env prose", async () => {
-    const results = await inspectVercelPreviewReadOnly({
+    const results = await inspectVercelReadOnly({
       environment: "preview",
       executor: {
         async execute() {
@@ -554,7 +635,7 @@ describe("vercel command planner", () => {
       await mkdir(join(malformedLinkDir, ".vercel"), { recursive: true });
       await writeFile(join(malformedLinkDir, ".vercel", "project.json"), "{ invalid json", "utf8");
 
-      const missingLinkResults = await inspectVercelPreviewReadOnly({
+      const missingLinkResults = await inspectVercelReadOnly({
         environment: "preview",
         cwd: missingLinkDir,
         executor: {
@@ -568,7 +649,7 @@ describe("vercel command planner", () => {
           }
         }
       });
-      const malformedLinkResults = await inspectVercelPreviewReadOnly({
+      const malformedLinkResults = await inspectVercelReadOnly({
         environment: "preview",
         cwd: malformedLinkDir,
         executor: {
@@ -594,7 +675,7 @@ describe("vercel command planner", () => {
   });
 
   it("requires Vercel expected env name and preview environment in the same parsed row", async () => {
-    const results = await inspectVercelPreviewReadOnly({
+    const results = await inspectVercelReadOnly({
       environment: "preview",
       executor: {
         async execute() {
@@ -676,12 +757,12 @@ describe("vercel command planner", () => {
     expect(executions).toEqual([]);
   });
 
-  it("rejects non-preview Vercel inspect without executing", async () => {
+  it("rejects development Vercel inspect without executing", async () => {
     const executions: string[] = [];
 
     await expect(
-      inspectVercelPreviewReadOnly({
-        environment: "production",
+      inspectVercelReadOnly({
+        environment: "development",
         executor: {
           async execute(command) {
             executions.push(command);
@@ -689,7 +770,7 @@ describe("vercel command planner", () => {
           }
         }
       })
-    ).rejects.toThrow("Vercel runtime inspect supports preview env-list only.");
+    ).rejects.toThrow("Vercel runtime inspect supports preview and production env-list reads only.");
     expect(executions).toEqual([]);
   });
 });

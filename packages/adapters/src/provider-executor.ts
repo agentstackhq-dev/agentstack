@@ -30,6 +30,7 @@ export type ProviderLiveFactLabel =
   | "expected-env-names"
   | "expected-resource-shape"
   | "preview-environment"
+  | "production-environment"
   | "env-list-read"
   | "apps-list-read"
   | "diagnostics-read"
@@ -100,6 +101,7 @@ const PROVIDER_LIVE_FACT_LABELS = new Set<string>([
   "expected-env-names",
   "expected-resource-shape",
   "preview-environment",
+  "production-environment",
   "env-list-read",
   "apps-list-read",
   "diagnostics-read",

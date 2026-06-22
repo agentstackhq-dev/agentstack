@@ -171,6 +171,7 @@ describe("generateProject", () => {
         "provider:vercel:link:preview": "node scripts/agentstack.mjs provider link --service vercel --env preview --resource-type project --name acme-crm",
         "provider:vercel:link:production": "node scripts/agentstack.mjs provider link --service vercel --env production --resource-type project --name acme-crm",
         "provider:vercel:proof:preview": "node scripts/agentstack.mjs provider proof --service vercel --env preview --resource-type project --name acme-crm",
+        "provider:vercel:proof:production": "node scripts/agentstack.mjs provider proof --service vercel --env production --resource-type project --name acme-crm",
         "provider:eas:inventory:preview": "node scripts/agentstack.mjs provider inventory --service eas --env preview",
         "provider:eas:inventory:production": "node scripts/agentstack.mjs provider inventory --service eas --env production",
         "provider:eas:link:preview": "node scripts/agentstack.mjs provider link --service eas --env preview --resource-type project --name acme-crm",
@@ -271,6 +272,7 @@ describe("generateProject", () => {
       expect(generatedWorkflowDocs).toContain("sanitized `missing=` identity proof labels");
       expect(generatedWorkflowDocs).toContain("pnpm run validate:live:preview");
       expect(generatedWorkflowDocs).toContain("provider:clerk:proof:production");
+      expect(generatedWorkflowDocs).toContain("provider:vercel:proof:production");
       expect(generatedWorkflowDocs).toContain("Live validation prints per-service proof summaries");
       expect(generatedWorkflowDocs).toContain("Reason: proof-incomplete");
       const generatedValidationDocs = await readFile(join(targetDir, "docs/agentstack/validation.md"), "utf8");
@@ -279,6 +281,7 @@ describe("generateProject", () => {
       expect(generatedValidationDocs).toContain("Reason: proof-incomplete");
       expect(generatedValidationDocs).toContain("Exact identity evaluator: provider-exact-identity");
       expect(generatedValidationDocs).toContain("Clerk production application proof");
+      expect(generatedValidationDocs).toContain("Vercel production project proof");
       await expect(readFile(join(targetDir, "docs/provider-resource-ledger.md"), "utf8")).resolves.toContain(
         "## Ledger"
       );

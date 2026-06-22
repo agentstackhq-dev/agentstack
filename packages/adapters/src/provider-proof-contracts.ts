@@ -51,6 +51,7 @@ export type ProviderIdentityReadCommandId =
   | "clerk.config-pull-agent"
   | "convex.env-list-preview-deployment"
   | "vercel.env-ls-preview"
+  | "vercel.env-ls-production"
   | "vercel.project-ls-json"
   | "eas.env-list-preview";
 
@@ -184,7 +185,7 @@ const contracts: Record<ProviderProofService, ProviderProofContract> = {
     liveIdentityConfidence: "none",
     exactIdentityAvailable: {
       scope: "provider-proof",
-      environments: ["preview"],
+      environments: ["preview", "production"],
       resourceTypes: ["project"],
       evaluator: "provider-specific-identity-parser"
     },
@@ -261,7 +262,7 @@ const identityReadPlans: Record<ProviderProofService, ProviderIdentityReadPlan> 
   vercel: {
     service: "vercel",
     exactIdentityAvailable: contracts.vercel.exactIdentityAvailable,
-    readCommands: ["vercel.env-ls-preview", "vercel.project-ls-json"],
+    readCommands: ["vercel.env-ls-preview", "vercel.env-ls-production", "vercel.project-ls-json"],
     requiredCandidateCategories: [
       "stable-provider-identity",
       "manifest-resource-name-match",

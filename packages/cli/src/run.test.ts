@@ -3595,6 +3595,96 @@ describe("runAgentstack", () => {
     expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
   });
 
+  it("runs Vercel production provider proof with exact identity evidence while refusing readiness", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.env.custom.NEXT_PUBLIC_APP_URL = {
+      surfaces: ["web"],
+      environments: ["production"],
+      required: true,
+      secret: false,
+      providerTargets: [{ service: "vercel", surfaces: ["web"], environments: ["production"], source: "local-value" }]
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    await mkdir(join(dir, ".vercel"), { recursive: true });
+    await writeFile(
+      join(dir, ".vercel", "project.json"),
+      JSON.stringify({ projectId: "prj_raw_vercel_prod_secret", orgId: "team_raw_vercel_prod_secret" }),
+      "utf8"
+    );
+    await writeLocalEnvValues({
+      production: { web: { NEXT_PUBLIC_APP_URL: "https://production-secret.example.test" } }
+    });
+    const rowId = "row-secret-vercel-production-proof";
+    const externalId = "prj_raw_vercel_prod_secret";
+    const owner = "team_raw_vercel_prod_secret";
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: rowId,
+        provider: "vercel",
+        resourceType: "project",
+        environment: "production",
+        name: "acme-crm",
+        status: "planned",
+        owner,
+        externalId,
+        cleanupCommand: "delete through Vercel dashboard",
+        evidence: "docs/evidence/vercel-production.md"
+      })
+    ]);
+    const ledgerPath = join(dir, "docs", "provider-resource-ledger.md");
+    const ledgerBefore = await readFile(ledgerPath, "utf8");
+
+    const code = await runAgentstack(
+      ["provider", "proof", "--service", "vercel", "--env", "production", "--resource-type", "project", "--name", "acme-crm"],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: {
+          async execute(command, args, options) {
+            providerExecutions.push({ command, args, stdin: options.stdin });
+            return {
+              exitCode: 0,
+              stdout:
+                args.join(" ") === "exec vercel project ls --json"
+                  ? JSON.stringify([{ id: externalId, name: "acme-crm", accountId: owner }])
+                  : ["Name Environment", "NEXT_PUBLIC_APP_URL production"].join("\n"),
+              stderr: "",
+              durationMs: 12
+            };
+          }
+        }
+      }
+    );
+
+    const rendered = output.join("\n");
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL provider proof vercel production");
+    expect(output).toContain("Provider execution: read-only");
+    expect(output).toContain("Ledger: planned");
+    expect(output).toContain("Live resource: read");
+    expect(output).toContain("Identity proof: exact");
+    expect(output).toContain("Identity scope: partial");
+    expect(output).toContain("Exact identity evidence: available");
+    expect(output).toContain("Exact identity evaluator: provider-exact-identity");
+    expect(output).toContain("Drift proof: unproven");
+    expect(output).toContain("Live coherence: blocked");
+    expect(output).toContain("Live coherence evaluator: provider-live-coherence");
+    expect(output).toContain("Readiness: refused");
+    expect(output).toContain("Reason: drift-unproven");
+    expect(rendered).not.toContain("Drift proof: exact");
+    expect(rendered).not.toContain(rowId);
+    expect(rendered).not.toContain(externalId);
+    expect(rendered).not.toContain(owner);
+    expect(rendered).not.toContain("https://production-secret.example.test");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec vercel env ls production",
+      "exec vercel project ls --json"
+    ]);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
+  });
+
   it("fails provider proof before live reads when the ledger row does not match the manifest resource", async () => {
     const rowId = "row-secret-proof-other-resource";
     const externalId = "https://dashboard.convex.dev/d/other-secret-preview";
