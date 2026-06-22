@@ -3328,7 +3328,7 @@ describe("runAgentstack", () => {
     ]);
   });
 
-  it("keeps Clerk exact context limited to provider proof and ledger-backed live link", async () => {
+  it("keeps Clerk exact context limited to proof, ledger-backed link, and field-backed adopt", async () => {
     const externalId = "res_raw_clerk_boundary";
     const owner = "org_raw_clerk_boundary";
     const appId = "app_raw_clerk_boundary";
@@ -3439,6 +3439,59 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).not.toContain(externalId);
     expect(output.join("\n")).not.toContain(owner);
     expect(output.join("\n")).not.toContain(appId);
+
+    output = [];
+    providerExecutions = [];
+    code = await runWithMatchingClerkJson([
+      "provider",
+      "adopt",
+      "--service",
+      "clerk",
+      "--env",
+      "preview",
+      "--resource-type",
+      "application",
+      "--name",
+      "acme-crm-preview",
+      "--external-id",
+      externalId,
+      "--owner",
+      owner,
+      "--purpose",
+      "preview auth application",
+      "--created-by",
+      "jc",
+      "--created-at",
+      "2026-06-22",
+      "--cleanup",
+      "delete through Clerk dashboard",
+      "--cleanup-trigger",
+      "project retirement",
+      "--evidence",
+      "docs/evidence/clerk-preview.md",
+      "--source",
+      "live"
+    ]);
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL provider.adopt.live-coherence-blocked");
+    expect(output).toContain("Evidence: live-read-inventory");
+    expect(output.join("\n")).toContain("identity=matched");
+    expect(output).toContain("Live coherence: blocked");
+    expect(output).toContain("Live coherence evaluator: provider-live-coherence");
+    expect(output.join("\n")).not.toContain("Identity proof requirements:");
+    expect(output.join("\n")).not.toContain("Provider ledger proposal");
+    expect(output.join("\n")).not.toContain("PROPOSED provider adopt clerk preview");
+    expect(output.join("\n")).not.toContain("Identity proof: exact");
+    expect(output.join("\n")).not.toContain("Exact identity evidence: available");
+    expect(output.join("\n")).not.toContain(externalId);
+    expect(output.join("\n")).not.toContain(owner);
+    expect(output.join("\n")).not.toContain(appId);
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec clerk doctor --mode agent",
+      "exec clerk env pull --mode agent",
+      "exec clerk config pull --mode agent",
+      "exec clerk apps list --json"
+    ]);
   });
 
   it("renders sanitized partial EAS preview live identity facts without exact identity", async () => {
@@ -6171,6 +6224,105 @@ describe("runAgentstack", () => {
     expect(rendered).not.toContain(externalId);
     expect(rendered).not.toContain(owner);
     expect(rendered).not.toContain("https://local-live-adopt-secret.example.test");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec vercel env ls preview",
+      "exec vercel project ls --json"
+    ]);
+    await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await readFile(join(dir, "docs", "provider-resource-ledger.md"), "utf8")).toBe(ledgerBefore);
+  });
+
+  it("keeps live adopt exact proof context manifest-gated", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.env.custom.NEXT_PUBLIC_APP_URL = {
+      surfaces: ["web"],
+      environments: ["preview"],
+      required: true,
+      secret: false,
+      providerTargets: vercelPreviewTarget
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    await mkdir(join(dir, ".vercel"), { recursive: true });
+    await writeFile(
+      join(dir, ".vercel", "project.json"),
+      JSON.stringify({ projectId: "prj_raw_wrong_adopt_secret", orgId: "team_raw_wrong_adopt_secret" }),
+      "utf8"
+    );
+    await writeLocalEnvValues({
+      preview: { web: { NEXT_PUBLIC_APP_URL: "https://local-wrong-adopt-secret.example.test" } }
+    });
+    const externalId = "prj_raw_wrong_adopt_secret";
+    const owner = "team_raw_wrong_adopt_secret";
+    await writeProviderLedger([]);
+    const ledgerBefore = await readFile(join(dir, "docs", "provider-resource-ledger.md"), "utf8");
+
+    const code = await runAgentstack(
+      [
+        "provider",
+        "adopt",
+        "--service",
+        "vercel",
+        "--env",
+        "preview",
+        "--resource-type",
+        "project",
+        "--name",
+        "wrong-crm",
+        "--external-id",
+        externalId,
+        "--owner",
+        owner,
+        "--purpose",
+        "preview web project",
+        "--created-by",
+        "jc",
+        "--created-at",
+        "2026-06-22",
+        "--cleanup",
+        "delete through Vercel dashboard",
+        "--cleanup-trigger",
+        "project retirement",
+        "--evidence",
+        "docs/evidence/vercel-preview.md",
+        "--source",
+        "live"
+      ],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: {
+          async execute(command, args, options) {
+            providerExecutions.push({ command, args, stdin: options.stdin });
+            return {
+              exitCode: 0,
+              stdout:
+                args.join(" ") === "exec vercel project ls --json"
+                  ? JSON.stringify([{ id: externalId, name: "wrong-crm", accountId: owner }])
+                  : ["Name Environment", "NEXT_PUBLIC_APP_URL preview"].join("\n"),
+              stderr: "",
+              durationMs: 12
+            };
+          }
+        }
+      }
+    );
+
+    const rendered = output.join("\n");
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL provider.adopt.identity-ambiguous");
+    expect(output).toContain("Evidence: live-read-inventory");
+    expect(rendered).toContain("Identity proof requirements:");
+    expect(rendered).not.toContain("identity=matched");
+    expect(rendered).not.toContain("Live coherence: blocked");
+    expect(rendered).not.toContain("Provider ledger proposal");
+    expect(rendered).not.toContain("PROPOSED provider adopt vercel preview");
+    expect(rendered).not.toContain(externalId);
+    expect(rendered).not.toContain(owner);
+    expect(rendered).not.toContain("https://local-wrong-adopt-secret.example.test");
     expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
       "exec vercel env ls preview",
       "exec vercel project ls --json"
