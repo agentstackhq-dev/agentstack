@@ -31,10 +31,11 @@
             <h1>What we built, why it matters, and how the pieces fit.</h1>
             <p>
               Agentstack is currently a local, executable proof of an agent-first framework contract.
-              It does not call Convex, Clerk, Vercel, or EAS yet. It now proves a generated
-              workspace-status app vertical as well as the command surface, validation model,
-              generated project shape, cloud-drift loop, provider command-plan boundary, and
-              telemetry inspection path bounded to local JSONL inspection and local OTLP-shaped artifact export.
+              Provider execution is explicit and bounded: plans do not execute, live reads are
+              read-only diagnostics, and mutations are limited to ledger-gated Convex apply plus
+              Vercel preview deploy apply. It now proves a generated workspace-status app vertical,
+              validation model, generated project shape, provider proof boundary, and telemetry
+              inspection path bounded to local JSONL inspection and local OTLP-shaped artifact export.
             </p>
             <div class="pill-row">
               <span class="pill">TypeScript monorepo</span>
@@ -231,7 +232,7 @@
             <div class="status-strip">
               <div class="status-item done"><strong>Working locally</strong><span>Generate project, run the workspace-status vertical, add feature/event/billing anchors, validate, inspect, sync, rehearse deploy/build, observe timelines.</span></div>
               <div class="status-item done"><strong>Guarded</strong><span>Generated anchors, env-value shape, source-secret policy, theme mirror drift, guidance anchors, local-cloud drift.</span></div>
-              <div class="status-item partial"><strong>Explicit providers</strong><span>Provider plan prints redacted command shapes; inspect reads Clerk/Convex diagnostics and EAS preview/production env-list; apply executes Convex and Vercel preview deploy only.</span></div>
+              <div class="status-item partial"><strong>Explicit providers</strong><span>Provider plan prints redacted command shapes; live reads inspect Clerk/Convex/Vercel/EAS diagnostics, including EAS env-list and proof-only project-info; apply executes Convex and Vercel preview deploy only.</span></div>
               <div class="status-item gap"><strong>Outside current boundary</strong><span>Vercel production apply, Vercel env mutation execution, EAS apply/build/project:init/env mutation, hosted telemetry ingestion, Stripe provider execution, broader workflows, and app-store submission.</span></div>
             </div>
           </section>

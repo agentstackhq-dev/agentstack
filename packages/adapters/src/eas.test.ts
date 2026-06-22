@@ -292,6 +292,92 @@ describe("eas command planner", () => {
     expect(JSON.stringify(results)).not.toContain("12345678-abcd-4abc-9abc-123456789abc");
   });
 
+  it("attaches exact EAS project identity when project info matches local link and proof context", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "agentstack-eas-exact-"));
+    const projectId = "12345678-abcd-4abc-9abc-123456789abc";
+    const executions: Array<{ command: string; args: string[] }> = [];
+    await mkdir(join(cwd, "apps", "mobile"), { recursive: true });
+    await writeFile(
+      join(cwd, "apps", "mobile", "app.config.ts"),
+      [
+        "export default {",
+        "  expo: {",
+        "    extra: {",
+        "      eas: {",
+        `        projectId: '${projectId}'`,
+        "      }",
+        "    }",
+        "  }",
+        "};"
+      ].join("\n")
+    );
+
+    const results = await inspectEasReadOnly({
+      environment: "preview",
+      cwd,
+      exactProofContext: {
+        expectedResourceName: "acme-crm",
+        ledgerExternalIdOrUrl: projectId,
+        ledgerOwnerAccountOrProject: "team"
+      },
+      executor: {
+        async execute(command, args) {
+          executions.push({ command, args });
+          if (args.includes("project:info")) {
+            return {
+              exitCode: 0,
+              stdout: [`fullName  team/acme-crm`, `ID        ${projectId}`].join("\n"),
+              stderr: "",
+              durationMs: 6
+            };
+          }
+
+          return {
+            exitCode: 0,
+            stdout: [
+              "Name              Value                         Environment",
+              "EXPO_PUBLIC_APP_URL https://preview.example.test preview"
+            ].join("\n"),
+            stderr: "",
+            durationMs: 6
+          };
+        }
+      }
+    });
+
+    expect(executions).toEqual([
+      { command: "pnpm", args: ["exec", "eas", "env:list", "--environment", "preview"] },
+      { command: "pnpm", args: ["exec", "eas", "project:info"] }
+    ]);
+    expect(results[1]?.exactIdentityProof).toEqual({
+      kind: "provider-exact-identity-proof",
+      evaluator: "provider-specific-identity-parser",
+      labels: [
+        "ledger-comparable-identity",
+        "ledger-external-id-match",
+        "manifest-resource-name-match",
+        "provider-environment-scope",
+        "provider-owner-identity",
+        "provider-project-link-proof",
+        "provider-resource-id",
+        "provider-specific-identity-parser",
+        "stable-provider-identity"
+      ],
+      comparisons: [
+        { label: "ledger-comparable-identity", outcome: "matched" },
+        { label: "ledger-external-id-match", outcome: "matched" },
+        { label: "manifest-resource-name-match", outcome: "matched" },
+        { label: "provider-environment-scope", outcome: "matched" },
+        { label: "provider-owner-identity", outcome: "matched" },
+        { label: "provider-project-link-proof", outcome: "matched" },
+        { label: "provider-resource-id", outcome: "matched" },
+        { label: "stable-provider-identity", outcome: "matched" }
+      ]
+    });
+    expect(JSON.stringify(results)).not.toContain(projectId);
+    expect(JSON.stringify(results)).not.toContain("team/acme-crm");
+  });
+
   it("parses EAS preview env-list partial facts from pipe-delimited table rows", async () => {
     const results = await inspectEasReadOnly({
       environment: "preview",

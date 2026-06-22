@@ -48,6 +48,7 @@ import {
   type ProviderProofContract,
   type ProviderExactIdentityDecision,
   type ClerkExactProofContext,
+  type EasExactProofContext,
   type VercelExactProofContext,
   type ProviderOperation
 } from "@agentstack/adapters";
@@ -1011,6 +1012,12 @@ async function providerReconcileLiveCommand(
         environment,
         manifest: validation.context.manifest,
         ledgerRows
+      }),
+      easExactProofContext: buildLiveValidationEasExactProofContext({
+        service,
+        environment,
+        manifest: validation.context.manifest,
+        ledgerRows
       })
     });
     const inventory = await createLiveProviderInventory({ localInventory, readResults });
@@ -1726,6 +1733,12 @@ async function providerInventoryCommand(argv: string[], io: RunIo): Promise<numb
           environment,
           manifest: validation.context.manifest,
           ledgerRows
+        }),
+        easExactProofContext: buildLiveValidationEasExactProofContext({
+          service,
+          environment,
+          manifest: validation.context.manifest,
+          ledgerRows
         })
       });
     } catch (error) {
@@ -1889,6 +1902,14 @@ async function providerProofCommand(argv: string[], io: RunIo): Promise<number> 
               ledgerExternalIdOrUrl: ledgerDecision.row.externalIdOrUrl,
               ledgerOwnerAccountOrProject: ledgerDecision.row.ownerAccountOrProject
             }
+          : undefined,
+      easExactProofContext:
+        service === "eas"
+          ? {
+              expectedResourceName: name,
+              ledgerExternalIdOrUrl: ledgerDecision.row.externalIdOrUrl,
+              ledgerOwnerAccountOrProject: ledgerDecision.row.ownerAccountOrProject
+            }
           : undefined
     });
     inventory = await createLiveProviderInventory({ localInventory, readResults: liveResults });
@@ -2016,6 +2037,12 @@ async function liveValidationCommand(
           environment,
           manifest: validation.context.manifest,
           ledgerRows
+        }),
+        easExactProofContext: buildLiveValidationEasExactProofContext({
+          service,
+          environment,
+          manifest: validation.context.manifest,
+          ledgerRows
         })
       });
       inventory = await createLiveProviderInventory({ localInventory: inventory, readResults: liveResults });
@@ -2113,6 +2140,35 @@ function buildLiveValidationVercelExactProofContext(input: {
   };
 }
 
+function buildLiveValidationEasExactProofContext(input: {
+  service: ProviderControlPlaneService;
+  environment: "preview" | "production";
+  manifest: AgentstackManifest;
+  ledgerRows: ReturnType<typeof parseProviderLedger>;
+}): EasExactProofContext | undefined {
+  if (input.service !== "eas") {
+    return undefined;
+  }
+
+  const manifestResource = expectedProviderProofResource(input.manifest, input.service, input.environment);
+  const ledgerDecision = enforceProviderLedgerResource(input.ledgerRows, {
+    provider: input.service,
+    environment: input.environment,
+    resourceType: manifestResource.resourceType,
+    resourceName: manifestResource.name
+  });
+
+  if (!ledgerDecision.ok) {
+    return undefined;
+  }
+
+  return {
+    expectedResourceName: manifestResource.name,
+    ledgerExternalIdOrUrl: ledgerDecision.row.externalIdOrUrl,
+    ledgerOwnerAccountOrProject: ledgerDecision.row.ownerAccountOrProject
+  };
+}
+
 function buildProviderAdoptExactProofContext(input: {
   service: ProviderControlPlaneService;
   environment: "preview" | "production";
@@ -2123,6 +2179,7 @@ function buildProviderAdoptExactProofContext(input: {
   ownerAccountOrProject: string | undefined;
 }): {
   clerkExactProofContext?: ClerkExactProofContext;
+  easExactProofContext?: EasExactProofContext;
   vercelExactProofContext?: VercelExactProofContext;
 } {
   if (
@@ -2152,6 +2209,16 @@ function buildProviderAdoptExactProofContext(input: {
   if (input.service === "vercel" && input.resourceType === "project") {
     return {
       vercelExactProofContext: {
+        expectedResourceName: input.name,
+        ledgerExternalIdOrUrl: input.externalIdOrUrl,
+        ledgerOwnerAccountOrProject: input.ownerAccountOrProject
+      }
+    };
+  }
+
+  if (input.service === "eas" && input.resourceType === "project") {
+    return {
+      easExactProofContext: {
         expectedResourceName: input.name,
         ledgerExternalIdOrUrl: input.externalIdOrUrl,
         ledgerOwnerAccountOrProject: input.ownerAccountOrProject
@@ -2418,6 +2485,7 @@ async function readLiveInventoryForConfirmation(input: {
   fix: string;
   blocks: string[];
   clerkExactProofContext?: ClerkExactProofContext;
+  easExactProofContext?: EasExactProofContext;
   vercelExactProofContext?: VercelExactProofContext;
 }): Promise<{ inventory: ProviderInventory; liveResults: ProviderExecutionResult[] } | undefined> {
   let inventory = await createProviderInventory({
@@ -2452,6 +2520,14 @@ async function readLiveInventoryForConfirmation(input: {
       vercelExactProofContext:
         input.vercelExactProofContext ??
         buildLiveValidationVercelExactProofContext({
+          service: input.service,
+          environment: input.environment,
+          manifest: input.validation.context.manifest,
+          ledgerRows: input.ledgerRows
+        }),
+      easExactProofContext:
+        input.easExactProofContext ??
+        buildLiveValidationEasExactProofContext({
           service: input.service,
           environment: input.environment,
           manifest: input.validation.context.manifest,
@@ -2907,6 +2983,7 @@ async function readLiveProviderInventory(input: {
   cwd: string;
   secretValues: string[];
   clerkExactProofContext?: ClerkExactProofContext;
+  easExactProofContext?: EasExactProofContext;
   vercelExactProofContext?: VercelExactProofContext;
 }): Promise<ProviderExecutionResult[]> {
   if (input.service === "clerk") {
@@ -2943,7 +3020,8 @@ async function readLiveProviderInventory(input: {
     environment: input.environment,
     executor: input.executor,
     cwd: input.cwd,
-    secretValues: input.secretValues
+    secretValues: input.secretValues,
+    exactProofContext: input.easExactProofContext
   });
 }
 

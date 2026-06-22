@@ -313,6 +313,8 @@ describe("generateProject", () => {
       expect(generatedWorkflowDocs).toContain("provider:convex:proof:production");
       expect(generatedWorkflowDocs).toContain("provider:vercel:proof:production");
       expect(generatedWorkflowDocs).toContain("provider:eas:proof:production");
+      expect(generatedWorkflowDocs).toContain("EAS preview/production project exact identity diagnostics");
+      expect(generatedWorkflowDocs).toContain("EAS preview/production project proof paths");
       expect(generatedWorkflowDocs).toContain("provider.link.live-coherence-blocked|unavailable");
       expect(generatedWorkflowDocs).toContain("provider.adopt.live-coherence-blocked|unavailable");
       expect(generatedWorkflowDocs).toContain("env-list-production");
@@ -333,7 +335,8 @@ describe("generateProject", () => {
       expect(generatedValidationDocs).toContain("Convex production proof");
       expect(generatedValidationDocs).toContain("Vercel production project proof");
       expect(generatedValidationDocs).toContain("Drift evaluator: env-list-production");
-      expect(generatedValidationDocs).toContain("EAS production proof");
+      expect(generatedValidationDocs).toContain("EAS preview and production project proof can emit sanitized exact identity");
+      expect(generatedValidationDocs).toContain("ledger-scoped `project:info` proof reads");
       await expect(readFile(join(targetDir, "docs/provider-resource-ledger.md"), "utf8")).resolves.toContain(
         "## Ledger"
       );

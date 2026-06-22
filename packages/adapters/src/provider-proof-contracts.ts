@@ -55,7 +55,8 @@ export type ProviderIdentityReadCommandId =
   | "vercel.env-ls-production"
   | "vercel.project-ls-json"
   | "eas.env-list-preview"
-  | "eas.env-list-production";
+  | "eas.env-list-production"
+  | "eas.project-info";
 
 export type ProviderIdentityCandidateCategory = ProviderIdentityCandidateLabel;
 
@@ -205,11 +206,17 @@ const contracts: Record<ProviderProofService, ProviderProofContract> = {
   eas: {
     service: "eas",
     liveIdentityConfidence: "none",
-    exactIdentityAvailable: false,
+    exactIdentityAvailable: {
+      scope: "provider-proof",
+      environments: ["preview", "production"],
+      resourceTypes: ["project"],
+      evaluator: "provider-specific-identity-parser"
+    },
     identityProofRequirements: [
       ...baseIdentityRequirements,
       "provider-owner-identity",
       "provider-resource-id",
+      "provider-environment-scope",
       "provider-project-link-proof",
       "manifest-resource-name-match",
       "ledger-external-id-match"
@@ -286,8 +293,8 @@ const identityReadPlans: Record<ProviderProofService, ProviderIdentityReadPlan> 
   },
   eas: {
     service: "eas",
-    exactIdentityAvailable: false,
-    readCommands: ["eas.env-list-preview", "eas.env-list-production"],
+    exactIdentityAvailable: contracts.eas.exactIdentityAvailable,
+    readCommands: ["eas.env-list-preview", "eas.env-list-production", "eas.project-info"],
     requiredCandidateCategories: [
       "stable-provider-identity",
       "manifest-resource-name-match",

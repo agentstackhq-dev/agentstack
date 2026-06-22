@@ -5,7 +5,11 @@ import type { EnvironmentName } from "@agentstack/core";
 import {
   createProviderExecutionResult,
   type ProviderCommandExecutor,
+  type ProviderExactIdentityComparisonEvidence,
+  type ProviderExactIdentityProofArtifact,
+  type ProviderExactIdentityProofLabel,
   type ProviderExecutionResult,
+  type ProviderIdentityCandidateLabel,
   type ProviderIdentityCandidatesArtifact,
   type ProviderLiveIdentityFacts
 } from "./provider-executor.js";
@@ -13,6 +17,7 @@ import type { ProviderOperation } from "./provider-operations.js";
 
 export type EasCommandKind =
   | "mobile.project.init"
+  | "mobile.project.info"
   | "mobile.env.list"
   | "mobile.build"
   | "env.create"
@@ -38,6 +43,7 @@ export type EasTarget = {
   platform: "all";
   distribution: "internal" | "store";
   projectInitCommand: EasCliCommand;
+  projectInfoCommand: EasCliCommand;
   envListCommand: EasCliCommand;
   buildCommand: EasCliCommand;
   requiredEnv: string[];
@@ -65,6 +71,13 @@ export type InspectEasReadOnlyOptions = {
   env?: Record<string, string | undefined>;
   timeoutMs?: number;
   secretValues?: string[];
+  exactProofContext?: EasExactProofContext;
+};
+
+export type EasExactProofContext = {
+  expectedResourceName: string;
+  ledgerExternalIdOrUrl: string;
+  ledgerOwnerAccountOrProject: string;
 };
 
 export function createEasTarget(environment: EnvironmentName): EasTarget {
@@ -84,6 +97,13 @@ export function createEasTarget(environment: EnvironmentName): EasTarget {
       "mobile.project.init",
       ["pnpm", "exec", "eas", "project:init", "--non-interactive"],
       `Initialize EAS project metadata for ${environment}.`,
+      false
+    ),
+    projectInfoCommand: command(
+      environment,
+      "mobile.project.info",
+      ["pnpm", "exec", "eas", "project:info"],
+      `Read EAS project identity metadata for ${environment}.`,
       false
     ),
     envListCommand: command(
@@ -148,9 +168,13 @@ export async function inspectEasReadOnly(options: InspectEasReadOnlyOptions): Pr
   }
 
   const target = createEasTarget(options.environment);
-  const commands = [target.envListCommand];
   const results: ProviderExecutionResult[] = [];
   const localProjectLink = await readEasLocalProjectLink(options.cwd);
+  const commands = [
+    target.envListCommand,
+    ...(options.exactProofContext && localProjectLink ? [target.projectInfoCommand] : [])
+  ];
+  let environmentScopeFacts: ProviderLiveIdentityFacts | undefined;
 
   for (const command of commands) {
     const [executable, ...args] = command.args;
@@ -163,7 +187,13 @@ export async function inspectEasReadOnly(options: InspectEasReadOnlyOptions): Pr
       env: options.env,
       timeoutMs: options.timeoutMs
     });
-    const liveIdentityFacts = parseEasEnvListFacts(result.stdout, result.exitCode, options.environment);
+    const liveIdentityFacts =
+      command.kind === "mobile.env.list"
+        ? parseEasEnvListFacts(result.stdout, result.exitCode, options.environment)
+        : undefined;
+    if (command.kind === "mobile.env.list") {
+      environmentScopeFacts = liveIdentityFacts;
+    }
 
     results.push(
       createProviderExecutionResult({
@@ -174,11 +204,23 @@ export async function inspectEasReadOnly(options: InspectEasReadOnlyOptions): Pr
         result,
         secretValues: options.secretValues,
         liveIdentityFacts,
-        identityCandidates: easIdentityCandidates({
-          liveIdentityFacts,
-          environment: options.environment,
-          hasLocalProjectLink: Boolean(localProjectLink)
-        })
+        identityCandidates:
+          command.kind === "mobile.env.list"
+            ? easEnvListIdentityCandidates({
+                liveIdentityFacts,
+                environment: options.environment,
+                hasLocalProjectLink: Boolean(localProjectLink)
+              })
+            : easProjectInfoIdentityCandidates(result.stdout, result.exitCode, Boolean(localProjectLink)),
+        exactIdentityProof:
+          command.kind === "mobile.project.info"
+            ? exactIdentityProofForEasProjectInfo(result.stdout, result.exitCode, {
+                context: options.exactProofContext,
+                localProjectLink,
+                environmentScopeFacts,
+                environment: options.environment
+              })
+            : undefined
       })
     );
   }
@@ -212,7 +254,7 @@ function parseEasEnvListFacts(
   };
 }
 
-function easIdentityCandidates(input: {
+function easEnvListIdentityCandidates(input: {
   liveIdentityFacts: ProviderLiveIdentityFacts | undefined;
   environment: "preview" | "production";
   hasLocalProjectLink: boolean;
@@ -238,6 +280,166 @@ function easIdentityCandidates(input: {
         labels
       }
     : undefined;
+}
+
+function easProjectInfoIdentityCandidates(
+  stdout: string,
+  exitCode: number,
+  hasLocalProjectLink: boolean
+): ProviderIdentityCandidatesArtifact | undefined {
+  const projectInfo = parseEasProjectInfo(stdout, exitCode);
+  if (!projectInfo) {
+    return undefined;
+  }
+
+  const labels: ProviderIdentityCandidateLabel[] = [
+    "stable-provider-identity",
+    "provider-owner-identity",
+    "provider-resource-id"
+  ];
+  if (hasLocalProjectLink) {
+    labels.push("provider-project-link-proof");
+  }
+
+  return {
+    kind: "provider-identity-candidates",
+    evaluator: "provider-specific-identity-candidate-parser",
+    labels
+  };
+}
+
+function exactIdentityProofForEasProjectInfo(
+  stdout: string,
+  exitCode: number,
+  input: {
+    context: EasExactProofContext | undefined;
+    localProjectLink: EasLocalProjectLink | undefined;
+    environmentScopeFacts: ProviderLiveIdentityFacts | undefined;
+    environment: "preview" | "production";
+  }
+): ProviderExactIdentityProofArtifact | undefined {
+  if (
+    exitCode !== 0 ||
+    !input.context ||
+    !input.localProjectLink ||
+    !hasEasEnvironmentScope(input.environmentScopeFacts, input.environment)
+  ) {
+    return undefined;
+  }
+
+  const projectInfo = parseEasProjectInfo(stdout, exitCode);
+  if (!projectInfo) {
+    return undefined;
+  }
+
+  const expectedName = input.context.expectedResourceName.trim();
+  const expectedExternalId = input.context.ledgerExternalIdOrUrl.trim();
+  const expectedOwner = normalizeEasOwner(input.context.ledgerOwnerAccountOrProject);
+  if (!expectedName || !expectedExternalId || !expectedOwner) {
+    return undefined;
+  }
+
+  if (
+    projectInfo.name !== expectedName ||
+    projectInfo.projectId !== expectedExternalId ||
+    normalizeEasOwner(projectInfo.owner) !== expectedOwner ||
+    input.localProjectLink.projectId !== projectInfo.projectId
+  ) {
+    return undefined;
+  }
+
+  const labels: ProviderExactIdentityProofLabel[] = [
+    "ledger-comparable-identity",
+    "ledger-external-id-match",
+    "manifest-resource-name-match",
+    "provider-environment-scope",
+    "provider-owner-identity",
+    "provider-project-link-proof",
+    "provider-resource-id",
+    "provider-specific-identity-parser",
+    "stable-provider-identity"
+  ];
+  const comparisons: ProviderExactIdentityComparisonEvidence[] = [
+    { label: "stable-provider-identity", outcome: "matched" },
+    { label: "ledger-comparable-identity", outcome: "matched" },
+    { label: "manifest-resource-name-match", outcome: "matched" },
+    { label: "ledger-external-id-match", outcome: "matched" },
+    { label: "provider-environment-scope", outcome: "matched" },
+    { label: "provider-owner-identity", outcome: "matched" },
+    { label: "provider-resource-id", outcome: "matched" },
+    { label: "provider-project-link-proof", outcome: "matched" }
+  ];
+
+  return {
+    kind: "provider-exact-identity-proof",
+    evaluator: "provider-specific-identity-parser",
+    labels,
+    comparisons
+  };
+}
+
+function hasEasEnvironmentScope(
+  facts: ProviderLiveIdentityFacts | undefined,
+  environment: "preview" | "production"
+): boolean {
+  if (facts?.identityConfidence !== "partial") {
+    return false;
+  }
+  return (
+    facts.facts.includes("env-list-read") &&
+    facts.facts.includes("expected-env-names") &&
+    facts.facts.includes(environment === "preview" ? "preview-environment" : "production-environment")
+  );
+}
+
+type EasProjectInfo = {
+  fullName: string;
+  owner: string;
+  name: string;
+  projectId: string;
+};
+
+function parseEasProjectInfo(stdout: string, exitCode: number): EasProjectInfo | undefined {
+  if (exitCode !== 0) {
+    return undefined;
+  }
+
+  let fullName: string | undefined;
+  let projectId: string | undefined;
+  for (const line of stdout.split(/\r?\n/)) {
+    const match = line.match(/^\s*([A-Za-z]+)\s*[:=]?\s+(.+?)\s*$/);
+    if (!match) {
+      continue;
+    }
+    const label = match[1]?.toLowerCase();
+    const value = match[2]?.trim();
+    if (label === "fullname") {
+      fullName = value;
+    }
+    if (label === "id") {
+      projectId = value;
+    }
+  }
+
+  if (!fullName || !projectId) {
+    return undefined;
+  }
+
+  const [owner, name] = fullName.split("/");
+  if (!owner || !name || fullName.split("/").length !== 2) {
+    return undefined;
+  }
+
+  return {
+    fullName,
+    owner: normalizeEasOwner(owner),
+    name: name.trim(),
+    projectId
+  };
+}
+
+function normalizeEasOwner(value: string): string {
+  return value.trim().replace(/^@/, "");
 }
 
 type EasLocalProjectLink = {

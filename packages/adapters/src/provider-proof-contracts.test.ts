@@ -60,7 +60,13 @@ describe("provider proof contracts", () => {
       resourceTypes: ["project"],
       evaluator: "provider-specific-identity-parser"
     });
-    for (const service of ["convex", "eas"] as const) {
+    expect(getProviderProofContract("eas").exactIdentityAvailable).toEqual({
+      scope: "provider-proof",
+      environments: ["preview", "production"],
+      resourceTypes: ["project"],
+      evaluator: "provider-specific-identity-parser"
+    });
+    for (const service of ["convex"] as const) {
       expect(getProviderProofContract(service).exactIdentityAvailable).toBe(false);
     }
   });
@@ -103,6 +109,7 @@ describe("provider proof contracts", () => {
       "provider-specific-identity-parser",
       "provider-owner-identity",
       "provider-resource-id",
+      "provider-environment-scope",
       "provider-project-link-proof",
       "manifest-resource-name-match",
       "ledger-external-id-match"
@@ -199,8 +206,13 @@ describe("provider proof contracts", () => {
 
     expect(getProviderIdentityReadPlan("eas")).toEqual({
       service: "eas",
-      exactIdentityAvailable: false,
-      readCommands: ["eas.env-list-preview", "eas.env-list-production"],
+      exactIdentityAvailable: {
+        scope: "provider-proof",
+        environments: ["preview", "production"],
+        resourceTypes: ["project"],
+        evaluator: "provider-specific-identity-parser"
+      },
+      readCommands: ["eas.env-list-preview", "eas.env-list-production", "eas.project-info"],
       requiredCandidateCategories: [
         "stable-provider-identity",
         "manifest-resource-name-match",

@@ -4777,8 +4777,117 @@ describe("runAgentstack", () => {
     expect(rendered).not.toContain("SENTRY_AUTH_TOKEN");
     expect(rendered).not.toContain("secret-eas-token");
     expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
-      "exec eas env:list --environment production"
+      "exec eas env:list --environment production",
+      "exec eas project:info"
     ]);
+    await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("surfaces exact EAS project identity in provider proof while refusing readiness", async () => {
+    const projectId = "123e4567-e89b-42d3-a456-426614174000";
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.environments = ["production"];
+    manifest.surfaces = ["mobile"];
+    manifest.services.clerk.enabled = false;
+    manifest.services.convex.enabled = false;
+    manifest.services.vercel.enabled = false;
+    manifest.services.eas.enabled = true;
+    manifest.env.custom.SENTRY_AUTH_TOKEN = {
+      surfaces: ["mobile"],
+      environments: ["production"],
+      required: true,
+      secret: true,
+      providerTargets: easProductionTarget
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    await writeLocalEnvValues({
+      production: { mobile: { SENTRY_AUTH_TOKEN: "sk-local-eas-production-proof" } }
+    });
+    await mkdir(join(dir, "apps", "mobile"), { recursive: true });
+    await writeFile(
+      join(dir, "apps", "mobile", "app.config.ts"),
+      [
+        "export default {",
+        "  expo: {",
+        "    extra: {",
+        `      eas: { projectId: '${projectId}' }`,
+        "    }",
+        "  }",
+        "};",
+        ""
+      ].join("\n"),
+      "utf8"
+    );
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: "eas-exact-proof-row-secret",
+        provider: "eas",
+        resourceType: "project",
+        environment: "production",
+        name: "acme-crm",
+        status: "planned",
+        externalId: projectId,
+        owner: "team",
+        cleanupCommand: "delete through Expo dashboard",
+        evidence: "docs/evidence/eas-production.md"
+      })
+    ]);
+
+    const code = await runAgentstack(
+      [
+        "provider",
+        "proof",
+        "--service",
+        "eas",
+        "--env",
+        "production",
+        "--resource-type",
+        "project",
+        "--name",
+        "acme-crm"
+      ],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: {
+          async execute(command, args, options) {
+            providerExecutions.push({ command, args, stdin: options.stdin });
+            return {
+              exitCode: 0,
+              stdout: args.includes("project:info")
+                ? [`fullName  team/acme-crm`, `ID        ${projectId}`].join("\n")
+                : ["Name              Value             Environment", "SENTRY_AUTH_TOKEN  secret-eas-token  production"].join("\n"),
+              stderr: "",
+              durationMs: 12
+            };
+          }
+        }
+      }
+    );
+
+    const rendered = output.join("\n");
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL provider proof eas production");
+    expect(output).toContain("Identity proof: exact");
+    expect(output).toContain("Identity scope: exact");
+    expect(output).toContain("Exact identity evidence: available");
+    expect(output).toContain("Exact identity evaluator: provider-exact-identity");
+    expect(output).toContain("Drift proof: unproven");
+    expect(output).toContain("Live coherence: blocked");
+    expect(output).toContain("Reason: drift-unproven");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec eas env:list --environment production",
+      "exec eas project:info"
+    ]);
+    expect(rendered).not.toContain(projectId);
+    expect(rendered).not.toContain("team/acme-crm");
+    expect(rendered).not.toContain("secret-eas-token");
+    expect(rendered).not.toContain("sk-local-eas-production-proof");
+    expect(rendered).not.toContain("eas-exact-proof-row-secret");
     await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({
       code: "ENOENT"
     });
