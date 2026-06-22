@@ -290,6 +290,7 @@ describe("generateProject", () => {
       expect(generatedEnvironmentDocs).toContain("provider reconcile --env <preview|production> --plan --source live");
       expect(generatedEnvironmentDocs).toContain("Evidence: live-reconciliation-plan");
       expect(generatedEnvironmentDocs).toContain("Reason: live-read-failed");
+      expect(generatedEnvironmentDocs).toContain("per-service proof diagnostics");
       const generatedPreviewDocs = await readFile(join(targetDir, "docs/agentstack/preview.md"), "utf8");
       expect(generatedPreviewDocs).toContain("provider inventory --service convex --env preview");
       expect(generatedPreviewDocs).toContain("provider link --service convex --env preview");
@@ -316,6 +317,7 @@ describe("generateProject", () => {
       expect(generatedWorkflowDocs).toContain("Live validation prints per-service proof summaries");
       expect(generatedWorkflowDocs).toContain("Reason: proof-incomplete");
       expect(generatedWorkflowDocs).toContain("live-reconciliation-plan");
+      expect(generatedWorkflowDocs).toContain("per-service proof diagnostics");
       const generatedValidationDocs = await readFile(join(targetDir, "docs/agentstack/validation.md"), "utf8");
       expect(generatedValidationDocs).toContain("pnpm lint");
       expect(generatedValidationDocs).toContain("pnpm run validate:live:preview");

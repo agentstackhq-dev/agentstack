@@ -1706,6 +1706,66 @@ describe("runAgentstack", () => {
     await expectReconcileDidNotWriteLocalState(ledgerBefore);
   });
 
+  it("includes proof diagnostics in explicit live aggregate provider reconciliation without leaking exact identifiers", async () => {
+    await mkdir(join(dir, ".vercel"), { recursive: true });
+    await writeFile(
+      join(dir, ".vercel", "project.json"),
+      JSON.stringify({ projectId: "prj_live_reconcile_secret", orgId: "team_live_reconcile_secret" }),
+      "utf8"
+    );
+    const rowId = "row-live-reconcile-secret";
+    const externalId = "prj_live_reconcile_secret";
+    const owner = "team_live_reconcile_secret";
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: rowId,
+        provider: "vercel",
+        resourceType: "project",
+        environment: "production",
+        name: "acme-crm",
+        status: "active",
+        owner,
+        externalId,
+        cleanupCommand: "delete through Vercel dashboard",
+        evidence: "docs/evidence/vercel-production.md"
+      })
+    ]);
+    const ledgerBefore = await readOptionalFile(join(dir, "docs", "provider-resource-ledger.md"));
+
+    const code = await runAgentstack(["provider", "reconcile", "--env", "production", "--plan", "--source", "live"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: {
+        async execute(command, args) {
+          providerExecutions.push({ command, args });
+          return {
+            exitCode: 0,
+            stdout:
+              args.join(" ") === "exec vercel project ls --json"
+                ? JSON.stringify([{ id: externalId, name: "acme-crm", accountId: owner }])
+                : ["Name Environment", "NEXT_PUBLIC_APP_URL production", "API_TOKEN production"].join("\n"),
+            stderr: "",
+            durationMs: 1
+          };
+        }
+      }
+    });
+
+    const rendered = output.join("\n");
+    expect(code).toBe(0);
+    expect(output).toContain("PLAN provider reconcile production");
+    expect(rendered).toMatch(
+      /Service: vercel[\s\S]*Current: found[\s\S]*Identity: matched[\s\S]*Identity proof: exact[\s\S]*Exact identity evidence: available[\s\S]*Exact identity evaluator: provider-exact-identity[\s\S]*Drift proof: partial[\s\S]*Drift evaluator: env-list-production[\s\S]*Live coherence: blocked/
+    );
+    expect(rendered).not.toContain(rowId);
+    expect(rendered).not.toContain(externalId);
+    expect(rendered).not.toContain(owner);
+    expect(rendered).not.toContain("NEXT_PUBLIC_APP_URL");
+    expect(rendered).not.toContain("API_TOKEN");
+    expect(providerExecutions.length).toBeGreaterThan(0);
+    await expectReconcileDidNotWriteLocalState(ledgerBefore);
+  });
+
   it("rejects development provider reconcile before provider executor use", async () => {
     const ledgerBefore = await readOptionalFile(join(dir, "docs", "provider-resource-ledger.md"));
 

@@ -970,6 +970,7 @@ async function providerReconcileLiveCommand(
   const summaries: Array<{
     service: ProviderControlPlaneService;
     inventory: ProviderInventory;
+    readResults: ProviderExecutionResult[];
     plan: ReturnType<typeof createProviderPlanForService>;
     failed: boolean;
   }> = [];
@@ -1010,6 +1011,7 @@ async function providerReconcileLiveCommand(
     summaries.push({
       service,
       inventory,
+      readResults,
       plan: createProviderPlanForService(service, environment, validation.context.manifest, []),
       failed: readResults.some((result) => result.status === "failed")
     });
@@ -1027,7 +1029,7 @@ async function providerReconcileLiveCommand(
   if (failed) {
     io.write("Reason: live-read-failed");
   }
-  for (const { service, inventory, plan } of summaries) {
+  for (const { service, inventory, readResults, plan } of summaries) {
     const row = inventory.rows[0];
     io.write(`Service: ${service}`);
     io.write(`Desired: enabled`);
@@ -1041,6 +1043,7 @@ async function providerReconcileLiveCommand(
     io.write(`Read commands: ${inventory.liveReadSummary?.commands ?? 0}`);
     io.write(`Live results: ${inventory.liveReadSummary?.results ?? 0}`);
     io.write(`Commands: ${plan.commands.length}`);
+    writeLiveValidationProviderProofSummary(io, service, environment, readResults);
     if (row) {
       io.write(
         `Next: provider proof --service ${service} --env ${environment} --resource-type ${row.resourceType} --name ${row.name}`
