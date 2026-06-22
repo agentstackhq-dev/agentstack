@@ -5051,6 +5051,58 @@ describe("runAgentstack", () => {
     expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
   });
 
+  it("runs Convex production live validation as bounded read-only provider-env evidence and refuses readiness", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.environments = ["production"];
+    manifest.surfaces = ["convex"];
+    manifest.services.clerk.enabled = false;
+    manifest.services.convex.enabled = true;
+    manifest.services.vercel.enabled = false;
+    manifest.services.eas.enabled = false;
+    manifest.env.custom.OPENAI_API_KEY = {
+      surfaces: ["convex"],
+      environments: ["production"],
+      required: true,
+      secret: true,
+      providerTargets: convexProductionTarget
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    await writeLocalEnvValues({
+      production: { convex: { OPENAI_API_KEY: "sk-local-convex-production-live-validation" } }
+    });
+    await writeProviderLedger([]);
+    const ledgerPath = join(dir, "docs", "provider-resource-ledger.md");
+    const ledgerBefore = await readFile(ledgerPath, "utf8");
+
+    const code = await runAgentstack(["validate", "--live", "--env", "production"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("Name               Value\nOPENAI_API_KEY     provider-production-secret")
+    });
+
+    const rendered = output.join("\n");
+    expect(code).toBe(1);
+    expect(output).toContain("Evidence: live-validation");
+    expect(output).toContain("FAIL validate --live");
+    expect(output).toContain("Readiness: refused");
+    expect(output).toContain("Reason: proof-incomplete");
+    expect(rendered).toContain("Provider proof: convex production");
+    expect(rendered).toContain("Identity proof: unavailable");
+    expect(rendered).toContain("Drift proof: unproven");
+    expect(rendered).toContain("Live coherence: unavailable");
+    expect(rendered).toContain("facts=provider-env-read");
+    expect(rendered).not.toContain("env-list-read");
+    expect(rendered).not.toContain("production-environment");
+    expect(rendered).not.toContain("OPENAI_API_KEY");
+    expect(rendered).not.toContain("provider-production-secret");
+    expect(rendered).not.toContain("sk-local-convex-production-live-validation");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual(["exec convex env --prod list"]);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
+  });
+
   it("fails live validation on live read failure with redacted diagnostics and no writes", async () => {
     await writeProviderLedger([]);
     const ledgerPath = join(dir, "docs", "provider-resource-ledger.md");
@@ -5869,6 +5921,96 @@ describe("runAgentstack", () => {
     });
     await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
     await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("runs Convex production live link and adopt read-only before refusing ambiguous identity", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.environments = ["production"];
+    manifest.surfaces = ["convex"];
+    manifest.services.clerk.enabled = false;
+    manifest.services.convex.enabled = true;
+    manifest.services.vercel.enabled = false;
+    manifest.services.eas.enabled = false;
+    manifest.env.custom.OPENAI_API_KEY = {
+      surfaces: ["convex"],
+      environments: ["production"],
+      required: true,
+      secret: true,
+      providerTargets: convexProductionTarget
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    await writeLocalEnvValues({
+      production: { convex: { OPENAI_API_KEY: "sk-local-convex-production-link" } }
+    });
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: "convex-production-link-row-secret",
+        provider: "convex",
+        resourceType: "deployment",
+        environment: "production",
+        name: "prod",
+        status: "active",
+        externalId: "convex-production-link-external-secret",
+        cleanupCommand: "delete through Convex dashboard",
+        evidence: "docs/evidence/convex-production.md"
+      })
+    ]);
+    const ledgerPath = join(dir, "docs", "provider-resource-ledger.md");
+    const ledgerBefore = await readFile(ledgerPath, "utf8");
+
+    for (const command of ["link", "adopt"] as const) {
+      output = [];
+      providerExecutions = [];
+      const args =
+        command === "link"
+          ? [
+              "provider",
+              "link",
+              "--service",
+              "convex",
+              "--env",
+              "production",
+              "--resource-type",
+              "deployment",
+              "--name",
+              "prod",
+              "--source",
+              "live"
+            ]
+          : ["provider", "adopt", "--service", "convex", "--env", "production", "--source", "live"];
+
+      const code = await runAgentstack(args, {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: createMockProviderExecutor(
+          "Name               Value\nOPENAI_API_KEY     provider-production-link-secret"
+        )
+      });
+
+      const rendered = output.join("\n");
+      expect(code).toBe(1);
+      expect(output).toContain(`FAIL provider.${command}.identity-ambiguous`);
+      expect(output).toContain("Evidence: live-read-inventory");
+      expect(output).toContain("Local mutation: none");
+      expect(output).toContain("Provider mutation: none");
+      expect(output).toContain("Ledger mutation: none");
+      expect(rendered).toContain("facts=provider-env-read");
+      expect(rendered).toContain("Identity proof requirements: ");
+      expect(rendered).not.toContain("env-list-read");
+      expect(rendered).not.toContain("Provider ledger proposal");
+      expect(rendered).not.toContain("convex-production-link-row-secret");
+      expect(rendered).not.toContain("convex-production-link-external-secret");
+      expect(rendered).not.toContain("OPENAI_API_KEY");
+      expect(rendered).not.toContain("provider-production-link-secret");
+      expect(rendered).not.toContain("sk-local-convex-production-link");
+      expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual(["exec convex env --prod list"]);
+      await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({
+        code: "ENOENT"
+      });
+      await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+      expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
+    }
   });
 
   it("fails provider link and adopt live reads with redacted diagnostics and no writes", async () => {

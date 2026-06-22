@@ -94,6 +94,7 @@ describe("generateProject", () => {
       expect(packageManifest.packageManager).toBe("pnpm@9.15.4");
       expect(agents).toContain("Run `pnpm run validate` before completion for structural checks.");
       expect(agents).toContain("Run `pnpm run validate:quality` before completion when code changed");
+      expect(agents).toContain("pnpm run validate:live:production");
       expect(gitignore).toContain(".agentstack/");
       expect(gitignore).toContain(".env.*");
       expect(gitignore).toContain("!.env.example");
@@ -106,6 +107,7 @@ describe("generateProject", () => {
         validate: "node scripts/agentstack.mjs validate",
         "validate:quality": "node scripts/agentstack.mjs validate --quality",
         "validate:live:preview": "node scripts/agentstack.mjs validate --live --env preview",
+        "validate:live:production": "node scripts/agentstack.mjs validate --live --env production",
         "env:inspect": "node scripts/agentstack.mjs env inspect --env preview",
         "preview:plan": "node scripts/agentstack.mjs sync --env preview",
         "preview:apply": "node scripts/agentstack.mjs sync --env preview --apply",
@@ -279,12 +281,14 @@ describe("generateProject", () => {
       expect(generatedWorkflowDocs).toContain("not proof of external provider existence");
       expect(generatedWorkflowDocs).toContain("sanitized `missing=` identity proof labels");
       expect(generatedWorkflowDocs).toContain("pnpm run validate:live:preview");
+      expect(generatedWorkflowDocs).toContain("pnpm run validate:live:production");
       expect(generatedWorkflowDocs).toContain("provider:clerk:proof:production");
       expect(generatedWorkflowDocs).toContain("provider:vercel:proof:production");
       expect(generatedWorkflowDocs).toContain("Live validation prints per-service proof summaries");
       expect(generatedWorkflowDocs).toContain("Reason: proof-incomplete");
       const generatedValidationDocs = await readFile(join(targetDir, "docs/agentstack/validation.md"), "utf8");
       expect(generatedValidationDocs).toContain("pnpm run validate:live:preview");
+      expect(generatedValidationDocs).toContain("pnpm run validate:live:production");
       expect(generatedValidationDocs).toContain("Evidence: live-validation");
       expect(generatedValidationDocs).toContain("Reason: proof-incomplete");
       expect(generatedValidationDocs).toContain("Exact identity evaluator: provider-exact-identity");
