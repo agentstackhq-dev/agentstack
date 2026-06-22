@@ -40,6 +40,9 @@ const easPreviewTarget: CustomEnvProviderTarget[] = [
 const vercelPreviewTarget: CustomEnvProviderTarget[] = [
   { service: "vercel", surfaces: ["web"], environments: ["preview"], source: "local-value" }
 ];
+const vercelProductionTarget: CustomEnvProviderTarget[] = [
+  { service: "vercel", surfaces: ["web"], environments: ["production"], source: "local-value" }
+];
 const clerkPreviewTarget: CustomEnvProviderTarget[] = [
   { service: "clerk", surfaces: ["web"], environments: ["preview"], source: "local-value" }
 ];
@@ -4297,6 +4300,101 @@ describe("runAgentstack", () => {
     expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
   });
 
+  it("surfaces exact Vercel production proof summary during live validation while refusing readiness", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.environments = ["production"];
+    manifest.services.clerk.enabled = false;
+    manifest.services.convex.enabled = false;
+    manifest.services.eas.enabled = false;
+    manifest.services.vercel.enabled = true;
+    manifest.env.custom.NEXT_PUBLIC_APP_URL = {
+      surfaces: ["web"],
+      environments: ["production"],
+      required: true,
+      secret: false,
+      providerTargets: vercelProductionTarget
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    await writeLocalEnvValues({
+      production: { web: { NEXT_PUBLIC_APP_URL: "https://app.example.test" } }
+    });
+    await mkdir(join(dir, ".vercel"), { recursive: true });
+    await writeFile(
+      join(dir, ".vercel", "project.json"),
+      JSON.stringify({ projectId: "prj_live_vercel_prod_secret", orgId: "team_live_vercel_prod_secret" }),
+      "utf8"
+    );
+    const rowId = "row-secret-live-vercel-prod-proof";
+    const externalId = "prj_live_vercel_prod_secret";
+    const owner = "team_live_vercel_prod_secret";
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: rowId,
+        provider: "vercel",
+        resourceType: "project",
+        environment: "production",
+        name: "acme-crm",
+        status: "planned",
+        owner,
+        externalId,
+        cleanupCommand: "delete through Vercel dashboard",
+        evidence: "docs/evidence/vercel-production.md"
+      })
+    ]);
+    const ledgerPath = join(dir, "docs", "provider-resource-ledger.md");
+    const ledgerBefore = await readFile(ledgerPath, "utf8");
+
+    const code = await runAgentstack(["validate", "--live", "--env", "production"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: {
+        async execute(command, args, options) {
+          providerExecutions.push({ command, args, stdin: options.stdin });
+          return {
+            exitCode: 0,
+            stdout:
+              args.join(" ") === "exec vercel project ls --json"
+                ? JSON.stringify([{ id: externalId, name: "acme-crm", accountId: owner }])
+                : args.join(" ") === "exec vercel env ls production"
+                  ? ["Name Environment", "NEXT_PUBLIC_APP_URL production"].join("\n")
+                  : "ok",
+            stderr: "",
+            durationMs: 12
+          };
+        }
+      }
+    });
+
+    const rendered = output.join("\n");
+    expect(code).toBe(1);
+    expect(output).toContain("Evidence: live-validation");
+    expect(output).toContain("FAIL validate --live");
+    expect(output).toContain("Readiness: refused");
+    expect(output).toContain("Reason: proof-incomplete");
+    expect(rendered).toContain("Provider proof: vercel production");
+    expect(rendered).toContain("Identity proof: exact");
+    expect(rendered).toContain("Exact identity evidence: available");
+    expect(rendered).toContain("Exact identity evaluator: provider-exact-identity");
+    expect(rendered).toContain("Drift proof: unproven");
+    expect(rendered).toContain("Live coherence: blocked");
+    expect(rendered).not.toContain("provider.live-validation.unsupported");
+    expect(rendered).not.toContain("live-validation-unsupported");
+    expect(rendered).not.toContain("PASS validate --live");
+    expect(rendered).not.toContain("Readiness: ready");
+    expect(rendered).not.toContain("https://app.example.test");
+    expect(rendered).not.toContain(rowId);
+    expect(rendered).not.toContain(externalId);
+    expect(rendered).not.toContain(owner);
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec vercel env ls production",
+      "exec vercel project ls --json"
+    ]);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
+  });
+
   it("does not surface exact Clerk live validation proof summary for a blocked ledger row", async () => {
     const rowId = "row-blocked-live-clerk-proof";
     const externalId = "res_blocked_live_clerk_secret";
@@ -4435,7 +4533,7 @@ describe("runAgentstack", () => {
     expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
   });
 
-  it("refuses unsupported Vercel and EAS production live validation before executor use", async () => {
+  it("refuses unsupported EAS production live validation before executor use", async () => {
     await writeProviderLedger([]);
     const ledgerPath = join(dir, "docs", "provider-resource-ledger.md");
     const ledgerBefore = await readFile(ledgerPath, "utf8");
@@ -4451,8 +4549,8 @@ describe("runAgentstack", () => {
     expect(output).toContain("Readiness: refused");
     expect(output).toContain("Reason: live-validation-unsupported");
     expect(output.join("\n")).toContain("FAIL provider.live-validation.unsupported");
-    expect(output.join("\n")).toContain("Vercel live validation supports preview read-only inspect only");
     expect(output.join("\n")).toContain("EAS live validation supports preview read-only inspect only");
+    expect(output.join("\n")).not.toContain("Vercel live validation supports preview read-only inspect only");
     expect(providerExecutions).toEqual([]);
     await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
     await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });

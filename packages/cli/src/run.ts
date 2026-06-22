@@ -1778,9 +1778,7 @@ async function liveValidationCommand(
   const services = getEnabledProviderAdapterDefinitions(validation.context.manifest).map(
     (definition) => definition.service
   );
-  const unsupportedServices = services.filter(
-    (service) => (service === "vercel" || service === "eas") && environment !== "preview"
-  );
+  const unsupportedServices = services.filter((service) => service === "eas" && environment !== "preview");
   if (unsupportedServices.length > 0) {
     for (const service of unsupportedServices) {
       io.write(
@@ -1788,7 +1786,7 @@ async function liveValidationCommand(
           severity: "fail",
           code: "provider.live-validation.unsupported",
           path: `${service}.${environment}`,
-          message: `${service === "vercel" ? "Vercel" : "EAS"} live validation supports preview read-only inspect only.`,
+          message: "EAS live validation supports preview read-only inspect only.",
           fix: "Run agentstack validate --live --env preview.",
           blocks: ["validate --live"]
         })
@@ -1927,7 +1925,7 @@ function buildLiveValidationVercelExactProofContext(input: {
   manifest: AgentstackManifest;
   ledgerRows: ReturnType<typeof parseProviderLedger>;
 }): VercelExactProofContext | undefined {
-  if (input.service !== "vercel" || input.environment !== "preview") {
+  if (input.service !== "vercel") {
     return undefined;
   }
 
