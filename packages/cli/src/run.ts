@@ -1,6 +1,6 @@
 import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
-import { dirname, join } from "node:path";
+import { dirname, extname, join } from "node:path";
 import {
   createClerkCommandPlan,
   createConvexCommandPlan,
@@ -160,6 +160,7 @@ const telemetrySurfaceValues = [
 ] as const;
 
 const localQualityCommands: LocalCommandSpec[] = [
+  { id: "format", command: "pnpm", args: ["format:check"] },
   { id: "lint", command: "pnpm", args: ["lint"] },
   { id: "typecheck", command: "pnpm", args: ["typecheck"] },
   { id: "build", command: "pnpm", args: ["build"] },
@@ -193,6 +194,10 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
 
     if (command === "validate") {
       return await validateCommand(argv.slice(1), io);
+    }
+
+    if (command === "format") {
+      return await formatCommand(argv.slice(1), io);
     }
 
     if (command === "inspect") {
@@ -424,6 +429,32 @@ async function validateCommand(argv: string[], io: RunIo): Promise<number> {
     status: "ok",
     state: { diagnostics: diagnostics.length }
   });
+  return 0;
+}
+
+async function formatCommand(argv: string[], io: RunIo): Promise<number> {
+  const options = parseOptions(argv);
+  if (options.check !== true) {
+    io.write(
+      formatDiagnostic({
+        severity: "fail",
+        code: "format.mode.required",
+        message: "Format currently supports check mode only.",
+        fix: "Run agentstack format --check.",
+        blocks: ["format"]
+      })
+    );
+    return 1;
+  }
+
+  const diagnostics = await findFormatDiagnostics(io.cwd);
+  diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
+  if (diagnostics.length > 0) {
+    io.write("FAIL format --check");
+    return 1;
+  }
+
+  io.write("PASS format --check");
   return 0;
 }
 
@@ -3401,6 +3432,70 @@ async function findSourcePolicyDiagnostics(cwd: string): Promise<Diagnostic[]> {
   }
 
   return diagnostics;
+}
+
+const formatCheckedExtensions = new Set([
+  ".css",
+  ".html",
+  ".js",
+  ".json",
+  ".jsx",
+  ".md",
+  ".mjs",
+  ".ts",
+  ".tsx",
+  ".txt",
+  ".yaml",
+  ".yml"
+]);
+
+async function findFormatDiagnostics(cwd: string): Promise<Diagnostic[]> {
+  const files = (await listProjectFiles(cwd)).filter(isFormatCheckedFile);
+  const diagnostics: Diagnostic[] = [];
+
+  for (const file of files) {
+    const content = await readFile(join(cwd, file), "utf8");
+    const trailingWhitespaceLine = firstTrailingWhitespaceLine(content);
+    if (trailingWhitespaceLine !== undefined) {
+      diagnostics.push({
+        severity: "fail",
+        code: "format.trailing-whitespace",
+        path: `${file}:${trailingWhitespaceLine}`,
+        message: `Trailing whitespace found in ${file}.`,
+        fix: "Remove trailing spaces or tabs.",
+        blocks: ["format", "validate --quality"]
+      });
+      continue;
+    }
+
+    if (content.length > 0 && !content.endsWith("\n")) {
+      diagnostics.push({
+        severity: "fail",
+        code: "format.final-newline.missing",
+        path: file,
+        message: `Missing final newline in ${file}.`,
+        fix: "End the file with a newline.",
+        blocks: ["format", "validate --quality"]
+      });
+    }
+  }
+
+  return diagnostics;
+}
+
+function isFormatCheckedFile(file: string): boolean {
+  return formatCheckedExtensions.has(extname(file));
+}
+
+function firstTrailingWhitespaceLine(content: string): number | undefined {
+  const lines = content.split(/\n/);
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index]?.replace(/\r$/, "") ?? "";
+    if (/[ \t]+$/.test(line)) {
+      return index + 1;
+    }
+  }
+  return undefined;
 }
 
 const skippedSourcePolicyDirs = new Set([

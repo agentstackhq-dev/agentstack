@@ -245,6 +245,7 @@ describe("runAgentstack", () => {
     );
     expect(output).toContain("PASS validate --quality");
     expect(qualityExecutions).toEqual([
+      { id: "format", command: "pnpm", args: ["format:check"] },
       { id: "lint", command: "pnpm", args: ["lint"] },
       { id: "typecheck", command: "pnpm", args: ["typecheck"] },
       { id: "build", command: "pnpm", args: ["build"] },
@@ -266,7 +267,7 @@ describe("runAgentstack", () => {
       providerExecutor: createMockProviderExecutor("provider executor should not run"),
       commandRunner: async ({ id, command, args }) => {
         qualityExecutions.push({ id, command, args });
-        if (id === "lint" || id === "typecheck" || id === "build") {
+        if (id === "format" || id === "lint" || id === "typecheck" || id === "build") {
           return { exitCode: 0, stdout: `${id} ok`, stderr: "" };
         }
         return {
@@ -288,11 +289,50 @@ describe("runAgentstack", () => {
     expect(rendered).not.toContain("tok_live_secret");
     expect(rendered.length).toBeLessThan(2200);
     expect(qualityExecutions).toEqual([
+      { id: "format", command: "pnpm", args: ["format:check"] },
       { id: "lint", command: "pnpm", args: ["lint"] },
       { id: "typecheck", command: "pnpm", args: ["typecheck"] },
       { id: "build", command: "pnpm", args: ["build"] },
       { id: "test", command: "pnpm", args: ["test"] }
     ]);
+    expect(providerExecutions).toEqual([]);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+    await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+  });
+
+  it("passes the local format check without provider execution or telemetry", async () => {
+    const code = await runAgentstack(["format", "--check"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("provider executor should not run")
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS format --check");
+    expect(providerExecutions).toEqual([]);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+  });
+
+  it("fails the local format check on trailing whitespace without writing state", async () => {
+    await writeFile(join(dir, "apps", "web", "src", "index.ts"), "export const value = 1;  \n", "utf8");
+
+    const code = await runAgentstack(["format", "--check"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("provider executor should not run")
+    });
+
+    const rendered = output.join("\n");
+    expect(code).toBe(1);
+    expect(rendered).toContain("FAIL format.trailing-whitespace");
+    expect(rendered).toContain("Path: apps/web/src/index.ts:1");
+    expect(output).toContain("FAIL format --check");
     expect(providerExecutions).toEqual([]);
     await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
       code: "ENOENT"

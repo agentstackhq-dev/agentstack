@@ -105,6 +105,7 @@ describe("generateProject", () => {
         lint: "pnpm run typecheck",
         typecheck: "pnpm --filter @app/web build",
         build: "pnpm -r --if-present build",
+        "format:check": "node scripts/agentstack.mjs format --check",
         test: "node scripts/agentstack.mjs theme validate",
         validate: "node scripts/agentstack.mjs validate",
         "validate:quality": "node scripts/agentstack.mjs validate --quality",

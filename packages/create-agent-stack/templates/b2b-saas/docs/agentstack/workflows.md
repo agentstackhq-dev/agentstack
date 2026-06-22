@@ -15,7 +15,7 @@ Use a tight validation loop after generation and while changing product code:
 2. Add plan anchors with `agentstack add billing-plan pro --entitlements feature.auditLog,feature.advancedReports --seats 10` before writing surface-specific gating code.
 3. Fill in the generated domain, backend, surface, telemetry, feature-doc, and billing-plan anchors. Use `workspace status` as the smallest accepted vertical-slice shape.
 4. Run `pnpm run validate` for `Evidence: local-structure`.
-5. Run `pnpm run validate:quality` when code changed for `Evidence: local-quality`; it runs `pnpm lint`, `pnpm typecheck`, `pnpm build`, and `pnpm test` and must not write local-cloud state or call provider executors.
+5. Run `pnpm run validate:quality` when code changed for `Evidence: local-quality`; it runs `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm build`, and `pnpm test` and must not write local-cloud state or call provider executors.
 6. Run `pnpm run env:inspect` when provider state or environment bindings are involved.
 7. Use `agentstack env set --env preview --surface <surface> --name <name> --value <value>` for local validation state only when required custom env values are missing.
 8. Run `pnpm run preview:plan` before applying local-cloud preview state.
