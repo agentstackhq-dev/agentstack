@@ -277,6 +277,8 @@ describe("generateProject", () => {
       expect(generatedEnvironmentDocs).toContain("There is no `--live` shorthand for adopt");
       expect(generatedEnvironmentDocs).toContain("not proof of external provider existence");
       expect(generatedEnvironmentDocs).toContain("ledger-gated through supported provider apply commands");
+      expect(generatedEnvironmentDocs).toContain("matching strict provider-owned evidence may surface `identity=matched identity-scope=exact`");
+      expect(generatedEnvironmentDocs).toContain("Exact identity in inventory is still diagnostic only");
       const generatedPreviewDocs = await readFile(join(targetDir, "docs/agentstack/preview.md"), "utf8");
       expect(generatedPreviewDocs).toContain("provider inventory --service convex --env preview");
       expect(generatedPreviewDocs).toContain("provider link --service convex --env preview");

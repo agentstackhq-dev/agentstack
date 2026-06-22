@@ -1544,7 +1544,19 @@ async function providerInventoryCommand(argv: string[], io: RunIo): Promise<numb
         manifest: validation.context.manifest,
         executor: resolveProviderExecutor(io),
         cwd: io.cwd,
-        secretValues
+        secretValues,
+        clerkExactProofContext: buildLiveValidationClerkExactProofContext({
+          service,
+          environment,
+          manifest: validation.context.manifest,
+          ledgerRows
+        }),
+        vercelExactProofContext: buildLiveValidationVercelExactProofContext({
+          service,
+          environment,
+          manifest: validation.context.manifest,
+          ledgerRows
+        })
       });
     } catch (error) {
       io.write(
@@ -1743,7 +1755,13 @@ async function providerProofCommand(argv: string[], io: RunIo): Promise<number> 
       : exactIdentityDecision?.proof === "exact"
         ? "exact"
         : "ambiguous",
-    identityScope: liveReadFailed ? "none" : row?.identityScope === "partial" ? "partial" : "none",
+    identityScope: liveReadFailed
+      ? "none"
+      : exactIdentityDecision.proof === "exact"
+        ? "exact"
+        : row?.identityScope === "partial"
+          ? "partial"
+          : "none",
     identityCandidates: exactIdentityReportFields.identityCandidates,
     identityEvaluator: exactIdentityReportFields.identityEvaluator,
     candidateIdentityEvidence: candidateIdentityReportFields.candidateIdentityEvidence,
@@ -2322,7 +2340,7 @@ type ProviderProofReport = {
   localLink: "linked" | "missing" | "not-read";
   liveResource: "read" | "not-read" | "failed" | "unsupported";
   identityProof: ProviderExactIdentityDecision["proof"];
-  identityScope: "partial" | "none";
+  identityScope: "exact" | "partial" | "none";
   identityCandidates?: "available" | "unavailable";
   identityEvaluator?: ProviderExactIdentityDecision["evaluator"];
   candidateIdentityEvidence?: "available" | "unavailable";

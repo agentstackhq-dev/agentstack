@@ -581,7 +581,7 @@ describe("provider control plane", () => {
     expect(inventory.rows[0]).toMatchObject({
       liveStatus: "found",
       identityMatch: "matched",
-      identityScope: "partial",
+      identityScope: "exact",
       permissionSummary: "read-ok",
       driftSummary: "unknown",
       facts: ["env-list-read"]

@@ -3204,7 +3204,7 @@ describe("runAgentstack", () => {
     ]);
   });
 
-  it("renders sanitized Vercel production live inventory without claiming exact identity", async () => {
+  it("renders sanitized Vercel production live inventory with gated exact identity", async () => {
     await mkdir(join(dir, ".vercel"), { recursive: true });
     await writeFile(
       join(dir, ".vercel", "project.json"),
@@ -3258,9 +3258,9 @@ describe("runAgentstack", () => {
     expect(rendered).toContain("Commands: 2");
     expect(rendered).toContain("Results: 2");
     expect(rendered).toContain("Succeeded: 2");
-    expect(rendered).toContain("live=found identity=ambiguous identity-scope=partial permission=read-ok");
+    expect(rendered).toContain("live=found identity=matched identity-scope=exact permission=read-ok");
     expect(rendered).toContain("facts=env-list-read,expected-env-names,production-environment");
-    expect(rendered).not.toContain("identity=matched");
+    expect(rendered).not.toContain("identity=ambiguous");
     expect(rendered).not.toContain("NEXT_PUBLIC_APP_URL");
     expect(rendered).not.toContain("API_TOKEN");
     expect(rendered).not.toContain(rowId);
@@ -3369,7 +3369,7 @@ describe("runAgentstack", () => {
     ]);
   });
 
-  it("keeps Clerk exact context limited to proof, ledger-backed link, and field-backed adopt", async () => {
+  it("surfaces Clerk exact identity through ledger-gated live inventory, link, and field-backed adopt", async () => {
     const externalId = "res_raw_clerk_boundary";
     const owner = "org_raw_clerk_boundary";
     const appId = "app_raw_clerk_boundary";
@@ -3427,8 +3427,9 @@ describe("runAgentstack", () => {
     ]);
     expect(code).toBe(0);
     expect(output).toContain("PASS provider inventory clerk preview");
-    expect(output.join("\n")).toContain("identity=ambiguous");
-    expect(output.join("\n")).not.toContain("identity=matched");
+    expect(output.join("\n")).toContain("identity=matched");
+    expect(output.join("\n")).toContain("identity-scope=exact");
+    expect(output.join("\n")).not.toContain("identity=ambiguous");
     expect(output.join("\n")).not.toContain("Exact identity evidence: available");
     expect(output.join("\n")).not.toContain(externalId);
     expect(output.join("\n")).not.toContain(owner);
@@ -3983,7 +3984,7 @@ describe("runAgentstack", () => {
     expect(output).toContain("Ledger: planned");
     expect(output).toContain("Live resource: read");
     expect(output).toContain("Identity proof: exact");
-    expect(output).toContain("Identity scope: partial");
+    expect(output).toContain("Identity scope: exact");
     expect(output).toContain("Exact identity evidence: available");
     expect(output).toContain("Exact identity evaluator: provider-exact-identity");
     expect(output).toContain("Drift proof: unproven");
@@ -4165,7 +4166,7 @@ describe("runAgentstack", () => {
     expect(output).toContain("Ledger: planned");
     expect(output).toContain("Live resource: read");
     expect(output).toContain("Identity proof: exact");
-    expect(output).toContain("Identity scope: partial");
+    expect(output).toContain("Identity scope: exact");
     expect(output).toContain("Exact identity evidence: available");
     expect(output).toContain("Exact identity evaluator: provider-exact-identity");
     expect(output).toContain("Drift proof: partial");

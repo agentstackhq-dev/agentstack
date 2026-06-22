@@ -28,7 +28,7 @@ export type ProviderInventoryLiveStatus = "not-checked" | "found" | "not-found" 
 export type ProviderInventoryIdentityMatch = "not-checked" | "matched" | "mismatched" | "ambiguous";
 export type ProviderInventoryPermissionSummary = "not-checked" | "read-ok" | "read-failed";
 export type ProviderInventoryDriftSummary = "not-checked" | "none" | "possible" | "unknown";
-export type ProviderInventoryIdentityScope = ProviderLiveIdentityConfidence;
+export type ProviderInventoryIdentityScope = ProviderLiveIdentityConfidence | "exact";
 export type ProviderIdentityProofMissingLabel = ProviderProofRequirementLabel | "successful-live-read";
 export type ProviderLinkLedgerStatus = Extract<ProviderLedgerStatus, "planned" | "active">;
 
@@ -186,13 +186,15 @@ export async function createLiveProviderInventory(input: LiveProviderInventoryIn
     exactIdentityDecision.missing,
     candidateIdentityDecision.missing
   );
+  const identityScope: ProviderInventoryIdentityScope =
+    exactIdentityDecision.proof === "exact" ? "exact" : liveFacts.identityScope;
   const liveStatus: ProviderInventoryLiveStatus = authFailed
     ? "auth-failed"
     : notFound
       ? "not-found"
       : failed
         ? "unknown"
-        : liveFacts.identityScope === "none"
+        : identityScope === "none"
           ? "unknown"
           : "found";
   const permissionSummary: ProviderInventoryPermissionSummary = failed ? "read-failed" : "read-ok";
@@ -205,7 +207,7 @@ export async function createLiveProviderInventory(input: LiveProviderInventoryIn
       ...row,
       liveStatus,
       identityMatch: exactIdentityDecision.proof === "exact" ? "matched" : "ambiguous",
-      identityScope: liveFacts.identityScope,
+      identityScope,
       permissionSummary,
       driftSummary: "unknown",
       facts: liveFacts.facts.length > 0 ? liveFacts.facts : undefined,
