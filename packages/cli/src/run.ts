@@ -1896,7 +1896,7 @@ function buildLiveValidationClerkExactProofContext(input: {
   manifest: AgentstackManifest;
   ledgerRows: ReturnType<typeof parseProviderLedger>;
 }): ClerkExactProofContext | undefined {
-  if (input.service !== "clerk" || input.environment !== "preview") {
+  if (input.service !== "clerk") {
     return undefined;
   }
 

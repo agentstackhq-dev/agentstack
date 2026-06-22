@@ -4395,6 +4395,91 @@ describe("runAgentstack", () => {
     expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
   });
 
+  it("surfaces exact Clerk production proof summary during live validation while refusing readiness", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.environments = ["production"];
+    manifest.services.clerk.enabled = true;
+    manifest.services.convex.enabled = false;
+    manifest.services.vercel.enabled = false;
+    manifest.services.eas.enabled = false;
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    const rowId = "row-secret-live-clerk-prod-proof";
+    const externalId = "res_live_clerk_prod_secret";
+    const owner = "org_live_clerk_prod_secret";
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: rowId,
+        provider: "clerk",
+        resourceType: "application",
+        environment: "production",
+        name: "acme-crm-production",
+        status: "planned",
+        owner,
+        externalId,
+        cleanupCommand: "delete through Clerk dashboard",
+        evidence: "docs/evidence/clerk-production.md"
+      })
+    ]);
+    const appsList = JSON.stringify({
+      data: [
+        {
+          id: "app_live_clerk_prod_secret",
+          resourceId: externalId,
+          ownerId: owner,
+          environment: "production",
+          name: "acme-crm-production"
+        }
+      ]
+    });
+    const ledgerPath = join(dir, "docs", "provider-resource-ledger.md");
+    const ledgerBefore = await readFile(ledgerPath, "utf8");
+
+    const code = await runAgentstack(["validate", "--live", "--env", "production"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: {
+        async execute(command, args, options) {
+          providerExecutions.push({ command, args, stdin: options.stdin });
+          return {
+            exitCode: 0,
+            stdout: args.join(" ") === "exec clerk apps list --json" ? appsList : "ok",
+            stderr: "",
+            durationMs: 12
+          };
+        }
+      }
+    });
+
+    const rendered = output.join("\n");
+    expect(code).toBe(1);
+    expect(output).toContain("Evidence: live-validation");
+    expect(output).toContain("FAIL validate --live");
+    expect(output).toContain("Readiness: refused");
+    expect(output).toContain("Reason: proof-incomplete");
+    expect(rendered).toContain("Provider proof: clerk production");
+    expect(rendered).toContain("Identity proof: exact");
+    expect(rendered).toContain("Exact identity evidence: available");
+    expect(rendered).toContain("Exact identity evaluator: provider-exact-identity");
+    expect(rendered).toContain("Drift proof: unproven");
+    expect(rendered).toContain("Live coherence: blocked");
+    expect(rendered).not.toContain("PASS validate --live");
+    expect(rendered).not.toContain("Readiness: ready");
+    expect(rendered).not.toContain(rowId);
+    expect(rendered).not.toContain(externalId);
+    expect(rendered).not.toContain(owner);
+    expect(rendered).not.toContain("app_live_clerk_prod_secret");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec clerk doctor --mode agent",
+      "exec clerk env pull --mode agent",
+      "exec clerk config pull --mode agent",
+      "exec clerk apps list --json"
+    ]);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
+  });
+
   it("does not surface exact Clerk live validation proof summary for a blocked ledger row", async () => {
     const rowId = "row-blocked-live-clerk-proof";
     const externalId = "res_blocked_live_clerk_secret";
