@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import type { EnvironmentName } from "@agentstack/core";
 
 import {
@@ -148,6 +150,7 @@ export async function inspectEasReadOnly(options: InspectEasReadOnlyOptions): Pr
   const target = createEasTarget(options.environment);
   const commands = [target.envListCommand];
   const results: ProviderExecutionResult[] = [];
+  const localProjectLink = await readEasLocalProjectLink(options.cwd);
 
   for (const command of commands) {
     const [executable, ...args] = command.args;
@@ -171,7 +174,11 @@ export async function inspectEasReadOnly(options: InspectEasReadOnlyOptions): Pr
         result,
         secretValues: options.secretValues,
         liveIdentityFacts,
-        identityCandidates: easIdentityCandidates(liveIdentityFacts, options.environment)
+        identityCandidates: easIdentityCandidates({
+          liveIdentityFacts,
+          environment: options.environment,
+          hasLocalProjectLink: Boolean(localProjectLink)
+        })
       })
     );
   }
@@ -205,26 +212,112 @@ function parseEasEnvListFacts(
   };
 }
 
-function easIdentityCandidates(
-  liveIdentityFacts: ProviderLiveIdentityFacts | undefined,
-  environment: "preview" | "production"
-): ProviderIdentityCandidatesArtifact | undefined {
-  const environmentFact = environment === "preview" ? "preview-environment" : "production-environment";
+function easIdentityCandidates(input: {
+  liveIdentityFacts: ProviderLiveIdentityFacts | undefined;
+  environment: "preview" | "production";
+  hasLocalProjectLink: boolean;
+}): ProviderIdentityCandidatesArtifact | undefined {
+  const environmentFact = input.environment === "preview" ? "preview-environment" : "production-environment";
+  const labels: Array<"provider-environment-scope" | "provider-project-link-proof"> = [];
   if (
-    !liveIdentityFacts ||
-    liveIdentityFacts.identityConfidence !== "partial" ||
-    !liveIdentityFacts.facts.includes("expected-env-names") ||
-    !liveIdentityFacts.facts.includes(environmentFact) ||
-    !liveIdentityFacts.facts.includes("env-list-read")
+    input.liveIdentityFacts?.identityConfidence === "partial" &&
+    input.liveIdentityFacts.facts.includes("expected-env-names") &&
+    input.liveIdentityFacts.facts.includes(environmentFact) &&
+    input.liveIdentityFacts.facts.includes("env-list-read")
   ) {
+    labels.push("provider-environment-scope");
+  }
+  if (input.hasLocalProjectLink) {
+    labels.push("provider-project-link-proof");
+  }
+
+  return labels.length > 0
+    ? {
+        kind: "provider-identity-candidates",
+        evaluator: "provider-specific-identity-candidate-parser",
+        labels
+      }
+    : undefined;
+}
+
+type EasLocalProjectLink = {
+  projectId: string;
+};
+
+const easLocalConfigPaths = [
+  ["apps", "mobile", "app.json"],
+  ["apps", "mobile", "app.config.json"],
+  ["apps", "mobile", "app.config.ts"],
+  ["app.json"],
+  ["app.config.json"],
+  ["app.config.ts"]
+] as const;
+
+async function readEasLocalProjectLink(cwd: string | undefined): Promise<EasLocalProjectLink | undefined> {
+  if (!cwd) {
     return undefined;
   }
 
-  return {
-    kind: "provider-identity-candidates",
-    evaluator: "provider-specific-identity-candidate-parser",
-    labels: ["provider-environment-scope"]
-  };
+  for (const pathParts of easLocalConfigPaths) {
+    const path = join(cwd, ...pathParts);
+    let content: string;
+    try {
+      content = await readFile(path, "utf8");
+    } catch {
+      continue;
+    }
+
+    const projectId = path.endsWith(".json")
+      ? readEasProjectIdFromJson(content)
+      : readEasProjectIdFromSource(content);
+    if (projectId) {
+      return { projectId };
+    }
+  }
+
+  return undefined;
+}
+
+function readEasProjectIdFromJson(content: string): string | undefined {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    return undefined;
+  }
+
+  if (!isRecord(parsed)) {
+    return undefined;
+  }
+
+  const root = isRecord(parsed.expo) ? parsed.expo : parsed;
+  return readEasProjectId(root.extra);
+}
+
+function readEasProjectIdFromSource(content: string): string | undefined {
+  const easBlockMatch = content.match(/\beas\s*:\s*{[\s\S]{0,800}?\bprojectId\s*:\s*["']([^"']+)["']/);
+  const projectId = easBlockMatch?.[1]?.trim();
+  return isEasProjectId(projectId) ? projectId : undefined;
+}
+
+function readEasProjectId(extra: unknown): string | undefined {
+  if (!isRecord(extra) || !isRecord(extra.eas)) {
+    return undefined;
+  }
+
+  const projectId = extra.eas.projectId;
+  return isEasProjectId(projectId) ? projectId : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isEasProjectId(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim())
+  );
 }
 
 function parseEasEnvListRows(stdout: string): Array<{ name: string; environments: string[] }> {

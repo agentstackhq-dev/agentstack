@@ -1,3 +1,6 @@
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { createEasCommandPlan, createEasTarget, inspectEasReadOnly } from "./eas.js";
@@ -242,6 +245,51 @@ describe("eas command planner", () => {
     expect(JSON.stringify(results)).not.toContain("https://preview.example.test");
     expect(JSON.stringify(results)).not.toContain("eas-token-secret");
     expect(JSON.stringify(results)).not.toContain("provider-project-link-proof");
+  });
+
+  it("attaches sanitized EAS project-link candidates from local mobile app config", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "agentstack-eas-link-"));
+    await mkdir(join(cwd, "apps", "mobile"), { recursive: true });
+    await writeFile(
+      join(cwd, "apps", "mobile", "app.config.ts"),
+      [
+        "export default {",
+        "  expo: {",
+        "    extra: {",
+        "      eas: {",
+        "        projectId: '12345678-abcd-4abc-9abc-123456789abc'",
+        "      }",
+        "    }",
+        "  }",
+        "};"
+      ].join("\n")
+    );
+
+    const results = await inspectEasReadOnly({
+      environment: "preview",
+      cwd,
+      executor: {
+        async execute() {
+          return {
+            exitCode: 0,
+            stdout: [
+              "Name              Value                         Environment",
+              "EXPO_PUBLIC_APP_URL https://preview.example.test preview"
+            ].join("\n"),
+            stderr: "",
+            durationMs: 6
+          };
+        }
+      }
+    });
+
+    expect(results[0]?.identityCandidates).toEqual({
+      kind: "provider-identity-candidates",
+      evaluator: "provider-specific-identity-candidate-parser",
+      labels: ["provider-environment-scope", "provider-project-link-proof"]
+    });
+    expect(results[0]?.exactIdentityProof).toBeUndefined();
+    expect(JSON.stringify(results)).not.toContain("12345678-abcd-4abc-9abc-123456789abc");
   });
 
   it("parses EAS preview env-list partial facts from pipe-delimited table rows", async () => {
