@@ -120,6 +120,7 @@ describe("generateProject", () => {
         "provider:convex:production": "node scripts/agentstack.mjs provider plan --service convex --env production",
         "provider:vercel:preview": "node scripts/agentstack.mjs provider plan --service vercel --env preview",
         "provider:vercel:inspect:preview": "node scripts/agentstack.mjs provider inspect --service vercel --env preview",
+        "provider:vercel:inspect:production": "node scripts/agentstack.mjs provider inspect --service vercel --env production",
         "provider:vercel:production": "node scripts/agentstack.mjs provider plan --service vercel --env production",
         "prod:prepare": "node scripts/agentstack.mjs prod prepare",
         "prod:provision": "node scripts/agentstack.mjs prod provision",

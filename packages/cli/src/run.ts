@@ -1036,7 +1036,7 @@ async function providerInspectCommand(argv: string[], io: RunIo): Promise<number
         severity: "fail",
         code: "provider.service.unsupported",
         path: service,
-        message: "Only Clerk, Convex, Vercel preview, and EAS preview provider inspect are available in this slice.",
+        message: "Only Clerk, Convex, Vercel preview/production, and EAS preview provider inspect are available in this slice.",
         fix,
         blocks: ["provider inspect"]
       })
@@ -1048,29 +1048,6 @@ async function providerInspectCommand(argv: string[], io: RunIo): Promise<number
       command: ["provider", "inspect", ...argv].join(" "),
       status: "fail",
       state: { service, reason: "unsupported-service" }
-    });
-    return 1;
-  }
-
-  if (service === "vercel" && environment !== "preview") {
-    io.write(
-      formatDiagnostic({
-        severity: "fail",
-        code: "provider.inspect.unsupported",
-        path: `${service}.${environment}`,
-        message:
-          "Vercel runtime inspect supports preview env-list only. Production inspect, deploy, and env mutation execution are not available in this slice.",
-        fix: "Run agentstack provider inspect --service vercel --env preview.",
-        blocks: ["provider inspect"]
-      })
-    );
-    await recordCommandEvent(io, {
-      name: "agentstack.provider.inspect.completed",
-      environment,
-      journey: "provider-inspect",
-      command: ["provider", "inspect", ...argv].join(" "),
-      status: "fail",
-      state: { service, reason: "unsupported-environment" }
     });
     return 1;
   }
@@ -1192,7 +1169,7 @@ async function providerInspectCommand(argv: string[], io: RunIo): Promise<number
           message: redactProviderText(error instanceof Error ? error.message : String(error), {
             secretValues
           }),
-          fix: "Run agentstack provider inspect --service vercel --env preview.",
+          fix: `Run agentstack provider inspect --service vercel --env ${environment}.`,
           blocks: ["provider inspect"]
         })
       );
