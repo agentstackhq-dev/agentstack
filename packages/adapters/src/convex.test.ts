@@ -310,11 +310,13 @@ describe("convex command planner", () => {
 
   it("does not attach Convex identity candidates outside preview", async () => {
     const manifest = createDefaultManifest("acme-crm");
+    const calls: Array<{ command: string; args: string[] }> = [];
     const results = await inspectConvexReadOnly({
       manifest,
       environment: "production",
       executor: {
-        async execute() {
+        async execute(command, args) {
+          calls.push({ command, args });
           return {
             exitCode: 0,
             stdout: "Name               Value\nOPENAI_API_KEY     hidden-by-provider",
@@ -326,11 +328,17 @@ describe("convex command planner", () => {
       secretValues: ["hidden-by-provider"]
     });
 
+    expect(calls).toEqual([{ command: "pnpm", args: ["exec", "convex", "env", "--prod", "list"] }]);
+    expect(results[0]?.liveIdentityFacts).toEqual({
+      identityConfidence: "partial",
+      facts: ["provider-env-read"]
+    });
     expect(results[0]?.identityCandidates).toBeUndefined();
     expect(results[0]?.exactIdentityProof).toBeUndefined();
     expect(results[0]?.liveIdentityFacts?.facts ?? []).not.toEqual(
       expect.arrayContaining(["env-list-read", "expected-env-names", "preview-environment"])
     );
+    expect(JSON.stringify(results)).not.toContain("hidden-by-provider");
   });
 
   it("does not attach Convex live identity facts to failed env list reads", async () => {

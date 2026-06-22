@@ -23,6 +23,9 @@ type CustomEnvProviderTarget = NonNullable<
 const convexPreviewTarget: CustomEnvProviderTarget[] = [
   { service: "convex", surfaces: ["convex"], environments: ["preview"], source: "local-value" }
 ];
+const convexProductionTarget: CustomEnvProviderTarget[] = [
+  { service: "convex", surfaces: ["convex"], environments: ["production"], source: "local-value" }
+];
 const convexPreviewProductionTargets: CustomEnvProviderTarget[] = [
   { service: "convex", surfaces: ["convex"], environments: ["preview", "production"], source: "local-value" }
 ];
@@ -2158,6 +2161,45 @@ describe("runAgentstack", () => {
     ]);
   });
 
+  it("inspects Convex production as read-only env-list diagnostics", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.environments = ["production"];
+    manifest.surfaces = ["convex"];
+    manifest.env.custom.OPENAI_API_KEY = {
+      surfaces: ["convex"],
+      environments: ["production"],
+      required: true,
+      secret: true,
+      providerTargets: convexProductionTarget
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    await writeLocalEnvValues({
+      production: { convex: { OPENAI_API_KEY: "sk-local-production-provider-value" } }
+    });
+
+    const code = await runAgentstack(["provider", "inspect", "--service", "convex", "--env", "production"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("OPENAI_API_KEY=provider-owned-production-secret")
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("WARN provider inspect convex production");
+    expect(output).toContain("Evidence: live-read");
+    expect(output).toContain("Mutation: none");
+    expect(output.join("\n")).toContain("Target: prod");
+    expect(output.join("\n")).toContain("Required env: CONVEX_DEPLOY_KEY");
+    expect(output.join("\n")).toContain("Operations: 2");
+    expect(output.join("\n")).toContain("Commands: 1");
+    expect(output.join("\n")).toContain("Results: 1");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual(["exec convex env --prod list"]);
+    expect(providerExecutions.map((execution) => execution.args.join(" ")).join("\n")).not.toMatch(
+      /\b(deploy|set|remove)\b/
+    );
+    expect(output.join("\n")).not.toContain("sk-local-production-provider-value");
+    expect(output.join("\n")).not.toContain("provider-owned-production-secret");
+  });
+
   it("inspects Clerk preview with read-only commands and no mutation language", async () => {
     const code = await runAgentstack(["provider", "inspect", "--service", "clerk", "--env", "preview"], {
       cwd: dir,
@@ -2941,6 +2983,69 @@ describe("runAgentstack", () => {
     expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
       "exec convex env --deployment <preview-deployment-name> list"
     ]);
+    await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+    expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
+  });
+
+  it("renders Convex production live inventory as read-only provider-env evidence", async () => {
+    const rowId = "row-secret-convex-production";
+    const externalId = "https://dashboard.convex.dev/d/prod-secret";
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.environments = ["production"];
+    manifest.surfaces = ["convex"];
+    manifest.env.custom.OPENAI_API_KEY = {
+      surfaces: ["convex"],
+      environments: ["production"],
+      required: true,
+      secret: true,
+      providerTargets: convexProductionTarget
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    await writeLocalEnvValues({
+      production: { convex: { OPENAI_API_KEY: "sk-local-production-provider-value" } }
+    });
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: rowId,
+        provider: "convex",
+        resourceType: "deployment",
+        environment: "production",
+        name: "prod",
+        status: "active",
+        externalId,
+        cleanupCommand: "delete through Convex dashboard",
+        evidence: "docs/evidence/convex-production.md"
+      })
+    ]);
+    const ledgerPath = join(dir, "docs", "provider-resource-ledger.md");
+    const ledgerBefore = await readFile(ledgerPath, "utf8");
+
+    const code = await runAgentstack(["provider", "inventory", "--service", "convex", "--env", "production", "--source", "live"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("LIVE_PROVIDER_ID=raw-convex-production-secret")
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS provider inventory convex production");
+    expect(output).toContain("Evidence: live-read-inventory");
+    expect(output).toContain("Mutation: none");
+    expect(output.join("\n")).toContain("Commands: 1");
+    expect(output.join("\n")).toContain("Results: 1");
+    expect(output.join("\n")).toContain(
+      "live=found identity=ambiguous identity-scope=partial permission=read-ok drift=unknown facts=provider-env-read missing=ledger-comparable-identity,provider-environment-scope,provider-owner-identity,provider-resource-id,provider-specific-identity-parser,stable-provider-identity"
+    );
+    expect(output.join("\n")).not.toContain("env-list-read");
+    expect(output.join("\n")).not.toContain(rowId);
+    expect(output.join("\n")).not.toContain(externalId);
+    expect(output.join("\n")).not.toContain("raw-convex-production-secret");
+    expect(output.join("\n")).not.toContain("sk-local-production-provider-value");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual(["exec convex env --prod list"]);
     await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({
       code: "ENOENT"
     });

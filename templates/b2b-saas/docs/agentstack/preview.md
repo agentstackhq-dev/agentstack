@@ -119,14 +119,15 @@ Evidence: provider-command-plan
 
 Convex env set/remove commands are printed with redacted values. Secret and non-secret values use `.agentstack/env-values.json` as the value source label, not the raw value. Preview env commands use `convex env --deployment <preview-deployment-name> set/remove ...` until `pnpm exec convex deploy --preview-name __APP_SLUG__-preview` has created a concrete Convex preview deployment name.
 
-Inspect or apply explicit Convex preview provider operations:
+Inspect explicit Convex preview or production provider state, or apply explicit Convex preview provider operations:
 
 ```bash
 pnpm run provider:convex:inspect:preview
+pnpm run provider:convex:inspect:production
 pnpm run provider:convex:apply:preview
 ```
 
-Convex inspect/apply requires `CONVEX_DEPLOY_KEY`, keeps raw values out of output, prints `Evidence: live-read` for inspect or `Evidence: live-mutation` for apply, and records redacted `agentstack.provider.inspect.completed` or `agentstack.provider.apply.completed` telemetry.
+Convex inspect/apply requires `CONVEX_DEPLOY_KEY`, keeps raw values out of output, and prints `Evidence: live-read` for inspect or `Evidence: live-mutation` for apply. Production inspect runs only `pnpm exec convex env --prod list` and is read-only. Convex apply records redacted provider apply telemetry and remains ledger-gated.
 
 Plan Clerk preview commands without running them:
 
@@ -293,7 +294,7 @@ agentstack.deploy.completed
 
 - This is not a Stripe or telemetry-provider deployment, and local preview deploy/build rehearsals do not run provider CLIs as side effects.
 - Plan, sync, deploy, and build commands do not execute provider CLIs. Provider execution is explicit only through `agentstack provider inspect/apply`.
-- Clerk inspect, Vercel preview/production inspect, and EAS preview/production inspect are read-only. Convex apply executes Convex commands. Vercel preview apply executes only the preview deploy command. Clerk apply, EAS apply, Vercel production apply, Vercel env mutation execution, and EAS build/init/env mutation execution are unavailable.
+- Clerk inspect, Convex preview/production inspect, Vercel preview/production inspect, and EAS preview/production inspect are read-only. Convex apply executes Convex commands. Vercel preview apply executes only the preview deploy command. Clerk apply, EAS apply, Vercel production apply, Vercel env mutation execution, and EAS build/init/env mutation execution are unavailable.
 - It does not prove production readiness.
 - It does not replace provider credentials, real CI/CD, app builds, smoke tests, or production release approval.
 

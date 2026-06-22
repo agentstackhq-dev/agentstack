@@ -42,6 +42,7 @@
     "provider:convex:inspect:preview": "node scripts/agentstack.mjs provider inspect --service convex --env preview",
     "provider:convex:apply:preview": "node scripts/agentstack.mjs provider apply --service convex --env preview",
     "provider:convex:production": "node scripts/agentstack.mjs provider plan --service convex --env production",
+    "provider:convex:inspect:production": "node scripts/agentstack.mjs provider inspect --service convex --env production",
     "provider:convex:inventory:preview": "node scripts/agentstack.mjs provider inventory --service convex --env preview",
     "provider:convex:inventory:production": "node scripts/agentstack.mjs provider inventory --service convex --env production",
     "provider:convex:link:preview": "node scripts/agentstack.mjs provider link --service convex --env preview --resource-type deployment --name __APP_SLUG__-preview",
