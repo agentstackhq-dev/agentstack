@@ -1,0 +1,31 @@
+---
+description: Validation-first milestone execution for Agentstack (hypothesis + E2E, not readiness slices)
+alwaysApply: true
+---
+
+# Agentstack validation-first mode
+
+Before coding, read in order:
+1. `docs/validation-hypothesis.md`
+2. Active milestone in `docs/milestones/` (currently `M1-preview-e2e.md`)
+3. `AGENTS.md`
+
+## Default behavior
+
+- Move the active milestone's acceptance checkboxes toward PASS, or produce redacted evidence for a failed E2E attempt, or recommend kill/pivot.
+- Update `docs/milestones/<active>.md` at end of session. Append evidence to `docs/milestones/evidence/<milestone-id>/`.
+- Infra is allowed when it directly unblocks the active milestone (preview E2E). Ask: does this make PASS closer, or only refusal/diagnostics more precise?
+
+## Do not (unless explicitly requested)
+
+- Extend `docs/consumer-production-readiness-progress.md`
+- Add diagnostic-only CLI slices, candidate-evidence printers, plan-only reconcile expansions, or unrelated quality gates
+- Treat readiness roadmap percentage as the progress metric
+
+## Thread prompts
+
+Copy from `docs/milestones/THREAD-KICKOFF.md` (spike → unblock → runtime).
+
+## Real resources
+
+Ledger per `docs/provider-resource-ledger.md` before any external provider create/link/mutate.

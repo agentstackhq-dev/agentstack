@@ -1,8 +1,14 @@
 # Agentstack Consumer Production Readiness Progress
 
+> **Archived (2026-06-22).** Do not extend this file slice-by-slice.
+>
+> **Active execution:** [validation-hypothesis.md](./validation-hypothesis.md) · [milestones/](./milestones/) · [validation-operating-model.md](./validation-operating-model.md)
+>
+> This document remains a historical snapshot of the readiness expansion phase. New coding agents start from the milestone system, not from this log.
+
 Date: 2026-06-22
 
-This file is the canonical resume and progress artifact for Agentstack consumer production readiness work. Update it before ending every roadmap work turn so the next worker can resume from current truth without reconstructing state from scattered notes.
+This file was the canonical resume and progress artifact for Agentstack consumer production readiness work during the slice-driven phase. It is frozen as historical context.
 
 ## Current State
 

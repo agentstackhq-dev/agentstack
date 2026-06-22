@@ -1,5 +1,11 @@
 # Agentstack Consumer Production Readiness Roadmap
 
+> **Backlog reference, not the active task list (2026-06-22).**
+>
+> **Active execution:** [validation-hypothesis.md](./validation-hypothesis.md) · [milestones/M1-preview-e2e.md](./milestones/M1-preview-e2e.md) · [validation-operating-model.md](./validation-operating-model.md)
+>
+> Use this roadmap for capability gaps and long-term finish-plan context. Coding agents implement against milestone acceptance criteria first.
+
 ## Verdict
 
 Agentstack is about 43-45% of the way toward consumer production readiness.
