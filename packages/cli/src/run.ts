@@ -1487,13 +1487,13 @@ async function providerInventoryCommand(argv: string[], io: RunIo): Promise<numb
   const environment = readProviderRuntimeEnvironmentOption(options.env, fix);
   const source = readProviderInventorySourceOption(options.source, options.live, fix);
 
-  if (source === "live" && (service === "vercel" || service === "eas") && environment !== "preview") {
+  if (source === "live" && service === "eas" && environment !== "preview") {
     io.write(
       formatDiagnostic({
         severity: "fail",
         code: "provider.inventory.unsupported",
         path: `${service}.${environment}`,
-        message: `${service === "vercel" ? "Vercel" : "EAS"} live inventory supports preview read-only inspect only.`,
+        message: "EAS live inventory supports preview read-only inspect only.",
         fix: `Run agentstack provider inventory --service ${service} --env preview --source live.`,
         blocks: ["provider inventory"]
       })

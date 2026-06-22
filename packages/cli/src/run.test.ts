@@ -2832,6 +2832,78 @@ describe("runAgentstack", () => {
     ]);
   });
 
+  it("renders sanitized Vercel production live inventory without claiming exact identity", async () => {
+    await mkdir(join(dir, ".vercel"), { recursive: true });
+    await writeFile(
+      join(dir, ".vercel", "project.json"),
+      JSON.stringify({ projectId: "prj_live_vercel_inventory_secret", orgId: "team_live_vercel_inventory_secret" }),
+      "utf8"
+    );
+    const rowId = "row-secret-vercel-production-inventory";
+    const externalId = "prj_live_vercel_inventory_secret";
+    const owner = "team_live_vercel_inventory_secret";
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: rowId,
+        provider: "vercel",
+        resourceType: "project",
+        environment: "production",
+        name: "acme-crm",
+        status: "active",
+        owner,
+        externalId,
+        cleanupCommand: "delete through Vercel dashboard",
+        evidence: "docs/evidence/vercel-production.md"
+      })
+    ]);
+    const ledgerPath = join(dir, "docs", "provider-resource-ledger.md");
+    const ledgerBefore = await readFile(ledgerPath, "utf8");
+
+    const code = await runAgentstack(["provider", "inventory", "--service", "vercel", "--env", "production", "--source", "live"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: {
+        async execute(command, args, options) {
+          providerExecutions.push({ command, args, stdin: options.stdin });
+          return {
+            exitCode: 0,
+            stdout:
+              args.join(" ") === "exec vercel project ls --json"
+                ? JSON.stringify([{ id: externalId, name: "acme-crm", accountId: owner }])
+                : ["Name Environment", "NEXT_PUBLIC_APP_URL production", "API_TOKEN production"].join("\n"),
+            stderr: "",
+            durationMs: 12
+          };
+        }
+      }
+    });
+
+    const rendered = output.join("\n");
+    expect(code).toBe(0);
+    expect(output).toContain("PASS provider inventory vercel production");
+    expect(output).toContain("Evidence: live-read-inventory");
+    expect(output).toContain("Mutation: none");
+    expect(rendered).toContain("Commands: 2");
+    expect(rendered).toContain("Results: 2");
+    expect(rendered).toContain("Succeeded: 2");
+    expect(rendered).toContain("live=found identity=ambiguous identity-scope=partial permission=read-ok");
+    expect(rendered).toContain("facts=env-list-read,expected-env-names,production-environment");
+    expect(rendered).not.toContain("identity=matched");
+    expect(rendered).not.toContain("NEXT_PUBLIC_APP_URL");
+    expect(rendered).not.toContain("API_TOKEN");
+    expect(rendered).not.toContain(rowId);
+    expect(rendered).not.toContain(externalId);
+    expect(rendered).not.toContain(owner);
+    expect(rendered).not.toContain("live-vercel-inventory");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec vercel env ls production",
+      "exec vercel project ls --json"
+    ]);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
+  });
+
   it("renders mixed Clerk live inventory failures without partial facts", async () => {
     let callIndex = 0;
     const code = await runAgentstack(["provider", "inventory", "--service", "clerk", "--env", "preview", "--source", "live"], {
@@ -4723,21 +4795,17 @@ describe("runAgentstack", () => {
     expect(providerExecutions).toHaveLength(0);
   });
 
-  it("rejects live Vercel and EAS production inventory before executor use", async () => {
-    for (const service of ["vercel", "eas"] as const) {
-      output = [];
-      providerExecutions = [];
-      const code = await runAgentstack(["provider", "inventory", "--service", service, "--env", "production", "--source", "live"], {
-        cwd: dir,
-        write: (line) => output.push(line),
-        providerExecutor: createMockProviderExecutor("live-read should not run")
-      });
+  it("rejects live EAS production inventory before executor use", async () => {
+    const code = await runAgentstack(["provider", "inventory", "--service", "eas", "--env", "production", "--source", "live"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("live-read should not run")
+    });
 
-      expect(code).toBe(1);
-      expect(output.join("\n")).toContain("FAIL provider.inventory.unsupported");
-      expect(output.join("\n")).toContain(`${service === "vercel" ? "Vercel" : "EAS"} live inventory supports preview read-only inspect only`);
-      expect(providerExecutions).toHaveLength(0);
-    }
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL provider.inventory.unsupported");
+    expect(output.join("\n")).toContain("EAS live inventory supports preview read-only inspect only");
+    expect(providerExecutions).toHaveLength(0);
   });
 
   it("blocks provider inventory malformed ledger rows with inventory-specific diagnostics", async () => {
