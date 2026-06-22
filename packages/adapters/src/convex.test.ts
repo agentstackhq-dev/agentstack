@@ -262,6 +262,10 @@ describe("convex command planner", () => {
       evaluator: "provider-specific-identity-candidate-parser",
       labels: ["provider-environment-scope"]
     });
+    expect(results[0]?.liveIdentityFacts).toEqual({
+      identityConfidence: "partial",
+      facts: ["env-list-read", "expected-env-names", "preview-environment", "provider-env-read"]
+    });
     expect(results[0]?.exactIdentityProof).toBeUndefined();
     expect(JSON.stringify(results)).not.toContain("hidden-by-provider");
     expect(JSON.stringify(results)).not.toContain("acme-crm-preview");
@@ -297,6 +301,9 @@ describe("convex command planner", () => {
 
       expect(results[0]?.identityCandidates).toBeUndefined();
       expect(results[0]?.exactIdentityProof).toBeUndefined();
+      expect(results[0]?.liveIdentityFacts?.facts ?? []).not.toEqual(
+        expect.arrayContaining(["env-list-read", "expected-env-names", "preview-environment"])
+      );
       expect(JSON.stringify(results)).not.toContain("hidden-by-provider");
     }
   });
@@ -321,6 +328,9 @@ describe("convex command planner", () => {
 
     expect(results[0]?.identityCandidates).toBeUndefined();
     expect(results[0]?.exactIdentityProof).toBeUndefined();
+    expect(results[0]?.liveIdentityFacts?.facts ?? []).not.toEqual(
+      expect.arrayContaining(["env-list-read", "expected-env-names", "preview-environment"])
+    );
   });
 
   it("does not attach Convex live identity facts to failed env list reads", async () => {

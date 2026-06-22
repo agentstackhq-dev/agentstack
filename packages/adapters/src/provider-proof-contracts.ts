@@ -515,12 +515,12 @@ export function evaluateProviderDriftProof(
     return evaluateClerkAppsListPreviewDriftProof(readResults);
   }
 
-  if (service !== "vercel" && service !== "eas") {
+  if (service !== "convex" && service !== "vercel" && service !== "eas") {
     return { proof: "unavailable" };
   }
 
   const hasCompleteEnvListPreviewEvidence = readResults.some((result) => {
-    const expectedCommandKind = service === "vercel" ? "env.list" : "mobile.env.list";
+    const expectedCommandKind = service === "eas" ? "mobile.env.list" : "env.list";
     if (
       result.service !== service ||
       result.environment !== "preview" ||

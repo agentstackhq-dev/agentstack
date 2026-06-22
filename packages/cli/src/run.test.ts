@@ -3704,6 +3704,13 @@ describe("runAgentstack", () => {
 
   it.each([
     {
+      service: "convex",
+      resourceType: "deployment",
+      name: "acme-crm-preview",
+      externalId: "https://dashboard.convex.dev/d/secret-preview",
+      stdout: ["Name  Value", "OPENAI_API_KEY  hidden-by-provider"].join("\n")
+    },
+    {
       service: "vercel",
       resourceType: "project",
       name: "acme-crm",
@@ -3763,6 +3770,8 @@ describe("runAgentstack", () => {
       expect(output).toContain("Reason: identity-ambiguous");
       expect(rendered).not.toContain("NEXT_PUBLIC_APP_URL");
       expect(rendered).not.toContain("EXPO_PUBLIC_APP_URL");
+      expect(rendered).not.toContain("OPENAI_API_KEY");
+      expect(rendered).not.toContain("hidden-by-provider");
       expect(rendered).not.toContain("https://secret.example.test");
       expect(rendered).not.toContain("proj_secret");
       expect(rendered).not.toContain(rowId);
@@ -3870,6 +3879,61 @@ describe("runAgentstack", () => {
       "exec vercel project ls --json",
       "exec eas env:list --environment preview"
     ]);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
+  });
+
+  it("surfaces Convex preview partial drift summary during live validation while refusing readiness", async () => {
+    const rowId = "row-secret-live-convex-proof";
+    const externalId = "https://dashboard.convex.dev/d/live-secret-preview";
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: rowId,
+        provider: "convex",
+        resourceType: "deployment",
+        environment: "preview",
+        name: "acme-crm-preview",
+        status: "planned",
+        externalId,
+        cleanupCommand: "delete through Convex dashboard",
+        evidence: "docs/evidence/convex-preview.md"
+      })
+    ]);
+    const ledgerPath = join(dir, "docs", "provider-resource-ledger.md");
+    const ledgerBefore = await readFile(ledgerPath, "utf8");
+
+    const code = await runAgentstack(["validate", "--live", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: {
+        async execute(command, args, options) {
+          providerExecutions.push({ command, args, stdin: options.stdin });
+          return {
+            exitCode: 0,
+            stdout:
+              args.join(" ") === "exec convex env --deployment <preview-deployment-name> list"
+                ? ["Name  Value", "OPENAI_API_KEY  hidden-by-provider"].join("\n")
+                : "raw provider output with https://secret.example.test",
+            stderr: "",
+            durationMs: 12
+          };
+        }
+      }
+    });
+
+    const rendered = output.join("\n");
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL validate --live");
+    expect(output).toContain("Readiness: refused");
+    expect(rendered).toMatch(/Provider proof: convex preview[\s\S]*Identity proof: unavailable[\s\S]*Drift proof: partial[\s\S]*Drift evaluator: env-list-preview/);
+    expect(rendered).toMatch(/Provider proof: convex preview[\s\S]*Live coherence: unavailable/);
+    expect(rendered).not.toContain("OPENAI_API_KEY");
+    expect(rendered).not.toContain("hidden-by-provider");
+    expect(rendered).not.toContain("https://secret.example.test");
+    expect(rendered).not.toContain(rowId);
+    expect(rendered).not.toContain(externalId);
     await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
     await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
     await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });

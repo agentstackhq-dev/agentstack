@@ -4,7 +4,8 @@ import {
   createProviderExecutionResult,
   type ProviderCommandExecutor,
   type ProviderExecutionResult,
-  type ProviderIdentityCandidatesArtifact
+  type ProviderIdentityCandidatesArtifact,
+  type ProviderLiveFactLabel
 } from "./provider-executor.js";
 import type { ProviderOperation } from "./provider-operations.js";
 
@@ -211,13 +212,28 @@ export async function inspectConvexReadOnly(
         secretValues: options.secretValues,
         resourceNames: [],
         identityCandidates: identityCandidatesForConvexRead(options.environment, result),
-        liveIdentityFacts:
-          result.exitCode === 0 ? { identityConfidence: "partial", facts: ["provider-env-read"] } : undefined
+        liveIdentityFacts: liveFactsForConvexRead(options.environment, result)
       })
     );
   }
 
   return results;
+}
+
+function liveFactsForConvexRead(
+  environment: EnvironmentName,
+  result: { exitCode: number; stdout: string }
+): { identityConfidence: "partial"; facts: ProviderLiveFactLabel[] } | undefined {
+  if (result.exitCode !== 0) {
+    return undefined;
+  }
+
+  const facts: ProviderLiveFactLabel[] = ["provider-env-read"];
+  if (environment === "preview" && hasStructuredExpectedConvexEnvRow(result.stdout)) {
+    facts.unshift("env-list-read", "expected-env-names", "preview-environment");
+  }
+
+  return { identityConfidence: "partial", facts };
 }
 
 function identityCandidatesForConvexRead(

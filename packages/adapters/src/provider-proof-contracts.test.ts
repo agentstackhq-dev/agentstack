@@ -1162,14 +1162,14 @@ describe("provider proof contracts", () => {
     });
   });
 
-  it("returns partial sanitized drift evidence for Vercel and EAS preview env-list facts", () => {
-    for (const service of ["vercel", "eas"] as const) {
+  it("returns partial sanitized drift evidence for Convex, Vercel, and EAS preview env-list facts", () => {
+    for (const service of ["convex", "vercel", "eas"] as const) {
       expect(
         evaluateProviderDriftProof(service, [
           {
             service,
             environment: "preview",
-            commandKind: service === "vercel" ? "env.list" : "mobile.env.list",
+            commandKind: service === "eas" ? "mobile.env.list" : "env.list",
             status: "success",
             exitCode: 0,
             durationMs: 5,
@@ -1497,13 +1497,13 @@ describe("provider proof contracts", () => {
   });
 
   it("keeps drift proof unavailable for non-env-list results with env-list-like facts", () => {
-    for (const service of ["vercel", "eas"] as const) {
+    for (const service of ["convex", "vercel", "eas"] as const) {
       expect(
         evaluateProviderDriftProof(service, [
           {
             service,
             environment: "preview",
-            commandKind: service === "vercel" ? "web.deploy" : "mobile.build",
+            commandKind: service === "eas" ? "mobile.build" : service === "vercel" ? "web.deploy" : "backend.deploy",
             status: "success",
             exitCode: 0,
             durationMs: 5,
