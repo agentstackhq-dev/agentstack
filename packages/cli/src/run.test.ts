@@ -1633,6 +1633,79 @@ describe("runAgentstack", () => {
     await expectReconcileDidNotWriteLocalState(ledgerBefore);
   });
 
+  it("prints explicit live aggregate provider reconciliation plans with bounded read-only inventory", async () => {
+    const ledgerBefore = await readOptionalFile(join(dir, "docs", "provider-resource-ledger.md"));
+
+    const code = await runAgentstack(["provider", "reconcile", "--env", "preview", "--plan", "--source", "live"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor(
+        [
+          "Name Environment",
+          "NEXT_PUBLIC_APP_URL preview",
+          "PUBLIC_API_URL preview",
+          "OPENAI_API_KEY preview",
+          "EXPO_PUBLIC_APP_URL preview",
+          "Project prj_secret_not_for_output"
+        ].join("\n")
+      )
+    });
+
+    const rendered = output.join("\n");
+    expect(code).toBe(0);
+    expect(output).toContain("PLAN provider reconcile preview");
+    expect(output).toContain("Evidence: live-reconciliation-plan");
+    expect(output).toContain("Provider execution: read-only");
+    expect(output).toContain("Mutation: none");
+    expect(output).toContain("Readiness: not-claimed");
+    expect(output).toContain("Current source: live-read-inventory");
+    expect(output).toContain("Live state: read");
+    expect(output).toContain("Local-cloud state: not-read");
+    expect(rendered).toMatch(/Service: clerk[\s\S]*Current: found[\s\S]*Identity: ambiguous[\s\S]*Read commands: 4/);
+    expect(rendered).toMatch(/Service: convex[\s\S]*Current: found[\s\S]*Identity: ambiguous[\s\S]*Read commands: 1/);
+    expect(rendered).toMatch(/Service: vercel[\s\S]*Current: found[\s\S]*Identity: ambiguous[\s\S]*Read commands: 2/);
+    expect(rendered).toMatch(/Service: eas[\s\S]*Current: found[\s\S]*Identity: ambiguous[\s\S]*Read commands: 1/);
+    expect(rendered).not.toContain("prj_secret_not_for_output");
+    expect(providerExecutions.length).toBeGreaterThan(0);
+    expect(providerExecutions.map((execution) => execution.args.join(" ")).join("\n")).not.toMatch(
+      /\b(deploy|build|project:init|env:create|env:update|env:delete|env add|env rm)\b/
+    );
+    await expectReconcileDidNotWriteLocalState(ledgerBefore);
+  });
+
+  it("fails explicit live aggregate provider reconciliation when any live read fails without state writes", async () => {
+    const ledgerBefore = await readOptionalFile(join(dir, "docs", "provider-resource-ledger.md"));
+
+    const code = await runAgentstack(["provider", "reconcile", "--env", "preview", "--plan", "--source", "live"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: {
+        async execute(command, args) {
+          providerExecutions.push({ command, args });
+          return {
+            exitCode: 1,
+            stdout: "",
+            stderr: "authentication required for provider-secret-output",
+            durationMs: 1
+          };
+        }
+      }
+    });
+
+    const rendered = output.join("\n");
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL provider reconcile preview");
+    expect(output).toContain("Evidence: live-reconciliation-plan");
+    expect(output).toContain("Provider execution: read-only");
+    expect(output).toContain("Mutation: none");
+    expect(output).toContain("Live state: read");
+    expect(output).toContain("Reason: live-read-failed");
+    expect(rendered).toMatch(/Service: clerk[\s\S]*Current: auth-failed[\s\S]*Permission: read-failed/);
+    expect(rendered).not.toContain("provider-secret-output");
+    expect(providerExecutions.length).toBeGreaterThan(0);
+    await expectReconcileDidNotWriteLocalState(ledgerBefore);
+  });
+
   it("rejects development provider reconcile before provider executor use", async () => {
     const ledgerBefore = await readOptionalFile(join(dir, "docs", "provider-resource-ledger.md"));
 

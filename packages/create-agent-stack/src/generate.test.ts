@@ -121,6 +121,10 @@ describe("generateProject", () => {
         "provider:production:plan": "node scripts/agentstack.mjs provider plan --env production --all",
         "provider:preview:reconcile": "node scripts/agentstack.mjs provider reconcile --env preview --plan",
         "provider:production:reconcile": "node scripts/agentstack.mjs provider reconcile --env production --plan",
+        "provider:preview:reconcile:live":
+          "node scripts/agentstack.mjs provider reconcile --env preview --plan --source live",
+        "provider:production:reconcile:live":
+          "node scripts/agentstack.mjs provider reconcile --env production --plan --source live",
         "provider:clerk:preview": "node scripts/agentstack.mjs provider plan --service clerk --env preview",
         "provider:clerk:production": "node scripts/agentstack.mjs provider plan --service clerk --env production",
         "provider:convex:preview": "node scripts/agentstack.mjs provider plan --service convex --env preview",
@@ -283,6 +287,9 @@ describe("generateProject", () => {
       expect(generatedEnvironmentDocs).toContain("instead of candidate missing-proof guidance");
       expect(generatedEnvironmentDocs).toContain("Lifecycle: create|provision|update|no-op|blocked");
       expect(generatedEnvironmentDocs).toContain("for every expected Clerk, Convex, Vercel, and EAS");
+      expect(generatedEnvironmentDocs).toContain("provider reconcile --env <preview|production> --plan --source live");
+      expect(generatedEnvironmentDocs).toContain("Evidence: live-reconciliation-plan");
+      expect(generatedEnvironmentDocs).toContain("Reason: live-read-failed");
       const generatedPreviewDocs = await readFile(join(targetDir, "docs/agentstack/preview.md"), "utf8");
       expect(generatedPreviewDocs).toContain("provider inventory --service convex --env preview");
       expect(generatedPreviewDocs).toContain("provider link --service convex --env preview");
@@ -291,6 +298,7 @@ describe("generateProject", () => {
       expect(generatedPreviewDocs).toContain("sanitized identity proof requirements");
       expect(generatedPreviewDocs).toContain("sanitized candidate identity evidence summaries");
       expect(generatedPreviewDocs).toContain("Lifecycle` is a plan decision only");
+      expect(generatedPreviewDocs).toContain("provider:preview:reconcile:live");
       const generatedWorkflowDocs = await readFile(join(targetDir, "docs/agentstack/workflows.md"), "utf8");
       expect(generatedWorkflowDocs).toContain("simulator state");
       expect(generatedWorkflowDocs).toContain("not proof of external provider existence");
@@ -307,6 +315,7 @@ describe("generateProject", () => {
       expect(generatedWorkflowDocs).toContain("env-list-production");
       expect(generatedWorkflowDocs).toContain("Live validation prints per-service proof summaries");
       expect(generatedWorkflowDocs).toContain("Reason: proof-incomplete");
+      expect(generatedWorkflowDocs).toContain("live-reconciliation-plan");
       const generatedValidationDocs = await readFile(join(targetDir, "docs/agentstack/validation.md"), "utf8");
       expect(generatedValidationDocs).toContain("pnpm lint");
       expect(generatedValidationDocs).toContain("pnpm run validate:live:preview");

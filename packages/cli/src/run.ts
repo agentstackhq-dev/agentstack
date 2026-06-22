@@ -868,6 +868,7 @@ async function providerReconcileCommand(argv: string[], io: RunIo): Promise<numb
     flag: "env",
     fix
   });
+  const source = readProviderInventorySourceOption(options.source, options.live, fix);
 
   if (options.plan !== true) {
     io.write(
@@ -920,6 +921,11 @@ async function providerReconcileCommand(argv: string[], io: RunIo): Promise<numb
   const enabledServices = validation.context.serviceOrder
     .filter(isProviderControlPlaneService)
     .filter((service) => validation.context.manifest.services[service].enabled);
+
+  if (source === "live") {
+    return await providerReconcileLiveCommand(io, environment, validation, enabledServices);
+  }
+
   const plans = enabledServices.map((service) => ({
     service,
     plan: createProviderPlanForService(service, environment, validation.context.manifest, [])
@@ -951,6 +957,98 @@ async function providerReconcileCommand(argv: string[], io: RunIo): Promise<numb
   }
 
   return 0;
+}
+
+async function providerReconcileLiveCommand(
+  io: RunIo,
+  environment: "preview" | "production",
+  validation: Awaited<ReturnType<typeof runLocalValidationGate>>,
+  enabledServices: ProviderControlPlaneService[]
+): Promise<number> {
+  const ledgerRows = await readProviderLedgerRowsIfPresent(io.cwd);
+  const executor = resolveProviderExecutor(io);
+  const summaries: Array<{
+    service: ProviderControlPlaneService;
+    inventory: ProviderInventory;
+    plan: ReturnType<typeof createProviderPlanForService>;
+    failed: boolean;
+  }> = [];
+
+  for (const service of enabledServices) {
+    const localInventory = await createProviderInventory({
+      cwd: io.cwd,
+      manifest: validation.context.manifest,
+      service,
+      environment,
+      ledgerRows
+    });
+    const secretValues =
+      service === "convex"
+        ? collectSecretValues(validation.envValues, environment, "convex")
+        : collectEnvironmentSecretValues(validation.envValues, environment);
+    const readResults = await readLiveProviderInventory({
+      service,
+      environment,
+      manifest: validation.context.manifest,
+      executor,
+      cwd: io.cwd,
+      secretValues,
+      clerkExactProofContext: buildLiveValidationClerkExactProofContext({
+        service,
+        environment,
+        manifest: validation.context.manifest,
+        ledgerRows
+      }),
+      vercelExactProofContext: buildLiveValidationVercelExactProofContext({
+        service,
+        environment,
+        manifest: validation.context.manifest,
+        ledgerRows
+      })
+    });
+    const inventory = await createLiveProviderInventory({ localInventory, readResults });
+    summaries.push({
+      service,
+      inventory,
+      plan: createProviderPlanForService(service, environment, validation.context.manifest, []),
+      failed: readResults.some((result) => result.status === "failed")
+    });
+  }
+
+  const failed = summaries.some((summary) => summary.failed);
+  io.write(`${failed ? "FAIL" : "PLAN"} provider reconcile ${environment}`);
+  io.write("Evidence: live-reconciliation-plan");
+  io.write("Provider execution: read-only");
+  io.write("Mutation: none");
+  io.write("Readiness: not-claimed");
+  io.write("Current source: live-read-inventory");
+  io.write("Live state: read");
+  io.write("Local-cloud state: not-read");
+  if (failed) {
+    io.write("Reason: live-read-failed");
+  }
+  for (const { service, inventory, plan } of summaries) {
+    const row = inventory.rows[0];
+    io.write(`Service: ${service}`);
+    io.write(`Desired: enabled`);
+    io.write(`Current: ${row?.liveStatus ?? "unknown"}`);
+    io.write(`Identity: ${row?.identityMatch ?? "ambiguous"}`);
+    io.write(`Identity scope: ${row?.identityScope ?? "none"}`);
+    io.write(`Drift: ${row?.driftSummary ?? "unknown"}`);
+    io.write(`Permission: ${row?.permissionSummary ?? "not-checked"}`);
+    io.write(`Ledger: ${row?.ledgerStatus ?? "missing"}`);
+    io.write(`Operations: not-evaluated`);
+    io.write(`Read commands: ${inventory.liveReadSummary?.commands ?? 0}`);
+    io.write(`Live results: ${inventory.liveReadSummary?.results ?? 0}`);
+    io.write(`Commands: ${plan.commands.length}`);
+    if (row) {
+      io.write(
+        `Next: provider proof --service ${service} --env ${environment} --resource-type ${row.resourceType} --name ${row.name}`
+      );
+    }
+  }
+
+  return failed ? 1 : 0;
 }
 
 function isProviderControlPlaneService(service: string): service is ProviderControlPlaneService {

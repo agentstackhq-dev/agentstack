@@ -33,6 +33,8 @@
     "provider:production:plan": "node scripts/agentstack.mjs provider plan --env production --all",
     "provider:preview:reconcile": "node scripts/agentstack.mjs provider reconcile --env preview --plan",
     "provider:production:reconcile": "node scripts/agentstack.mjs provider reconcile --env production --plan",
+    "provider:preview:reconcile:live": "node scripts/agentstack.mjs provider reconcile --env preview --plan --source live",
+    "provider:production:reconcile:live": "node scripts/agentstack.mjs provider reconcile --env production --plan --source live",
     "provider:clerk:preview": "node scripts/agentstack.mjs provider plan --service clerk --env preview",
     "provider:clerk:inspect:preview": "node scripts/agentstack.mjs provider inspect --service clerk --env preview",
     "provider:clerk:production": "node scripts/agentstack.mjs provider plan --service clerk --env production",
