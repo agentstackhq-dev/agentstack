@@ -4127,7 +4127,8 @@ describe("runAgentstack", () => {
     expect(output).toContain("Identity scope: partial");
     expect(output).toContain("Exact identity evidence: available");
     expect(output).toContain("Exact identity evaluator: provider-exact-identity");
-    expect(output).toContain("Drift proof: unproven");
+    expect(output).toContain("Drift proof: partial");
+    expect(output).toContain("Drift evaluator: env-list-production");
     expect(output).toContain("Live coherence: blocked");
     expect(output).toContain("Live coherence evaluator: provider-live-coherence");
     expect(output).toContain("Readiness: refused");
@@ -4951,7 +4952,8 @@ describe("runAgentstack", () => {
     expect(rendered).toContain("Identity proof: exact");
     expect(rendered).toContain("Exact identity evidence: available");
     expect(rendered).toContain("Exact identity evaluator: provider-exact-identity");
-    expect(rendered).toContain("Drift proof: unproven");
+    expect(rendered).toContain("Drift proof: partial");
+    expect(rendered).toContain("Drift evaluator: env-list-production");
     expect(rendered).toContain("Live coherence: blocked");
     expect(rendered).not.toContain("provider.live-validation.unsupported");
     expect(rendered).not.toContain("live-validation-unsupported");

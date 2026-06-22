@@ -119,7 +119,7 @@ export type ProviderDriftProofResult =
   | { proof: "unavailable" }
   | {
       proof: "partial";
-      evaluator: "env-list-preview" | "clerk-apps-list-preview" | "clerk-config-preview";
+      evaluator: "env-list-preview" | "env-list-production" | "clerk-apps-list-preview" | "clerk-config-preview";
       evidence: ProviderLiveFactLabel[];
     };
 
@@ -313,6 +313,11 @@ const envListPreviewFacts = [
   "env-list-read",
   "expected-env-names",
   "preview-environment"
+] as const satisfies ProviderLiveFactLabel[];
+const envListProductionFacts = [
+  "env-list-read",
+  "expected-env-names",
+  "production-environment"
 ] as const satisfies ProviderLiveFactLabel[];
 
 const providerSpecificIdentityParserBlocker = "provider-specific-identity-parser" as const;
@@ -522,31 +527,39 @@ export function evaluateProviderDriftProof(
     return { proof: "unavailable" };
   }
 
-  const hasCompleteEnvListPreviewEvidence = readResults.some((result) => {
-    const expectedCommandKind = service === "eas" ? "mobile.env.list" : "env.list";
-    if (
-      result.service !== service ||
-      result.environment !== "preview" ||
-      result.commandKind !== expectedCommandKind ||
-      result.status !== "success" ||
-      result.liveIdentityFacts?.identityConfidence !== "partial" ||
-      result.outputRedacted !== true
-    ) {
-      return false;
-    }
-    const facts = new Set(result.liveIdentityFacts?.facts ?? []);
-    return envListPreviewFacts.every((fact) => facts.has(fact));
+  const expectedCommandKind = service === "eas" ? "mobile.env.list" : "env.list";
+  const hasCompleteEnvListPreviewEvidence = hasCompleteEnvListEvidence(readResults, {
+    service,
+    environment: "preview",
+    commandKind: expectedCommandKind,
+    facts: envListPreviewFacts
   });
 
-  if (!hasCompleteEnvListPreviewEvidence) {
-    return { proof: "unavailable" };
+  if (hasCompleteEnvListPreviewEvidence) {
+    return {
+      proof: "partial",
+      evaluator: "env-list-preview",
+      evidence: [...envListPreviewFacts].sort()
+    };
   }
 
-  return {
-    proof: "partial",
-    evaluator: "env-list-preview",
-    evidence: [...envListPreviewFacts].sort()
-  };
+  if (
+    service === "vercel" &&
+    hasCompleteEnvListEvidence(readResults, {
+      service,
+      environment: "production",
+      commandKind: "env.list",
+      facts: envListProductionFacts
+    })
+  ) {
+    return {
+      proof: "partial",
+      evaluator: "env-list-production",
+      evidence: [...envListProductionFacts].sort()
+    };
+  }
+
+  return { proof: "unavailable" };
 }
 
 export function evaluateProviderLiveCoherenceProof(
@@ -682,6 +695,32 @@ function evaluateClerkAppsListPreviewDriftProof(
     evaluator: "clerk-apps-list-preview",
     evidence: [...clerkAppsListPreviewFacts].sort()
   };
+}
+
+function hasCompleteEnvListEvidence(
+  readResults: readonly ProviderExecutionResult[],
+  input: {
+    service: ProviderControlPlaneService;
+    environment: "preview" | "production";
+    commandKind: "env.list" | "mobile.env.list";
+    facts: readonly ProviderLiveFactLabel[];
+  }
+): boolean {
+  return readResults.some((result) => {
+    if (
+      result.service !== input.service ||
+      result.environment !== input.environment ||
+      result.commandKind !== input.commandKind ||
+      result.status !== "success" ||
+      result.liveIdentityFacts?.identityConfidence !== "partial" ||
+      result.outputRedacted !== true
+    ) {
+      return false;
+    }
+
+    const facts = new Set(result.liveIdentityFacts.facts);
+    return input.facts.every((fact) => facts.has(fact));
+  });
 }
 
 function hasClerkLiveFacts(

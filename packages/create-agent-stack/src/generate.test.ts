@@ -293,6 +293,7 @@ describe("generateProject", () => {
       expect(generatedWorkflowDocs).toContain("provider:eas:proof:production");
       expect(generatedWorkflowDocs).toContain("provider.link.live-coherence-blocked|unavailable");
       expect(generatedWorkflowDocs).toContain("provider.adopt.live-coherence-blocked|unavailable");
+      expect(generatedWorkflowDocs).toContain("env-list-production");
       expect(generatedWorkflowDocs).toContain("Live validation prints per-service proof summaries");
       expect(generatedWorkflowDocs).toContain("Reason: proof-incomplete");
       const generatedValidationDocs = await readFile(join(targetDir, "docs/agentstack/validation.md"), "utf8");
@@ -305,6 +306,7 @@ describe("generateProject", () => {
       expect(generatedValidationDocs).toContain("Clerk production application proof");
       expect(generatedValidationDocs).toContain("Convex production proof");
       expect(generatedValidationDocs).toContain("Vercel production project proof");
+      expect(generatedValidationDocs).toContain("Drift evaluator: env-list-production");
       expect(generatedValidationDocs).toContain("EAS production proof");
       await expect(readFile(join(targetDir, "docs/provider-resource-ledger.md"), "utf8")).resolves.toContain(
         "## Ledger"
