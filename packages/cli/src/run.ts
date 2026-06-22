@@ -1948,6 +1948,8 @@ function writeLiveValidationProviderProofSummary(
 ): void {
   const exactIdentityDecision = evaluateProviderExactIdentityProof(service, liveResults);
   const exactIdentityReportFields = formatProviderExactIdentityReportFields(exactIdentityDecision);
+  const candidateIdentityDecision = evaluateProviderIdentityCandidateProof(service, liveResults);
+  const candidateIdentityReportFields = formatProviderCandidateIdentityReportFields(candidateIdentityDecision);
   const driftProof = evaluateProviderDriftProof(service, liveResults);
   const liveCoherence = evaluateProviderLiveCoherenceProof(service, exactIdentityDecision, driftProof);
 
@@ -1955,6 +1957,11 @@ function writeLiveValidationProviderProofSummary(
   io.write(`Identity proof: ${exactIdentityDecision.proof}`);
   io.write(`Exact identity evidence: ${exactIdentityReportFields.identityCandidates}`);
   io.write(`Exact identity evaluator: ${exactIdentityReportFields.identityEvaluator}`);
+  if (exactIdentityDecision.proof !== "exact" && candidateIdentityDecision.labels.length > 0) {
+    io.write(`Candidate identity evidence: ${candidateIdentityReportFields.candidateIdentityEvidence}`);
+    io.write(`Candidate identity evaluator: ${candidateIdentityReportFields.candidateIdentityEvaluator}`);
+    io.write(`Identity proof missing: ${normalizeProviderIdentityProofLabels(candidateIdentityDecision.missing).join(",")}`);
+  }
   if (driftProof.proof === "partial") {
     io.write("Drift proof: partial");
     io.write(`Drift evaluator: ${driftProof.evaluator}`);

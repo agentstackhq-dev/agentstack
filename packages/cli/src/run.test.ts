@@ -5295,6 +5295,21 @@ describe("runAgentstack", () => {
 
   it("runs EAS production live validation as bounded read-only evidence and refuses readiness", async () => {
     await writeProviderLedger([]);
+    await mkdir(join(dir, "apps", "mobile"), { recursive: true });
+    await writeFile(
+      join(dir, "apps", "mobile", "app.config.ts"),
+      [
+        "export default {",
+        "  expo: {",
+        "    extra: {",
+        "      eas: { projectId: '123e4567-e89b-42d3-a456-426614174001' }",
+        "    }",
+        "  }",
+        "};",
+        ""
+      ].join("\n"),
+      "utf8"
+    );
     const ledgerPath = join(dir, "docs", "provider-resource-ledger.md");
     const ledgerBefore = await readFile(ledgerPath, "utf8");
     const code = await runAgentstack(["validate", "--live", "--env", "production"], {
@@ -5311,11 +5326,18 @@ describe("runAgentstack", () => {
     expect(output).toContain("Readiness: refused");
     expect(output).toContain("Reason: proof-incomplete");
     expect(output.join("\n")).toContain("Provider proof: eas production");
+    expect(output.join("\n")).toContain("Candidate identity evidence: available");
+    expect(output.join("\n")).toContain("Candidate identity evaluator: provider-specific-identity-candidate-parser");
+    expect(output.join("\n")).toContain(
+      "Identity proof missing: ledger-comparable-identity,ledger-external-id-match,manifest-resource-name-match,provider-owner-identity,provider-resource-id,provider-specific-identity-parser,stable-provider-identity"
+    );
+    expect(output.join("\n")).not.toContain("Identity proof missing: provider-project-link-proof");
     expect(output.join("\n")).toContain("facts=env-list-read,expected-env-names,production-environment");
     expect(output.join("\n")).not.toContain("FAIL provider.live-validation.unsupported");
     expect(output.join("\n")).not.toContain("EAS live validation supports preview read-only inspect only");
     expect(output.join("\n")).not.toContain("SENTRY_AUTH_TOKEN");
     expect(output.join("\n")).not.toContain("secret-eas-token");
+    expect(output.join("\n")).not.toContain("123e4567-e89b-42d3-a456-426614174001");
     expect(providerExecutions.map((execution) => execution.args.join(" "))).toContain(
       "exec eas env:list --environment production"
     );
