@@ -1741,21 +1741,66 @@ describe("runAgentstack", () => {
     });
   });
 
-  it("rejects aggregate production provider plan before provider executor use", async () => {
+  it("prints aggregate production provider plan without executor or telemetry writes", async () => {
+    const convexRowId = "sk-aggregate-production-convex-row-id-12345";
+    const vercelRowId = "sk-aggregate-production-vercel-row-id-12345";
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: convexRowId,
+        provider: "convex",
+        resourceType: "deployment",
+        environment: "production",
+        name: "prod",
+        status: "planned",
+        externalId: "https://convex-production.example/not-for-output",
+        cleanupCommand: "pnpm exec convex deploy",
+        evidence: "docs/evidence/convex-production.md"
+      }),
+      providerLedgerRow({
+        id: vercelRowId,
+        provider: "vercel",
+        resourceType: "project",
+        environment: "production",
+        name: "acme-crm",
+        status: "active",
+        externalId: "prj_production_secret_not_for_output",
+        cleanupCommand: "pnpm exec vercel remove acme-crm",
+        evidence: "docs/evidence/vercel-production.md"
+      })
+    ]);
+    const ledgerBefore = await readFile(join(dir, "docs", "provider-resource-ledger.md"), "utf8");
+
     const code = await runAgentstack(["provider", "plan", "--env", "production", "--all"], {
       cwd: dir,
       write: (line) => output.push(line),
       providerExecutor: createMockProviderExecutor()
     });
 
-    expect(code).toBe(1);
-    expect(output.join("\n")).toContain("FAIL provider.plan.all.env-unsupported");
-    expect(output.join("\n")).toContain("Aggregate provider planning is preview-only in this slice.");
-    expect(output.join("\n")).not.toContain("PLAN provider production all");
+    const rendered = output.join("\n");
+    expect(code).toBe(0);
+    expect(output).toContain("PLAN provider production all");
+    expect(output).toContain("Evidence: provider-command-plan");
+    expect(output).toContain("Provider execution: none");
+    expect(output).toContain("Mutation: none");
+    expect(output).toContain("Readiness: not-claimed");
+    expect(rendered).toContain("Service: clerk");
+    expect(rendered).toContain("Service: convex");
+    expect(rendered).toContain("Ledger: planned");
+    expect(rendered).toContain("Service: vercel");
+    expect(rendered).toContain("Service: eas");
+    expect(rendered).toContain("- backend.deploy [requires-confirmation] pnpm exec convex deploy");
+    expect(rendered).toContain("- web.deploy [requires-confirmation] pnpm exec vercel --prod");
+    expect(rendered).toContain("- mobile.build [requires-confirmation] pnpm exec eas build -p all -e production --json --non-interactive");
+    expect(rendered).toContain("- auth.production.status [requires-confirmation] pnpm exec clerk deploy --mode agent");
+    expect(rendered).not.toContain(convexRowId);
+    expect(rendered).not.toContain(vercelRowId);
+    expect(rendered).not.toContain("https://convex-production.example/not-for-output");
+    expect(rendered).not.toContain("prj_production_secret_not_for_output");
     expect(providerExecutions).toHaveLength(0);
     await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
       code: "ENOENT"
     });
+    expect(await readFile(join(dir, "docs", "provider-resource-ledger.md"), "utf8")).toBe(ledgerBefore);
   });
 
   it("prints invalid ledger advisory for incomplete provider plan decisions", async () => {

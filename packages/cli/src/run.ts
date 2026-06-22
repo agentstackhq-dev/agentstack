@@ -648,20 +648,6 @@ async function providerPlanCommand(argv: string[], io: RunIo): Promise<number> {
     return 1;
   }
 
-  if (allServices && environment !== "preview") {
-    io.write(
-      formatDiagnostic({
-        severity: "fail",
-        code: "provider.plan.all.env-unsupported",
-        path: environment,
-        message: "Aggregate provider planning is preview-only in this slice.",
-        fix: "Run agentstack provider plan --env preview --all.",
-        blocks: ["provider plan"]
-      })
-    );
-    return 1;
-  }
-
   if (allServices) {
     return await providerPlanAllCommand(argv, io, environment);
   }
@@ -776,7 +762,7 @@ async function providerPlanAllCommand(argv: string[], io: RunIo, environment: En
     plan: createProviderPlanForService(service, environment, validation.context.manifest, providerOperationPlan.operations)
   }));
 
-  io.write("PLAN provider preview all");
+  io.write(`PLAN provider ${environment} all`);
   io.write("Evidence: provider-command-plan");
   io.write("Provider execution: none");
   io.write("Mutation: none");
