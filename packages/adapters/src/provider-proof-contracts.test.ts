@@ -50,7 +50,7 @@ describe("provider proof contracts", () => {
 
     expect(getProviderProofContract("clerk").exactIdentityAvailable).toEqual({
       scope: "provider-proof",
-      environments: ["preview"],
+      environments: ["preview", "production"],
       resourceTypes: ["application"],
       evaluator: "provider-specific-identity-parser"
     });
@@ -118,12 +118,12 @@ describe("provider proof contracts", () => {
     }
   });
 
-  it("lists provider-specific sanitized identity read plans with Clerk exact proof bounded to preview proof", () => {
+  it("lists provider-specific sanitized identity read plans with Clerk exact proof bounded to provider proof", () => {
     expect(getProviderIdentityReadPlan("clerk")).toEqual({
       service: "clerk",
       exactIdentityAvailable: {
         scope: "provider-proof",
-        environments: ["preview"],
+        environments: ["preview", "production"],
         resourceTypes: ["application"],
         evaluator: "provider-specific-identity-parser"
       },

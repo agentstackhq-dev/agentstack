@@ -1584,13 +1584,13 @@ async function providerProofCommand(argv: string[], io: RunIo): Promise<number> 
   const resourceType = readRequiredStringOption(options["resource-type"], "resource-type", fix);
   const name = readRequiredStringOption(options.name, "name", fix);
 
-  if (environment !== "preview") {
+  if (!providerProofEnvironmentSupported(service, environment)) {
     io.write(
       formatDiagnostic({
         severity: "fail",
         code: "provider.proof.env-unsupported",
         path: `provider proof ${service}.${environment}`,
-        message: "Provider proof supports preview only in this slice.",
+        message: "Provider proof supports preview for all services and production for Clerk exact identity only in this slice.",
         fix,
         blocks: ["provider proof"]
       })
@@ -1614,6 +1614,7 @@ async function providerProofCommand(argv: string[], io: RunIo): Promise<number> 
   if (!providerProofResourceShapeSupported(service, resourceType)) {
     writeProviderProofReport(io, {
       service,
+      environment,
       contract,
       providerExecution: "none",
       ledger: "invalid",
@@ -1633,6 +1634,7 @@ async function providerProofCommand(argv: string[], io: RunIo): Promise<number> 
   if (resourceType !== manifestResource.resourceType || name !== manifestResource.name) {
     writeProviderProofReport(io, {
       service,
+      environment,
       contract,
       providerExecution: "none",
       ledger: "invalid",
@@ -1659,6 +1661,7 @@ async function providerProofCommand(argv: string[], io: RunIo): Promise<number> 
   if (!ledgerDecision.ok) {
     writeProviderProofReport(io, {
       service,
+      environment,
       contract,
       providerExecution: "none",
       ledger: providerProofLedgerStatus(ledgerDecision),
@@ -1735,6 +1738,7 @@ async function providerProofCommand(argv: string[], io: RunIo): Promise<number> 
   );
   writeProviderProofReport(io, {
     service,
+    environment,
     contract,
     providerExecution: "read-only",
     ledger: providerProofAllowedLedgerStatus(ledgerDecision.row.status),
@@ -2258,6 +2262,7 @@ type ProviderLedgerDiagnosticCommand = "provider apply" | "provider inventory" |
 
 type ProviderProofReport = {
   service: ProviderControlPlaneService;
+  environment: "preview" | "production";
   contract: ProviderProofContract;
   providerExecution: "none" | "read-only";
   ledger: "planned" | "active" | "missing" | "invalid" | `blocked ${string}`;
@@ -2291,7 +2296,7 @@ export function formatProviderExactIdentityReportFields(decision: ProviderExactI
 }
 
 function writeProviderProofReport(io: RunIo, report: ProviderProofReport): void {
-  io.write(`FAIL provider proof ${report.service} preview`);
+  io.write(`FAIL provider proof ${report.service} ${report.environment}`);
   io.write("Evidence: live-proof-check");
   io.write("Scope: bounded read-only provider proof check; no provider mutations; no local-cloud reads");
   io.write(`Provider execution: ${report.providerExecution}`);
@@ -2324,6 +2329,13 @@ function writeProviderProofReport(io: RunIo, report: ProviderProofReport): void 
   io.write(`Reason: ${report.reason}`);
   io.write(`Identity proof requirements: ${report.contract.identityProofRequirements.join(",")}`);
   io.write(`Drift proof requirements: ${report.contract.driftProofRequirements.join(",")}`);
+}
+
+function providerProofEnvironmentSupported(
+  service: ProviderControlPlaneService,
+  environment: "preview" | "production"
+): boolean {
+  return environment === "preview" || service === "clerk";
 }
 
 function writeProviderLiveCoherenceSummary(io: RunIo, liveCoherence: ProviderLiveCoherenceProofResult): void {

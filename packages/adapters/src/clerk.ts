@@ -357,11 +357,11 @@ function exactIdentityProofForClerkRead(
   result: { exitCode: number; stdout: string },
   context: ClerkExactProofContext | undefined
 ): ProviderExactIdentityProofArtifact | undefined {
-  if (environment !== "preview" || commandKind !== "auth.apps.list" || result.exitCode !== 0 || !context) {
+  if (commandKind !== "auth.apps.list" || result.exitCode !== 0 || !context) {
     return undefined;
   }
 
-  const expectedClerkEnvironment = "development";
+  const expectedClerkEnvironment = environment === "production" ? "production" : "development";
   const expectedName = context.expectedResourceName.trim();
   const expectedExternalId = context.ledgerExternalIdOrUrl.trim();
   const expectedOwner = context.ledgerOwnerAccountOrProject.trim();

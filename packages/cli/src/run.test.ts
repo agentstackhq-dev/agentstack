@@ -3412,6 +3412,97 @@ describe("runAgentstack", () => {
     expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
   });
 
+  it("runs Clerk production provider proof with exact identity evidence while refusing readiness", async () => {
+    const rowId = "row-secret-clerk-production-proof";
+    const externalId = "res_raw_clerk_prod_secret";
+    const owner = "org_raw_clerk_prod_secret";
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: rowId,
+        provider: "clerk",
+        resourceType: "application",
+        environment: "production",
+        name: "acme-crm-production",
+        status: "planned",
+        owner,
+        externalId,
+        cleanupCommand: "delete through Clerk dashboard",
+        evidence: "docs/evidence/clerk-production.md"
+      })
+    ]);
+    const ledgerPath = join(dir, "docs", "provider-resource-ledger.md");
+    const ledgerBefore = await readFile(ledgerPath, "utf8");
+    const appsList = JSON.stringify({
+      data: [
+        {
+          id: "app_raw_clerk_prod_secret",
+          resourceId: externalId,
+          ownerId: owner,
+          environment: "production",
+          name: "acme-crm-production"
+        }
+      ]
+    });
+
+    const code = await runAgentstack(
+      [
+        "provider",
+        "proof",
+        "--service",
+        "clerk",
+        "--env",
+        "production",
+        "--resource-type",
+        "application",
+        "--name",
+        "acme-crm-production"
+      ],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: {
+          async execute(command, args, options) {
+            providerExecutions.push({ command, args, stdin: options.stdin });
+            return {
+              exitCode: 0,
+              stdout: args.join(" ") === "exec clerk apps list --json" ? appsList : "ok",
+              stderr: "",
+              durationMs: 12
+            };
+          }
+        }
+      }
+    );
+
+    const rendered = output.join("\n");
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL provider proof clerk production");
+    expect(output).toContain("Provider execution: read-only");
+    expect(output).toContain("Ledger: planned");
+    expect(output).toContain("Live resource: read");
+    expect(output).toContain("Identity proof: exact");
+    expect(output).toContain("Identity scope: partial");
+    expect(output).toContain("Exact identity evidence: available");
+    expect(output).toContain("Exact identity evaluator: provider-exact-identity");
+    expect(output).toContain("Drift proof: unproven");
+    expect(output).toContain("Live coherence: blocked");
+    expect(output).toContain("Live coherence evaluator: provider-live-coherence");
+    expect(output).toContain("Readiness: refused");
+    expect(output).toContain("Reason: drift-unproven");
+    expect(rendered).not.toContain("Drift proof: exact");
+    expect(rendered).not.toContain(rowId);
+    expect(rendered).not.toContain(externalId);
+    expect(rendered).not.toContain(owner);
+    expect(rendered).not.toContain("app_raw_clerk_prod_secret");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec clerk doctor --mode agent",
+      "exec clerk env pull --mode agent",
+      "exec clerk config pull --mode agent",
+      "exec clerk apps list --json"
+    ]);
+    expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
+  });
+
   it("runs Vercel preview provider proof with exact diagnostic identity evidence while refusing readiness", async () => {
     const manifest = createDefaultManifest("acme-crm");
     manifest.env.custom.NEXT_PUBLIC_APP_URL = {

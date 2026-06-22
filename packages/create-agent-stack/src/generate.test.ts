@@ -160,6 +160,7 @@ describe("generateProject", () => {
         "provider:clerk:link:preview": "node scripts/agentstack.mjs provider link --service clerk --env preview --resource-type application --name acme-crm-preview",
         "provider:clerk:link:production": "node scripts/agentstack.mjs provider link --service clerk --env production --resource-type application --name acme-crm-production",
         "provider:clerk:proof:preview": "node scripts/agentstack.mjs provider proof --service clerk --env preview --resource-type application --name acme-crm-preview",
+        "provider:clerk:proof:production": "node scripts/agentstack.mjs provider proof --service clerk --env production --resource-type application --name acme-crm-production",
         "provider:convex:inventory:preview": "node scripts/agentstack.mjs provider inventory --service convex --env preview",
         "provider:convex:inventory:production": "node scripts/agentstack.mjs provider inventory --service convex --env production",
         "provider:convex:link:preview": "node scripts/agentstack.mjs provider link --service convex --env preview --resource-type deployment --name acme-crm-preview",
@@ -269,6 +270,7 @@ describe("generateProject", () => {
       expect(generatedWorkflowDocs).toContain("not proof of external provider existence");
       expect(generatedWorkflowDocs).toContain("sanitized `missing=` identity proof labels");
       expect(generatedWorkflowDocs).toContain("pnpm run validate:live:preview");
+      expect(generatedWorkflowDocs).toContain("provider:clerk:proof:production");
       expect(generatedWorkflowDocs).toContain("Live validation prints per-service proof summaries");
       expect(generatedWorkflowDocs).toContain("Reason: proof-incomplete");
       const generatedValidationDocs = await readFile(join(targetDir, "docs/agentstack/validation.md"), "utf8");
@@ -276,6 +278,7 @@ describe("generateProject", () => {
       expect(generatedValidationDocs).toContain("Evidence: live-validation");
       expect(generatedValidationDocs).toContain("Reason: proof-incomplete");
       expect(generatedValidationDocs).toContain("Exact identity evaluator: provider-exact-identity");
+      expect(generatedValidationDocs).toContain("Clerk production application proof");
       await expect(readFile(join(targetDir, "docs/provider-resource-ledger.md"), "utf8")).resolves.toContain(
         "## Ledger"
       );

@@ -39,7 +39,7 @@ export type ProviderExactIdentityAvailability =
   | false
   | {
       scope: "provider-proof";
-      environments: ["preview"];
+      environments: ["preview"] | ["preview", "production"];
       resourceTypes: ["application" | "project"];
       evaluator: "provider-specific-identity-parser";
     };
@@ -151,7 +151,7 @@ const contracts: Record<ProviderProofService, ProviderProofContract> = {
     liveIdentityConfidence: "none",
     exactIdentityAvailable: {
       scope: "provider-proof",
-      environments: ["preview"],
+      environments: ["preview", "production"],
       resourceTypes: ["application"],
       evaluator: "provider-specific-identity-parser"
     },

@@ -35,6 +35,7 @@
     "provider:clerk:link:preview": "node scripts/agentstack.mjs provider link --service clerk --env preview --resource-type application --name __APP_SLUG__-preview",
     "provider:clerk:link:production": "node scripts/agentstack.mjs provider link --service clerk --env production --resource-type application --name __APP_SLUG__-production",
     "provider:clerk:proof:preview": "node scripts/agentstack.mjs provider proof --service clerk --env preview --resource-type application --name __APP_SLUG__-preview",
+    "provider:clerk:proof:production": "node scripts/agentstack.mjs provider proof --service clerk --env production --resource-type application --name __APP_SLUG__-production",
     "provider:convex:preview": "node scripts/agentstack.mjs provider plan --service convex --env preview",
     "provider:convex:inspect:preview": "node scripts/agentstack.mjs provider inspect --service convex --env preview",
     "provider:convex:apply:preview": "node scripts/agentstack.mjs provider apply --service convex --env preview",

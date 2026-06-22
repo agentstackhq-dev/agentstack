@@ -667,7 +667,7 @@ describe("clerk command planner", () => {
     expect(serialized).not.toContain("org_raw_789");
   });
 
-  it("does not attach Clerk exact proof for production even with matching exact context", async () => {
+  it("attaches sanitized exact identity proof for one production Clerk app matching exact context", async () => {
     const rawFixture = {
       data: [
         {
@@ -698,7 +698,30 @@ describe("clerk command planner", () => {
       }
     });
 
-    expect(results.at(-1)?.exactIdentityProof).toBeUndefined();
+    expect(results.at(-1)?.exactIdentityProof).toEqual({
+      kind: "provider-exact-identity-proof",
+      evaluator: "provider-specific-identity-parser",
+      labels: [
+        "ledger-comparable-identity",
+        "ledger-external-id-match",
+        "manifest-resource-name-match",
+        "provider-environment-scope",
+        "provider-owner-identity",
+        "provider-resource-id",
+        "provider-specific-identity-parser",
+        "stable-provider-identity"
+      ],
+      comparisons: [
+        { label: "ledger-comparable-identity", outcome: "matched" },
+        { label: "ledger-external-id-match", outcome: "matched" },
+        { label: "manifest-resource-name-match", outcome: "matched" },
+        { label: "provider-environment-scope", outcome: "matched" },
+        { label: "provider-owner-identity", outcome: "matched" },
+        { label: "provider-resource-id", outcome: "matched" },
+        { label: "stable-provider-identity", outcome: "matched" }
+      ]
+    });
+    expect(results.at(-1)?.liveIdentityFacts).toBeUndefined();
     const serialized = JSON.stringify(results);
     expect(serialized).not.toContain("res_raw_456");
     expect(serialized).not.toContain("org_raw_789");
