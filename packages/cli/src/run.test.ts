@@ -1523,8 +1523,70 @@ describe("runAgentstack", () => {
     await expectReconcileDidNotWriteLocalState(ledgerBefore);
   });
 
-  it("rejects production provider reconcile before provider executor use", async () => {
+  it("prints aggregate production provider reconciliation plans without executor or state writes", async () => {
+    const convexRowId = "sk-reconcile-production-convex-row-id-12345";
+    const vercelRowId = "sk-reconcile-production-vercel-row-id-12345";
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: convexRowId,
+        provider: "convex",
+        resourceType: "deployment",
+        environment: "production",
+        name: "prod",
+        status: "planned",
+        externalId: "https://convex-production.example/not-for-output",
+        cleanupCommand: "pnpm exec convex deploy",
+        evidence: "docs/evidence/convex-production.md"
+      }),
+      providerLedgerRow({
+        id: vercelRowId,
+        provider: "vercel",
+        resourceType: "project",
+        environment: "production",
+        name: "acme-crm",
+        status: "active",
+        externalId: "prj_production_secret_not_for_output",
+        cleanupCommand: "pnpm exec vercel remove acme-crm",
+        evidence: "docs/evidence/vercel-production.md"
+      })
+    ]);
+    const ledgerBefore = await readOptionalFile(join(dir, "docs", "provider-resource-ledger.md"));
+
     const code = await runAgentstack(["provider", "reconcile", "--env", "production", "--plan"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor()
+    });
+
+    const rendered = output.join("\n");
+    expect(code).toBe(0);
+    expect(output).toContain("PLAN provider reconcile production");
+    expect(output).toContain("Evidence: provider-reconciliation-plan");
+    expect(output).toContain("Provider execution: none");
+    expect(output).toContain("Mutation: none");
+    expect(output).toContain("Readiness: not-claimed");
+    expect(output).toContain("Current source: local-validation-and-ledger-only");
+    expect(output).toContain("Live state: not-read");
+    expect(output).toContain("Local-cloud state: not-read");
+    expect(rendered).toContain("Service: clerk");
+    expect(rendered).toContain("Service: convex");
+    expect(rendered).toContain("Ledger: planned");
+    expect(rendered).toContain("Service: vercel");
+    expect(rendered).toContain("Service: eas");
+    expect(rendered).toContain("Operations: not-evaluated");
+    expect(rendered).toContain("Next: provider plan --service convex --env production");
+    expect(rendered).not.toContain(convexRowId);
+    expect(rendered).not.toContain(vercelRowId);
+    expect(rendered).not.toContain("https://convex-production.example/not-for-output");
+    expect(rendered).not.toContain("prj_production_secret_not_for_output");
+    expect(providerExecutions).toHaveLength(0);
+    await expectReconcileDidNotWriteLocalState(ledgerBefore);
+  });
+
+  it("rejects development provider reconcile before provider executor use", async () => {
+    const ledgerBefore = await readOptionalFile(join(dir, "docs", "provider-resource-ledger.md"));
+
+    const code = await runAgentstack(["provider", "reconcile", "--env", "development", "--plan"], {
       cwd: dir,
       write: (line) => output.push(line),
       providerExecutor: createMockProviderExecutor()
@@ -1532,8 +1594,10 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(1);
     expect(output.join("\n")).toContain("FAIL provider.reconcile.env-unsupported");
-    expect(output.join("\n")).not.toContain("PLAN provider reconcile production");
+    expect(output.join("\n")).toContain("Provider reconciliation planning supports preview and production environments only.");
+    expect(output.join("\n")).not.toContain("PLAN provider reconcile development");
     expect(providerExecutions).toHaveLength(0);
+    await expectReconcileDidNotWriteLocalState(ledgerBefore);
   });
 
   it("rejects provider reconcile without --plan before provider executor use", async () => {
@@ -1735,6 +1799,23 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("FAIL provider.plan.all.service-ambiguous");
     expect(output.join("\n")).toContain("Use either --all or --service, not both.");
     expect(output.join("\n")).not.toContain("PLAN provider convex preview");
+    expect(providerExecutions).toHaveLength(0);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+  });
+
+  it("rejects aggregate development provider plan before provider executor use", async () => {
+    const code = await runAgentstack(["provider", "plan", "--env", "development", "--all"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor()
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL provider.plan.all.env-unsupported");
+    expect(output.join("\n")).toContain("Aggregate provider planning supports preview and production environments only.");
+    expect(output.join("\n")).not.toContain("PLAN provider development all");
     expect(providerExecutions).toHaveLength(0);
     await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
       code: "ENOENT"

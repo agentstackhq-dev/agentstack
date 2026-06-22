@@ -648,6 +648,20 @@ async function providerPlanCommand(argv: string[], io: RunIo): Promise<number> {
     return 1;
   }
 
+  if (allServices && environment === "development") {
+    io.write(
+      formatDiagnostic({
+        severity: "fail",
+        code: "provider.plan.all.env-unsupported",
+        path: environment,
+        message: "Aggregate provider planning supports preview and production environments only.",
+        fix: "Run agentstack provider plan --env preview --all or agentstack provider plan --env production --all.",
+        blocks: ["provider plan"]
+      })
+    );
+    return 1;
+  }
+
   if (allServices) {
     return await providerPlanAllCommand(argv, io, environment);
   }
@@ -784,7 +798,8 @@ async function providerPlanAllCommand(argv: string[], io: RunIo, environment: En
 
 async function providerReconcileCommand(argv: string[], io: RunIo): Promise<number> {
   const options = parseOptions(argv);
-  const fix = "Run agentstack provider reconcile --env preview --plan.";
+  const fix =
+    "Run agentstack provider reconcile --env preview --plan or agentstack provider reconcile --env production --plan.";
   const environment = readEnvironmentOption(options.env, {
     flag: "env",
     fix
@@ -804,13 +819,13 @@ async function providerReconcileCommand(argv: string[], io: RunIo): Promise<numb
     return 1;
   }
 
-  if (environment !== "preview") {
+  if (environment === "development") {
     io.write(
       formatDiagnostic({
         severity: "fail",
         code: "provider.reconcile.env-unsupported",
         path: environment,
-        message: "Provider reconciliation planning is preview-only in this slice.",
+        message: "Provider reconciliation planning supports preview and production environments only.",
         fix,
         blocks: ["provider reconcile"]
       })
@@ -846,7 +861,7 @@ async function providerReconcileCommand(argv: string[], io: RunIo): Promise<numb
     plan: createProviderPlanForService(service, environment, validation.context.manifest, [])
   }));
 
-  io.write("PLAN provider reconcile preview");
+  io.write(`PLAN provider reconcile ${environment}`);
   io.write("Evidence: provider-reconciliation-plan");
   io.write("Provider execution: none");
   io.write("Mutation: none");
@@ -868,7 +883,7 @@ async function providerReconcileCommand(argv: string[], io: RunIo): Promise<numb
     io.write(`Ledger: ${ledgerStatus}`);
     io.write("Operations: not-evaluated");
     io.write(`Commands: ${plan.commands.length}`);
-    io.write(`Next: provider plan --service ${service} --env preview`);
+    io.write(`Next: provider plan --service ${service} --env ${environment}`);
   }
 
   return 0;

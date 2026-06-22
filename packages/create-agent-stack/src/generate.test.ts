@@ -115,6 +115,7 @@ describe("generateProject", () => {
         "provider:preview:plan": "node scripts/agentstack.mjs provider plan --env preview --all",
         "provider:production:plan": "node scripts/agentstack.mjs provider plan --env production --all",
         "provider:preview:reconcile": "node scripts/agentstack.mjs provider reconcile --env preview --plan",
+        "provider:production:reconcile": "node scripts/agentstack.mjs provider reconcile --env production --plan",
         "provider:clerk:preview": "node scripts/agentstack.mjs provider plan --service clerk --env preview",
         "provider:clerk:production": "node scripts/agentstack.mjs provider plan --service clerk --env production",
         "provider:convex:preview": "node scripts/agentstack.mjs provider plan --service convex --env preview",
