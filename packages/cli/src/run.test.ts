@@ -247,6 +247,7 @@ describe("runAgentstack", () => {
     expect(qualityExecutions).toEqual([
       { id: "lint", command: "pnpm", args: ["lint"] },
       { id: "typecheck", command: "pnpm", args: ["typecheck"] },
+      { id: "build", command: "pnpm", args: ["build"] },
       { id: "test", command: "pnpm", args: ["test"] }
     ]);
     expect(providerExecutions).toEqual([]);
@@ -265,7 +266,7 @@ describe("runAgentstack", () => {
       providerExecutor: createMockProviderExecutor("provider executor should not run"),
       commandRunner: async ({ id, command, args }) => {
         qualityExecutions.push({ id, command, args });
-        if (id === "lint" || id === "typecheck") {
+        if (id === "lint" || id === "typecheck" || id === "build") {
           return { exitCode: 0, stdout: `${id} ok`, stderr: "" };
         }
         return {
@@ -289,6 +290,7 @@ describe("runAgentstack", () => {
     expect(qualityExecutions).toEqual([
       { id: "lint", command: "pnpm", args: ["lint"] },
       { id: "typecheck", command: "pnpm", args: ["typecheck"] },
+      { id: "build", command: "pnpm", args: ["build"] },
       { id: "test", command: "pnpm", args: ["test"] }
     ]);
     expect(providerExecutions).toEqual([]);
