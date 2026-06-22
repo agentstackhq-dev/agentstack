@@ -219,7 +219,7 @@ Run bounded read-only live inventory when you need live read evidence without mu
 node scripts/agentstack.mjs provider inventory --service convex --env preview --source live
 ```
 
-Expected output includes `Evidence: live-read-inventory`, `Mutation: none`, command/result counts, redacted live status fields, and sanitized `missing=` labels for unavailable identity proof. Live inventory calls only the selected service's existing read-only inspect primitive. It keeps `identity=ambiguous`; partial env-list facts are not exact provider identity.
+Expected output includes `Evidence: live-read-inventory`, `Mutation: none`, command/result counts, redacted live status fields, sanitized candidate identity evidence summaries when read-only candidate labels are available, and sanitized `missing=` labels for unavailable identity proof. Live inventory calls only the selected service's existing read-only inspect primitive. It keeps `identity=ambiguous`; partial env-list facts and candidate identity evidence are not exact provider identity.
 
 Run the provider proof contract check after adding a matching planned or active ledger row:
 

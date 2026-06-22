@@ -1573,6 +1573,9 @@ async function providerInventoryCommand(argv: string[], io: RunIo): Promise<numb
     io.write(`Failed: ${inventory.liveReadSummary.failed}`);
   }
   inventory.rows.forEach((row) => io.write(formatProviderInventoryRow(row)));
+  if (source === "live") {
+    writeProviderInventoryCandidateSummary(io, service, liveResults);
+  }
   return hasFailedLiveRead ? 1 : 0;
 }
 
@@ -2401,6 +2404,25 @@ function writeProviderProofReport(io: RunIo, report: ProviderProofReport): void 
   io.write(`Reason: ${report.reason}`);
   io.write(`Identity proof requirements: ${report.contract.identityProofRequirements.join(",")}`);
   io.write(`Drift proof requirements: ${report.contract.driftProofRequirements.join(",")}`);
+}
+
+function writeProviderInventoryCandidateSummary(
+  io: RunIo,
+  service: ProviderControlPlaneService,
+  liveResults: ProviderExecutionResult[]
+): void {
+  const decision = evaluateProviderIdentityCandidateProof(service, liveResults);
+  if (decision.labels.length === 0) {
+    return;
+  }
+
+  const fields = formatProviderCandidateIdentityReportFields(decision);
+  io.write(`Candidate identity evidence: ${fields.candidateIdentityEvidence}`);
+  io.write(`Candidate identity evaluator: ${fields.candidateIdentityEvaluator}`);
+  const missing = normalizeProviderIdentityProofLabels(decision.missing);
+  if (missing.length > 0) {
+    io.write(`Identity proof missing: ${missing.join(",")}`);
+  }
 }
 
 function writeProviderLiveCoherenceSummary(io: RunIo, liveCoherence: ProviderLiveCoherenceProofResult): void {

@@ -5534,6 +5534,11 @@ describe("runAgentstack", () => {
     expect(output).toContain("PASS provider inventory eas production");
     expect(output).toContain("Evidence: live-read-inventory");
     expect(output).toContain("Mutation: none");
+    expect(output).toContain("Candidate identity evidence: available");
+    expect(output).toContain("Candidate identity evaluator: provider-specific-identity-candidate-parser");
+    expect(output.join("\n")).toContain(
+      "Identity proof missing: ledger-comparable-identity,ledger-external-id-match,manifest-resource-name-match,provider-owner-identity,provider-project-link-proof,provider-resource-id,provider-specific-identity-parser,stable-provider-identity"
+    );
     expect(output.join("\n")).toContain(
       "live=found identity=ambiguous identity-scope=partial permission=read-ok drift=unknown facts=env-list-read,expected-env-names,production-environment missing=ledger-comparable-identity,ledger-external-id-match,manifest-resource-name-match,provider-owner-identity,provider-project-link-proof,provider-resource-id,provider-specific-identity-parser,stable-provider-identity"
     );

@@ -283,10 +283,11 @@ describe("generateProject", () => {
       expect(generatedPreviewDocs).toContain("provider adopt --service convex --env preview");
       expect(generatedPreviewDocs).toContain("does not mutate the root provider ledger");
       expect(generatedPreviewDocs).toContain("sanitized identity proof requirements");
+      expect(generatedPreviewDocs).toContain("sanitized candidate identity evidence summaries");
       const generatedWorkflowDocs = await readFile(join(targetDir, "docs/agentstack/workflows.md"), "utf8");
       expect(generatedWorkflowDocs).toContain("simulator state");
       expect(generatedWorkflowDocs).toContain("not proof of external provider existence");
-      expect(generatedWorkflowDocs).toContain("sanitized `missing=` identity proof labels");
+      expect(generatedWorkflowDocs).toContain("sanitized candidate identity evidence plus `missing=` identity proof labels");
       expect(generatedWorkflowDocs).toContain("pnpm run validate:live:preview");
       expect(generatedWorkflowDocs).toContain("pnpm run validate:live:production");
       expect(generatedWorkflowDocs).toContain("provider:clerk:proof:production");

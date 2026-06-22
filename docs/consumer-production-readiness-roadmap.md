@@ -64,7 +64,7 @@ The consumer-facing truth is:
 - Ledger-gated supported live mutations for Convex apply and Vercel preview deploy apply.
 - Provider inventory/link/adopt:
   - inventory defaults to local manifest, provider-link, and ledger evidence, writes no files, and does not call provider CLIs;
-  - explicit live inventory via `--source live` or `--live` is bounded read-only evidence that calls only existing inspect primitives, prints `Evidence: live-read-inventory`, `Mutation: none`, sanitized partial facts where bounded read access is proven, and sanitized `missing=` proof labels, and remains neither adoption, provisioning, reconciliation, nor broad discovery;
+  - explicit live inventory via `--source live` or `--live` is bounded read-only evidence that calls only existing inspect primitives, prints `Evidence: live-read-inventory`, `Mutation: none`, sanitized partial facts where bounded read access is proven, sanitized candidate identity evidence summaries when candidate labels are available, and sanitized `missing=` proof labels, and remains neither adoption, provisioning, reconciliation, nor broad discovery;
   - link writes only `.agentstack/provider-links.json` and does not mutate telemetry, local-cloud state, providers, or the ledger;
   - adopt prints a safe ledger proposal only and writes no files;
   - live link can surface ledger-backed Clerk/Vercel exact identity where proof context matches, but still refuses writes until live coherence exists; live adopt can surface Clerk/Vercel exact identity from supplied resource type/name/external ID/owner when the resource also matches the manifest, but still refuses proposals and writes until live coherence exists; ambiguous live link/adopt refusals print sanitized identity proof requirements.
