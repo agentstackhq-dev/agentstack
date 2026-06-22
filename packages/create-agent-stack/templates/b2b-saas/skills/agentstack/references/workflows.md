@@ -1,7 +1,7 @@
 # Workflows
 
 - Inspect: run `pnpm run inspect`, then `pnpm run skills:inspect` when agent guidance is relevant.
-- Validate: run `pnpm run validate` before completion for `Evidence: local-structure`; run `pnpm run validate:quality` before completion when code changed for `Evidence: local-quality`.
+- Validate: run `pnpm run validate` before completion for `Evidence: local-structure`; run `pnpm run generated:check` for `Evidence: generated-boundary` when anchors or guidance changed; run `pnpm run validate:quality` before completion when code changed for `Evidence: local-quality`.
 - Cloud rehearsal: run `pnpm run preview:validate` for local-cloud rehearsal only; it prints `Evidence: local-rehearsal` and does not prove live provider state.
 - Live reconciliation: run `pnpm run provider:preview:reconcile:live` or `pnpm run provider:production:reconcile:live` only for explicit aggregate live-read reconciliation. These commands print `Evidence: live-reconciliation-plan`, call bounded read-only inventory/inspect primitives, include per-service proof diagnostics, refuse readiness, and write no telemetry, local-cloud, provider-links, ledger, or provider resources.
 - Live validation: run `pnpm run validate:live:preview` or `pnpm run validate:live:production` only for aggregate bounded read-only provider inventory. These commands print `Evidence: live-validation`, refuse readiness, and write no telemetry, local-cloud, provider-links, ledger, or provider resources.

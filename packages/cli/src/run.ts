@@ -65,6 +65,7 @@ import {
   validateReleasePolicy,
   validateCustomEnvValues,
   validateGeneratedAnchors,
+  validateGuidancePolicy,
   validateLocalProject,
   validateThemeTokens,
   type EnvValueState,
@@ -163,6 +164,7 @@ const telemetrySurfaceValues = [
 
 const localQualityCommands: LocalCommandSpec[] = [
   { id: "format", command: "pnpm", args: ["format:check"] },
+  { id: "generated", command: "pnpm", args: ["generated:check"] },
   { id: "lint", command: "pnpm", args: ["lint"] },
   { id: "typecheck", command: "pnpm", args: ["typecheck"] },
   { id: "build", command: "pnpm", args: ["build"] },
@@ -264,6 +266,10 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
 
     if (command === "theme" && subcommand === "validate") {
       return await themeValidateCommand(io);
+    }
+
+    if (command === "generated" && subcommand === "validate") {
+      return await generatedValidateCommand(io);
     }
 
     if (command === "skills" && subcommand === "inspect") {
@@ -3526,6 +3532,35 @@ async function themeValidateCommand(io: RunIo): Promise<number> {
     status: "ok",
     state: { diagnostics: diagnostics.length }
   });
+  return 0;
+}
+
+async function generatedValidateCommand(io: RunIo): Promise<number> {
+  const context = await loadProjectContext(io.cwd);
+  const missingAnchors = await findMissingGeneratedAnchors(context.cwd, context.manifest);
+  const anchorResult = validateGeneratedAnchors({
+    manifest: context.manifest,
+    missingPaths: missingAnchors
+  });
+  const guidanceDiagnostics = validateGuidancePolicy(context.manifest);
+  const diagnostics = [...anchorResult.diagnostics, ...guidanceDiagnostics];
+  diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
+
+  io.write("Evidence: generated-boundary");
+  io.write(
+    "Scope: generated anchors and guidance only; no local-cloud writes; no provider executor; no live provider reads"
+  );
+  io.write(`Required generated anchors: ${getRequiredGeneratedAnchors(context.manifest).length}`);
+  io.write(`Missing generated anchors: ${missingAnchors.length}`);
+  io.write(`Guidance anchors: ${getGuidanceGeneratedAnchors(context.manifest).length}`);
+  io.write(`Expected guidance version: ${expectedAgentstackGuidanceVersion}`);
+
+  if (diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
+    io.write("FAIL generated validate");
+    return 1;
+  }
+
+  io.write("PASS generated validate");
   return 0;
 }
 

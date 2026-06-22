@@ -82,6 +82,7 @@ node scripts/agentstack.mjs env set --env preview --surface convex --name STRIPE
 pnpm run inspect
 pnpm run skills:inspect
 pnpm run validate
+pnpm run generated:check
 pnpm run validate:quality
 pnpm run env:inspect
 pnpm run preview:plan
@@ -117,7 +118,8 @@ node scripts/agentstack.mjs observe timeline --env development --journey telemet
                   <li><code>inspect</code> summarizes app identity, generated anchors, enabled services, and preview local-cloud state.</li>
                   <li><code>skills:inspect</code> confirms the versioned repo-local skill pack and no-MCP guidance contract are present.</li>
                   <li><code>validate</code> checks manifest, env, telemetry policy, and generated files. Evidence: <code>local-structure</code>.</li>
-                  <li><code>validate:quality</code> runs structural validation plus local package quality commands. Evidence: <code>local-quality</code>; scope: local filesystem and package commands only.</li>
+                  <li><code>generated:check</code> checks generated anchors and guidance only. Evidence: <code>generated-boundary</code>; scope: no local-cloud writes, provider executor, or live provider reads.</li>
+                  <li><code>validate:quality</code> runs structural validation plus local package quality commands including <code>generated:check</code>. Evidence: <code>local-quality</code>; scope: local filesystem and package commands only.</li>
                   <li><code>env:inspect</code> prints expected preview services and env bindings.</li>
                   <li><code>preview:plan</code> plans local-cloud repair before <code>preview:apply</code>.</li>
                   <li><code>preview:validate</code> confirms local-cloud state matches the manifest. Evidence: <code>local-rehearsal</code>; scope: local-cloud state only, no live provider reads.</li>

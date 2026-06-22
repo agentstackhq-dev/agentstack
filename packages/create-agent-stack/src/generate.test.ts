@@ -106,6 +106,7 @@ describe("generateProject", () => {
         typecheck: "pnpm --filter @app/web build",
         build: "pnpm -r --if-present build",
         "format:check": "node scripts/agentstack.mjs format --check",
+        "generated:check": "node scripts/agentstack.mjs generated validate",
         test: "node scripts/agentstack.mjs theme validate",
         validate: "node scripts/agentstack.mjs validate",
         "validate:quality": "node scripts/agentstack.mjs validate --quality",
@@ -301,6 +302,7 @@ describe("generateProject", () => {
       expect(generatedPreviewDocs).toContain("Lifecycle` is a plan decision only");
       expect(generatedPreviewDocs).toContain("provider:preview:reconcile:live");
       const generatedWorkflowDocs = await readFile(join(targetDir, "docs/agentstack/workflows.md"), "utf8");
+      expect(generatedWorkflowDocs).toContain("pnpm run generated:check");
       expect(generatedWorkflowDocs).toContain("simulator state");
       expect(generatedWorkflowDocs).toContain("not proof of external provider existence");
       expect(generatedWorkflowDocs).toContain("sanitized candidate identity evidence plus `missing=` identity proof labels");
@@ -319,6 +321,8 @@ describe("generateProject", () => {
       expect(generatedWorkflowDocs).toContain("live-reconciliation-plan");
       expect(generatedWorkflowDocs).toContain("per-service proof diagnostics");
       const generatedValidationDocs = await readFile(join(targetDir, "docs/agentstack/validation.md"), "utf8");
+      expect(generatedValidationDocs).toContain("pnpm run generated:check");
+      expect(generatedValidationDocs).toContain("Evidence: generated-boundary");
       expect(generatedValidationDocs).toContain("pnpm lint");
       expect(generatedValidationDocs).toContain("pnpm run validate:live:preview");
       expect(generatedValidationDocs).toContain("pnpm run validate:live:production");

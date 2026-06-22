@@ -9,7 +9,8 @@
 - Run `pnpm run doctor` before provider, environment, build, sync, or deploy work; it prints repair commands when local validation or preview local-cloud checks fail.
 - Use `pnpm run dev` as a local preflight for the generated workspace-status vertical. It must not mutate provider state.
 - Run `pnpm run validate` before completion for structural checks.
-- Run `pnpm run validate:quality` before completion when code changed; it runs local package commands only and must not write local-cloud state or provider resources.
+- Run `pnpm run generated:check` when generated anchors or guidance changed; it must not write local-cloud state, telemetry, or provider resources.
+- Run `pnpm run validate:quality` before completion when code changed; it runs local package commands only, including `pnpm run generated:check`, and must not write local-cloud state or provider resources.
 - Use `pnpm run validate:live:preview` or `pnpm run validate:live:production` only for non-mutating aggregate live provider reads. These commands print per-service proof summaries, can surface gated Clerk/Vercel exact identity diagnostics where supported, and refuse readiness while exact drift/live coherence is not proven for every enabled provider.
 - Validate theme changes with `pnpm run theme:validate`; normal `pnpm run validate` also checks token shape.
 - Style UI through `@app/theme` token roles and `@app/ui` primitives before adding surface-specific components.

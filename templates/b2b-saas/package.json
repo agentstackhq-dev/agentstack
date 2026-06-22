@@ -17,6 +17,7 @@
     "typecheck": "pnpm --filter @app/web build",
     "build": "pnpm -r --if-present build",
     "format:check": "node scripts/agentstack.mjs format --check",
+    "generated:check": "node scripts/agentstack.mjs generated validate",
     "test": "node scripts/agentstack.mjs theme validate",
     "validate": "node scripts/agentstack.mjs validate",
     "validate:quality": "node scripts/agentstack.mjs validate --quality",

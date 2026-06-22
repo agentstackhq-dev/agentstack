@@ -246,6 +246,7 @@ describe("runAgentstack", () => {
     expect(output).toContain("PASS validate --quality");
     expect(qualityExecutions).toEqual([
       { id: "format", command: "pnpm", args: ["format:check"] },
+      { id: "generated", command: "pnpm", args: ["generated:check"] },
       { id: "lint", command: "pnpm", args: ["lint"] },
       { id: "typecheck", command: "pnpm", args: ["typecheck"] },
       { id: "build", command: "pnpm", args: ["build"] },
@@ -267,7 +268,13 @@ describe("runAgentstack", () => {
       providerExecutor: createMockProviderExecutor("provider executor should not run"),
       commandRunner: async ({ id, command, args }) => {
         qualityExecutions.push({ id, command, args });
-        if (id === "format" || id === "lint" || id === "typecheck" || id === "build") {
+        if (
+          id === "format" ||
+          id === "generated" ||
+          id === "lint" ||
+          id === "typecheck" ||
+          id === "build"
+        ) {
           return { exitCode: 0, stdout: `${id} ok`, stderr: "" };
         }
         return {
@@ -290,6 +297,7 @@ describe("runAgentstack", () => {
     expect(rendered.length).toBeLessThan(2200);
     expect(qualityExecutions).toEqual([
       { id: "format", command: "pnpm", args: ["format:check"] },
+      { id: "generated", command: "pnpm", args: ["generated:check"] },
       { id: "lint", command: "pnpm", args: ["lint"] },
       { id: "typecheck", command: "pnpm", args: ["typecheck"] },
       { id: "build", command: "pnpm", args: ["build"] },
@@ -300,6 +308,51 @@ describe("runAgentstack", () => {
       code: "ENOENT"
     });
     await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+  });
+
+  it("validates generated anchors without provider execution or telemetry", async () => {
+    const code = await runAgentstack(["generated", "validate"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("provider executor should not run")
+    });
+
+    const rendered = output.join("\n");
+    expect(code).toBe(0);
+    expect(rendered).toContain("Evidence: generated-boundary");
+    expect(rendered).toContain(
+      "Scope: generated anchors and guidance only; no local-cloud writes; no provider executor; no live provider reads"
+    );
+    expect(rendered).toContain("Expected guidance version:");
+    expect(rendered).toContain("Required generated anchors:");
+    expect(output).toContain("PASS generated validate");
+    expect(providerExecutions).toEqual([]);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+    await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+  });
+
+  it("fails generated anchor validation when a required generated file is missing", async () => {
+    await rm(join(dir, "docs/agentstack/generated-boundaries.md"), { force: true });
+
+    const code = await runAgentstack(["generated", "validate"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("provider executor should not run")
+    });
+
+    const rendered = output.join("\n");
+    expect(code).toBe(1);
+    expect(rendered).toContain("FAIL generated validate");
+    expect(rendered).toContain("FAIL template.anchor.missing");
+    expect(rendered).toContain("Path: docs/agentstack/generated-boundaries.md");
+    expect(providerExecutions).toEqual([]);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
       code: "ENOENT"
     });
   });
