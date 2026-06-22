@@ -4210,31 +4210,149 @@ describe("runAgentstack", () => {
     expect(rendered).not.toContain("sk_live_secret_should_not_leak");
   });
 
-  it("rejects production provider proof before provider executor use", async () => {
-    const code = await runAgentstack(
-      [
-        "provider",
-        "proof",
-        "--service",
-        "convex",
-        "--env",
-        "production",
-        "--resource-type",
-        "deployment",
-        "--name",
-        "prod"
-      ],
+  it("runs Convex and EAS production provider proof as bounded read-only diagnostics", async () => {
+    const scenarios = [
       {
-        cwd: dir,
-        write: (line) => output.push(line),
-        providerExecutor: createMockProviderExecutor("live-read should not run")
+        service: "convex",
+        resourceType: "deployment",
+        name: "prod",
+        manifest: () => {
+          const manifest = createDefaultManifest("acme-crm");
+          manifest.environments = ["production"];
+          manifest.surfaces = ["convex"];
+          manifest.services.clerk.enabled = false;
+          manifest.services.convex.enabled = true;
+          manifest.services.vercel.enabled = false;
+          manifest.services.eas.enabled = false;
+          manifest.env.custom.OPENAI_API_KEY = {
+            surfaces: ["convex"],
+            environments: ["production"],
+            required: true,
+            secret: true,
+            providerTargets: convexProductionTarget
+          };
+          return manifest;
+        },
+        envValues: { production: { convex: { OPENAI_API_KEY: "sk-local-convex-production-proof" } } },
+        ledgerRow: providerLedgerRow({
+          id: "convex-production-proof-row-secret",
+          provider: "convex",
+          resourceType: "deployment",
+          environment: "production",
+          name: "prod",
+          status: "planned",
+          externalId: "convex-production-proof-external-secret",
+          cleanupCommand: "delete through Convex dashboard",
+          evidence: "docs/evidence/convex-production.md"
+        }),
+        providerStdout: "Name               Value\nOPENAI_API_KEY     provider-production-proof-secret",
+        expectedCommand: "exec convex env --prod list",
+        forbidden: [
+          "convex-production-proof-row-secret",
+          "convex-production-proof-external-secret",
+          "OPENAI_API_KEY",
+          "provider-production-proof-secret",
+          "sk-local-convex-production-proof"
+        ]
+      },
+      {
+        service: "eas",
+        resourceType: "project",
+        name: "acme-crm",
+        manifest: () => {
+          const manifest = createDefaultManifest("acme-crm");
+          manifest.environments = ["production"];
+          manifest.surfaces = ["mobile"];
+          manifest.services.clerk.enabled = false;
+          manifest.services.convex.enabled = false;
+          manifest.services.vercel.enabled = false;
+          manifest.services.eas.enabled = true;
+          manifest.env.custom.SENTRY_AUTH_TOKEN = {
+            surfaces: ["mobile"],
+            environments: ["production"],
+            required: true,
+            secret: true,
+            providerTargets: easProductionTarget
+          };
+          return manifest;
+        },
+        envValues: { production: { mobile: { SENTRY_AUTH_TOKEN: "sk-local-eas-production-proof" } } },
+        ledgerRow: providerLedgerRow({
+          id: "eas-production-proof-row-secret",
+          provider: "eas",
+          resourceType: "project",
+          environment: "production",
+          name: "acme-crm",
+          status: "planned",
+          externalId: "eas-production-proof-external-secret",
+          cleanupCommand: "delete through Expo dashboard",
+          evidence: "docs/evidence/eas-production.md"
+        }),
+        providerStdout: ["Name              Value             Environment", "SENTRY_AUTH_TOKEN  secret-eas-token  production"].join("\n"),
+        expectedCommand: "exec eas env:list --environment production",
+        forbidden: [
+          "eas-production-proof-row-secret",
+          "eas-production-proof-external-secret",
+          "SENTRY_AUTH_TOKEN",
+          "secret-eas-token",
+          "sk-local-eas-production-proof"
+        ]
       }
-    );
+    ] as const;
 
-    expect(code).toBe(1);
-    expect(output.join("\n")).toContain("FAIL provider.proof.env-unsupported");
-    expect(output.join("\n")).not.toContain("FAIL provider proof convex production");
-    expect(providerExecutions).toHaveLength(0);
+    for (const scenario of scenarios) {
+      output = [];
+      providerExecutions = [];
+      await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(scenario.manifest(), null, 2)}\n`);
+      await writeLocalEnvValues(scenario.envValues);
+      await writeProviderLedger([scenario.ledgerRow]);
+      const ledgerPath = join(dir, "docs", "provider-resource-ledger.md");
+      const ledgerBefore = await readFile(ledgerPath, "utf8");
+
+      const code = await runAgentstack(
+        [
+          "provider",
+          "proof",
+          "--service",
+          scenario.service,
+          "--env",
+          "production",
+          "--resource-type",
+          scenario.resourceType,
+          "--name",
+          scenario.name
+        ],
+        {
+          cwd: dir,
+          write: (line) => output.push(line),
+          providerExecutor: createMockProviderExecutor(scenario.providerStdout)
+        }
+      );
+
+      const rendered = output.join("\n");
+      expect(code).toBe(1);
+      expect(rendered).toContain(`FAIL provider proof ${scenario.service} production`);
+      expect(output).toContain("Evidence: live-proof-check");
+      expect(output).toContain("Provider execution: read-only");
+      expect(output).toContain("Mutation: none");
+      expect(output).toContain("Local mutation: none");
+      expect(output).toContain("Provider mutation: none");
+      expect(output).toContain("Ledger mutation: none");
+      expect(output).toContain("Live resource: read");
+      expect(output).toContain("Readiness: refused");
+      expect(output).toContain("Reason: identity-ambiguous");
+      expect(rendered).not.toContain("FAIL provider.proof.env-unsupported");
+      for (const forbidden of scenario.forbidden) {
+        expect(rendered).not.toContain(forbidden);
+      }
+      expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([scenario.expectedCommand]);
+      await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({
+        code: "ENOENT"
+      });
+      await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+      expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
+    }
   });
 
   it("does not read seeded local-cloud state for provider proof", async () => {

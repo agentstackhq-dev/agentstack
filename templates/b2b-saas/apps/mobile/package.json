@@ -25,6 +25,7 @@
     "provider:eas:inventory:production": "node ../../scripts/agentstack.mjs provider inventory --service eas --env production",
     "provider:eas:link:preview": "node ../../scripts/agentstack.mjs provider link --service eas --env preview --resource-type project --name __APP_SLUG__",
     "provider:eas:link:production": "node ../../scripts/agentstack.mjs provider link --service eas --env production --resource-type project --name __APP_SLUG__",
-    "provider:eas:proof:preview": "node ../../scripts/agentstack.mjs provider proof --service eas --env preview --resource-type project --name __APP_SLUG__"
+    "provider:eas:proof:preview": "node ../../scripts/agentstack.mjs provider proof --service eas --env preview --resource-type project --name __APP_SLUG__",
+    "provider:eas:proof:production": "node ../../scripts/agentstack.mjs provider proof --service eas --env production --resource-type project --name __APP_SLUG__"
   }
 }

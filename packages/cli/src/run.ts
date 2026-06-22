@@ -1550,20 +1550,6 @@ async function providerProofCommand(argv: string[], io: RunIo): Promise<number> 
   const resourceType = readRequiredStringOption(options["resource-type"], "resource-type", fix);
   const name = readRequiredStringOption(options.name, "name", fix);
 
-  if (!providerProofEnvironmentSupported(service, environment)) {
-    io.write(
-      formatDiagnostic({
-        severity: "fail",
-        code: "provider.proof.env-unsupported",
-        path: `provider proof ${service}.${environment}`,
-        message: "Provider proof supports preview for all services and production for Clerk and Vercel exact identity only in this slice.",
-        fix,
-        blocks: ["provider proof"]
-      })
-    );
-    return 1;
-  }
-
   const contract = getProviderProofContract(service);
   const unavailableLiveCoherence = evaluateProviderLiveCoherenceProof(
     service,
@@ -2245,13 +2231,6 @@ function writeProviderProofReport(io: RunIo, report: ProviderProofReport): void 
   io.write(`Reason: ${report.reason}`);
   io.write(`Identity proof requirements: ${report.contract.identityProofRequirements.join(",")}`);
   io.write(`Drift proof requirements: ${report.contract.driftProofRequirements.join(",")}`);
-}
-
-function providerProofEnvironmentSupported(
-  service: ProviderControlPlaneService,
-  environment: "preview" | "production"
-): boolean {
-  return environment === "preview" || service === "clerk" || service === "vercel";
 }
 
 function writeProviderLiveCoherenceSummary(io: RunIo, liveCoherence: ProviderLiveCoherenceProofResult): void {

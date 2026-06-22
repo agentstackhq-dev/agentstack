@@ -50,10 +50,12 @@ export type ProviderIdentityReadCommandId =
   | "clerk.apps-list-json"
   | "clerk.config-pull-agent"
   | "convex.env-list-preview-deployment"
+  | "convex.env-list-production-deployment"
   | "vercel.env-ls-preview"
   | "vercel.env-ls-production"
   | "vercel.project-ls-json"
-  | "eas.env-list-preview";
+  | "eas.env-list-preview"
+  | "eas.env-list-production";
 
 export type ProviderIdentityCandidateCategory = ProviderIdentityCandidateLabel;
 
@@ -241,7 +243,7 @@ const identityReadPlans: Record<ProviderProofService, ProviderIdentityReadPlan> 
   convex: {
     service: "convex",
     exactIdentityAvailable: false,
-    readCommands: ["convex.env-list-preview-deployment"],
+    readCommands: ["convex.env-list-preview-deployment", "convex.env-list-production-deployment"],
     requiredCandidateCategories: [
       "stable-provider-identity",
       "manifest-resource-name-match",
@@ -285,7 +287,7 @@ const identityReadPlans: Record<ProviderProofService, ProviderIdentityReadPlan> 
   eas: {
     service: "eas",
     exactIdentityAvailable: false,
-    readCommands: ["eas.env-list-preview"],
+    readCommands: ["eas.env-list-preview", "eas.env-list-production"],
     requiredCandidateCategories: [
       "stable-provider-identity",
       "manifest-resource-name-match",

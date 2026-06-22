@@ -176,6 +176,7 @@ describe("generateProject", () => {
         "provider:convex:link:preview": "node scripts/agentstack.mjs provider link --service convex --env preview --resource-type deployment --name acme-crm-preview",
         "provider:convex:link:production": "node scripts/agentstack.mjs provider link --service convex --env production --resource-type deployment --name prod",
         "provider:convex:proof:preview": "node scripts/agentstack.mjs provider proof --service convex --env preview --resource-type deployment --name acme-crm-preview",
+        "provider:convex:proof:production": "node scripts/agentstack.mjs provider proof --service convex --env production --resource-type deployment --name prod",
         "provider:vercel:inventory:preview": "node scripts/agentstack.mjs provider inventory --service vercel --env preview",
         "provider:vercel:inventory:production": "node scripts/agentstack.mjs provider inventory --service vercel --env production",
         "provider:vercel:link:preview": "node scripts/agentstack.mjs provider link --service vercel --env preview --resource-type project --name acme-crm",
@@ -186,7 +187,8 @@ describe("generateProject", () => {
         "provider:eas:inventory:production": "node scripts/agentstack.mjs provider inventory --service eas --env production",
         "provider:eas:link:preview": "node scripts/agentstack.mjs provider link --service eas --env preview --resource-type project --name acme-crm",
         "provider:eas:link:production": "node scripts/agentstack.mjs provider link --service eas --env production --resource-type project --name acme-crm",
-        "provider:eas:proof:preview": "node scripts/agentstack.mjs provider proof --service eas --env preview --resource-type project --name acme-crm"
+        "provider:eas:proof:preview": "node scripts/agentstack.mjs provider proof --service eas --env preview --resource-type project --name acme-crm",
+        "provider:eas:proof:production": "node scripts/agentstack.mjs provider proof --service eas --env production --resource-type project --name acme-crm"
       });
       expectNoProviderAliasScripts(packageManifest.scripts);
       expectNoProviderAdoptScripts(packageManifest.scripts);
@@ -221,7 +223,8 @@ describe("generateProject", () => {
         "provider:eas:inventory:production": "node ../../scripts/agentstack.mjs provider inventory --service eas --env production",
         "provider:eas:link:preview": "node ../../scripts/agentstack.mjs provider link --service eas --env preview --resource-type project --name acme-crm",
         "provider:eas:link:production": "node ../../scripts/agentstack.mjs provider link --service eas --env production --resource-type project --name acme-crm",
-        "provider:eas:proof:preview": "node ../../scripts/agentstack.mjs provider proof --service eas --env preview --resource-type project --name acme-crm"
+        "provider:eas:proof:preview": "node ../../scripts/agentstack.mjs provider proof --service eas --env preview --resource-type project --name acme-crm",
+        "provider:eas:proof:production": "node ../../scripts/agentstack.mjs provider proof --service eas --env production --resource-type project --name acme-crm"
       });
       expectNoProviderAliasScripts(mobilePackageManifest.scripts);
       expectNoProviderAdoptScripts(mobilePackageManifest.scripts);
@@ -284,7 +287,9 @@ describe("generateProject", () => {
       expect(generatedWorkflowDocs).toContain("pnpm run validate:live:preview");
       expect(generatedWorkflowDocs).toContain("pnpm run validate:live:production");
       expect(generatedWorkflowDocs).toContain("provider:clerk:proof:production");
+      expect(generatedWorkflowDocs).toContain("provider:convex:proof:production");
       expect(generatedWorkflowDocs).toContain("provider:vercel:proof:production");
+      expect(generatedWorkflowDocs).toContain("provider:eas:proof:production");
       expect(generatedWorkflowDocs).toContain("Live validation prints per-service proof summaries");
       expect(generatedWorkflowDocs).toContain("Reason: proof-incomplete");
       const generatedValidationDocs = await readFile(join(targetDir, "docs/agentstack/validation.md"), "utf8");
@@ -295,7 +300,9 @@ describe("generateProject", () => {
       expect(generatedValidationDocs).toContain("Reason: proof-incomplete");
       expect(generatedValidationDocs).toContain("Exact identity evaluator: provider-exact-identity");
       expect(generatedValidationDocs).toContain("Clerk production application proof");
+      expect(generatedValidationDocs).toContain("Convex production proof");
       expect(generatedValidationDocs).toContain("Vercel production project proof");
+      expect(generatedValidationDocs).toContain("EAS production proof");
       await expect(readFile(join(targetDir, "docs/provider-resource-ledger.md"), "utf8")).resolves.toContain(
         "## Ledger"
       );

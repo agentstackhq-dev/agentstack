@@ -149,7 +149,7 @@ describe("provider proof contracts", () => {
     expect(getProviderIdentityReadPlan("convex")).toEqual({
       service: "convex",
       exactIdentityAvailable: false,
-      readCommands: ["convex.env-list-preview-deployment"],
+      readCommands: ["convex.env-list-preview-deployment", "convex.env-list-production-deployment"],
       requiredCandidateCategories: [
         "stable-provider-identity",
         "manifest-resource-name-match",
@@ -200,7 +200,7 @@ describe("provider proof contracts", () => {
     expect(getProviderIdentityReadPlan("eas")).toEqual({
       service: "eas",
       exactIdentityAvailable: false,
-      readCommands: ["eas.env-list-preview"],
+      readCommands: ["eas.env-list-preview", "eas.env-list-production"],
       requiredCandidateCategories: [
         "stable-provider-identity",
         "manifest-resource-name-match",
