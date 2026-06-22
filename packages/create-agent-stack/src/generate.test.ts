@@ -290,6 +290,7 @@ describe("generateProject", () => {
       expect(generatedWorkflowDocs).toContain("provider:convex:proof:production");
       expect(generatedWorkflowDocs).toContain("provider:vercel:proof:production");
       expect(generatedWorkflowDocs).toContain("provider:eas:proof:production");
+      expect(generatedWorkflowDocs).toContain("provider.link.live-coherence-blocked|unavailable");
       expect(generatedWorkflowDocs).toContain("Live validation prints per-service proof summaries");
       expect(generatedWorkflowDocs).toContain("Reason: proof-incomplete");
       const generatedValidationDocs = await readFile(join(targetDir, "docs/agentstack/validation.md"), "utf8");

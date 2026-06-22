@@ -1967,7 +1967,7 @@ async function providerLinkCommand(argv: string[], io: RunIo): Promise<number> {
       return 1;
     }
 
-    const inventory = await readLiveInventoryForConfirmation({
+    const confirmationRead = await readLiveInventoryForConfirmation({
       io,
       validation,
       ledgerRows,
@@ -1977,10 +1977,11 @@ async function providerLinkCommand(argv: string[], io: RunIo): Promise<number> {
       fix,
       blocks: ["provider link"]
     });
-    if (inventory === undefined) {
+    if (confirmationRead === undefined) {
       return 1;
     }
 
+    const { inventory, liveResults } = confirmationRead;
     const confirmation = confirmLiveProviderInventoryIdentity(inventory);
     if (!confirmation.ok) {
       io.write(`FAIL provider.link.${confirmation.reason}`);
@@ -1988,6 +1989,14 @@ async function providerLinkCommand(argv: string[], io: RunIo): Promise<number> {
       writeProviderIdentityProofRequirements(io, inventory);
       return 1;
     }
+
+    const exactIdentityDecision = evaluateProviderExactIdentityProof(service, liveResults);
+    const driftProof = evaluateProviderDriftProof(service, liveResults);
+    const liveCoherence = evaluateProviderLiveCoherenceProof(service, exactIdentityDecision, driftProof);
+    io.write(`FAIL provider.link.live-coherence-${liveCoherence.proof}`);
+    writeProviderConfirmationInventory(io, inventory);
+    writeProviderLiveCoherenceSummary(io, liveCoherence);
+    return 1;
   }
 
   const result = await linkLedgerBackedProviderResource({
@@ -2027,7 +2036,7 @@ async function providerAdoptCommand(argv: string[], io: RunIo): Promise<number> 
   }
 
   if (source === "live") {
-    const inventory = await readLiveInventoryForConfirmation({
+    const confirmationRead = await readLiveInventoryForConfirmation({
       io,
       validation,
       ledgerRows: [],
@@ -2037,10 +2046,11 @@ async function providerAdoptCommand(argv: string[], io: RunIo): Promise<number> 
       fix,
       blocks: ["provider adopt"]
     });
-    if (inventory === undefined) {
+    if (confirmationRead === undefined) {
       return 1;
     }
 
+    const { inventory } = confirmationRead;
     const confirmation = confirmLiveProviderInventoryIdentity(inventory);
     if (!confirmation.ok) {
       io.write(`FAIL provider.adopt.${confirmation.reason}`);
@@ -2096,7 +2106,7 @@ async function readLiveInventoryForConfirmation(input: {
   failureCode: "provider.link.live-read" | "provider.adopt.live-read";
   fix: string;
   blocks: string[];
-}): Promise<ProviderInventory | undefined> {
+}): Promise<{ inventory: ProviderInventory; liveResults: ProviderExecutionResult[] } | undefined> {
   let inventory = await createProviderInventory({
     cwd: input.io.cwd,
     manifest: input.validation.context.manifest,
@@ -2117,7 +2127,19 @@ async function readLiveInventoryForConfirmation(input: {
       manifest: input.validation.context.manifest,
       executor: resolveProviderExecutor(input.io),
       cwd: input.io.cwd,
-      secretValues
+      secretValues,
+      clerkExactProofContext: buildLiveValidationClerkExactProofContext({
+        service: input.service,
+        environment: input.environment,
+        manifest: input.validation.context.manifest,
+        ledgerRows: input.ledgerRows
+      }),
+      vercelExactProofContext: buildLiveValidationVercelExactProofContext({
+        service: input.service,
+        environment: input.environment,
+        manifest: input.validation.context.manifest,
+        ledgerRows: input.ledgerRows
+      })
     });
   } catch (error) {
     input.io.write(
@@ -2134,7 +2156,7 @@ async function readLiveInventoryForConfirmation(input: {
   }
 
   inventory = await createLiveProviderInventory({ localInventory: inventory, readResults: liveResults });
-  return inventory;
+  return { inventory, liveResults };
 }
 
 function writeProviderConfirmationInventory(io: RunIo, inventory: ProviderInventory): void {

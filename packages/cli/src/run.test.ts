@@ -3328,7 +3328,7 @@ describe("runAgentstack", () => {
     ]);
   });
 
-  it("keeps Clerk exact context limited to provider proof across live inventory, link, and adopt", async () => {
+  it("keeps Clerk exact context limited to provider proof and ledger-backed live link", async () => {
     const externalId = "res_raw_clerk_boundary";
     const owner = "org_raw_clerk_boundary";
     const appId = "app_raw_clerk_boundary";
@@ -3410,7 +3410,9 @@ describe("runAgentstack", () => {
       "live"
     ]);
     expect(code).toBe(1);
-    expect(output).toContain("FAIL provider.link.identity-ambiguous");
+    expect(output).toContain("FAIL provider.link.live-coherence-blocked");
+    expect(output.join("\n")).toContain("identity=matched");
+    expect(output).toContain("Live coherence: blocked");
     expect(output.join("\n")).not.toContain("Identity proof: exact");
     expect(output.join("\n")).not.toContain("Exact identity evidence: available");
     expect(output.join("\n")).not.toContain(externalId);
@@ -5667,6 +5669,105 @@ describe("runAgentstack", () => {
     );
     expect(output.join("\n")).not.toContain("NEXT_PUBLIC_APP_URL");
     expect(output.join("\n")).not.toContain("prj_secret");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec vercel env ls preview",
+      "exec vercel project ls --json"
+    ]);
+    await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await readFile(join(dir, "docs", "provider-resource-ledger.md"), "utf8")).toBe(ledgerBefore);
+  });
+
+  it("surfaces exact Vercel live link identity while refusing writes until live coherence exists", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.env.custom.NEXT_PUBLIC_APP_URL = {
+      surfaces: ["web"],
+      environments: ["preview"],
+      required: true,
+      secret: false,
+      providerTargets: vercelPreviewTarget
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    await mkdir(join(dir, ".vercel"), { recursive: true });
+    await writeFile(
+      join(dir, ".vercel", "project.json"),
+      JSON.stringify({ projectId: "prj_raw_live_link_secret", orgId: "team_raw_live_link_secret" }),
+      "utf8"
+    );
+    await writeLocalEnvValues({
+      preview: { web: { NEXT_PUBLIC_APP_URL: "https://local-live-link-secret.example.test" } }
+    });
+    const rowId = "row-vercel-live-link-exact-secret";
+    const externalId = "prj_raw_live_link_secret";
+    const owner = "team_raw_live_link_secret";
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: rowId,
+        provider: "vercel",
+        resourceType: "project",
+        environment: "preview",
+        name: "acme-crm",
+        status: "active",
+        owner,
+        externalId,
+        cleanupCommand: "delete through Vercel dashboard",
+        evidence: "docs/evidence/vercel-preview.md"
+      })
+    ]);
+    const ledgerBefore = await readFile(join(dir, "docs", "provider-resource-ledger.md"), "utf8");
+
+    const code = await runAgentstack(
+      [
+        "provider",
+        "link",
+        "--service",
+        "vercel",
+        "--env",
+        "preview",
+        "--resource-type",
+        "project",
+        "--name",
+        "acme-crm",
+        "--source",
+        "live"
+      ],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: {
+          async execute(command, args, options) {
+            providerExecutions.push({ command, args, stdin: options.stdin });
+            return {
+              exitCode: 0,
+              stdout:
+                args.join(" ") === "exec vercel project ls --json"
+                  ? JSON.stringify([{ id: externalId, name: "acme-crm", accountId: owner }])
+                  : ["Name Environment", "NEXT_PUBLIC_APP_URL preview"].join("\n"),
+              stderr: "",
+              durationMs: 12
+            };
+          }
+        }
+      }
+    );
+
+    const rendered = output.join("\n");
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL provider.link.live-coherence-blocked");
+    expect(output).toContain("Evidence: live-read-inventory");
+    expect(rendered).toContain("identity=matched");
+    expect(rendered).toContain("facts=env-list-read,expected-env-names,preview-environment");
+    expect(output).toContain("Live coherence: blocked");
+    expect(output).toContain("Live coherence evaluator: provider-live-coherence");
+    expect(rendered).not.toContain("Identity proof requirements:");
+    expect(rendered).not.toContain("LINKED provider vercel preview");
+    expect(rendered).not.toContain(rowId);
+    expect(rendered).not.toContain(externalId);
+    expect(rendered).not.toContain(owner);
+    expect(rendered).not.toContain("https://local-live-link-secret.example.test");
     expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
       "exec vercel env ls preview",
       "exec vercel project ls --json"
