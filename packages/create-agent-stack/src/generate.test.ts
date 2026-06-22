@@ -279,6 +279,8 @@ describe("generateProject", () => {
       expect(generatedEnvironmentDocs).toContain("ledger-gated through supported provider apply commands");
       expect(generatedEnvironmentDocs).toContain("matching strict provider-owned evidence may surface `identity=matched identity-scope=exact`");
       expect(generatedEnvironmentDocs).toContain("Exact identity in inventory is still diagnostic only");
+      expect(generatedEnvironmentDocs).toContain("Exact identity evidence");
+      expect(generatedEnvironmentDocs).toContain("instead of candidate missing-proof guidance");
       const generatedPreviewDocs = await readFile(join(targetDir, "docs/agentstack/preview.md"), "utf8");
       expect(generatedPreviewDocs).toContain("provider inventory --service convex --env preview");
       expect(generatedPreviewDocs).toContain("provider link --service convex --env preview");

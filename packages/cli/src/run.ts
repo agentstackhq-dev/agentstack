@@ -1586,7 +1586,7 @@ async function providerInventoryCommand(argv: string[], io: RunIo): Promise<numb
   }
   inventory.rows.forEach((row) => io.write(formatProviderInventoryRow(row)));
   if (source === "live") {
-    writeProviderInventoryCandidateSummary(io, service, liveResults);
+    writeProviderInventoryIdentitySummary(io, service, liveResults);
   }
   return hasFailedLiveRead ? 1 : 0;
 }
@@ -2424,11 +2424,19 @@ function writeProviderProofReport(io: RunIo, report: ProviderProofReport): void 
   io.write(`Drift proof requirements: ${report.contract.driftProofRequirements.join(",")}`);
 }
 
-function writeProviderInventoryCandidateSummary(
+function writeProviderInventoryIdentitySummary(
   io: RunIo,
   service: ProviderControlPlaneService,
   liveResults: ProviderExecutionResult[]
 ): void {
+  const exactDecision = evaluateProviderExactIdentityProof(service, liveResults);
+  if (exactDecision.proof === "exact") {
+    const fields = formatProviderExactIdentityReportFields(exactDecision);
+    io.write(`Exact identity evidence: ${fields.identityCandidates}`);
+    io.write(`Exact identity evaluator: ${fields.identityEvaluator}`);
+    return;
+  }
+
   const decision = evaluateProviderIdentityCandidateProof(service, liveResults);
   if (decision.labels.length === 0) {
     return;

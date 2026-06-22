@@ -3260,6 +3260,10 @@ describe("runAgentstack", () => {
     expect(rendered).toContain("Succeeded: 2");
     expect(rendered).toContain("live=found identity=matched identity-scope=exact permission=read-ok");
     expect(rendered).toContain("facts=env-list-read,expected-env-names,production-environment");
+    expect(rendered).toContain("Exact identity evidence: available");
+    expect(rendered).toContain("Exact identity evaluator: provider-exact-identity");
+    expect(rendered).not.toContain("Identity proof missing:");
+    expect(rendered).not.toContain("Candidate identity evidence:");
     expect(rendered).not.toContain("identity=ambiguous");
     expect(rendered).not.toContain("NEXT_PUBLIC_APP_URL");
     expect(rendered).not.toContain("API_TOKEN");
@@ -3430,7 +3434,8 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("identity=matched");
     expect(output.join("\n")).toContain("identity-scope=exact");
     expect(output.join("\n")).not.toContain("identity=ambiguous");
-    expect(output.join("\n")).not.toContain("Exact identity evidence: available");
+    expect(output.join("\n")).toContain("Exact identity evidence: available");
+    expect(output.join("\n")).toContain("Exact identity evaluator: provider-exact-identity");
     expect(output.join("\n")).not.toContain(externalId);
     expect(output.join("\n")).not.toContain(owner);
     expect(output.join("\n")).not.toContain(appId);
