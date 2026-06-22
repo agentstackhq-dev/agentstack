@@ -35,6 +35,7 @@ pnpm run build:preview:apply
 pnpm run build:production
 pnpm run provider:eas:preview
 pnpm run provider:eas:inspect:preview
+pnpm run provider:eas:inspect:production
 pnpm run provider:eas:production
 ```
 
@@ -42,7 +43,7 @@ Use `pnpm run provider:eas:preview` or `pnpm run provider:eas:production` to pri
 
 The EAS provider plan includes `eas project:init --non-interactive`, `eas env:list --environment <env>`, and `eas build -p all -e <profile> --json --non-interactive`. Env create/update/delete commands are planned from Agentstack provider operations and label values as coming from `.agentstack/env-values.json`; raw values and secrets are not printed.
 
-Use `pnpm run provider:eas:inspect:preview` for explicit read-only EAS provider inspection with `Evidence: live-read`. It executes only `pnpm exec eas env:list --environment preview`. It does not run EAS project initialization, builds, env create/update/delete commands, production inspect, or apply.
+Use `pnpm run provider:eas:inspect:preview` or `pnpm run provider:eas:inspect:production` for explicit read-only EAS provider inspection with `Evidence: live-read`. It executes only `pnpm exec eas env:list --environment <preview|production>`. It does not run EAS project initialization, builds, env create/update/delete commands, or apply.
 
 Use `pnpm run provider:eas:proof:preview` only after adding a matching planned or active EAS preview project row to the provider ledger. It is a preview-only proof contract check that may run the same bounded read-only EAS env-list path, never reads local-cloud state, writes nothing, and refuses readiness until exact EAS project identity and drift parsers exist.
 

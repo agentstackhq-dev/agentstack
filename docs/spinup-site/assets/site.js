@@ -151,7 +151,7 @@ const concerns = {
   },
   gaps: {
     title: "Current progress and gaps",
-    summary: "The slice proves the command contract and provider boundaries. Provider execution is explicit through provider inspect/apply: Clerk and Convex inspect are diagnostics, Convex apply executes provider commands, Vercel preview apply runs only the preview deploy command, and EAS preview inspect runs only env:list for preview. Generated deploy rehearsals, EAS builds, env mutations, real app servers, hosted/network telemetry export, provider dashboards, retention, live Stripe integration, and store submission flows are outside the current generated framework boundary.",
+    summary: "The slice proves the command contract and provider boundaries. Provider execution is explicit through provider inspect/apply: Clerk and Convex inspect are diagnostics, Convex apply executes provider commands, Vercel preview apply runs only the preview deploy command, and EAS preview/production inspect runs only env:list for the selected environment. Generated deploy rehearsals, EAS builds, env mutations, real app servers, hosted/network telemetry export, provider dashboards, retention, live Stripe integration, and store submission flows are outside the current generated framework boundary.",
     commands: ["pnpm run preview:deploy", "pnpm run preview:deploy:apply", "pnpm run prod:deploy"],
     files: ["README.md", "tests/e2e/prototype.test.ts", "templates/b2b-saas/docs/agentstack/release.md"]
   }

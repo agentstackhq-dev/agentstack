@@ -37,6 +37,9 @@ const previewWebConvexTargets: CustomEnvProviderTarget[] = [
 const easPreviewTarget: CustomEnvProviderTarget[] = [
   { service: "eas", surfaces: ["mobile"], environments: ["preview"], source: "local-value" }
 ];
+const easProductionTarget: CustomEnvProviderTarget[] = [
+  { service: "eas", surfaces: ["mobile"], environments: ["production"], source: "local-value" }
+];
 const vercelPreviewTarget: CustomEnvProviderTarget[] = [
   { service: "vercel", surfaces: ["web"], environments: ["preview"], source: "local-value" }
 ];
@@ -2217,6 +2220,47 @@ describe("runAgentstack", () => {
     ]);
     expect(output.join("\n")).not.toContain("local-eas-secret");
     expect(output.join("\n")).not.toContain("provider-eas-secret");
+  });
+
+  it("executes EAS production inspect env-list only as read-only diagnostics", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.environments = ["production"];
+    manifest.surfaces = ["mobile"];
+    manifest.env.custom.SENTRY_AUTH_TOKEN = {
+      surfaces: ["mobile"],
+      environments: ["production"],
+      required: true,
+      secret: true,
+      providerTargets: easProductionTarget
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    await writeLocalEnvValues({
+      production: { mobile: { SENTRY_AUTH_TOKEN: "local-eas-production-secret" } }
+    });
+
+    const code = await runAgentstack(["provider", "inspect", "--service", "eas", "--env", "production"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("SENTRY_AUTH_TOKEN=provider-eas-production-secret")
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("WARN provider inspect eas production");
+    expect(output).toContain("Evidence: live-read");
+    expect(output).toContain("Mutation: none");
+    expect(output.join("\n")).toContain("Target: production");
+    expect(output.join("\n")).toContain("Required env: EXPO_TOKEN");
+    expect(output.join("\n")).toContain("Operations: 2");
+    expect(output.join("\n")).toContain("Commands: 1");
+    expect(output.join("\n")).toContain("Results: 1");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec eas env:list --environment production"
+    ]);
+    expect(providerExecutions.map((execution) => execution.args.join(" ")).join("\n")).not.toMatch(
+      /\b(build|project:init|env:create|env:update|env:delete)\b/
+    );
+    expect(output.join("\n")).not.toContain("local-eas-production-secret");
+    expect(output.join("\n")).not.toContain("provider-eas-production-secret");
   });
 
   it("executes Vercel preview inspect read-only env-list and project-list commands", async () => {
@@ -4870,25 +4914,32 @@ describe("runAgentstack", () => {
     expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
   });
 
-  it("refuses unsupported EAS production live validation before executor use", async () => {
+  it("runs EAS production live validation as bounded read-only evidence and refuses readiness", async () => {
     await writeProviderLedger([]);
     const ledgerPath = join(dir, "docs", "provider-resource-ledger.md");
     const ledgerBefore = await readFile(ledgerPath, "utf8");
     const code = await runAgentstack(["validate", "--live", "--env", "production"], {
       cwd: dir,
       write: (line) => output.push(line),
-      providerExecutor: createMockProviderExecutor("live-read should not run")
+      providerExecutor: createMockProviderExecutor(
+        ["Name              Value             Environment", "SENTRY_AUTH_TOKEN  secret-eas-token  production"].join("\n")
+      )
     });
 
     expect(code).toBe(1);
     expect(output).toContain("Evidence: live-validation");
     expect(output).toContain("FAIL validate --live");
     expect(output).toContain("Readiness: refused");
-    expect(output).toContain("Reason: live-validation-unsupported");
-    expect(output.join("\n")).toContain("FAIL provider.live-validation.unsupported");
-    expect(output.join("\n")).toContain("EAS live validation supports preview read-only inspect only");
-    expect(output.join("\n")).not.toContain("Vercel live validation supports preview read-only inspect only");
-    expect(providerExecutions).toEqual([]);
+    expect(output).toContain("Reason: proof-incomplete");
+    expect(output.join("\n")).toContain("Provider proof: eas production");
+    expect(output.join("\n")).toContain("facts=env-list-read,expected-env-names,production-environment");
+    expect(output.join("\n")).not.toContain("FAIL provider.live-validation.unsupported");
+    expect(output.join("\n")).not.toContain("EAS live validation supports preview read-only inspect only");
+    expect(output.join("\n")).not.toContain("SENTRY_AUTH_TOKEN");
+    expect(output.join("\n")).not.toContain("secret-eas-token");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toContain(
+      "exec eas env:list --environment production"
+    );
     await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
     await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
     await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
@@ -4975,17 +5026,33 @@ describe("runAgentstack", () => {
     expect(providerExecutions).toHaveLength(0);
   });
 
-  it("rejects live EAS production inventory before executor use", async () => {
+  it("renders sanitized partial EAS production live identity facts without exact identity", async () => {
     const code = await runAgentstack(["provider", "inventory", "--service", "eas", "--env", "production", "--source", "live"], {
       cwd: dir,
       write: (line) => output.push(line),
-      providerExecutor: createMockProviderExecutor("live-read should not run")
+      providerExecutor: createMockProviderExecutor(
+        [
+          "Name              Value             Environment",
+          "SENTRY_AUTH_TOKEN  secret-eas-token  production",
+          "Project ID        eas-secret-project-id preview"
+        ].join("\n")
+      )
     });
 
-    expect(code).toBe(1);
-    expect(output.join("\n")).toContain("FAIL provider.inventory.unsupported");
-    expect(output.join("\n")).toContain("EAS live inventory supports preview read-only inspect only");
-    expect(providerExecutions).toHaveLength(0);
+    expect(code).toBe(0);
+    expect(output).toContain("PASS provider inventory eas production");
+    expect(output).toContain("Evidence: live-read-inventory");
+    expect(output).toContain("Mutation: none");
+    expect(output.join("\n")).toContain(
+      "live=found identity=ambiguous identity-scope=partial permission=read-ok drift=unknown facts=env-list-read,expected-env-names,production-environment missing=ledger-comparable-identity,ledger-external-id-match,manifest-resource-name-match,provider-owner-identity,provider-project-link-proof,provider-resource-id,provider-specific-identity-parser,stable-provider-identity"
+    );
+    expect(output.join("\n")).not.toContain("SENTRY_AUTH_TOKEN");
+    expect(output.join("\n")).not.toContain("secret-eas-token");
+    expect(output.join("\n")).not.toContain("eas-secret-project-id");
+    expect(output.join("\n")).not.toContain("identity=matched");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec eas env:list --environment production"
+    ]);
   });
 
   it("blocks provider inventory malformed ledger rows with inventory-specific diagnostics", async () => {
@@ -5368,7 +5435,7 @@ describe("runAgentstack", () => {
     });
   });
 
-  it("runs Vercel production link live confirmation as read-only refusal while EAS stays blocked", async () => {
+  it("runs Vercel production link live confirmation as read-only refusal while EAS production still ledger-gates before reads", async () => {
     await writeVercelProductionEnvManifest();
     await writeLocalEnvValues({
       production: { web: { NEXT_PUBLIC_APP_URL: "https://local-link-secret.example.test" } }
@@ -5488,7 +5555,7 @@ describe("runAgentstack", () => {
     );
 
     expect(easCode).toBe(1);
-    expect(output.join("\n")).toContain("FAIL provider.link.unsupported");
+    expect(output.join("\n")).toContain("FAIL provider.ledger.missing");
     expect(providerExecutions).toHaveLength(0);
   });
 
@@ -5638,6 +5705,67 @@ describe("runAgentstack", () => {
     await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
   });
 
+  it("runs EAS production live link read-only before refusing ambiguous identity", async () => {
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: "eas-production-link-row-secret",
+        provider: "eas",
+        resourceType: "project",
+        environment: "production",
+        name: "acme-crm",
+        status: "active",
+        externalId: "eas-production-link-external-secret",
+        cleanupCommand: "delete through Expo dashboard",
+        evidence: "docs/evidence/eas-production.md"
+      })
+    ]);
+
+    const code = await runAgentstack(
+      [
+        "provider",
+        "link",
+        "--service",
+        "eas",
+        "--env",
+        "production",
+        "--resource-type",
+        "project",
+        "--name",
+        "acme-crm",
+        "--source",
+        "live"
+      ],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: createMockProviderExecutor(
+          ["Name              Value             Environment", "SENTRY_AUTH_TOKEN  secret-eas-token  production"].join("\n")
+        )
+      }
+    );
+
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL provider.link.identity-ambiguous");
+    expect(output).toContain("Evidence: live-read-inventory");
+    expect(output).toContain("Local mutation: none");
+    expect(output).toContain("Provider mutation: none");
+    expect(output).toContain("Ledger mutation: none");
+    expect(output.join("\n")).toContain("facts=env-list-read,expected-env-names,production-environment");
+    expect(output.join("\n")).toContain("Identity proof requirements: ");
+    expect(output.join("\n")).not.toContain("eas-production-link-row-secret");
+    expect(output.join("\n")).not.toContain("eas-production-link-external-secret");
+    expect(output.join("\n")).not.toContain("SENTRY_AUTH_TOKEN");
+    expect(output.join("\n")).not.toContain("secret-eas-token");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec eas env:list --environment production"
+    ]);
+    await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
   it("fails provider link and adopt live reads with redacted diagnostics and no writes", async () => {
     await writeProviderLedger([
       providerLedgerRow({
@@ -5704,7 +5832,7 @@ describe("runAgentstack", () => {
     }
   });
 
-  it("rejects unsupported provider adopt source, reads Vercel production, and blocks EAS production", async () => {
+  it("rejects unsupported provider adopt source, reads Vercel production, and reads EAS production before ambiguity refusal", async () => {
     const unsupported = await runAgentstack(["provider", "adopt", "--service", "clerk", "--env", "preview", "--source", "remote"], {
       cwd: dir,
       write: (line) => output.push(line),
@@ -5790,11 +5918,23 @@ describe("runAgentstack", () => {
     const easCode = await runAgentstack(["provider", "adopt", "--service", "eas", "--env", "production", "--source", "live"], {
       cwd: dir,
       write: (line) => output.push(line),
-      providerExecutor: createMockProviderExecutor("live-read should not run")
+      providerExecutor: createMockProviderExecutor(
+        ["Name              Value             Environment", "SENTRY_AUTH_TOKEN  secret-eas-token  production"].join("\n")
+      )
     });
     expect(easCode).toBe(1);
-    expect(output.join("\n")).toContain("FAIL provider.adopt.unsupported");
-    expect(providerExecutions).toHaveLength(0);
+    expect(output.join("\n")).toContain("FAIL provider.adopt.identity-ambiguous");
+    expect(output.join("\n")).toContain("Evidence: live-read-inventory");
+    expect(output.join("\n")).toContain("Commands: 1");
+    expect(output.join("\n")).toContain("Results: 1");
+    expect(output.join("\n")).toContain("facts=env-list-read,expected-env-names,production-environment");
+    expect(output.join("\n")).toContain("Identity proof requirements: ");
+    expect(output.join("\n")).not.toContain("Provider ledger proposal");
+    expect(output.join("\n")).not.toContain("SENTRY_AUTH_TOKEN");
+    expect(output.join("\n")).not.toContain("secret-eas-token");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec eas env:list --environment production"
+    ]);
   });
 
   it("rejects stale provider command aliases as unknown commands", async () => {

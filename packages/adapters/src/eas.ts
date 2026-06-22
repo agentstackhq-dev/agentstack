@@ -56,7 +56,7 @@ export type EasCommandPlan = {
   commands: EasCliCommand[];
 };
 
-export type InspectEasPreviewReadOnlyOptions = {
+export type InspectEasReadOnlyOptions = {
   environment: EnvironmentName;
   executor: ProviderCommandExecutor;
   cwd?: string;
@@ -138,12 +138,10 @@ export function createEasCommandPlan(input: EasCommandPlanInput): EasCommandPlan
   };
 }
 
-export async function inspectEasPreviewReadOnly(
-  options: InspectEasPreviewReadOnlyOptions
-): Promise<ProviderExecutionResult[]> {
-  if (options.environment !== "preview") {
+export async function inspectEasReadOnly(options: InspectEasReadOnlyOptions): Promise<ProviderExecutionResult[]> {
+  if (options.environment !== "preview" && options.environment !== "production") {
     throw new Error(
-      "EAS runtime inspect supports preview env-list only. Production inspect, build, project:init, and env mutation execution are not available in this slice."
+      "EAS runtime inspect supports preview and production env-list reads only. Build, project:init, and env mutation execution are not available in this slice."
     );
   }
 
@@ -162,7 +160,7 @@ export async function inspectEasPreviewReadOnly(
       env: options.env,
       timeoutMs: options.timeoutMs
     });
-    const liveIdentityFacts = parseEasPreviewEnvListFacts(result.stdout, result.exitCode);
+    const liveIdentityFacts = parseEasEnvListFacts(result.stdout, result.exitCode, options.environment);
 
     results.push(
       createProviderExecutionResult({
@@ -173,7 +171,7 @@ export async function inspectEasPreviewReadOnly(
         result,
         secretValues: options.secretValues,
         liveIdentityFacts,
-        identityCandidates: easPreviewIdentityCandidates(liveIdentityFacts)
+        identityCandidates: easIdentityCandidates(liveIdentityFacts, options.environment)
       })
     );
   }
@@ -181,32 +179,42 @@ export async function inspectEasPreviewReadOnly(
   return results;
 }
 
-function parseEasPreviewEnvListFacts(stdout: string, exitCode: number): ProviderLiveIdentityFacts | undefined {
+function parseEasEnvListFacts(
+  stdout: string,
+  exitCode: number,
+  environment: "preview" | "production"
+): ProviderLiveIdentityFacts | undefined {
   if (exitCode !== 0) {
     return undefined;
   }
 
-  const hasExpectedPreviewEnvRow = parseEasEnvListRows(stdout).some(
-    (row) => isExpectedEasEnvName(row.name) && row.environments.includes("preview")
+  const hasExpectedEnvRow = parseEasEnvListRows(stdout).some(
+    (row) => isExpectedEasEnvName(row.name) && row.environments.includes(environment)
   );
-  if (!hasExpectedPreviewEnvRow) {
+  if (!hasExpectedEnvRow) {
     return undefined;
   }
 
   return {
     identityConfidence: "partial",
-    facts: ["expected-env-names", "preview-environment", "env-list-read"]
+    facts: [
+      "expected-env-names",
+      environment === "preview" ? "preview-environment" : "production-environment",
+      "env-list-read"
+    ]
   };
 }
 
-function easPreviewIdentityCandidates(
-  liveIdentityFacts: ProviderLiveIdentityFacts | undefined
+function easIdentityCandidates(
+  liveIdentityFacts: ProviderLiveIdentityFacts | undefined,
+  environment: "preview" | "production"
 ): ProviderIdentityCandidatesArtifact | undefined {
+  const environmentFact = environment === "preview" ? "preview-environment" : "production-environment";
   if (
     !liveIdentityFacts ||
     liveIdentityFacts.identityConfidence !== "partial" ||
     !liveIdentityFacts.facts.includes("expected-env-names") ||
-    !liveIdentityFacts.facts.includes("preview-environment") ||
+    !liveIdentityFacts.facts.includes(environmentFact) ||
     !liveIdentityFacts.facts.includes("env-list-read")
   ) {
     return undefined;

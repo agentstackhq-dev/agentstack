@@ -273,7 +273,7 @@ In `packages/adapters/src/eas.test.ts`, add:
 
 ```ts
 it("does not infer EAS env-list facts from loose preview env prose", async () => {
-  const results = await inspectEasPreviewReadOnly({
+  const results = await inspectEasReadOnly({
     environment: "preview",
     executor: {
       async execute() {
@@ -297,7 +297,7 @@ Add:
 
 ```ts
 it("requires EAS expected env name and preview environment in the same parsed row", async () => {
-  const results = await inspectEasPreviewReadOnly({
+  const results = await inspectEasReadOnly({
     environment: "preview",
     executor: {
       async execute() {

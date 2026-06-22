@@ -18,7 +18,7 @@ import {
   evaluateProviderLiveCoherenceProof,
   getProviderProofContract,
   getEnabledProviderAdapterDefinitions,
-  inspectEasPreviewReadOnly,
+  inspectEasReadOnly,
   inspectClerkReadOnly,
   inspectConvexReadOnly,
   inspectVercelReadOnly,
@@ -1037,7 +1037,8 @@ async function providerInspectCommand(argv: string[], io: RunIo): Promise<number
         severity: "fail",
         code: "provider.service.unsupported",
         path: service,
-        message: "Only Clerk, Convex, Vercel preview/production, and EAS preview provider inspect are available in this slice.",
+        message:
+          "Only Clerk, Convex, Vercel preview/production, and EAS preview/production provider inspect are available in this slice.",
         fix,
         blocks: ["provider inspect"]
       })
@@ -1124,7 +1125,7 @@ async function providerInspectCommand(argv: string[], io: RunIo): Promise<number
 
   if (service === "eas") {
     try {
-      results = await inspectEasPreviewReadOnly({
+      results = await inspectEasReadOnly({
         environment,
         executor: resolveProviderExecutor(io),
         cwd: io.cwd,
@@ -1465,20 +1466,6 @@ async function providerInventoryCommand(argv: string[], io: RunIo): Promise<numb
   const environment = readProviderRuntimeEnvironmentOption(options.env, fix);
   const source = readProviderInventorySourceOption(options.source, options.live, fix);
 
-  if (source === "live" && service === "eas" && environment !== "preview") {
-    io.write(
-      formatDiagnostic({
-        severity: "fail",
-        code: "provider.inventory.unsupported",
-        path: `${service}.${environment}`,
-        message: "EAS live inventory supports preview read-only inspect only.",
-        fix: `Run agentstack provider inventory --service ${service} --env preview --source live.`,
-        blocks: ["provider inventory"]
-      })
-    );
-    return 1;
-  }
-
   const validation = await runLocalValidationGate(io.cwd);
   validation.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
   if (validation.diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
@@ -1756,26 +1743,6 @@ async function liveValidationCommand(
   const services = getEnabledProviderAdapterDefinitions(validation.context.manifest).map(
     (definition) => definition.service
   );
-  const unsupportedServices = services.filter((service) => service === "eas" && environment !== "preview");
-  if (unsupportedServices.length > 0) {
-    for (const service of unsupportedServices) {
-      io.write(
-        formatDiagnostic({
-          severity: "fail",
-          code: "provider.live-validation.unsupported",
-          path: `${service}.${environment}`,
-          message: "EAS live validation supports preview read-only inspect only.",
-          fix: "Run agentstack validate --live --env preview.",
-          blocks: ["validate --live"]
-        })
-      );
-    }
-    io.write("FAIL validate --live");
-    io.write("Readiness: refused");
-    io.write("Reason: live-validation-unsupported");
-    return 1;
-  }
-
   let ledgerRows: ReturnType<typeof parseProviderLedger> = [];
   try {
     ledgerRows = await readProviderLedgerRowsIfPresent(io.cwd);
@@ -1980,20 +1947,6 @@ async function providerLinkCommand(argv: string[], io: RunIo): Promise<number> {
   const resourceType = readRequiredStringOption(options["resource-type"], "resource-type", fix);
   const name = readRequiredStringOption(options.name, "name", fix);
 
-  if (source === "live" && service === "eas" && environment !== "preview") {
-    io.write(
-      formatDiagnostic({
-        severity: "fail",
-        code: "provider.link.unsupported",
-        path: `${service}.${environment}`,
-        message: "EAS live link confirmation supports preview read-only inspect only.",
-        fix: `Run agentstack provider link --service ${service} --env preview --resource-type ${resourceType} --name ${name} --source live.`,
-        blocks: ["provider link"]
-      })
-    );
-    return 1;
-  }
-
   const validation = await runLocalValidationGate(io.cwd);
   validation.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
   if (validation.diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
@@ -2079,20 +2032,6 @@ async function providerAdoptCommand(argv: string[], io: RunIo): Promise<number> 
   const service = readProviderControlPlaneServiceOption(options.service, fix);
   const environment = readProviderRuntimeEnvironmentOption(options.env, fix);
   const source = readProviderSourceOption(options.source, options.live, fix, "provider.adopt");
-
-  if (source === "live" && service === "eas" && environment !== "preview") {
-    io.write(
-      formatDiagnostic({
-        severity: "fail",
-        code: "provider.adopt.unsupported",
-        path: `${service}.${environment}`,
-        message: "EAS live adopt confirmation supports preview read-only inspect only.",
-        fix: `Run agentstack provider adopt --service ${service} --env preview --source live.`,
-        blocks: ["provider adopt"]
-      })
-    );
-    return 1;
-  }
 
   const validation = await runLocalValidationGate(io.cwd);
   validation.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
@@ -2632,7 +2571,7 @@ async function readLiveProviderInventory(input: {
     });
   }
 
-  return inspectEasPreviewReadOnly({
+  return inspectEasReadOnly({
     environment: input.environment,
     executor: input.executor,
     cwd: input.cwd,

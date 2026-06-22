@@ -874,7 +874,7 @@ Expected: PASS.
 Run:
 
 ```bash
-rg -n "providerInventoryCommand|providerLinkCommand|providerAdoptCommand|resolveProviderExecutor|inspectClerkReadOnly|inspectConvexReadOnly|inspectEasPreviewReadOnly|executeConvexApply|executeVercelPreviewApply" packages/cli/src/run.ts
+rg -n "providerInventoryCommand|providerLinkCommand|providerAdoptCommand|resolveProviderExecutor|inspectClerkReadOnly|inspectConvexReadOnly|inspectEasReadOnly|executeConvexApply|executeVercelPreviewApply" packages/cli/src/run.ts
 ```
 
 Expected: `providerInventoryCommand`, `providerLinkCommand`, and `providerAdoptCommand` appear; none of those function bodies call `resolveProviderExecutor`, `inspect*ReadOnly`, or `execute*Apply`.

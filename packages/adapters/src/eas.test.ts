@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createEasCommandPlan, createEasTarget, inspectEasPreviewReadOnly } from "./eas.js";
+import { createEasCommandPlan, createEasTarget, inspectEasReadOnly } from "./eas.js";
 
 describe("eas command planner", () => {
   it("plans preview mobile build targets with internal distribution", () => {
@@ -169,7 +169,7 @@ describe("eas command planner", () => {
 
   it("executes only preview env-list for EAS inspect and redacts provider output", async () => {
     const executions: Array<{ command: string; args: string[] }> = [];
-    const results = await inspectEasPreviewReadOnly({
+    const results = await inspectEasReadOnly({
       environment: "preview",
       executor: {
         async execute(command, args) {
@@ -209,7 +209,7 @@ describe("eas command planner", () => {
   });
 
   it("attaches only sanitized environment-scope candidates from structured preview env-list evidence", async () => {
-    const results = await inspectEasPreviewReadOnly({
+    const results = await inspectEasReadOnly({
       environment: "preview",
       executor: {
         async execute() {
@@ -245,7 +245,7 @@ describe("eas command planner", () => {
   });
 
   it("parses EAS preview env-list partial facts from pipe-delimited table rows", async () => {
-    const results = await inspectEasPreviewReadOnly({
+    const results = await inspectEasReadOnly({
       environment: "preview",
       executor: {
         async execute() {
@@ -272,7 +272,7 @@ describe("eas command planner", () => {
   });
 
   it("parses EAS preview env-list partial facts from single-space table rows", async () => {
-    const results = await inspectEasPreviewReadOnly({
+    const results = await inspectEasReadOnly({
       environment: "preview",
       executor: {
         async execute() {
@@ -293,7 +293,7 @@ describe("eas command planner", () => {
   });
 
   it("does not infer EAS env-list facts from loose preview env prose", async () => {
-    const results = await inspectEasPreviewReadOnly({
+    const results = await inspectEasReadOnly({
       environment: "preview",
       executor: {
         async execute() {
@@ -314,7 +314,7 @@ describe("eas command planner", () => {
   });
 
   it("keeps EAS inspect ambiguous when structured env-list output lacks environment columns", async () => {
-    const results = await inspectEasPreviewReadOnly({
+    const results = await inspectEasReadOnly({
       environment: "preview",
       executor: {
         async execute() {
@@ -342,7 +342,7 @@ describe("eas command planner", () => {
   });
 
   it("requires EAS expected env name and preview environment in the same parsed row", async () => {
-    const results = await inspectEasPreviewReadOnly({
+    const results = await inspectEasReadOnly({
       environment: "preview",
       executor: {
         async execute() {
@@ -361,7 +361,7 @@ describe("eas command planner", () => {
   });
 
   it("parses EAS preview env-list partial facts from comma-separated environment cells", async () => {
-    const results = await inspectEasPreviewReadOnly({
+    const results = await inspectEasReadOnly({
       environment: "preview",
       executor: {
         async execute() {
@@ -385,7 +385,7 @@ describe("eas command planner", () => {
   });
 
   it("keeps EAS inspect ambiguous when loose env output mentions preview and an expected name", async () => {
-    const results = await inspectEasPreviewReadOnly({
+    const results = await inspectEasReadOnly({
       environment: "preview",
       executor: {
         async execute() {
@@ -407,7 +407,7 @@ describe("eas command planner", () => {
   });
 
   it("keeps EAS inspect ambiguous when expected env names lack preview proof", async () => {
-    const results = await inspectEasPreviewReadOnly({
+    const results = await inspectEasReadOnly({
       environment: "preview",
       executor: {
         async execute() {
@@ -432,7 +432,7 @@ describe("eas command planner", () => {
   });
 
   it("keeps EAS inspect ambiguous when preview appears only in prose or values", async () => {
-    const results = await inspectEasPreviewReadOnly({
+    const results = await inspectEasReadOnly({
       environment: "preview",
       executor: {
         async execute() {
@@ -457,7 +457,7 @@ describe("eas command planner", () => {
   });
 
   it("keeps EAS inspect ambiguous when preview rows contain only unexpected env names", async () => {
-    const results = await inspectEasPreviewReadOnly({
+    const results = await inspectEasReadOnly({
       environment: "preview",
       executor: {
         async execute() {
@@ -480,7 +480,7 @@ describe("eas command planner", () => {
   });
 
   it("keeps EAS inspect ambiguous when env-list exits nonzero", async () => {
-    const results = await inspectEasPreviewReadOnly({
+    const results = await inspectEasReadOnly({
       environment: "preview",
       executor: {
         async execute() {
@@ -502,20 +502,48 @@ describe("eas command planner", () => {
     expect(JSON.stringify(results)).not.toContain("preview-environment");
   });
 
-  it("rejects EAS production inspect without executing", async () => {
-    const executions: string[] = [];
+  it("executes production env-list for EAS inspect as read-only candidate evidence", async () => {
+    const executions: Array<{ command: string; args: string[] }> = [];
 
-    await expect(
-      inspectEasPreviewReadOnly({
-        environment: "production",
-        executor: {
-          async execute(command) {
-            executions.push(command);
-            return { exitCode: 0, stdout: "", stderr: "", durationMs: 1 };
-          }
+    const results = await inspectEasReadOnly({
+      environment: "production",
+      executor: {
+        async execute(command, args) {
+          executions.push({ command, args });
+          return {
+            exitCode: 0,
+            stdout: [
+              "Name              Value             Environment",
+              "SENTRY_AUTH_TOKEN  Encrypted         production",
+              "API_TOKEN         Encrypted         preview"
+            ].join("\n"),
+            stderr: "",
+            durationMs: 6
+          };
         }
+      },
+      secretValues: ["secret-token"]
+    });
+
+    expect(executions).toEqual([
+      { command: "pnpm", args: ["exec", "eas", "env:list", "--environment", "production"] }
+    ]);
+    expect(results).toEqual([
+      expect.objectContaining({
+        service: "eas",
+        environment: "production",
+        commandKind: "mobile.env.list",
+        status: "success",
+        liveIdentityFacts: {
+          identityConfidence: "partial",
+          facts: ["expected-env-names", "production-environment", "env-list-read"]
+        },
+        identityCandidates: expect.objectContaining({
+          labels: ["provider-environment-scope"]
+        }),
+        outputRedacted: true
       })
-    ).rejects.toThrow("EAS runtime inspect supports preview env-list only.");
-    expect(executions).toEqual([]);
+    ]);
+    expect(JSON.stringify(results)).not.toContain("secret-token");
   });
 });

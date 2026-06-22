@@ -157,6 +157,9 @@ describe("generateProject", () => {
       expect(packageManifest.scripts["provider:eas:production"]).toBe(
         "node scripts/agentstack.mjs provider plan --service eas --env production"
       );
+      expect(packageManifest.scripts["provider:eas:inspect:production"]).toBe(
+        "node scripts/agentstack.mjs provider inspect --service eas --env production"
+      );
       expect(packageManifest.scripts).toMatchObject({
         "provider:clerk:inventory:preview": "node scripts/agentstack.mjs provider inventory --service clerk --env preview",
         "provider:clerk:inventory:production": "node scripts/agentstack.mjs provider inventory --service clerk --env production",
@@ -209,6 +212,7 @@ describe("generateProject", () => {
         "build:production": "node ../../scripts/agentstack.mjs build mobile --env production",
         "provider:eas:preview": "node ../../scripts/agentstack.mjs provider plan --service eas --env preview",
         "provider:eas:production": "node ../../scripts/agentstack.mjs provider plan --service eas --env production",
+        "provider:eas:inspect:production": "node ../../scripts/agentstack.mjs provider inspect --service eas --env production",
         "provider:eas:inventory:preview": "node ../../scripts/agentstack.mjs provider inventory --service eas --env preview",
         "provider:eas:inventory:production": "node ../../scripts/agentstack.mjs provider inventory --service eas --env production",
         "provider:eas:link:preview": "node ../../scripts/agentstack.mjs provider link --service eas --env preview --resource-type project --name acme-crm",
