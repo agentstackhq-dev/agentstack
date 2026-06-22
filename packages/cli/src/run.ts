@@ -15,6 +15,7 @@ import {
   executeVercelPreviewApply,
   evaluateProviderDriftProof,
   evaluateProviderExactIdentityProof,
+  evaluateProviderIdentityCandidateProof,
   evaluateProviderLiveCoherenceProof,
   getProviderProofContract,
   getEnabledProviderAdapterDefinitions,
@@ -36,6 +37,8 @@ import {
   type ProviderDriftProofResult,
   type ProviderLiveCoherenceProofResult,
   type ProviderInventory,
+  type ProviderIdentityCandidateProofResult,
+  type ProviderIdentityProofMissingLabel,
   type ProviderInventorySource,
   type ProviderInventoryRow,
   type ProviderLedgerDecision,
@@ -1683,7 +1686,11 @@ async function providerProofCommand(argv: string[], io: RunIo): Promise<number> 
   const exactIdentityDecision = liveReadFailed
     ? evaluateProviderExactIdentityProof(service, [])
     : evaluateProviderExactIdentityProof(service, liveResults);
+  const candidateIdentityDecision = liveReadFailed
+    ? evaluateProviderIdentityCandidateProof(service, [])
+    : evaluateProviderIdentityCandidateProof(service, liveResults);
   const exactIdentityReportFields = formatProviderExactIdentityReportFields(exactIdentityDecision);
+  const candidateIdentityReportFields = formatProviderCandidateIdentityReportFields(candidateIdentityDecision);
   const liveCoherence = evaluateProviderLiveCoherenceProof(
     service,
     exactIdentityDecision,
@@ -1705,6 +1712,9 @@ async function providerProofCommand(argv: string[], io: RunIo): Promise<number> 
     identityScope: liveReadFailed ? "none" : row?.identityScope === "partial" ? "partial" : "none",
     identityCandidates: exactIdentityReportFields.identityCandidates,
     identityEvaluator: exactIdentityReportFields.identityEvaluator,
+    candidateIdentityEvidence: candidateIdentityReportFields.candidateIdentityEvidence,
+    candidateIdentityEvaluator: candidateIdentityReportFields.candidateIdentityEvaluator,
+    identityProofMissing: row?.missingProof,
     driftProof,
     liveCoherence,
     reason: liveReadFailed
@@ -2274,6 +2284,9 @@ type ProviderProofReport = {
   identityScope: "partial" | "none";
   identityCandidates?: "available" | "unavailable";
   identityEvaluator?: ProviderExactIdentityDecision["evaluator"];
+  candidateIdentityEvidence?: "available" | "unavailable";
+  candidateIdentityEvaluator?: ProviderIdentityCandidateProofResult["evaluator"];
+  identityProofMissing?: ProviderIdentityProofMissingLabel[];
   driftProof?: ProviderDriftProofResult;
   liveCoherence?: ProviderLiveCoherenceProofResult;
   reason:
@@ -2297,6 +2310,16 @@ export function formatProviderExactIdentityReportFields(decision: ProviderExactI
   };
 }
 
+function formatProviderCandidateIdentityReportFields(decision: ProviderIdentityCandidateProofResult): {
+  candidateIdentityEvidence: "available" | "unavailable";
+  candidateIdentityEvaluator: ProviderIdentityCandidateProofResult["evaluator"];
+} {
+  return {
+    candidateIdentityEvidence: decision.labels.length > 0 ? "available" : "unavailable",
+    candidateIdentityEvaluator: decision.labels.length > 0 ? decision.evaluator : "unavailable"
+  };
+}
+
 function writeProviderProofReport(io: RunIo, report: ProviderProofReport): void {
   io.write(`FAIL provider proof ${report.service} ${report.environment}`);
   io.write("Evidence: live-proof-check");
@@ -2317,6 +2340,15 @@ function writeProviderProofReport(io: RunIo, report: ProviderProofReport): void 
   }
   if (report.identityEvaluator) {
     io.write(`Exact identity evaluator: ${report.identityEvaluator}`);
+  }
+  if (report.candidateIdentityEvidence) {
+    io.write(`Candidate identity evidence: ${report.candidateIdentityEvidence}`);
+  }
+  if (report.candidateIdentityEvaluator) {
+    io.write(`Candidate identity evaluator: ${report.candidateIdentityEvaluator}`);
+  }
+  if (report.identityProofMissing && report.identityProofMissing.length > 0) {
+    io.write(`Identity proof missing: ${normalizeProviderIdentityProofLabels(report.identityProofMissing).join(",")}`);
   }
   if (report.driftProof?.proof === "partial") {
     io.write("Drift proof: partial");

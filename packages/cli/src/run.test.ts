@@ -4412,6 +4412,102 @@ describe("runAgentstack", () => {
     }
   });
 
+  it("surfaces EAS project-link candidates in provider proof without claiming exact identity", async () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.environments = ["production"];
+    manifest.surfaces = ["mobile"];
+    manifest.services.clerk.enabled = false;
+    manifest.services.convex.enabled = false;
+    manifest.services.vercel.enabled = false;
+    manifest.services.eas.enabled = true;
+    manifest.env.custom.SENTRY_AUTH_TOKEN = {
+      surfaces: ["mobile"],
+      environments: ["production"],
+      required: true,
+      secret: true,
+      providerTargets: easProductionTarget
+    };
+    await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+    await writeLocalEnvValues({
+      production: { mobile: { SENTRY_AUTH_TOKEN: "sk-local-eas-production-proof" } }
+    });
+    await mkdir(join(dir, "apps", "mobile"), { recursive: true });
+    await writeFile(
+      join(dir, "apps", "mobile", "app.config.ts"),
+      [
+        "export default {",
+        "  expo: {",
+        "    extra: {",
+        "      eas: { projectId: '123e4567-e89b-42d3-a456-426614174000' }",
+        "    }",
+        "  }",
+        "};",
+        ""
+      ].join("\n"),
+      "utf8"
+    );
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: "eas-production-proof-row-secret",
+        provider: "eas",
+        resourceType: "project",
+        environment: "production",
+        name: "acme-crm",
+        status: "planned",
+        externalId: "eas-production-proof-external-secret",
+        cleanupCommand: "delete through Expo dashboard",
+        evidence: "docs/evidence/eas-production.md"
+      })
+    ]);
+
+    const code = await runAgentstack(
+      [
+        "provider",
+        "proof",
+        "--service",
+        "eas",
+        "--env",
+        "production",
+        "--resource-type",
+        "project",
+        "--name",
+        "acme-crm"
+      ],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: createMockProviderExecutor(
+          ["Name              Value             Environment", "SENTRY_AUTH_TOKEN  secret-eas-token  production"].join("\n")
+        )
+      }
+    );
+
+    const rendered = output.join("\n");
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL provider proof eas production");
+    expect(output).toContain("Identity proof: ambiguous");
+    expect(output).toContain("Exact identity evidence: unavailable");
+    expect(output).toContain("Candidate identity evidence: available");
+    expect(output).toContain("Candidate identity evaluator: provider-specific-identity-candidate-parser");
+    expect(rendered).toContain(
+      "Identity proof missing: ledger-comparable-identity,ledger-external-id-match,manifest-resource-name-match,provider-owner-identity,provider-resource-id,provider-specific-identity-parser,stable-provider-identity"
+    );
+    expect(rendered).not.toContain("Identity proof missing: provider-project-link-proof");
+    expect(rendered).not.toContain("123e4567-e89b-42d3-a456-426614174000");
+    expect(rendered).not.toContain("eas-production-proof-row-secret");
+    expect(rendered).not.toContain("eas-production-proof-external-secret");
+    expect(rendered).not.toContain("SENTRY_AUTH_TOKEN");
+    expect(rendered).not.toContain("secret-eas-token");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec eas env:list --environment production"
+    ]);
+    await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
   it("does not read seeded local-cloud state for provider proof", async () => {
     await writeProviderLedger([
       providerLedgerRow({
