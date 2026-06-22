@@ -1249,7 +1249,7 @@ describe("provider proof contracts", () => {
     }
   });
 
-  it("returns partial sanitized drift evidence for Vercel production env-list facts only", () => {
+  it("returns partial sanitized drift evidence for Vercel and EAS production env-list facts", () => {
     const baseResult = {
       environment: "production",
       status: "success",
@@ -1290,7 +1290,11 @@ describe("provider proof contracts", () => {
           commandKind: "mobile.env.list"
         }
       ])
-    ).toEqual({ proof: "unavailable" });
+    ).toEqual({
+      proof: "partial",
+      evaluator: "env-list-production",
+      evidence: ["env-list-read", "expected-env-names", "production-environment"]
+    });
   });
 
   it("returns partial sanitized drift evidence for Clerk preview apps-list exact live coherence", () => {

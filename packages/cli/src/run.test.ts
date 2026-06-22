@@ -4876,9 +4876,11 @@ describe("runAgentstack", () => {
     expect(output).toContain("Identity scope: exact");
     expect(output).toContain("Exact identity evidence: available");
     expect(output).toContain("Exact identity evaluator: provider-exact-identity");
-    expect(output).toContain("Drift proof: unproven");
+    expect(output).toContain("Drift proof: partial");
+    expect(output).toContain("Drift evaluator: env-list-production");
     expect(output).toContain("Live coherence: blocked");
     expect(output).toContain("Reason: drift-unproven");
+    expect(rendered).not.toContain("Drift proof: exact");
     expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
       "exec eas env:list --environment production",
       "exec eas project:info"

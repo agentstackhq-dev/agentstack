@@ -551,11 +551,11 @@ export function evaluateProviderDriftProof(
   }
 
   if (
-    service === "vercel" &&
+    (service === "vercel" || service === "eas") &&
     hasCompleteEnvListEvidence(readResults, {
       service,
       environment: "production",
-      commandKind: "env.list",
+      commandKind: expectedCommandKind,
       facts: envListProductionFacts
     })
   ) {

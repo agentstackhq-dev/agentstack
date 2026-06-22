@@ -45,7 +45,7 @@ The EAS provider plan includes `eas project:init --non-interactive`, `eas env:li
 
 Use `pnpm run provider:eas:inspect:preview` or `pnpm run provider:eas:inspect:production` for explicit read-only EAS provider inspection with `Evidence: live-read`. It executes only `pnpm exec eas env:list --environment <preview|production>`. It does not run EAS project initialization, builds, env create/update/delete commands, or apply.
 
-Use `pnpm run provider:eas:proof:preview` only after adding a matching planned or active EAS preview project row to the provider ledger. It is a preview-only proof contract check that may run the same bounded read-only EAS env-list path, never reads local-cloud state, writes nothing, and refuses readiness until exact EAS project identity and drift parsers exist.
+Use `pnpm run provider:eas:proof:preview` or `pnpm run provider:eas:proof:production` only after adding a matching planned or active EAS project row to the provider ledger. It is a proof contract check that may run bounded read-only EAS env-list and `project:info` paths, never reads local-cloud state, writes nothing, and refuses readiness while exact drift/live coherence is unproven. Production proof may print partial `env-list-production` drift diagnostics; that is not exact readiness, build authorization, link/adopt authorization, or provider mutation permission.
 
 EAS server env values must exist in EAS for EAS Build. Local `.env` files and CI variables are useful for local workflows, but they are not a replacement for EAS server env values used by build workers.
 
