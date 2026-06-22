@@ -11,6 +11,7 @@ import {
   confirmLiveProviderInventoryIdentity,
   createLiveProviderInventory,
   createProviderInventory,
+  createProviderLifecyclePlan,
   executeConvexApply,
   executeVercelPreviewApply,
   evaluateProviderDriftProof,
@@ -41,6 +42,7 @@ import {
   type ProviderIdentityProofMissingLabel,
   type ProviderInventorySource,
   type ProviderInventoryRow,
+  type ProviderLifecyclePlan,
   type ProviderLedgerDecision,
   type ProviderLedgerExpectedMatch,
   type ProviderProofContract,
@@ -699,6 +701,9 @@ async function providerPlanCommand(argv: string[], io: RunIo): Promise<number> {
   }
 
   if (allServices) {
+    if (environment !== "preview" && environment !== "production") {
+      return 1;
+    }
     return await providerPlanAllCommand(argv, io, environment);
   }
 
@@ -745,6 +750,18 @@ async function providerPlanCommand(argv: string[], io: RunIo): Promise<number> {
     envValues: validation.envValues
   });
   const providerOperationPlan = createProviderOperationPlan(cloudReport);
+  const ledgerRows = await readProviderLedgerRowsIfPresent(io.cwd);
+  const operations = providerOperationPlan.operations.filter((operation) => operation.service === service);
+  const lifecycle =
+    environment === "preview" || environment === "production"
+      ? createProviderLifecyclePlan({
+          manifest: validation.context.manifest,
+          service,
+          environment,
+          ledgerRows,
+          pendingOperationCount: providerLifecyclePendingOperationCount(operations)
+        })
+      : undefined;
   const plan = createProviderPlanForService(
     service,
     environment,
@@ -755,9 +772,8 @@ async function providerPlanCommand(argv: string[], io: RunIo): Promise<number> {
   io.write(`PLAN provider ${plan.service} ${environment}`);
   io.write("Evidence: provider-command-plan");
   io.write("Provider execution: none");
-  const ledgerMatch = providerApplyLedgerMatch(service, environment, validation.context.manifest);
-  if (ledgerMatch !== undefined) {
-    io.write(`Ledger: ${formatProviderPlanLedgerStatus(await enforceProviderLedgerResource(io.cwd, ledgerMatch))}`);
+  if (lifecycle) {
+    writeProviderLifecyclePlan(io, lifecycle);
   }
   io.write(`Target: ${formatProviderPlanTarget(plan.target)}`);
   io.write(`Required env: ${formatList(plan.target.requiredEnv)}`);
@@ -791,7 +807,11 @@ async function providerPlanCommand(argv: string[], io: RunIo): Promise<number> {
   return 0;
 }
 
-async function providerPlanAllCommand(argv: string[], io: RunIo, environment: EnvironmentName): Promise<number> {
+async function providerPlanAllCommand(
+  argv: string[],
+  io: RunIo,
+  environment: "preview" | "production"
+): Promise<number> {
   const validation = await runLocalValidationGate(io.cwd);
   validation.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
   if (validation.diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
@@ -803,27 +823,35 @@ async function providerPlanAllCommand(argv: string[], io: RunIo, environment: En
     envValues: validation.envValues
   });
   const providerOperationPlan = createProviderOperationPlan(cloudReport);
+  const ledgerRows = await readProviderLedgerRowsIfPresent(io.cwd);
   const enabledServices = validation.context.serviceOrder
     .filter(isProviderControlPlaneService)
     .filter((service) => validation.context.manifest.services[service].enabled);
-  const plans = enabledServices.map((service) => ({
-    service,
-    operations: providerOperationPlan.operations.filter((operation) => operation.service === service),
-    plan: createProviderPlanForService(service, environment, validation.context.manifest, providerOperationPlan.operations)
-  }));
+  const plans = enabledServices.map((service) => {
+    const operations = providerOperationPlan.operations.filter((operation) => operation.service === service);
+    return {
+      service,
+      operations,
+      lifecycle: createProviderLifecyclePlan({
+        manifest: validation.context.manifest,
+        service,
+        environment,
+        ledgerRows,
+        pendingOperationCount: providerLifecyclePendingOperationCount(operations)
+      }),
+      plan: createProviderPlanForService(service, environment, validation.context.manifest, providerOperationPlan.operations)
+    };
+  });
 
   io.write(`PLAN provider ${environment} all`);
   io.write("Evidence: provider-command-plan");
   io.write("Provider execution: none");
   io.write("Mutation: none");
   io.write("Readiness: not-claimed");
-  for (const { service, operations, plan } of plans) {
+  for (const { service, operations, lifecycle, plan } of plans) {
     io.write(`Service: ${service}`);
+    writeProviderLifecyclePlan(io, lifecycle);
     io.write(`Target: ${formatProviderPlanTarget(plan.target)}`);
-    const ledgerMatch = providerApplyLedgerMatch(service, environment, validation.context.manifest);
-    if (ledgerMatch !== undefined) {
-      io.write(`Ledger: ${formatProviderPlanLedgerStatus(await enforceProviderLedgerResource(io.cwd, ledgerMatch))}`);
-    }
     io.write(`Operations: ${operations.length}`);
     io.write(`Commands: ${plan.commands.length}`);
     plan.commands.forEach((command) => writeProviderCommandPlanLine(io, command));
@@ -958,7 +986,42 @@ function createProviderPlanForService(
             environment,
             operations,
             includeBuild: true
-          });
+        });
+}
+
+function providerLifecyclePendingOperationCount(operations: ProviderOperation[]): number {
+  return operations.filter((operation) => operation.kind === "env.set" || operation.kind === "env.remove").length;
+}
+
+function writeProviderLifecyclePlan(io: RunIo, lifecycle: ProviderLifecyclePlan): void {
+  io.write(`Resource: ${lifecycle.resourceType} ${lifecycle.name}`);
+  io.write(`Ledger: ${formatProviderLifecycleLedgerStatus(lifecycle)}`);
+  io.write(`Lifecycle: ${lifecycle.lifecycle}`);
+  io.write(`Lifecycle reason: ${formatProviderLifecycleReason(lifecycle.reason)}`);
+}
+
+function formatProviderLifecycleLedgerStatus(lifecycle: ProviderLifecyclePlan): string {
+  if (lifecycle.lifecycle === "blocked" && lifecycle.ledgerStatus !== "invalid") {
+    return `blocked ${lifecycle.ledgerStatus}`;
+  }
+
+  return lifecycle.ledgerStatus;
+}
+
+function formatProviderLifecycleReason(reason: ProviderLifecyclePlan["reason"]): string {
+  if (reason === "ledger-missing") {
+    return "ledger-missing";
+  }
+  if (reason === "ledger-planned") {
+    return "ledger-planned";
+  }
+  if (reason === "active-with-local-operations") {
+    return "active-with-local-env-operations";
+  }
+  if (reason === "active-without-local-operations") {
+    return "active-without-local-env-operations";
+  }
+  return "ledger-blocked";
 }
 
 export function providerApplyLedgerMatch(

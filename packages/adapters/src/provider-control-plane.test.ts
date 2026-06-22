@@ -8,6 +8,7 @@ import {
   confirmLiveProviderInventoryIdentity,
   createLiveProviderInventory,
   createProviderInventory,
+  createProviderLifecyclePlan,
   linkLedgerBackedProviderResource,
   readProviderLinkState
 } from "./provider-control-plane.js";
@@ -121,6 +122,70 @@ describe("provider control plane", () => {
     await expect(
       createProviderInventory({ cwd: "/tmp/no-state", manifest, service: "eas", environment: "preview", ledgerRows: [] })
     ).resolves.toMatchObject({ rows: [expect.objectContaining({ resourceType: "project", name: "acme-crm" })] });
+  });
+
+  it("plans lifecycle decisions for every expected provider resource without provider execution", () => {
+    const manifest = createDefaultManifest("acme-crm");
+    const rows = parseProviderLedger(
+      [
+        ledgerHeader,
+        "| row-clerk-preview | clerk | application | preview | team | acme-crm-preview | clerk-preview | preview auth app | jc | 2026-06-21 | remove after tests | planned | clerk dashboard delete |  | evidence/clerk.md | ok |",
+        "| row-eas-preview | eas | project | preview | team | acme-crm | eas-preview | preview mobile app | jc | 2026-06-21 | remove after tests | active | eas project delete |  | evidence/eas.md | ok |",
+        "| row-vercel-preview | vercel | project | preview | team | acme-crm | vercel-preview | preview web app | jc | 2026-06-21 | remove after tests | active | vercel remove acme-crm |  | evidence/vercel.md | ok |",
+        "| row-convex-preview | convex | deployment | preview | team | acme-crm-preview | convex-preview | preview backend | jc | 2026-06-21 | remove after tests | cleaned | convex dashboard delete | 2026-06-22 | evidence/convex.md | ok |"
+      ].join("\n")
+    );
+
+    expect(
+      createProviderLifecyclePlan({
+        manifest,
+        service: "clerk",
+        environment: "preview",
+        ledgerRows: rows,
+        pendingOperationCount: 0
+      })
+    ).toMatchObject({
+      resourceType: "application",
+      name: "acme-crm-preview",
+      ledgerStatus: "planned",
+      lifecycle: "provision"
+    });
+    expect(
+      createProviderLifecyclePlan({
+        manifest,
+        service: "eas",
+        environment: "preview",
+        ledgerRows: rows,
+        pendingOperationCount: 0
+      })
+    ).toMatchObject({ ledgerStatus: "active", lifecycle: "no-op" });
+    expect(
+      createProviderLifecyclePlan({
+        manifest,
+        service: "vercel",
+        environment: "preview",
+        ledgerRows: rows,
+        pendingOperationCount: 2
+      })
+    ).toMatchObject({ ledgerStatus: "active", lifecycle: "update" });
+    expect(
+      createProviderLifecyclePlan({
+        manifest,
+        service: "convex",
+        environment: "preview",
+        ledgerRows: rows,
+        pendingOperationCount: 0
+      })
+    ).toMatchObject({ ledgerStatus: "cleaned", lifecycle: "blocked" });
+    expect(
+      createProviderLifecyclePlan({
+        manifest,
+        service: "clerk",
+        environment: "production",
+        ledgerRows: [],
+        pendingOperationCount: 0
+      })
+    ).toMatchObject({ name: "acme-crm-production", ledgerStatus: "missing", lifecycle: "create" });
   });
 
   it("projects successful live read results with command-level partial facts without leaking provider output", async () => {

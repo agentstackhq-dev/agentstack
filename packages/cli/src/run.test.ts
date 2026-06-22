@@ -2163,6 +2163,52 @@ describe("runAgentstack", () => {
     );
   });
 
+  it("prints lifecycle decisions for provider plans across non-apply services", async () => {
+    const secretLikeClerkRowId = "sk-plan-clerk-row-id-12345";
+    const secretLikeEasRowId = "sk-plan-eas-row-id-12345";
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: secretLikeClerkRowId,
+        provider: "clerk",
+        resourceType: "application",
+        environment: "preview",
+        name: "acme-crm-preview",
+        status: "planned",
+        externalId: "clerk_app_secret_not_for_output",
+        cleanupCommand: "clerk dashboard delete",
+        evidence: "docs/evidence/clerk-preview.md"
+      }),
+      providerLedgerRow({
+        id: secretLikeEasRowId,
+        provider: "eas",
+        resourceType: "project",
+        environment: "preview",
+        name: "acme-crm",
+        status: "active",
+        externalId: "eas_project_secret_not_for_output",
+        cleanupCommand: "eas project delete",
+        evidence: "docs/evidence/eas-preview.md"
+      })
+    ]);
+
+    const code = await runAgentstack(["provider", "plan", "--env", "preview", "--all"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor()
+    });
+
+    const rendered = output.join("\n");
+    expect(code).toBe(0);
+    expect(rendered).toMatch(/Service: clerk[\s\S]*Resource: application acme-crm-preview[\s\S]*Ledger: planned[\s\S]*Lifecycle: provision/);
+    expect(rendered).toMatch(/Service: eas[\s\S]*Resource: project acme-crm[\s\S]*Ledger: active[\s\S]*Lifecycle: no-op/);
+    expect(rendered).toMatch(/Service: convex[\s\S]*Resource: deployment acme-crm-preview[\s\S]*Ledger: missing[\s\S]*Lifecycle: create/);
+    expect(rendered).not.toContain(secretLikeClerkRowId);
+    expect(rendered).not.toContain(secretLikeEasRowId);
+    expect(rendered).not.toContain("clerk_app_secret_not_for_output");
+    expect(rendered).not.toContain("eas_project_secret_not_for_output");
+    expect(providerExecutions).toHaveLength(0);
+  });
+
   it("rejects provider plan for unsupported services", async () => {
     const code = await runAgentstack(["provider", "plan", "--service", "railway", "--env", "preview"], {
       cwd: dir,

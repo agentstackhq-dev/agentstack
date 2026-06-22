@@ -14,6 +14,7 @@ import {
 import {
   enforceProviderLedgerResource,
   type ProviderLedgerDecision,
+  type ProviderLedgerExpectedMatch,
   type ProviderLedgerRow,
   type ProviderLedgerStatus
 } from "./provider-ledger.js";
@@ -89,6 +90,32 @@ export type ProviderInventoryLiveReadSummary = {
 export type ProviderLiveConfirmation =
   | { ok: true }
   | { ok: false; reason: "live-read" | "identity-ambiguous" };
+
+export type ProviderLifecycleAction = "create" | "provision" | "update" | "no-op" | "blocked";
+
+export type ProviderLifecyclePlanInput = {
+  manifest: AgentstackManifest;
+  service: ProviderControlPlaneService;
+  environment: ProviderControlPlaneEnvironment;
+  ledgerRows: ProviderLedgerRow[];
+  pendingOperationCount: number;
+};
+
+export type ProviderLifecyclePlan = {
+  service: ProviderControlPlaneService;
+  environment: ProviderControlPlaneEnvironment;
+  resourceType: string;
+  name: string;
+  ledgerStatus: ProviderLedgerStatus | "missing" | "invalid";
+  lifecycle: ProviderLifecycleAction;
+  reason:
+    | "ledger-missing"
+    | "ledger-planned"
+    | "active-with-local-operations"
+    | "active-without-local-operations"
+    | "ledger-blocked";
+  pendingOperationCount: number;
+};
 
 export type LiveProviderInventoryInput = {
   localInventory: ProviderInventory;
@@ -226,6 +253,54 @@ export function confirmLiveProviderInventoryIdentity(inventory: ProviderInventor
   }
 
   return { ok: false, reason: "identity-ambiguous" };
+}
+
+export function createProviderLifecyclePlan(input: ProviderLifecyclePlanInput): ProviderLifecyclePlan {
+  const expected = expectedProviderResource(input.manifest, input.service, input.environment);
+  const expectedMatch: ProviderLedgerExpectedMatch = {
+    provider: input.service,
+    environment: input.environment,
+    resourceType: expected.resourceType,
+    resourceName: expected.name
+  };
+  const decision = enforceProviderLedgerResource(input.ledgerRows, expectedMatch);
+
+  if (decision.ok) {
+    if (decision.row.status === "planned") {
+      return lifecyclePlan(input, expected, "planned", "provision", "ledger-planned");
+    }
+
+    return input.pendingOperationCount > 0
+      ? lifecyclePlan(input, expected, "active", "update", "active-with-local-operations")
+      : lifecyclePlan(input, expected, "active", "no-op", "active-without-local-operations");
+  }
+
+  if (decision.reason === "missing") {
+    return lifecyclePlan(input, expected, "missing", "create", "ledger-missing");
+  }
+
+  const ledgerStatus =
+    decision.reason === "status-blocked" ? decision.row.status : "invalid";
+  return lifecyclePlan(input, expected, ledgerStatus, "blocked", "ledger-blocked");
+}
+
+function lifecyclePlan(
+  input: ProviderLifecyclePlanInput,
+  expected: { resourceType: string; name: string },
+  ledgerStatus: ProviderLifecyclePlan["ledgerStatus"],
+  lifecycle: ProviderLifecycleAction,
+  reason: ProviderLifecyclePlan["reason"]
+): ProviderLifecyclePlan {
+  return {
+    service: input.service,
+    environment: input.environment,
+    resourceType: expected.resourceType,
+    name: expected.name,
+    ledgerStatus,
+    lifecycle,
+    reason,
+    pendingOperationCount: input.pendingOperationCount
+  };
 }
 
 function summarizeLiveIdentityFacts(readResults: ProviderExecutionResult[]): {

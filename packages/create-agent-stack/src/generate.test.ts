@@ -281,6 +281,8 @@ describe("generateProject", () => {
       expect(generatedEnvironmentDocs).toContain("Exact identity in inventory is still diagnostic only");
       expect(generatedEnvironmentDocs).toContain("Exact identity evidence");
       expect(generatedEnvironmentDocs).toContain("instead of candidate missing-proof guidance");
+      expect(generatedEnvironmentDocs).toContain("Lifecycle: create|provision|update|no-op|blocked");
+      expect(generatedEnvironmentDocs).toContain("for every expected Clerk, Convex, Vercel, and EAS");
       const generatedPreviewDocs = await readFile(join(targetDir, "docs/agentstack/preview.md"), "utf8");
       expect(generatedPreviewDocs).toContain("provider inventory --service convex --env preview");
       expect(generatedPreviewDocs).toContain("provider link --service convex --env preview");
@@ -288,10 +290,12 @@ describe("generateProject", () => {
       expect(generatedPreviewDocs).toContain("does not mutate the root provider ledger");
       expect(generatedPreviewDocs).toContain("sanitized identity proof requirements");
       expect(generatedPreviewDocs).toContain("sanitized candidate identity evidence summaries");
+      expect(generatedPreviewDocs).toContain("Lifecycle` is a plan decision only");
       const generatedWorkflowDocs = await readFile(join(targetDir, "docs/agentstack/workflows.md"), "utf8");
       expect(generatedWorkflowDocs).toContain("simulator state");
       expect(generatedWorkflowDocs).toContain("not proof of external provider existence");
       expect(generatedWorkflowDocs).toContain("sanitized candidate identity evidence plus `missing=` identity proof labels");
+      expect(generatedWorkflowDocs).toContain("per-service `Resource`, `Ledger`, and `Lifecycle` lines");
       expect(generatedWorkflowDocs).toContain("pnpm run validate:live:preview");
       expect(generatedWorkflowDocs).toContain("pnpm run validate:live:production");
       expect(generatedWorkflowDocs).toContain("provider:clerk:proof:production");
