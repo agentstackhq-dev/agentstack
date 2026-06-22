@@ -245,6 +245,7 @@ describe("runAgentstack", () => {
     );
     expect(output).toContain("PASS validate --quality");
     expect(qualityExecutions).toEqual([
+      { id: "lint", command: "pnpm", args: ["lint"] },
       { id: "typecheck", command: "pnpm", args: ["typecheck"] },
       { id: "test", command: "pnpm", args: ["test"] }
     ]);
@@ -264,8 +265,8 @@ describe("runAgentstack", () => {
       providerExecutor: createMockProviderExecutor("provider executor should not run"),
       commandRunner: async ({ id, command, args }) => {
         qualityExecutions.push({ id, command, args });
-        if (id === "typecheck") {
-          return { exitCode: 0, stdout: "typecheck ok", stderr: "" };
+        if (id === "lint" || id === "typecheck") {
+          return { exitCode: 0, stdout: `${id} ok`, stderr: "" };
         }
         return {
           exitCode: 7,
@@ -286,6 +287,7 @@ describe("runAgentstack", () => {
     expect(rendered).not.toContain("tok_live_secret");
     expect(rendered.length).toBeLessThan(2200);
     expect(qualityExecutions).toEqual([
+      { id: "lint", command: "pnpm", args: ["lint"] },
       { id: "typecheck", command: "pnpm", args: ["typecheck"] },
       { id: "test", command: "pnpm", args: ["test"] }
     ]);

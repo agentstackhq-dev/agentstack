@@ -102,6 +102,7 @@ describe("generateProject", () => {
         inspect: "node scripts/agentstack.mjs inspect --env preview",
         doctor: "node scripts/agentstack.mjs doctor --env preview",
         dev: "node scripts/agentstack.mjs dev --env preview",
+        lint: "pnpm run typecheck",
         typecheck: "pnpm --filter @app/web build",
         test: "node scripts/agentstack.mjs theme validate",
         validate: "node scripts/agentstack.mjs validate",
@@ -287,6 +288,7 @@ describe("generateProject", () => {
       expect(generatedWorkflowDocs).toContain("Live validation prints per-service proof summaries");
       expect(generatedWorkflowDocs).toContain("Reason: proof-incomplete");
       const generatedValidationDocs = await readFile(join(targetDir, "docs/agentstack/validation.md"), "utf8");
+      expect(generatedValidationDocs).toContain("pnpm lint");
       expect(generatedValidationDocs).toContain("pnpm run validate:live:preview");
       expect(generatedValidationDocs).toContain("pnpm run validate:live:production");
       expect(generatedValidationDocs).toContain("Evidence: live-validation");

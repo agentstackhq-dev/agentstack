@@ -157,6 +157,7 @@ const telemetrySurfaceValues = [
 ] as const;
 
 const localQualityCommands: LocalCommandSpec[] = [
+  { id: "lint", command: "pnpm", args: ["lint"] },
   { id: "typecheck", command: "pnpm", args: ["typecheck"] },
   { id: "test", command: "pnpm", args: ["test"] }
 ];

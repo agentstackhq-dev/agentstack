@@ -13,6 +13,7 @@
     "inspect": "node scripts/agentstack.mjs inspect --env preview",
     "doctor": "node scripts/agentstack.mjs doctor --env preview",
     "dev": "node scripts/agentstack.mjs dev --env preview",
+    "lint": "pnpm run typecheck",
     "typecheck": "pnpm --filter @app/web build",
     "test": "node scripts/agentstack.mjs theme validate",
     "validate": "node scripts/agentstack.mjs validate",
