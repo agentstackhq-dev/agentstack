@@ -229,8 +229,8 @@ function liveFactsForConvexRead(
   }
 
   const facts: ProviderLiveFactLabel[] = ["provider-env-read"];
-  if (environment === "preview" && hasStructuredExpectedConvexEnvRow(result.stdout)) {
-    facts.unshift("env-list-read", "expected-env-names", "preview-environment");
+  if ((environment === "preview" || environment === "production") && hasStructuredExpectedConvexEnvRow(result.stdout)) {
+    facts.unshift("env-list-read", "expected-env-names", `${environment}-environment`);
   }
 
   return { identityConfidence: "partial", facts };
@@ -240,7 +240,11 @@ function identityCandidatesForConvexRead(
   environment: EnvironmentName,
   result: { exitCode: number; stdout: string }
 ): ProviderIdentityCandidatesArtifact | undefined {
-  if (environment !== "preview" || result.exitCode !== 0 || !hasStructuredExpectedConvexEnvRow(result.stdout)) {
+  if (
+    (environment !== "preview" && environment !== "production") ||
+    result.exitCode !== 0 ||
+    !hasStructuredExpectedConvexEnvRow(result.stdout)
+  ) {
     return undefined;
   }
 

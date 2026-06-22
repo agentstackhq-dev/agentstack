@@ -2996,7 +2996,7 @@ describe("runAgentstack", () => {
     expect(await readFile(ledgerPath, "utf8")).toBe(ledgerBefore);
   });
 
-  it("renders Convex production live inventory as read-only provider-env evidence", async () => {
+  it("renders Convex production live inventory with candidate environment-scope evidence", async () => {
     const rowId = "row-secret-convex-production";
     const externalId = "https://dashboard.convex.dev/d/prod-secret";
     const manifest = createDefaultManifest("acme-crm");
@@ -3032,7 +3032,7 @@ describe("runAgentstack", () => {
     const code = await runAgentstack(["provider", "inventory", "--service", "convex", "--env", "production", "--source", "live"], {
       cwd: dir,
       write: (line) => output.push(line),
-      providerExecutor: createMockProviderExecutor("LIVE_PROVIDER_ID=raw-convex-production-secret")
+      providerExecutor: createMockProviderExecutor("Name               Value\nOPENAI_API_KEY     raw-convex-production-secret")
     });
 
     expect(code).toBe(0);
@@ -3042,9 +3042,8 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("Commands: 1");
     expect(output.join("\n")).toContain("Results: 1");
     expect(output.join("\n")).toContain(
-      "live=found identity=ambiguous identity-scope=partial permission=read-ok drift=unknown facts=provider-env-read missing=ledger-comparable-identity,provider-environment-scope,provider-owner-identity,provider-resource-id,provider-specific-identity-parser,stable-provider-identity"
+      "live=found identity=ambiguous identity-scope=partial permission=read-ok drift=unknown facts=env-list-read,expected-env-names,production-environment,provider-env-read missing=ledger-comparable-identity,ledger-external-id-match,manifest-resource-name-match,provider-owner-identity,provider-resource-id,provider-specific-identity-parser,stable-provider-identity"
     );
-    expect(output.join("\n")).not.toContain("env-list-read");
     expect(output.join("\n")).not.toContain(rowId);
     expect(output.join("\n")).not.toContain(externalId);
     expect(output.join("\n")).not.toContain("raw-convex-production-secret");
@@ -5269,9 +5268,7 @@ describe("runAgentstack", () => {
     expect(rendered).toContain("Identity proof: unavailable");
     expect(rendered).toContain("Drift proof: unproven");
     expect(rendered).toContain("Live coherence: unavailable");
-    expect(rendered).toContain("facts=provider-env-read");
-    expect(rendered).not.toContain("env-list-read");
-    expect(rendered).not.toContain("production-environment");
+    expect(rendered).toContain("facts=env-list-read,expected-env-names,production-environment,provider-env-read");
     expect(rendered).not.toContain("OPENAI_API_KEY");
     expect(rendered).not.toContain("provider-production-secret");
     expect(rendered).not.toContain("sk-local-convex-production-live-validation");
@@ -6471,9 +6468,8 @@ describe("runAgentstack", () => {
       expect(output).toContain("Local mutation: none");
       expect(output).toContain("Provider mutation: none");
       expect(output).toContain("Ledger mutation: none");
-      expect(rendered).toContain("facts=provider-env-read");
+      expect(rendered).toContain("facts=env-list-read,expected-env-names,production-environment,provider-env-read");
       expect(rendered).toContain("Identity proof requirements: ");
-      expect(rendered).not.toContain("env-list-read");
       expect(rendered).not.toContain("Provider ledger proposal");
       expect(rendered).not.toContain("convex-production-link-row-secret");
       expect(rendered).not.toContain("convex-production-link-external-secret");

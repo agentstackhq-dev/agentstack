@@ -269,7 +269,7 @@ describe("generateProject", () => {
       expect(generatedEnvironmentDocs).toContain("Local adopt is the default source mode");
       expect(generatedEnvironmentDocs).toContain("FAIL provider.link.identity-ambiguous");
       expect(generatedEnvironmentDocs).toContain(
-        "Successful structured Convex preview env-list evidence may reduce missing-proof guidance with sanitized `provider-environment-scope`"
+        "Successful structured Convex preview/production env-list evidence may reduce missing-proof guidance with sanitized `provider-environment-scope`"
       );
       expect(generatedEnvironmentDocs).toContain("Identity proof requirements:");
       expect(generatedEnvironmentDocs).toContain("FAIL provider.adopt.live-coherence-blocked");

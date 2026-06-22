@@ -308,7 +308,7 @@ describe("convex command planner", () => {
     }
   });
 
-  it("does not attach Convex identity candidates outside preview", async () => {
+  it("attaches only sanitized production identity candidates from structured expected env-list rows", async () => {
     const manifest = createDefaultManifest("acme-crm");
     const calls: Array<{ command: string; args: string[] }> = [];
     const results = await inspectConvexReadOnly({
@@ -329,16 +329,19 @@ describe("convex command planner", () => {
     });
 
     expect(calls).toEqual([{ command: "pnpm", args: ["exec", "convex", "env", "--prod", "list"] }]);
+    expect(results[0]?.identityCandidates).toEqual({
+      kind: "provider-identity-candidates",
+      evaluator: "provider-specific-identity-candidate-parser",
+      labels: ["provider-environment-scope"]
+    });
     expect(results[0]?.liveIdentityFacts).toEqual({
       identityConfidence: "partial",
-      facts: ["provider-env-read"]
+      facts: ["env-list-read", "expected-env-names", "production-environment", "provider-env-read"]
     });
-    expect(results[0]?.identityCandidates).toBeUndefined();
     expect(results[0]?.exactIdentityProof).toBeUndefined();
-    expect(results[0]?.liveIdentityFacts?.facts ?? []).not.toEqual(
-      expect.arrayContaining(["env-list-read", "expected-env-names", "preview-environment"])
-    );
     expect(JSON.stringify(results)).not.toContain("hidden-by-provider");
+    expect(JSON.stringify(results)).not.toContain("acme-crm-production");
+    expect(JSON.stringify(results)).not.toContain("https://");
   });
 
   it("does not attach Convex live identity facts to failed env list reads", async () => {

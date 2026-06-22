@@ -1540,6 +1540,32 @@ describe("provider proof contracts", () => {
     expect(evaluateProviderDriftProof("convex", [])).toEqual({ proof: "unavailable" });
   });
 
+  it("keeps Convex production env-list candidates from becoming drift proof", () => {
+    expect(
+      evaluateProviderDriftProof("convex", [
+        {
+          service: "convex",
+          environment: "production",
+          commandKind: "env.list",
+          status: "success",
+          exitCode: 0,
+          durationMs: 5,
+          stdoutSummary: "<redacted provider stdout: 2 lines, 120 bytes>",
+          stderrSummary: "",
+          stdoutLines: 2,
+          stderrLines: 0,
+          stdoutBytes: 120,
+          stderrBytes: 0,
+          outputRedacted: true,
+          liveIdentityFacts: {
+            identityConfidence: "partial",
+            facts: ["env-list-read", "expected-env-names", "production-environment", "provider-env-read"]
+          }
+        }
+      ])
+    ).toEqual({ proof: "unavailable" });
+  });
+
   it("keeps drift proof unavailable for non-env-list results with env-list-like facts", () => {
     for (const service of ["convex", "vercel", "eas"] as const) {
       expect(
