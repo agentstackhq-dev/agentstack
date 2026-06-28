@@ -1,6 +1,6 @@
 # M2: Agent Completes Lean Agentstack Preview
 
-Status: **locked** (unlock after the lean generated-surface correction is implemented and verified)
+Status: **ready for approach discussion** (lean generated-surface correction is implemented and verified; do not start the live M2 preview loop until the M2 approach is agreed)
 
 ## Product correction
 
@@ -12,6 +12,7 @@ Agentstack is a package dependency and CLI. The generated app is an app that use
 
 A fresh coding agent can take an ultra-lean generated app from zero to preview using only:
 
+- an installed/local-published `agentstack` CLI started from outside the app with `agentstack create <app-name>`
 - root `AGENTS.md`
 - root `agentstack.config.ts`
 - package scripts that call the installed `agentstack` CLI
@@ -20,9 +21,11 @@ A fresh coding agent can take an ultra-lean generated app from zero to preview u
 
 No copied `docs/`, copied `scripts/`, generated skills, generated provider ledger source files, or generated framework runbooks may be required inside the consumer app.
 
+M2 execution must run as a consumer of the meta-framework. Tests, spikes, and live attempts may not import `generateProject`, `runAgentstack`, provider helpers, or telemetry helpers directly as their success path. They must invoke the package bin and generated project scripts the way a user or coding agent would.
+
 ## Required generated surface
 
-`create-agent-stack` must generate a root surface that is intentionally small:
+`agentstack create <app-name>` must generate a root surface that is intentionally small:
 
 ```text
 apps/mobile
@@ -69,6 +72,7 @@ Deeper guidance must come from the installed package, for example:
 - `agentstack help`
 - `agentstack docs <topic>`
 - `agentstack explain <diagnostic-code>`
+- `agentstack create --help`
 - `agentstack provider bootstrap --help`
 
 This prevents stale generated information. Updating Agentstack updates framework guidance without regenerating or patching every app.
@@ -81,13 +85,14 @@ That state is runtime/evidence state, not generated source. It must be ignored b
 
 ## Done when
 
-- [ ] `create-agent-stack` generates the required lean root surface with `agentstack.config.ts`, not `agentstack.config.json`
-- [ ] `package.json` depends on the local/published Agentstack package and scripts invoke `agentstack`, not copied `scripts/*.mjs`
-- [ ] Generated app root contains no `docs/`, `scripts/`, `skills/`, root `convex/`, `vercel.json`, provider ledger source file, or copied M1 runbook
-- [ ] `agentstack.config.ts` imports a typed schema helper from the package and typechecks in the generated app
-- [ ] `agentstack validate` validates the typed config through the package schema and emits agent-actionable diagnostics
+- [x] `agentstack create <app-name>` generates the required lean root surface with `agentstack.config.ts`, not `agentstack.config.json`
+- [x] `package.json` depends on the local/published Agentstack package and scripts invoke `agentstack`, not copied `scripts/*.mjs`
+- [x] Generated app root contains no `docs/`, `scripts/`, `skills/`, root `convex/`, `vercel.json`, provider ledger source file, or copied M1 runbook
+- [x] `agentstack.config.ts` imports a typed schema helper from the package and the package schema can load it through source e2e validation
+- [x] `agentstack validate` validates the typed config through the package schema and emits agent-actionable diagnostics
+- [x] Local source e2e invokes the public `agentstack` bin and generated app package scripts instead of internal framework functions
 - [ ] A fresh agent completes preview bootstrap, link, deploy, auth fixture, smoke, and evidence through package-owned CLI commands from the lean app
-- [ ] M2 evidence is recorded in this Agentstack framework repo, not as generated consumer-app docs
+- [x] M2 evidence is recorded in this Agentstack framework repo, not as generated consumer-app docs
 - [ ] Friction log records every human/provider intervention and every place package-owned guidance was insufficient
 
 ## Failure conditions
@@ -107,6 +112,8 @@ M2 fails if any of these are required for the fresh-agent preview path:
 - Hosted control plane
 - Broad provider matrix expansion beyond the preview path needed to prove the corrected contract
 
-## Unlock condition
+## Lean correction evidence
 
-M2 unlocks only after a dedicated correction slice replaces the current generated-app shape with the lean package-driven contract above and verifies that a generated app can run local validation through the installed Agentstack package.
+The unlock condition has been satisfied by the lean correction slice recorded in [evidence/M2-agent-completes-m1/lean-contract-correction-2026-06-28.md](./evidence/M2-agent-completes-m1/lean-contract-correction-2026-06-28.md).
+
+M2 live preview execution remains intentionally not started. The next session should discuss the package-owned provider/auth/evidence approach before running the live Clerk, Convex, and Vercel loop from the lean app.

@@ -2,20 +2,21 @@
 
 ## Current singular goal
 
-Post-M1 correction is the only active goal: align Agentstack with the lean package-driven meta-framework contract before M2 starts.
+M2 approach discussion is the only active goal: the lean generated-surface correction is implemented and verified, and the live M2 preview loop must not start until the package-owned provider/auth/evidence approach is agreed.
 
 M1 is complete as a provider-path spike. It proved that Clerk, Convex, and Vercel preview orchestration can work, but it also exposed the wrong generated consumer shape. Do not keep extending the old generated-docs/generated-scripts M1 path.
 
 The corrected product contract is:
 
-- `create-agent-stack` generates an ultra-lean app root: `apps/mobile`, `apps/web`, `apps/convex`, `agentstack.config.ts`, `AGENTS.md`, `.gitignore`, and `package.json`.
+- `agentstack create <app-name>` is the consumer entrypoint for generating an ultra-lean app root: `apps/mobile`, `apps/web`, `apps/convex`, `agentstack.config.ts`, `AGENTS.md`, `.gitignore`, and `package.json`.
 - `agentstack.config.ts` is mandatory, fully typed, and schema-driven from the installed Agentstack package.
 - Agentstack is a package dependency and CLI, not copied framework internals inside the generated app.
 - Package-owned CLI/docs/help own provider glue, validation, diagnostics, evidence, and runbooks.
+- M2 proof work must invoke the public `agentstack` bin and generated app package scripts. Do not use direct imports of `generateProject`, `runAgentstack`, provider helpers, or telemetry helpers as the success path.
 - Generated consumer apps must not include copied `docs/`, copied `scripts/`, generated skills, generated provider ledger source files, root `convex/`, `vercel.json`, or copied M1 runbooks.
 - Ignored `.agentstack/` state may hold provider links, evidence, auth fixtures, ledgers, deploy metadata, and smoke artifacts.
 
-M2 is locked until this lean generated-surface correction is implemented and verified. Do not start the fresh-agent M2 preview attempt yet.
+Do not start the fresh-agent M2 preview attempt yet.
 
 ## Where to start
 
@@ -30,7 +31,7 @@ Validation-first work uses milestones, not open-ended readiness expansion.
 
 ## Validation-first work mode
 
-- Optimize for the lean generated-surface correction required by **M2**, not diagnostic coverage or readiness percentages.
+- Optimize for the agreed **M2** package-owned preview path, not diagnostic coverage or readiness percentages.
 - Before coding, state which M2 checkbox or correction-loop requirement this session targets.
 - Infra is allowed when it **directly unblocks** that checkbox for the active milestone (see infra litmus test in `docs/validation-hypothesis.md`).
 - Forbidden by default: adding copied docs/scripts/skills to generated apps, new diagnostic-only CLI surfaces, candidate-evidence / partial-drift slices, plan-only reconcile expansions, quality-gate additions unrelated to the milestone, progress-log churn, and more documentation that does not change package-owned CLI behavior.

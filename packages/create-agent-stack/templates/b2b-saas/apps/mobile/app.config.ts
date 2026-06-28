@@ -1,23 +1,18 @@
-import agentstackConfig from "../../agentstack.config.json";
+import agentstackConfig from "../../agentstack.config";
 
-const config = {
-  name: agentstackConfig.app.name,
-  slug: agentstackConfig.app.slug,
-  scheme: agentstackConfig.app.slug,
-  version: "0.1.0",
-  orientation: "portrait",
-  userInterfaceStyle: "automatic",
-  platforms: ["ios", "android"],
-  extra: {
-    agentstack: {
-      frameworkVersion: agentstackConfig.frameworkVersion,
-      guidanceVersion: agentstackConfig.guidanceVersion,
-      environments: agentstackConfig.environments,
-      services: {
-        eas: agentstackConfig.services.eas
+export default {
+  expo: {
+    name: agentstackConfig.app.name,
+    slug: agentstackConfig.app.slug,
+    scheme: agentstackConfig.app.slug,
+    version: "1.0.0",
+    orientation: "portrait",
+    platforms: ["ios", "android"],
+    extra: {
+      agentstack: {
+        appSlug: agentstackConfig.app.slug,
+        surfaces: agentstackConfig.surfaces
       }
     }
   }
 };
-
-export default config;

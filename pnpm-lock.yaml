@@ -36,6 +36,21 @@ importers:
         specifier: workspace:*
         version: link:../core
 
+  packages/agentstack:
+    dependencies:
+      '@agentstack/cli':
+        specifier: workspace:*
+        version: link:../cli
+      '@agentstack/core':
+        specifier: workspace:*
+        version: link:../core
+      create-agent-stack:
+        specifier: workspace:*
+        version: link:../create-agent-stack
+      tsx:
+        specifier: ^4.19.2
+        version: 4.22.4
+
   packages/cli:
     dependencies:
       '@agentstack/adapters':

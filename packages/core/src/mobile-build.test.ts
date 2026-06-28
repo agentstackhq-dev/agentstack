@@ -73,9 +73,11 @@ describe("createMobileBuildPlan", () => {
     expect(getRequiredGeneratedAnchors(createDefaultManifest("acme-crm"))).toEqual(
       expect.arrayContaining([
         "apps/mobile/app.config.ts",
-        "apps/mobile/eas.json",
-        "docs/agentstack/mobile.md"
+        "apps/mobile/eas.json"
       ])
+    );
+    expect(getRequiredGeneratedAnchors(createDefaultManifest("acme-crm"))).not.toEqual(
+      expect.arrayContaining(["docs/agentstack/mobile.md"])
     );
   });
 });

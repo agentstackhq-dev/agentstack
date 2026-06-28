@@ -1,0 +1,12 @@
+{
+  "name": "@app/convex",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "convex": "^1.41.0"
+  },
+  "scripts": {
+    "dev": "convex dev",
+    "deploy": "convex deploy"
+  }
+}

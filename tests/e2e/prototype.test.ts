@@ -1,12 +1,15 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { spawn } from "node:child_process";
+import { constants } from "node:fs";
+import { access, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, test } from "vitest";
 
-import { generateProject } from "../../packages/create-agent-stack/src/generate.js";
-import { runAgentstack } from "../../packages/cli/src/run.js";
-import { createWideEvent, JsonlTelemetryStore } from "../../packages/telemetry/src/index.js";
+const sourceDir = dirname(fileURLToPath(import.meta.url));
+const repoRoot = resolve(sourceDir, "../..");
+const agentstackBin = join(repoRoot, "packages/agentstack/src/bin.js");
 
 let tempRoot: string | undefined;
 
@@ -17,303 +20,133 @@ afterEach(async () => {
   }
 });
 
-describe("Agentstack executable prototype workflow", () => {
-  test("generates, validates, inspects env state, syncs cloud, and observes telemetry", async () => {
-    tempRoot = await mkdtemp(join(tmpdir(), "agentstack-prototype-"));
+describe("Agentstack consumer executable workflow", () => {
+  test("creates and operates a lean app through the package CLI only", async () => {
+    tempRoot = await mkdtemp(join(tmpdir(), "agentstack-consumer-"));
+
+    const helpResult = await invokeAgentstackBin(["--help"], tempRoot);
+    expect(helpResult.exitCode).toBe(0);
+    expect(helpResult.stdout).toContain("agentstack create <app-name>");
+
+    const createResult = await invokeAgentstackBin(["create", "acme-crm"], tempRoot);
+    expect(createResult.exitCode).toBe(0);
+    expect(createResult.stdout).toContain("Created acme-crm");
+
     const appDir = join(tempRoot, "acme-crm");
-    const output: string[] = [];
-    const write = (line: string) => output.push(line);
+    await installLocalAgentstackPackage(appDir);
 
-    await generateProject({ name: "acme-crm", targetDir: appDir });
-    const manifest = JSON.parse(await readFile(join(appDir, "agentstack.config.json"), "utf8"));
+    const packageManifest = JSON.parse(await readFile(join(appDir, "package.json"), "utf8"));
+    const configPath = join(appDir, "agentstack.config.ts");
+    const generatedConfig = await readFile(configPath, "utf8");
 
-    expect(manifest.generated.requiredAnchors).toEqual(
-      expect.arrayContaining([
-        "apps/web/src/index.ts",
-        "apps/mobile/src/index.ts",
-        "convex/agentstack.ts",
-        "packages/domain/src/saas-spine.ts",
-        "convex/saasSpine.ts",
-        "docs/agentstack/saas-spine.md"
-      ])
-    );
+    expect(packageManifest.dependencies).toMatchObject({ agentstack: expect.any(String) });
+    expect(packageManifest.scripts).toMatchObject({
+      validate: "agentstack validate",
+      dev: "agentstack dev",
+      "provider:bootstrap": "agentstack provider bootstrap",
+      "provider:link": "agentstack provider link",
+      "preview:deploy": "agentstack deploy --env preview",
+      "preview:smoke": "agentstack smoke --env preview",
+      "evidence:check": "agentstack evidence check"
+    });
+    expect(generatedConfig).toContain('import { defineAgentstackConfig } from "agentstack/config";');
+    expect(generatedConfig).toContain('slug: "acme-crm"');
+    await expect(readFile(join(appDir, "docs/agentstack/saas-spine.md"), "utf8")).rejects.toThrow();
+    await expect(readFile(join(appDir, "scripts/agentstack.mjs"), "utf8")).rejects.toThrow();
+    await expect(readFile(join(appDir, "packages/domain/src/index.ts"), "utf8")).rejects.toThrow();
     await expect(readFile(join(appDir, "apps/web/src/index.ts"), "utf8")).resolves.toContain(
-      "webWorkspaceStatusAnchor"
+      "workspaceStatus"
     );
     await expect(readFile(join(appDir, "apps/mobile/src/index.ts"), "utf8")).resolves.toContain(
-      "mobileWorkspaceStatusAnchor"
+      "workspaceStatus"
     );
-    await expect(readFile(join(appDir, "convex/agentstack.ts"), "utf8")).resolves.toContain(
-      "convexWorkspaceStatusSpanAnchor"
+    await expect(readFile(join(appDir, "apps/convex/convex/workspaceStatus.ts"), "utf8")).resolves.toContain(
+      "protectedStatus"
     );
-    await expect(readFile(join(appDir, "convex/schema.ts"), "utf8")).resolves.toContain(
-      "agentstackSaasSchemaTables"
+    await expect(readFile(join(appDir, "apps/convex/convex/schema.ts"), "utf8")).resolves.toContain(
+      "workspaceStatuses"
     );
-    await expect(readFile(join(appDir, "packages/domain/src/saas-spine.ts"), "utf8")).resolves.toContain(
-      "agentstackBillingPlans"
-    );
-    await expect(readFile(join(appDir, "packages/domain/src/saas-spine.ts"), "utf8")).resolves.toContain(
-      "planHasEntitlement"
-    );
-    await expect(readFile(join(appDir, "packages/domain/src/index.ts"), "utf8")).resolves.toContain(
-      './saas-spine.js'
-    );
-    await expect(readFile(join(appDir, "convex/saasSpine.ts"), "utf8")).resolves.toContain(
-      "agentstackSaasTables"
-    );
-    await expect(readFile(join(appDir, "convex/saasSpine.ts"), "utf8")).resolves.toContain(
-      "clerkWebhookTypes"
-    );
-    await expect(readFile(join(appDir, "docs/agentstack/saas-spine.md"), "utf8")).resolves.toContain(
-      "Core SaaS Spine"
-    );
+    await writeFile(configPath, generatedConfig.replace("required: false", "required: true"));
 
-    expect(await runAgentstack(["theme", "validate"], { cwd: appDir, write })).toBe(0);
-    expect(
-      await runAgentstack(
-        ["add", "feature", "invoices", "--surfaces", "web,mobile", "--backend", "convex"],
-        { cwd: appDir, write }
-      )
-    ).toBe(0);
-    expect(
-      await runAgentstack(
-        [
-          "add",
-          "event",
-          "billing.subscription.updated",
-          "--journey",
-          "billing",
-          "--surfaces",
-          "web,convex",
-          "--state",
-          "plan:string,seatCount:number"
-        ],
-        { cwd: appDir, write }
-      )
-    ).toBe(0);
-    expect(
-      await runAgentstack(
-        ["add", "billing-plan", "pro", "--entitlements", "feature.auditLog,feature.advancedReports", "--seats", "10"],
-        { cwd: appDir, write }
-      )
-    ).toBe(0);
-    await expect(readFile(join(appDir, "apps/web/src/features/invoices.ts"), "utf8")).resolves.toContain(
-      "invoicesWebFeature"
-    );
-    await expect(
-      readFile(join(appDir, "packages/telemetry/src/events/billing-subscription-updated.ts"), "utf8")
-    ).resolves.toContain("billing.subscription.updated");
-    await expect(readFile(join(appDir, "packages/domain/src/billing-plans/pro.ts"), "utf8")).resolves.toContain(
-      "proBillingPlan"
-    );
-    const manifestPath = join(appDir, "agentstack.config.json");
-    manifest.env.custom.STRIPE_MODE = {
-      surfaces: ["convex"],
-      environments: ["preview", "production"],
-      required: true,
-      secret: false,
-      validate: "enum:sandbox,live",
-      providerTargets: [
-        {
-          service: "convex",
-          surfaces: ["convex"],
-          environments: ["preview", "production"],
-          source: "local-value"
-        }
-      ]
-    };
-    await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    const firstValidate = await runPackageScript("validate", [], appDir);
+    expect(firstValidate.exitCode).toBe(1);
+    expect(firstValidate.stdout).toContain("FAIL env.custom.missing");
 
-    expect(await runAgentstack(["validate"], { cwd: appDir, write })).toBe(1);
-    expect(
-      await runAgentstack(
-        ["env", "set", "--env", "preview", "--surface", "convex", "--name", "STRIPE_MODE", "--value", "sandbox"],
-        { cwd: appDir, write }
-      )
-    ).toBe(0);
-    expect(
-      await runAgentstack(
-        ["env", "set", "--env", "production", "--surface", "convex", "--name", "STRIPE_MODE", "--value", "live"],
-        { cwd: appDir, write }
-      )
-    ).toBe(0);
-    expect(await runAgentstack(["validate"], { cwd: appDir, write })).toBe(0);
-    expect(await runAgentstack(["env", "inspect", "--env", "preview"], { cwd: appDir, write })).toBe(0);
-    expect(await runAgentstack(["validate", "--cloud", "--env", "preview"], { cwd: appDir, write })).toBe(1);
-    expect(output.join("\n")).toContain("cloud.env.missing");
-    expect(output.join("\n")).toContain("preview.convex");
-    expect(await runAgentstack(["sync", "--env", "preview"], { cwd: appDir, write })).toBe(0);
-    expect(await runAgentstack(["sync", "--env", "preview", "--apply"], { cwd: appDir, write })).toBe(0);
-    const localCloudAfterPreviewSync = await readFile(join(appDir, ".agentstack/local-cloud.json"), "utf8");
-    expect(localCloudAfterPreviewSync).toContain("valueHash");
-    expect(localCloudAfterPreviewSync).not.toContain("sandbox");
-    expect(await runAgentstack(["validate", "--cloud", "--env", "preview"], { cwd: appDir, write })).toBe(0);
-    expect(await runAgentstack(["env", "inspect", "--env", "preview"], { cwd: appDir, write })).toBe(0);
-    expect(await runAgentstack(["inspect", "--env", "preview"], { cwd: appDir, write })).toBe(0);
-    expect(await runAgentstack(["skills", "inspect"], { cwd: appDir, write })).toBe(0);
-    expect(await runAgentstack(["doctor", "--env", "preview"], { cwd: appDir, write })).toBe(0);
-    expect(await runAgentstack(["dev", "--env", "preview"], { cwd: appDir, write })).toBe(0);
-    expect(await runAgentstack(["deploy", "--env", "preview"], { cwd: appDir, write })).toBe(0);
-    expect(await runAgentstack(["deploy", "--env", "preview", "--apply"], { cwd: appDir, write })).toBe(0);
+    const setPreviewEnv = await invokeAgentstackBin(
+      ["env", "set", "--env", "preview", "--surface", "convex", "--name", "STRIPE_MODE", "--value", "sandbox"],
+      appDir
+    );
+    expect(setPreviewEnv.exitCode).toBe(0);
+    expect(setPreviewEnv.stdout).toContain("PASS env set preview convex.STRIPE_MODE");
+
+    const setProductionEnv = await invokeAgentstackBin(
+      ["env", "set", "--env", "production", "--surface", "convex", "--name", "STRIPE_MODE", "--value", "live"],
+      appDir
+    );
+    expect(setProductionEnv.exitCode).toBe(0);
+    expect(setProductionEnv.stdout).toContain("PASS env set production convex.STRIPE_MODE");
+
+    const validate = await runPackageScript("validate", [], appDir);
+    expect(validate.exitCode).toBe(0);
+    expect(validate.stdout).toContain("PASS validate");
+
+    const previewDeployPlan = await runPackageScript("preview:deploy", [], appDir);
+    expect(previewDeployPlan.exitCode).toBe(0);
+    expect(previewDeployPlan.stdout).toContain("PLAN deploy preview");
+    expect(previewDeployPlan.stdout).toContain("Evidence: local-rehearsal");
+
+    const previewDeployApply = await runPackageScript("preview:deploy", ["--apply"], appDir);
+    expect(previewDeployApply.exitCode).toBe(0);
+    expect(previewDeployApply.stdout).toContain("APPLIED deploy preview");
     await expect(readFile(join(appDir, ".agentstack/deployments/preview.json"), "utf8")).resolves.toContain(
       '"environment": "preview"'
     );
-    expect(await runAgentstack(["build", "mobile", "--env", "preview"], { cwd: appDir, write })).toBe(0);
-    expect(
-      await runAgentstack(["build", "mobile", "--env", "preview", "--apply"], { cwd: appDir, write })
-    ).toBe(0);
-    await expect(readFile(join(appDir, ".agentstack/builds/mobile-preview.json"), "utf8")).resolves.toContain(
-      '"environment": "preview"'
-    );
-    expect(await runAgentstack(["prod", "prepare"], { cwd: appDir, write })).toBe(0);
-    expect(await runAgentstack(["validate", "--release", "production"], { cwd: appDir, write })).toBe(1);
-    expect(output.join("\n")).toContain("production.convex");
-    expect(await runAgentstack(["prod", "provision"], { cwd: appDir, write })).toBe(0);
-    expect(await runAgentstack(["prod", "provision", "--apply"], { cwd: appDir, write })).toBe(0);
-    expect(await runAgentstack(["validate", "--release", "production"], { cwd: appDir, write })).toBe(0);
-    expect(await runAgentstack(["prod", "prepare"], { cwd: appDir, write })).toBe(0);
-    expect(await runAgentstack(["deploy", "--env", "production"], { cwd: appDir, write })).toBe(0);
-    expect(
-      await runAgentstack(["deploy", "--env", "production", "--apply", "--confirm-production"], {
-        cwd: appDir,
-        write
-      })
-    ).toBe(0);
-    await expect(readFile(join(appDir, ".agentstack/deployments/production.json"), "utf8")).resolves.toContain(
-      '"environment": "production"'
-    );
-
-    const store = new JsonlTelemetryStore(join(appDir, ".agentstack", "events.jsonl"));
-    await store.append(
-      createWideEvent("onboarding.step.completed", {
-        environment: "preview",
-        surface: "web",
-        component: "web:onboarding",
-        journey: "onboarding",
-        traceId: "trace_onboarding_e2e",
-        journeyId: "journey_onboarding_e2e",
-        state: {
-          step: "invite-team",
-          userEmail: "buyer@example.com"
-        }
-      })
-    );
-
-    expect(
-      await runAgentstack(
-        ["observe", "query", "--env", "preview", "--journey", "onboarding"],
-        { cwd: appDir, write }
-      )
-    ).toBe(0);
-    expect(
-      await runAgentstack(
-        ["observe", "component", "web:onboarding", "--env", "preview"],
-        { cwd: appDir, write }
-      )
-    ).toBe(0);
-
-    expect(
-      await runAgentstack(
-        ["observe", "timeline", "--env", "preview", "--journey", "validation"],
-        { cwd: appDir, write }
-      )
-    ).toBe(0);
-    expect(
-      await runAgentstack(
-        ["observe", "timeline", "--env", "preview", "--journey", "deployment"],
-        { cwd: appDir, write }
-      )
-    ).toBe(0);
-    expect(
-      await runAgentstack(
-        ["observe", "timeline", "--env", "production", "--journey", "deployment"],
-        { cwd: appDir, write }
-      )
-    ).toBe(0);
-    expect(
-      await runAgentstack(
-        ["observe", "timeline", "--env", "production", "--journey", "production-release"],
-        { cwd: appDir, write }
-      )
-    ).toBe(0);
-    expect(
-      await runAgentstack(
-        ["observe", "timeline", "--env", "preview", "--journey", "mobile-build"],
-        { cwd: appDir, write }
-      )
-    ).toBe(0);
-    expect(
-      await runAgentstack(
-        ["observe", "timeline", "--env", "development", "--journey", "telemetry-generation"],
-        { cwd: appDir, write }
-      )
-    ).toBe(0);
-    expect(
-      await runAgentstack(
-        ["observe", "timeline", "--env", "development", "--journey", "agent-guidance"],
-        { cwd: appDir, write }
-      )
-    ).toBe(0);
-    expect(
-      await runAgentstack(["observe", "timeline", "--env", "development", "--journey", "billing"], {
-        cwd: appDir,
-        write
-      })
-    ).toBe(0);
-    expect(
-      await runAgentstack(["observe", "export", "--env", "preview", "--format", "otlp-json"], {
-        cwd: appDir,
-        write
-      })
-    ).toBe(0);
-    const previewOtlpExport = await readFile(
-      join(appDir, ".agentstack", "exports", "telemetry-preview-otlp.json"),
-      "utf8"
-    );
-    expect(previewOtlpExport).toContain('"resourceLogs"');
-    expect(previewOtlpExport).toContain('"agentstack.state.userEmail"');
-    expect(previewOtlpExport).toContain("[redacted]");
-    expect(previewOtlpExport).not.toContain("buyer@example.com");
-
-    const renderedOutput = output.join("\n");
-    expect(renderedOutput).toContain("PASS theme validate");
-    expect(renderedOutput).toContain("CREATED feature invoices");
-    expect(renderedOutput).toContain("CREATED event billing.subscription.updated");
-    expect(renderedOutput).toContain("CREATED billing-plan pro");
-    expect(renderedOutput).toContain("PASS env set preview convex.STRIPE_MODE");
-    expect(renderedOutput).toContain("PASS env set production convex.STRIPE_MODE");
-    expect(renderedOutput).toContain("PASS env inspect preview");
-    expect(renderedOutput).toContain("set-env preview.convex.convex.STRIPE_MODE");
-    expect(renderedOutput).toContain("provider-env convex.convex.STRIPE_MODE synced=yes secret=no");
-    expect(renderedOutput).toContain("PASS inspect acme-crm");
-    expect(renderedOutput).toContain("PASS skills inspect");
-    expect(renderedOutput).toContain("No MCP dependency");
-    expect(renderedOutput).toContain("PASS doctor preview");
-    expect(renderedOutput).toContain("PASS dev preflight preview");
-    expect(renderedOutput).toContain("PLAN preview");
-    expect(renderedOutput).toContain("APPLIED preview");
-    expect(renderedOutput).toContain("PLAN deploy preview");
-    expect(renderedOutput).toContain("APPLIED deploy preview");
-    expect(renderedOutput).toContain("PLAN mobile build preview");
-    expect(renderedOutput).toContain("APPLIED mobile build preview");
-    expect(renderedOutput).toContain("PLAN prod provision production");
-    expect(renderedOutput).toContain("APPLIED prod provision production");
-    expect(renderedOutput).toContain("PASS validate --release production");
-    expect(renderedOutput).toContain("PASS prod prepare production");
-    expect(renderedOutput).toContain("PLAN deploy production");
-    expect(renderedOutput).toContain("APPLIED deploy production");
-    expect(renderedOutput).toContain("Environment: preview");
-    expect(renderedOutput).toContain("onboarding.step.completed");
-    expect(renderedOutput).toContain("PASS observe component web:onboarding 1");
-    expect(renderedOutput).toContain("agentstack.validate.completed");
-    expect(renderedOutput).toContain("agentstack.deploy.completed");
-    expect(renderedOutput).toContain("agentstack.mobile.build.completed");
-    expect(renderedOutput).toContain("agentstack.prod.prepare.completed");
-    expect(renderedOutput).toContain("agentstack.prod.provision.completed");
-    expect(renderedOutput).toContain("agentstack.skills.inspect.completed");
-    expect(renderedOutput).toContain("agentstack.event.added");
-    expect(renderedOutput).toContain("agentstack.billing-plan.added");
-    expect(renderedOutput).toContain("EXPORTED observe otlp-json preview");
-    expect(renderedOutput).toContain("[redacted]");
   });
 });
+
+async function installLocalAgentstackPackage(appDir: string): Promise<void> {
+  const agentstackPackageDir = join(repoRoot, "packages/agentstack");
+  await mkdir(join(appDir, "node_modules", ".bin"), { recursive: true });
+  await symlink(agentstackPackageDir, join(appDir, "node_modules", "agentstack"), "dir");
+  await symlink(join(agentstackPackageDir, "src/bin.js"), join(appDir, "node_modules", ".bin", "agentstack"));
+  await access(join(appDir, "node_modules", ".bin", "agentstack"), constants.X_OK);
+}
+
+async function invokeAgentstackBin(args: string[], cwd: string): Promise<CommandResult> {
+  return await runCommand(process.execPath, [agentstackBin, ...args], cwd);
+}
+
+async function runPackageScript(script: string, args: string[], cwd: string): Promise<CommandResult> {
+  return await runCommand("pnpm", ["run", script, ...args], cwd);
+}
+
+type CommandResult = {
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+};
+
+async function runCommand(command: string, args: string[], cwd: string): Promise<CommandResult> {
+  return await new Promise((resolvePromise, reject) => {
+    const child = spawn(command, args, {
+      cwd,
+      env: {
+        ...process.env,
+        PATH: [join(cwd, "node_modules", ".bin"), process.env.PATH].filter(Boolean).join(":")
+      }
+    });
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (chunk) => {
+      stdout += String(chunk);
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += String(chunk);
+    });
+    child.on("error", reject);
+    child.on("close", (exitCode) => {
+      resolvePromise({ exitCode, stdout, stderr });
+    });
+  });
+}

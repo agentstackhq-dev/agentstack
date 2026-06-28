@@ -1,14 +1,14 @@
 import React from "react";
 import { SignInButton, SignUpButton, UserButton, useUser } from "@clerk/react";
+import { useConvexAuth, useQuery } from "convex/react";
+import { anyApi } from "convex/server";
+
+import { themeTokens } from "./theme";
 import {
   getWorkspaceStatusChecklistProgress,
   getWorkspaceStatusSeed,
   getWorkspaceStatusSummary
-} from "@app/domain";
-import { themeTokens } from "@app/theme";
-import { createStatusChecklistPrimitive, createWorkspaceStatusPrimitive } from "@app/ui";
-import { useConvexAuth, useQuery } from "convex/react";
-import { anyApi } from "convex/server";
+} from "./workspaceStatus";
 
 type AppProps = {
   runtimeReady?: boolean;
@@ -35,14 +35,10 @@ const protectedWorkspaceStatusQuery = anyApi.workspaceStatus.protectedStatus;
 export function App({ runtimeReady = true }: AppProps) {
   const status = getWorkspaceStatusSeed();
   const progress = getWorkspaceStatusChecklistProgress(status);
-  const workspaceStatus = createWorkspaceStatusPrimitive(
-    status,
-    `${progress.completed} of ${progress.total} complete`
-  );
-  const checklist = createStatusChecklistPrimitive(status.checklist);
 
   return (
     <main
+      data-agentstack-app="__APP_SLUG__"
       style={{
         minHeight: "100vh",
         background: themeTokens.colors.background,
@@ -63,7 +59,7 @@ export function App({ runtimeReady = true }: AppProps) {
       >
         <p style={{ color: themeTokens.colors.muted, margin: 0 }}>Workspace status</p>
         <h1 id="workspace-status-title" style={{ margin: "8px 0" }}>
-          {workspaceStatus.status.workspaceName}
+          {status.workspaceName}
         </h1>
         <p style={{ margin: "0 0 24px" }}>{getWorkspaceStatusSummary(status)}</p>
         <dl style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
@@ -84,9 +80,11 @@ export function App({ runtimeReady = true }: AppProps) {
           {runtimeReady ? <AuthRuntime /> : <AuthRuntimePlaceholder />}
         </div>
         <h2 style={{ marginTop: 24 }}>Checklist</h2>
-        <p style={{ color: themeTokens.colors.muted }}>{workspaceStatus.progressLabel}</p>
+        <p style={{ color: themeTokens.colors.muted }}>
+          {progress.completed} of {progress.total} complete
+        </p>
         <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-          {checklist.items.map((item) => (
+          {status.checklist.map((item) => (
             <li key={item.id} style={{ padding: "10px 0", borderTop: `1px solid ${themeTokens.colors.muted}` }}>
               <strong>{item.complete ? "Done" : "Next"}</strong> {item.label}
             </li>

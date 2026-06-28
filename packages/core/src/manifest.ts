@@ -153,10 +153,15 @@ export const manifestSchema = z
   });
 
 export type AgentstackManifest = z.infer<typeof manifestSchema>;
+export type AgentstackConfigInput = z.input<typeof manifestSchema>;
 export type EnvironmentName = z.infer<typeof environmentSchema>;
 export type SurfaceName = z.infer<typeof surfaceSchema>;
 export type ServiceName = z.infer<typeof serviceSchema>;
 export type ProviderEnvSource = z.infer<typeof providerEnvSourceSchema>;
+
+export function defineAgentstackConfig(input: AgentstackConfigInput): AgentstackManifest {
+  return manifestSchema.parse(input);
+}
 
 export function createDefaultManifest(slug: string): AgentstackManifest {
   const name = slug
@@ -233,7 +238,7 @@ export function parseManifest(input: unknown): Result<AgentstackManifest> {
     code: "manifest.invalid",
     path: issue.path.join("."),
     message: issue.message,
-    fix: "Update agentstack.config.json so it matches the Agentstack manifest schema.",
+    fix: "Update agentstack.config.ts so it matches the Agentstack manifest schema.",
     blocks: ["validate", "validate --cloud", "deploy"]
   }));
 

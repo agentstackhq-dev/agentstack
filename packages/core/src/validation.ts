@@ -1,8 +1,7 @@
 import { validateCustomEnvValues, type EnvValueState } from "./env-graph.js";
 import type { Diagnostic, Result } from "./diagnostics.js";
-import { getGuidanceGeneratedAnchors, validateGuidancePolicy } from "./guidance.js";
+import { validateGuidancePolicy } from "./guidance.js";
 import type { AgentstackManifest } from "./manifest.js";
-import { getSaasSpineGeneratedAnchors } from "./saas-spine.js";
 
 export type LocalValidationInput = {
   manifest: AgentstackManifest;
@@ -35,30 +34,17 @@ export function validateLocalProject(input: LocalValidationInput): Result<LocalV
 export function getRequiredGeneratedAnchors(manifest: AgentstackManifest): string[] {
   const anchors = [
     "AGENTS.md",
+    ".gitignore",
     "package.json",
-    "pnpm-workspace.yaml",
-    "agentstack.config.json",
-    "docs/agentstack/workflows.md",
-    "docs/agentstack/validation.md",
-    "docs/agentstack/observability.md",
-    "docs/agentstack/environments.md",
-    "docs/agentstack/generated-boundaries.md",
-    "docs/agentstack/release.md",
-    "docs/agentstack/theming.md",
-    "scripts/agentstack.mjs",
-    "packages/domain/src/index.ts",
-    "packages/theme/package.json",
-    "packages/theme/tokens.json",
-    "packages/theme/src/index.ts"
+    "agentstack.config.ts"
   ];
 
   anchors.push(...manifest.generated.requiredAnchors);
-  anchors.push(...getSaasSpineGeneratedAnchors(manifest));
-  anchors.push(...getGuidanceGeneratedAnchors(manifest));
 
   if (manifest.surfaces.includes("web")) {
     anchors.push("apps/web/package.json");
     anchors.push("apps/web/src/index.ts");
+    anchors.push("apps/web/src/App.tsx");
   }
 
   if (manifest.surfaces.includes("mobile")) {
@@ -67,16 +53,13 @@ export function getRequiredGeneratedAnchors(manifest: AgentstackManifest): strin
     anchors.push("apps/mobile/src/index.ts");
     anchors.push("apps/mobile/app.config.ts");
     anchors.push("apps/mobile/eas.json");
-    anchors.push("docs/agentstack/mobile.md");
   }
 
   if (manifest.surfaces.includes("convex")) {
-    anchors.push("convex/schema.ts");
-    anchors.push("convex/agentstack.ts");
-  }
-
-  if (manifest.telemetry.enabled) {
-    anchors.push("packages/telemetry/src/events.ts");
+    anchors.push("apps/convex/package.json");
+    anchors.push("apps/convex/convex/schema.ts");
+    anchors.push("apps/convex/convex/auth.config.ts");
+    anchors.push("apps/convex/convex/workspaceStatus.ts");
   }
 
   return Array.from(new Set(anchors));
@@ -116,7 +99,7 @@ function validateTelemetryPolicy(manifest: AgentstackManifest): Diagnostic[] {
       severity: "warn",
       code: "telemetry.disabled",
       message: "Telemetry is disabled, so journey inspection will not be available.",
-      fix: "Set telemetry.enabled to true in agentstack.config.json."
+      fix: "Set telemetry.enabled to true in agentstack.config.ts."
     });
   }
 

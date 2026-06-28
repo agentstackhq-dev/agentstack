@@ -8,13 +8,13 @@ This document is the north star for Agentstack work. Active execution lives in `
 
 An agent-first meta-framework can take a developer or coding agent from zero to a working B2B SaaS **preview** using a lean generated app plus an installed Agentstack package that owns provider glue, guidance, validation, diagnostics, and evidence commands.
 
-Post-M1 correction: M1 proved the provider path could work, but the generated consumer surface was wrong. Agentstack must be a package dependency, not copied framework internals. The generated app should expose app code, `AGENTS.md`, `package.json`, `.gitignore`, and a typed `agentstack.config.ts`; deeper framework knowledge must come from package-owned CLI/docs so guidance does not go stale.
+Post-M1 correction result: M1 proved the provider path could work, but the generated consumer surface was wrong. The lean correction is now verified: Agentstack is a package dependency, not copied framework internals. The generated app exposes app code, `AGENTS.md`, `package.json`, `.gitignore`, and a typed `agentstack.config.ts`; deeper framework knowledge must come from package-owned CLI/docs so guidance does not go stale.
 
 ## What would validate the bet (v0)
 
 One person or agent completes the following using **only** the lean generated app, installed Agentstack package commands, package-owned Agentstack guidance, and provider CLI auth handoffs:
 
-1. Generate an app from the B2B SaaS template with the corrected lean root surface
+1. Generate an app from the B2B SaaS template with `agentstack create <app-name>` and the corrected lean root surface
 2. Validate typed `agentstack.config.ts` through the installed Agentstack package schema
 3. Run package-owned Agentstack commands to create/reuse, ledger, and locally configure preview Clerk, Convex, and Vercel resources
 4. Run package-owned Agentstack commands to link provider resources

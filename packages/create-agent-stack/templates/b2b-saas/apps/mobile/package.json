@@ -3,9 +3,6 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@app/domain": "workspace:*",
-    "@app/theme": "workspace:*",
-    "@app/ui": "workspace:*",
     "expo": "^52.0.23",
     "react": "^19.0.0",
     "react-native": "^0.76.5"
@@ -13,19 +10,6 @@
   "scripts": {
     "dev": "expo start --lan",
     "start": "expo start --lan",
-    "dev-client": "expo start --dev-client --lan",
-    "build:development": "node ../../scripts/agentstack.mjs build mobile --env development",
-    "build:preview": "node ../../scripts/agentstack.mjs build mobile --env preview",
-    "build:preview:apply": "node ../../scripts/agentstack.mjs build mobile --env preview --apply",
-    "build:production": "node ../../scripts/agentstack.mjs build mobile --env production",
-    "provider:eas:preview": "node ../../scripts/agentstack.mjs provider plan --service eas --env preview",
-    "provider:eas:production": "node ../../scripts/agentstack.mjs provider plan --service eas --env production",
-    "provider:eas:inspect:production": "node ../../scripts/agentstack.mjs provider inspect --service eas --env production",
-    "provider:eas:inventory:preview": "node ../../scripts/agentstack.mjs provider inventory --service eas --env preview",
-    "provider:eas:inventory:production": "node ../../scripts/agentstack.mjs provider inventory --service eas --env production",
-    "provider:eas:link:preview": "node ../../scripts/agentstack.mjs provider link --service eas --env preview --resource-type project --name __APP_SLUG__",
-    "provider:eas:link:production": "node ../../scripts/agentstack.mjs provider link --service eas --env production --resource-type project --name __APP_SLUG__",
-    "provider:eas:proof:preview": "node ../../scripts/agentstack.mjs provider proof --service eas --env preview --resource-type project --name __APP_SLUG__",
-    "provider:eas:proof:production": "node ../../scripts/agentstack.mjs provider proof --service eas --env production --resource-type project --name __APP_SLUG__"
+    "dev-client": "expo start --dev-client --lan"
   }
 }

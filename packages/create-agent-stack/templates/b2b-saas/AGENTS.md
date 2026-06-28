@@ -1,48 +1,27 @@
 # Agent Rules
 
-- Current M1 goal: prove or falsify the live preview web path for Clerk, Convex, and Vercel. Start from `docs/milestones/M1-preview-e2e.md`; every session should run the generated M1 path, fix the first concrete blocker from that path, or record the exact auth/account handoff required by a provider CLI.
-- Primary M1 path: `pnpm run m1:providers:bootstrap -- --confirm-live-mutation`, then `pnpm run m1:providers:link`, then `pnpm run m1:preview:deploy -- --confirm-live-mutation`, then `pnpm run m1:auth:user -- ensure --confirm-live-mutation`, then signed-in `pnpm run m1:preview:smoke`, then `pnpm run m1:evidence:check`.
-- Provider CLI installation, browser login, and account/project selection are part of the work. Run the CLI until it prints the exact action needed; do not stop at vague "provider inputs needed" when a generated command can discover, create, reuse, or link the resource.
-- `m1:ledger:record` is a low-level repair/fallback for known existing resources or damaged ledger rows. It is not the default M1 path while `m1:providers:bootstrap` exists.
-- This generated app is green-field. There are no pre-existing users or compatibility contracts.
-- Do not preserve retired behavior, deprecated aliases, or old/new dual paths unless the user explicitly approves that work.
-- When an Agentstack pattern changes, replace the old path coherently across app code, docs, tests, and generated guidance instead of preserving it just in case.
-- For validation-first work, read `docs/validation-hypothesis.md`, then `docs/milestones/M1-preview-e2e.md`, before coding or touching providers.
-- Optimize for the active milestone checklist, not broad readiness expansion. M1 is preview web only: Clerk, Convex, and Vercel.
-- Start by running `pnpm run inspect` to read the generated app shape, anchors, services, and preview local-cloud state before editing.
-- Run `pnpm run skills:inspect` when agent guidance changes or before delegating work across agents.
-- Use `skills/agentstack/SKILL.md` as the entrypoint for Agentstack workflow, guardrail, and observability guidance.
-- Run `pnpm run doctor` before provider, environment, build, sync, or deploy work; it prints repair commands when local validation or preview local-cloud checks fail.
-- Use `pnpm run dev` as a local preflight for the generated workspace-status vertical. It must not mutate provider state.
-- Run `pnpm run validate` before completion for structural checks.
-- Run `pnpm run generated:check` when generated anchors or guidance changed; it must not write local-cloud state, telemetry, or provider resources.
-- Run `pnpm run validate:quality` before completion when code changed; it runs local package commands only, including `pnpm run generated:check`, and must not write local-cloud state or provider resources.
-- Use `pnpm run validate:live:preview` or `pnpm run validate:live:production` only for non-mutating aggregate live provider reads. These commands print per-service proof summaries, can surface gated Clerk, Vercel, and EAS project exact identity diagnostics plus Vercel/EAS production partial env-list drift diagnostics where supported, and refuse readiness while exact drift/live coherence is not proven for every enabled provider.
-- Validate theme changes with `pnpm run theme:validate`; normal `pnpm run validate` also checks token shape.
-- Style UI through `@app/theme` token roles and `@app/ui` primitives before adding surface-specific components.
-- Treat `workspace status` as the reference runnable slice: shared domain model, Convex boundary, web/mobile rendering, unstyled UI primitives, and local docs.
-- Use framework package scripts and generated docs before provider dashboards.
-- Use `provider plan` for deterministic provider command plans. Use `pnpm run provider:preview:plan` or `pnpm run provider:production:plan` for aggregate provider plans; they are plan-only, print `Readiness: not-claimed`, and must not be treated as live readiness. Use `pnpm run provider:preview:reconcile` or `pnpm run provider:production:reconcile` for local-only aggregate reconciliation plan artifacts; they print `Evidence: provider-reconciliation-plan`, `Provider execution: none`, `Mutation: none`, `Live state: not-read`, `Local-cloud state: not-read`, `Operations: not-evaluated`, and `Readiness: not-claimed`; they use local validation plus sanitized ledger summaries only, read no live provider/local-cloud/provider-link state, write no telemetry, local-cloud, provider-link, provider resource, or ledger state, and do not claim identity, drift proof, provisioning, adoption/link confirmation, live coherence, or readiness. Use `pnpm run provider:preview:reconcile:live` or `pnpm run provider:production:reconcile:live` only when explicit aggregate live reads are required; they print `Evidence: live-reconciliation-plan`, `Provider execution: read-only`, `Mutation: none`, `Live state: read`, `Local-cloud state: not-read`, `Readiness: not-claimed`, and per-service proof diagnostics, summarize each enabled provider through bounded read-only inventory, and fail with `Reason: live-read-failed` if any live read fails. Use `provider inspect` for explicit Clerk/Convex diagnostics plus Vercel preview/production and EAS preview/production env-list inspection. Use apply only for explicit Convex execution or Vercel preview deploy execution.
-- Treat live provider inventory and live link/adopt proof identity as diagnostic only. Sanitized `missing=` labels and `Identity proof requirements:` summaries explain what proof is absent; they are not exact provider identity and must not justify link/adopt writes. Only the narrow Clerk preview/production application provider-proof paths, bounded Vercel preview/production project proof paths, and bounded EAS preview/production project proof paths can emit sanitized exact identity, and they still refuse readiness and live link/adopt writes until drift/live coherence is proven.
-- Development provider inspect/apply is rejected. Clerk apply, EAS apply, Vercel production apply, and EAS build/init/env mutation execution are unavailable. Convex production apply requires `--confirm-production`.
-- Treat general preview commands as local-cloud preview state only. M1 preview helpers are the exception: `m1:preview:deploy` is explicit live mutation after ledger/link prerequisites and prints `Provider mutation: convex preview apply, vercel preview deploy`. Agentstack records and inspects local JSONL telemetry plus local OTLP-shaped artifacts; hosted/network provider telemetry is outside the current generated framework boundary.
-- Manage Clerk preview smoke users with `pnpm run m1:auth:user -- ensure|update|delete --confirm-live-mutation`. Do not manually patch Clerk users for M1 Auth/Data unless the helper records the blocker.
-- Use `pnpm run m1:evidence:check` after the M1 runbook, deploy evidence, and smoke evidence are complete. It checks local redacted evidence only and must not be treated as live provider readiness.
-- Use telemetry primitives for product events and operational traces.
-- Add typed product telemetry with `agentstack add event <name> --journey <journey> --surfaces web,mobile,convex --state key:type`.
-- Start billing plan work with `agentstack add billing-plan <name>` before adding surface-specific gating code.
-- Create app telemetry envelopes with `createAppTelemetry(runtime).event(definition, state)`; this does not export to a provider.
-- Use `packages/domain/src/saas-spine.ts` for roles, permissions, billing plans, entitlements, webhook types, and audit event types.
-- `convex/saasSpine.ts` carries the current SaaS spine metadata for Clerk, org, billing, and audit concepts.
-- `convex/schema.ts` materializes the current generated runtime schema, including the workspace-status table.
-- Add new SaaS tables as a current coherent product slice across schema, functions, domain, docs, and tests, not as preserved retired behavior.
-- Do not edit generated vendor glue directly.
-- Add custom env values through `agentstack.config.json`.
-- For source-prototype smoke runs, set `AGENTSTACK_CLI_BIN` and `AGENTSTACK_TSX_BIN` before running generated package scripts.
-- Inspect behavior with framework observability commands when available.
-- Inspect generated-event command history with `agentstack observe timeline --journey telemetry-generation --env development`.
-- For incidents, pivot from broad `observe query` or `observe timeline` output into focused modes: `trace`, `journey`, `errors`, `webhook`, `component`, and `compare`.
-- Treat observability output as redacted local `.agentstack/events.jsonl` evidence. Local `OTLP-shaped JSON` artifacts are available through `agentstack observe export`; network OTLP export, hosted telemetry providers, and provider dashboards are not configured in this prototype.
-- Rehearse releases with `pnpm run preview:deploy` and `pnpm run preview:deploy:apply`; they do not deploy to Vercel. For M1 real preview deployment, use `pnpm run m1:providers:bootstrap -- --confirm-live-mutation`, then `pnpm run m1:providers:link`, then `pnpm run m1:preview:deploy -- --confirm-live-mutation`, then `pnpm run m1:auth:user -- ensure --confirm-live-mutation` before browser auth smoke.
-- Rehearse mobile builds with `pnpm run mobile:build:development`, `pnpm run mobile:build:preview`, and `pnpm run mobile:build:preview:apply`; they write local `.agentstack/builds/` artifacts only when apply is used.
-- Use `apps/mobile/eas.json` and `apps/mobile/app.config.ts` as generated anchors for Expo/EAS configuration tied to `agentstack.config.json`.
+This is an Agentstack app. Keep the generated project lean and let the installed
+`agentstack` package own framework workflows, provider glue, diagnostics, and
+runbooks.
+
+## Working Contract
+
+- Use `agentstack.config.ts` as the typed source of truth for app, surface,
+  provider, environment, and telemetry settings.
+- Use package-owned Agentstack CLI help instead of generated runbooks.
+- Store mutable provider state, auth fixtures, smoke artifacts, ledgers, and
+  evidence under ignored `.agentstack/` files.
+- Do not add generated `docs/`, `scripts/`, `skills/`, root `convex/`, root
+  `vercel.json`, or root `packages/` framework internals to this app.
+
+## Commands
+
+- `pnpm run validate`
+- `pnpm run provider:bootstrap`
+- `pnpm run provider:link`
+- `pnpm run preview:deploy`
+- `pnpm run preview:smoke`
+- `pnpm run evidence:check`
+
+When a command fails, fix the first failing Agentstack diagnostic before
+broadening the investigation.

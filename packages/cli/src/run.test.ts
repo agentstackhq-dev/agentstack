@@ -59,11 +59,7 @@ beforeEach(async () => {
   providerExecutions = [];
   qualityExecutions = [];
   const manifest = createDefaultManifest("acme-crm");
-  await writeFile(
-    join(dir, "agentstack.config.json"),
-    `${JSON.stringify(manifest, null, 2)}\n`,
-    "utf8"
-  );
+  await writeManifestFixture(manifest);
   await writeGeneratedAnchors();
 });
 
@@ -350,7 +346,7 @@ describe("runAgentstack", () => {
   });
 
   it("fails generated anchor validation when a required generated file is missing", async () => {
-    await rm(join(dir, "docs/agentstack/generated-boundaries.md"), { force: true });
+    await rm(join(dir, "apps/convex/convex/schema.ts"), { force: true });
 
     const code = await runAgentstack(["generated", "validate"], {
       cwd: dir,
@@ -362,7 +358,7 @@ describe("runAgentstack", () => {
     expect(code).toBe(1);
     expect(rendered).toContain("FAIL generated validate");
     expect(rendered).toContain("FAIL template.anchor.missing");
-    expect(rendered).toContain("Path: docs/agentstack/generated-boundaries.md");
+    expect(rendered).toContain("Path: apps/convex/convex/schema.ts");
     expect(providerExecutions).toEqual([]);
     await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
       code: "ENOENT"
@@ -585,7 +581,7 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("agentstack.skills.inspect.completed");
   });
 
-  it("fails guidance skill inspection when a guidance anchor is missing", async () => {
+  it("does not require generated guidance skills for package-owned guidance inspection", async () => {
     await rm(join(dir, "skills/agentstack/SKILL.md"), { force: true });
 
     const code = await runAgentstack(["skills", "inspect"], {
@@ -593,9 +589,9 @@ describe("runAgentstack", () => {
       write: (line) => output.push(line)
     });
 
-    expect(code).toBe(1);
-    expect(output).toContain("FAIL skills inspect");
-    expect(output.join("\n")).toContain("- MISSING skills/agentstack/SKILL.md");
+    expect(code).toBe(0);
+    expect(output).toContain("PASS skills inspect");
+    expect(output.join("\n")).not.toContain("- MISSING skills/agentstack/SKILL.md");
 
     output = [];
     expect(
@@ -608,7 +604,7 @@ describe("runAgentstack", () => {
       )
     ).toBe(0);
     expect(output.join("\n")).toContain("agentstack.skills.inspect.completed");
-    expect(output.join("\n")).toContain("status=fail");
+    expect(output.join("\n")).toContain("status=ok");
   });
 
   it("loads local custom env values during validation", async () => {
@@ -1050,7 +1046,7 @@ describe("runAgentstack", () => {
   });
 
   it("fails local validation when the workspace anchor is missing", async () => {
-    await rm(join(dir, "pnpm-workspace.yaml"));
+    await rm(join(dir, ".gitignore"));
 
     const code = await runAgentstack(["validate"], {
       cwd: dir,
@@ -1059,11 +1055,11 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(1);
     expect(output.join("\n")).toContain("FAIL template.anchor.missing");
-    expect(output.join("\n")).toContain("Path: pnpm-workspace.yaml");
+    expect(output.join("\n")).toContain("Path: .gitignore");
   });
 
   it("reports a missing manifest config as a required generated anchor", async () => {
-    await rm(join(dir, "agentstack.config.json"));
+    await rm(join(dir, "agentstack.config.ts"));
 
     const code = await runAgentstack(["validate"], {
       cwd: dir,
@@ -1072,12 +1068,12 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(1);
     expect(output.join("\n")).toContain("FAIL template.anchor.missing");
-    expect(output.join("\n")).toContain("Path: agentstack.config.json");
+    expect(output.join("\n")).toContain("Path: agentstack.config.ts");
   });
 
   it("reports a manifest config directory as a required generated anchor", async () => {
-    await rm(join(dir, "agentstack.config.json"));
-    await mkdir(join(dir, "agentstack.config.json"));
+    await rm(join(dir, "agentstack.config.ts"));
+    await mkdir(join(dir, "agentstack.config.ts"));
 
     const code = await runAgentstack(["validate"], {
       cwd: dir,
@@ -1086,11 +1082,11 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(1);
     expect(output.join("\n")).toContain("FAIL template.anchor.missing");
-    expect(output.join("\n")).toContain("Path: agentstack.config.json");
+    expect(output.join("\n")).toContain("Path: agentstack.config.ts");
   });
 
   it("fails local validation when a required generated docs anchor is missing", async () => {
-    await rm(join(dir, "docs/agentstack/theming.md"));
+    await rm(join(dir, "apps/mobile/eas.json"));
 
     const code = await runAgentstack(["validate"], {
       cwd: dir,
@@ -1099,7 +1095,7 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(1);
     expect(output.join("\n")).toContain("FAIL template.anchor.missing");
-    expect(output.join("\n")).toContain("Path: docs/agentstack/theming.md");
+    expect(output.join("\n")).toContain("Path: apps/mobile/eas.json");
   });
 
   it("fails validation on a raw secret-like value in source without printing the value", async () => {
@@ -5678,7 +5674,7 @@ describe("runAgentstack", () => {
     await writeProviderLedger([]);
     const ledgerPath = join(dir, "docs", "provider-resource-ledger.md");
     const ledgerBefore = await readFile(ledgerPath, "utf8");
-    await rm(join(dir, "convex/schema.ts"));
+    await rm(join(dir, "apps/convex/convex/schema.ts"));
 
     const code = await runAgentstack(["validate", "--live", "--env", "preview"], {
       cwd: dir,
@@ -5688,7 +5684,7 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(1);
     expect(output.join("\n")).toContain("FAIL template.anchor.missing");
-    expect(output.join("\n")).toContain("Path: convex/schema.ts");
+    expect(output.join("\n")).toContain("Path: apps/convex/convex/schema.ts");
     expect(output.join("\n")).not.toContain("Evidence: live-validation");
     expect(providerExecutions).toEqual([]);
     await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
@@ -5944,7 +5940,7 @@ describe("runAgentstack", () => {
     await writeLocalEnvValues({
       preview: { convex: { OPENAI_API_KEY: "sk-local-provider-value" } }
     });
-    await rm(join(dir, "convex/schema.ts"));
+    await rm(join(dir, "apps/convex/convex/schema.ts"));
 
     const code = await runAgentstack(["provider", "inventory", "--service", "convex", "--env", "preview"], {
       cwd: dir,
@@ -5954,7 +5950,7 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(1);
     expect(output.join("\n")).toContain("FAIL template.anchor.missing");
-    expect(output.join("\n")).toContain("Path: convex/schema.ts");
+    expect(output.join("\n")).toContain("Path: apps/convex/convex/schema.ts");
     await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
       code: "ENOENT"
     });
@@ -6306,7 +6302,7 @@ describe("runAgentstack", () => {
     await writeLocalEnvValues({
       preview: { convex: { OPENAI_API_KEY: "sk-local-provider-value" } }
     });
-    await rm(join(dir, "convex/schema.ts"));
+    await rm(join(dir, "apps/convex/convex/schema.ts"));
 
     const code = await runAgentstack(
       [
@@ -6330,7 +6326,7 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(1);
     expect(output.join("\n")).toContain("FAIL template.anchor.missing");
-    expect(output.join("\n")).toContain("Path: convex/schema.ts");
+    expect(output.join("\n")).toContain("Path: apps/convex/convex/schema.ts");
     await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({
       code: "ENOENT"
     });
@@ -8766,6 +8762,7 @@ describe("package metadata", () => {
 async function writeGeneratedAnchors(): Promise<void> {
   const anchors = [
     "AGENTS.md",
+    ".gitignore",
     "package.json",
     "pnpm-workspace.yaml",
     "docs/agentstack/workflows.md",
@@ -8779,6 +8776,7 @@ async function writeGeneratedAnchors(): Promise<void> {
     "docs/agentstack/saas-spine.md",
     "apps/web/package.json",
     "apps/web/src/index.ts",
+    "apps/web/src/App.tsx",
     "apps/mobile/package.json",
     "apps/mobile/App.tsx",
     "apps/mobile/src/index.ts",
@@ -8793,6 +8791,10 @@ async function writeGeneratedAnchors(): Promise<void> {
     "convex/schema.ts",
     "convex/agentstack.ts",
     "convex/saasSpine.ts",
+    "apps/convex/package.json",
+    "apps/convex/convex/auth.config.ts",
+    "apps/convex/convex/schema.ts",
+    "apps/convex/convex/workspaceStatus.ts",
     "packages/domain/src/index.ts",
     "packages/domain/src/saas-spine.ts",
     "packages/theme/package.json",
@@ -8813,6 +8815,26 @@ async function writeGeneratedAnchors(): Promise<void> {
   );
 }
 
+async function writeManifestFixture(manifest: ReturnType<typeof createDefaultManifest>): Promise<void> {
+  await writeFile(
+    join(dir, "agentstack.config.json"),
+    `${JSON.stringify(manifest, null, 2)}\n`,
+    "utf8"
+  );
+  await writeFile(
+    join(dir, "agentstack.config.ts"),
+    [
+      'import { readFileSync } from "node:fs";',
+      "",
+      'const manifest = JSON.parse(readFileSync(new URL("./agentstack.config.json", import.meta.url), "utf8"));',
+      "",
+      "export default manifest;",
+      ""
+    ].join("\n"),
+    "utf8"
+  );
+}
+
 async function writeProviderEnvManifest(): Promise<void> {
   const manifest = createDefaultManifest("acme-crm");
   manifest.environments = ["preview"];
@@ -8824,7 +8846,7 @@ async function writeProviderEnvManifest(): Promise<void> {
     secret: true,
     providerTargets: convexPreviewTarget
   };
-  await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+  await writeManifestFixture(manifest);
 }
 
 async function writeVercelProductionEnvManifest(): Promise<void> {
@@ -8838,7 +8860,7 @@ async function writeVercelProductionEnvManifest(): Promise<void> {
     secret: false,
     providerTargets: vercelProductionTarget
   };
-  await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+  await writeManifestFixture(manifest);
 }
 
 async function writeProviderLedger(rows: string[]): Promise<void> {

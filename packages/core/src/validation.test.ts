@@ -49,58 +49,46 @@ describe("local validation", () => {
 
   it("includes manifest-declared generated anchors in required anchors", () => {
     const manifest = createDefaultManifest("acme-crm");
-    manifest.generated.requiredAnchors = ["docs/agentstack/auth.md", "packages/config/src/index.ts"];
+    manifest.generated.requiredAnchors = ["apps/web/src/acme-dashboard.tsx", "apps/convex/convex/acme.ts"];
 
     expect(getRequiredGeneratedAnchors(manifest)).toEqual(
-      expect.arrayContaining(["docs/agentstack/auth.md", "packages/config/src/index.ts"])
+      expect.arrayContaining(["apps/web/src/acme-dashboard.tsx", "apps/convex/convex/acme.ts"])
     );
   });
 
-  it("includes managed SaaS spine generated anchors in required anchors", () => {
+  it("requires only the lean generated app surface as source anchors", () => {
     expect(getRequiredGeneratedAnchors(createDefaultManifest("acme-crm"))).toEqual(
       expect.arrayContaining([
-        "docs/agentstack/saas-spine.md",
-        "packages/domain/src/saas-spine.ts",
-        "convex/saasSpine.ts"
-      ])
-    );
-  });
-
-  it("requires runtime anchors for the workspace status vertical slice", () => {
-    expect(getRequiredGeneratedAnchors(createDefaultManifest("acme-crm"))).toEqual(
-      expect.arrayContaining([
+        "AGENTS.md",
+        ".gitignore",
         "package.json",
-        "scripts/agentstack.mjs",
-        "packages/domain/src/index.ts",
-        "apps/web/src/index.ts",
-        "apps/mobile/App.tsx",
-        "apps/mobile/src/index.ts",
-        "convex/schema.ts",
-        "convex/agentstack.ts"
+        "agentstack.config.ts",
+        "apps/web/package.json",
+        "apps/mobile/package.json",
+        "apps/convex/package.json"
       ])
     );
-  });
 
-  it("includes Agentstack guidance generated anchors in required anchors", () => {
-    expect(getRequiredGeneratedAnchors(createDefaultManifest("acme-crm"))).toEqual(
+    expect(getRequiredGeneratedAnchors(createDefaultManifest("acme-crm"))).not.toEqual(
       expect.arrayContaining([
+        "agentstack.config.json",
+        "scripts/agentstack.mjs",
+        "docs/agentstack/workflows.md",
         "skills/agentstack/SKILL.md",
-        "skills/agentstack/references/workflows.md",
-        "skills/agentstack/references/guardrails.md",
-        "skills/agentstack/references/observability.md",
-        "docs/agentstack/skills.md"
+        "convex/schema.ts",
+        "packages/domain/src/index.ts"
       ])
     );
   });
 
   it("does not duplicate required anchors when the manifest also declares generated guidance files", () => {
     const manifest = createDefaultManifest("acme-crm");
-    manifest.generated.requiredAnchors = ["skills/agentstack/SKILL.md", "docs/agentstack/skills.md"];
+    manifest.generated.requiredAnchors = ["AGENTS.md", "apps/web/package.json"];
 
     const anchors = getRequiredGeneratedAnchors(manifest);
 
-    expect(anchors.filter((anchor) => anchor === "skills/agentstack/SKILL.md")).toHaveLength(1);
-    expect(anchors.filter((anchor) => anchor === "docs/agentstack/skills.md")).toHaveLength(1);
+    expect(anchors.filter((anchor) => anchor === "AGENTS.md")).toHaveLength(1);
+    expect(anchors.filter((anchor) => anchor === "apps/web/package.json")).toHaveLength(1);
   });
 
   it("includes stale guidance warnings without failing local validation", () => {
@@ -121,38 +109,42 @@ describe("local validation", () => {
 
   it("fails generated anchor validation for missing manifest-declared anchors", () => {
     const manifest = createDefaultManifest("acme-crm");
-    manifest.generated.requiredAnchors = ["docs/agentstack/auth.md"];
+    manifest.generated.requiredAnchors = ["apps/web/src/acme-dashboard.tsx"];
 
     const result = validateGeneratedAnchors({
       manifest,
-      missingPaths: ["docs/agentstack/auth.md"]
+      missingPaths: ["apps/web/src/acme-dashboard.tsx"]
     });
 
     expect(result.ok).toBe(false);
     expect(result.diagnostics).toEqual([
       expect.objectContaining({
         code: "template.anchor.missing",
-        path: "docs/agentstack/auth.md"
+        path: "apps/web/src/acme-dashboard.tsx"
       })
     ]);
   });
 
-  it("fails generated anchor validation for missing runtime anchors", () => {
+  it("fails generated anchor validation for missing lean app anchors", () => {
     const manifest = createDefaultManifest("acme-crm");
 
     const result = validateGeneratedAnchors({
       manifest,
       missingPaths: [
+        "agentstack.config.ts",
         "apps/web/src/index.ts",
         "apps/mobile/App.tsx",
         "apps/mobile/src/index.ts",
-        "convex/agentstack.ts",
-        "packages/domain/src/index.ts"
+        "apps/convex/convex/schema.ts"
       ]
     });
 
     expect(result.ok).toBe(false);
     expect(result.diagnostics).toEqual([
+      expect.objectContaining({
+        code: "template.anchor.missing",
+        path: "agentstack.config.ts"
+      }),
       expect.objectContaining({
         code: "template.anchor.missing",
         path: "apps/web/src/index.ts"
@@ -167,11 +159,7 @@ describe("local validation", () => {
       }),
       expect.objectContaining({
         code: "template.anchor.missing",
-        path: "convex/agentstack.ts"
-      }),
-      expect.objectContaining({
-        code: "template.anchor.missing",
-        path: "packages/domain/src/index.ts"
+        path: "apps/convex/convex/schema.ts"
       })
     ]);
   });

@@ -1,8 +1,0 @@
-{
-  "name": "@app/config",
-  "private": true,
-  "type": "module",
-  "exports": {
-    ".": "./src/index.ts"
-  }
-}

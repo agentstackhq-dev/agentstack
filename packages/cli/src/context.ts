@@ -1,5 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import {
   createMissingGeneratedAnchorDiagnostic,
   formatDiagnostic,
@@ -16,31 +17,42 @@ export type ProjectContext = {
 };
 
 export async function loadProjectContext(cwd: string): Promise<ProjectContext> {
-  const path = join(cwd, "agentstack.config.json");
-  let raw: string;
-
+  const path = join(cwd, "agentstack.config.ts");
   try {
-    raw = await readFile(path, "utf8");
+    const configStat = await stat(path);
+    if (!configStat.isFile()) {
+      throw Object.assign(new Error("agentstack.config.ts is not a file."), { code: "EISDIR" });
+    }
   } catch (error) {
     if (isMissingManifestAnchorError(error)) {
-      throw new Error(formatDiagnostic(createMissingGeneratedAnchorDiagnostic("agentstack.config.json")));
+      throw new Error(formatDiagnostic(createMissingGeneratedAnchorDiagnostic("agentstack.config.ts")));
     }
     throw error;
   }
 
-  let parsedJson: unknown;
+  let imported: unknown;
+
   try {
-    parsedJson = JSON.parse(raw);
+    imported = await import(`${pathToFileURL(path).href}?agentstack=${Date.now()}`);
   } catch (error) {
-    throw new Error(`FAIL manifest.invalid-json\n${(error as Error).message}`);
+    throw new Error(`FAIL manifest.invalid-config\n${(error as Error).message}`);
   }
 
-  const parsed = parseManifest(parsedJson);
+  const exportedConfig = readDefaultConfigExport(imported);
+  const parsed = parseManifest(exportedConfig);
   if (!parsed.ok) {
     throw new Error(parsed.diagnostics.map(formatDiagnostic).join("\n"));
   }
 
-  return { cwd, manifest: parsed.value, serviceOrder: readRawServiceOrder(parsedJson) };
+  return { cwd, manifest: parsed.value, serviceOrder: readRawServiceOrder(exportedConfig) };
+}
+
+function readDefaultConfigExport(imported: unknown): unknown {
+  if (typeof imported !== "object" || imported === null || !("default" in imported)) {
+    throw new Error("FAIL manifest.invalid-config\nagentstack.config.ts must default-export defineAgentstackConfig(...).");
+  }
+
+  return (imported as { default: unknown }).default;
 }
 
 function readRawServiceOrder(parsedJson: unknown): string[] {

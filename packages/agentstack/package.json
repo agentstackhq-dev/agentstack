@@ -1,0 +1,19 @@
+{
+  "name": "agentstack",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./config": "./src/config.ts"
+  },
+  "bin": {
+    "agentstack": "src/bin.js"
+  },
+  "dependencies": {
+    "@agentstack/cli": "workspace:*",
+    "@agentstack/core": "workspace:*",
+    "create-agent-stack": "workspace:*",
+    "tsx": "^4.19.2"
+  }
+}

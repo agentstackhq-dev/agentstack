@@ -3576,7 +3576,7 @@ async function runLocalValidationGate(cwd: string): Promise<{
     manifest: context.manifest,
     missingPaths: missingAnchors
   });
-  const themeDiagnostics = await findThemeDiagnostics(context.cwd);
+  const themeDiagnostics = await findThemeDiagnosticsForLocalValidation(context.cwd);
   const sourcePolicyDiagnostics = await findSourcePolicyDiagnostics(context.cwd);
   const diagnostics = [
     ...localResult.diagnostics,
@@ -3922,6 +3922,19 @@ async function generatedValidateCommand(io: RunIo): Promise<number> {
 
   io.write("PASS generated validate");
   return 0;
+}
+
+async function findThemeDiagnosticsForLocalValidation(cwd: string): Promise<Diagnostic[]> {
+  try {
+    await stat(join(cwd, "packages/theme/tokens.json"));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return [];
+    }
+    throw error;
+  }
+
+  return await findThemeDiagnostics(cwd);
 }
 
 async function findThemeDiagnostics(cwd: string): Promise<Diagnostic[]> {

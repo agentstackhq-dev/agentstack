@@ -7,17 +7,19 @@ How we run coding-agent threads after M1 proved the live provider path but expos
 
 ## Principles
 
-1. **One milestone active at a time.** M1 is complete as a provider-path spike. Do not start M2 execution until the lean generated-surface correction unlocks it.
+1. **One milestone active at a time.** M1 is complete as a provider-path spike and the lean generated-surface correction is verified. Do not start M2 live preview execution until the package-owned provider/auth/evidence approach is agreed.
 2. **Generated apps must stay lean.** Do not add copied framework docs, copied scripts, generated skills, generated provider ledgers, or copied runbooks to consumer apps.
 3. **Agentstack owns framework glue.** Provider orchestration, validation, diagnostics, docs/help, evidence, and hidden state belong in the installed Agentstack package and CLI.
 4. **Typed config is the agent feedback boundary.** `agentstack.config.ts` must be schema-driven from the package so TypeScript and CLI diagnostics point agents to precise config paths and fixes.
 5. **Real provider attempts still beat mock-only proof expansion.** Ledger every real resource, but keep ledger/evidence state in package-owned or ignored `.agentstack/` surfaces, not generated app docs.
 
-## Current correction loop
+## Current approach loop
 
-Before M2 can unlock, a correction slice must prove the generated app behaves like an app using a meta-framework:
+Before M2 live preview execution starts, agree how the package-owned CLI will carry the provider/auth/evidence behavior that M1 previously proved with generated scripts.
 
-1. Run `create-agent-stack <tmp-app>`.
+The lean correction already proved the generated app behaves like an app using a meta-framework:
+
+1. Run `agentstack create <tmp-app>` through the installed/local-published Agentstack package bin.
 2. Verify the generated root surface is limited to:
 
    ```text
@@ -35,10 +37,12 @@ Before M2 can unlock, a correction slice must prove the generated app behaves li
 3. Verify the app root does **not** contain copied `docs/`, `scripts/`, `skills/`, root `convex/`, `vercel.json`, provider ledger source files, or copied M1 runbooks.
 4. Verify `package.json` depends on Agentstack and scripts call `agentstack`.
 5. Verify `agentstack.config.ts` imports a typed schema helper from the Agentstack package.
-6. Run package-owned local validation from the generated app.
+6. Run package-owned local validation and preview deploy rehearsal from the generated app package scripts.
 7. Record evidence in this Agentstack framework repo.
 
-Only after this correction loop passes should M2 attempt the fresh-agent preview path.
+The local proof must not import source functions such as `generateProject` or `runAgentstack`. Those are implementation details. M2 execution uses command invocation as the product boundary.
+
+Only after the package-owned provider/auth/evidence approach is agreed should M2 attempt the fresh-agent preview path.
 
 ## M2 preview loop
 
@@ -150,7 +154,7 @@ docs/
   milestones/
     README.md
     M1-preview-e2e.md           # Complete provider-path spike
-    M2-agent-completes-m1.md    # Locked lean generated-surface contract
+    M2-agent-completes-m1.md    # Lean generated-surface contract and M2 preview criteria
     evidence/
       M1-preview-e2e/           # Historical redacted M1 evidence
 ```

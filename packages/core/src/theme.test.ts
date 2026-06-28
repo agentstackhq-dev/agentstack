@@ -54,8 +54,8 @@ describe("validateThemeTokens", () => {
 });
 
 describe("theme generated anchors", () => {
-  it("requires generated theme package anchors", () => {
-    expect(getRequiredGeneratedAnchors(createDefaultManifest("acme-crm"))).toEqual(
+  it("does not require copied generated theme package anchors", () => {
+    expect(getRequiredGeneratedAnchors(createDefaultManifest("acme-crm"))).not.toEqual(
       expect.arrayContaining([
         "packages/theme/package.json",
         "packages/theme/tokens.json",
