@@ -35,23 +35,7 @@ export default defineAgentstackConfig({
     }
   },
   env: {
-    custom: {
-      STRIPE_MODE: {
-        surfaces: ["convex"],
-        environments: ["preview", "production"],
-        required: false,
-        secret: false,
-        validate: "test|live",
-        providerTargets: [
-          {
-            service: "convex",
-            surfaces: ["convex"],
-            environments: ["preview", "production"],
-            source: "local-value"
-          }
-        ]
-      }
-    }
+    custom: {}
   },
   telemetry: {
     enabled: true,
@@ -64,6 +48,34 @@ export default defineAgentstackConfig({
     redaction: {
       defaultPolicy: "strict",
       forbidRawSecrets: true
+    }
+  },
+  billing: {
+    provider: "clerk",
+    requiredEnvironments: ["preview", "production"],
+    entitlements: {
+      "feature.auditLog": {
+        providerFeature: "audit_log",
+        providerPlan: "agentstack_m3_audit_log",
+        scope: "workspace",
+        payer: "organization"
+      }
+    },
+    webhook: {
+      service: "convex",
+      route: "/agentstack/webhooks/clerk/billing",
+      events: [
+        "subscription.created",
+        "subscription.updated",
+        "subscription.active",
+        "subscription.past_due",
+        "subscriptionItem.created",
+        "subscriptionItem.updated",
+        "subscriptionItem.active",
+        "subscriptionItem.canceled",
+        "subscriptionItem.ended",
+        "subscriptionItem.past_due"
+      ]
     }
   },
   generated: {

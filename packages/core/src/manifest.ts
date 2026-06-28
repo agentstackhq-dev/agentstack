@@ -10,6 +10,8 @@ export const providerEnvSourceSchema = z.enum(["local-value", "provider-owned"])
 export const expectedAgentstackGuidanceVersion = "2026-06-20";
 
 const allEnvironments = ["development", "preview", "production"] as const;
+const entitlementKeyPattern = /^[a-z][A-Za-z0-9]*(?:\.[a-z][A-Za-z0-9]*)+$/;
+const providerSlugPattern = /^[a-z][a-z0-9_]*$/;
 
 const serviceConfigSchema = (provider: z.infer<typeof serviceSchema>) =>
   z
@@ -27,6 +29,54 @@ const telemetryEnvironmentPolicySchema = z
     level: telemetryLevelSchema
   })
   .strict();
+
+const billingEventSchema = z.enum([
+  "subscription.created",
+  "subscription.updated",
+  "subscription.active",
+  "subscription.past_due",
+  "subscriptionItem.created",
+  "subscriptionItem.updated",
+  "subscriptionItem.active",
+  "subscriptionItem.canceled",
+  "subscriptionItem.ended",
+  "subscriptionItem.past_due"
+]);
+
+const billingEntitlementSchema = z
+  .object({
+    providerFeature: z.string().regex(providerSlugPattern),
+    providerPlan: z.string().regex(providerSlugPattern),
+    scope: z.enum(["workspace"]),
+    payer: z.enum(["organization", "user"])
+  })
+  .strict();
+
+const billingSchema = z
+  .object({
+    provider: z.enum(["clerk"]),
+    requiredEnvironments: z.array(environmentSchema).min(1),
+    entitlements: z.record(billingEntitlementSchema),
+    webhook: z
+      .object({
+        service: z.literal("convex"),
+        route: z.string().regex(/^\/[a-z0-9][a-z0-9/_-]*$/),
+        events: z.array(billingEventSchema).min(1)
+      })
+      .strict()
+  })
+  .strict()
+  .superRefine((billing, context) => {
+    for (const entitlementKey of Object.keys(billing.entitlements)) {
+      if (!entitlementKeyPattern.test(entitlementKey)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["entitlements", entitlementKey],
+          message: `Invalid entitlement key "${entitlementKey}".`
+        });
+      }
+    }
+  });
 
 export const providerTargetSchema = z
   .object({
@@ -120,6 +170,7 @@ export const manifestSchema = z
           .strict()
       })
       .strict(),
+    billing: billingSchema,
     generated: z
       .object({
         requiredAnchors: z.array(z.string().min(1)).default([])
@@ -150,6 +201,40 @@ export const manifestSchema = z
         });
       });
     }
+
+    if (manifest.billing.provider === "clerk" && !manifest.services.clerk.enabled) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["billing", "provider"],
+        message: "clerk is disabled for Clerk Billing."
+      });
+    }
+
+    if (manifest.billing.webhook.service === "convex" && !manifest.services.convex.enabled) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["billing", "webhook", "service"],
+        message: "convex is disabled for Clerk Billing webhook delivery."
+      });
+    }
+
+    manifest.billing.requiredEnvironments.forEach((environment, environmentIndex) => {
+      if (!manifest.services.clerk.requiredEnvironments.includes(environment)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["billing", "requiredEnvironments", environmentIndex],
+          message: `${manifest.billing.provider} is not active in ${environment} for Clerk Billing.`
+        });
+      }
+
+      if (!manifest.services.convex.requiredEnvironments.includes(environment)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["billing", "requiredEnvironments", environmentIndex],
+          message: `convex is not active in ${environment} for Clerk Billing webhook delivery.`
+        });
+      }
+    });
   });
 
 export type AgentstackManifest = z.infer<typeof manifestSchema>;
@@ -216,6 +301,34 @@ export function createDefaultManifest(slug: string): AgentstackManifest {
       redaction: {
         defaultPolicy: "strict",
         forbidRawSecrets: true
+      }
+    },
+    billing: {
+      provider: "clerk",
+      requiredEnvironments: ["preview", "production"],
+      entitlements: {
+        "feature.auditLog": {
+          providerFeature: "audit_log",
+          providerPlan: "agentstack_m3_audit_log",
+          scope: "workspace",
+          payer: "organization"
+        }
+      },
+      webhook: {
+        service: "convex",
+        route: "/agentstack/webhooks/clerk/billing",
+        events: [
+          "subscription.created",
+          "subscription.updated",
+          "subscription.active",
+          "subscription.past_due",
+          "subscriptionItem.created",
+          "subscriptionItem.updated",
+          "subscriptionItem.active",
+          "subscriptionItem.canceled",
+          "subscriptionItem.ended",
+          "subscriptionItem.past_due"
+        ]
       }
     },
     generated: {

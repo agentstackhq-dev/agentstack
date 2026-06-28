@@ -21,6 +21,34 @@ describe("manifest parsing", () => {
       required: true,
       level: "journey"
     });
+    expect(manifest.billing).toEqual({
+      provider: "clerk",
+      requiredEnvironments: ["preview", "production"],
+      entitlements: {
+        "feature.auditLog": {
+          providerFeature: "audit_log",
+          providerPlan: "agentstack_m3_audit_log",
+          scope: "workspace",
+          payer: "organization"
+        }
+      },
+      webhook: {
+        service: "convex",
+        route: "/agentstack/webhooks/clerk/billing",
+        events: [
+          "subscription.created",
+          "subscription.updated",
+          "subscription.active",
+          "subscription.past_due",
+          "subscriptionItem.created",
+          "subscriptionItem.updated",
+          "subscriptionItem.active",
+          "subscriptionItem.canceled",
+          "subscriptionItem.ended",
+          "subscriptionItem.past_due"
+        ]
+      }
+    });
     expect(manifest.generated.requiredAnchors).toEqual([]);
   });
 
@@ -95,6 +123,109 @@ describe("manifest parsing", () => {
     });
 
     expect(result.ok).toBe(true);
+  });
+
+  it("accepts Clerk Billing config for the M3 audit log entitlement", () => {
+    const manifest = createDefaultManifest("acme-crm");
+    const result = parseManifest({
+      ...manifest,
+      billing: {
+        provider: "clerk",
+        requiredEnvironments: ["preview", "production"],
+        entitlements: {
+          "feature.auditLog": {
+            providerFeature: "audit_log",
+            providerPlan: "agentstack_m3_audit_log",
+            scope: "workspace",
+            payer: "organization"
+          }
+        },
+        webhook: {
+          service: "convex",
+          route: "/agentstack/webhooks/clerk/billing",
+          events: ["subscriptionItem.active", "subscriptionItem.updated", "subscriptionItem.canceled"]
+        }
+      }
+    });
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects Clerk Billing config when Clerk or Convex is disabled for preview", () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.services.clerk.enabled = false;
+    const result = parseManifest({
+      ...manifest,
+      billing: {
+        provider: "clerk",
+        requiredEnvironments: ["preview"],
+        entitlements: {
+          "feature.auditLog": {
+            providerFeature: "audit_log",
+            providerPlan: "agentstack_m3_audit_log",
+            scope: "workspace",
+            payer: "organization"
+          }
+        },
+        webhook: {
+          service: "convex",
+          route: "/agentstack/webhooks/clerk/billing",
+          events: ["subscriptionItem.active"]
+        }
+      }
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.diagnostics).toEqual([
+        expect.objectContaining({
+          code: "manifest.invalid",
+          path: "billing.provider"
+        })
+      ]);
+    }
+  });
+
+  it("rejects Clerk Billing config when required environments are inactive for Clerk or Convex", () => {
+    const manifest = createDefaultManifest("acme-crm");
+    manifest.services.clerk.requiredEnvironments = ["production"];
+    manifest.services.convex.requiredEnvironments = ["development", "production"];
+    const result = parseManifest({
+      ...manifest,
+      billing: {
+        provider: "clerk",
+        requiredEnvironments: ["preview", "production"],
+        entitlements: {
+          "feature.auditLog": {
+            providerFeature: "audit_log",
+            providerPlan: "agentstack_m3_audit_log",
+            scope: "workspace",
+            payer: "organization"
+          }
+        },
+        webhook: {
+          service: "convex",
+          route: "/agentstack/webhooks/clerk/billing",
+          events: ["subscriptionItem.active"]
+        }
+      }
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.diagnostics).toEqual([
+        expect.objectContaining({
+          code: "manifest.invalid",
+          path: "billing.requiredEnvironments.0",
+          message: "clerk is not active in preview for Clerk Billing."
+        }),
+        expect.objectContaining({
+          code: "manifest.invalid",
+          path: "billing.requiredEnvironments.0",
+          message: "convex is not active in preview for Clerk Billing webhook delivery."
+        })
+      ]);
+    }
   });
 
   it("accepts custom env provider targets and defaults source to local-value", () => {
@@ -212,6 +343,7 @@ describe("manifest parsing", () => {
     const manifest = createDefaultManifest("acme-crm");
     manifest.services.vercel.enabled = false;
     manifest.services.convex.requiredEnvironments = ["production"];
+    manifest.billing.requiredEnvironments = ["production"];
 
     const result = parseManifest({
       ...manifest,

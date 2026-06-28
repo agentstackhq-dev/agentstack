@@ -19,6 +19,9 @@
     "provider:bootstrap": "agentstack provider bootstrap",
     "provider:link": "agentstack provider link",
     "auth:user": "agentstack auth user",
+    "billing:bootstrap": "agentstack billing bootstrap",
+    "billing:fixture": "agentstack billing fixture",
+    "billing:smoke": "agentstack billing smoke",
     "preview:deploy": "agentstack deploy --env preview",
     "preview:smoke": "agentstack smoke --env preview",
     "evidence:check": "agentstack evidence check"

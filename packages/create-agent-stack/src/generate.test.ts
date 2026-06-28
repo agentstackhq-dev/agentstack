@@ -68,7 +68,10 @@ describe("generateProject", () => {
         "auth:user": "agentstack auth user",
         "preview:deploy": "agentstack deploy --env preview",
         "preview:smoke": "agentstack smoke --env preview",
-        "evidence:check": "agentstack evidence check"
+        "evidence:check": "agentstack evidence check",
+        "billing:bootstrap": "agentstack billing bootstrap",
+        "billing:fixture": "agentstack billing fixture",
+        "billing:smoke": "agentstack billing smoke"
       });
       expect(Object.values(packageManifest.scripts).join("\n")).not.toContain("scripts/");
       expect(Object.keys(packageManifest.scripts).some((script) => script.startsWith("m1:"))).toBe(false);
@@ -76,6 +79,10 @@ describe("generateProject", () => {
       expect(config).toContain('import { defineAgentstackConfig } from "agentstack/config";');
       expect(config).toContain("export default defineAgentstackConfig");
       expect(config).toContain('slug: "acme-crm"');
+      expect(config).toContain("billing:");
+      expect(config).toContain('"feature.auditLog"');
+      expect(config).toContain('providerFeature: "audit_log"');
+      expect(config).not.toContain("STRIPE_MODE");
       expect(agents).toContain("Use package-owned Agentstack CLI help instead of generated runbooks.");
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
