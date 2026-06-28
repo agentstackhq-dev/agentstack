@@ -15,6 +15,7 @@ const sourceDir = dirname(fileURLToPath(import.meta.url));
 const packageRoot = resolve(sourceDir, "..");
 const repoRoot = resolve(packageRoot, "../..");
 const packageManifestPath = join(packageRoot, "package.json");
+const packageShimPath = join(packageRoot, "src/bin.js");
 const rootTemplateDir = join(repoRoot, "templates/b2b-saas");
 const packageTemplateDir = join(packageRoot, "templates/b2b-saas");
 const templateTokens = ["__APP_SLUG__", "__APP_NAME__"];
@@ -2971,6 +2972,23 @@ describe("package metadata", () => {
 
     expect(packageManifest.dependencies).not.toHaveProperty("@agentstack/core");
     expect(packageManifest.bin["create-agent-stack"]).toBe("src/bin.js");
+  });
+
+  test("create-agent-stack help prints usage without generating a project", async () => {
+    const tempRoot = await mkdtemp(join(tmpdir(), "agentstack-create-help-"));
+
+    try {
+      const result = await execFileAsync(process.execPath, [packageShimPath, "--help"], {
+        cwd: tempRoot
+      });
+
+      expect(result.stdout).toContain("Usage: create-agent-stack <app-name>");
+      await expect(stat(join(tempRoot, "--help"))).rejects.toMatchObject({
+        code: "ENOENT"
+      });
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
   });
 });
 

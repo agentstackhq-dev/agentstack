@@ -201,6 +201,11 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
   try {
     const [command, subcommand, ...rest] = argv;
 
+    if (command === "--help" || command === "-h") {
+      writeTopLevelUsage(io);
+      return 0;
+    }
+
     if (command === "validate") {
       return await validateCommand(argv.slice(1), io);
     }
@@ -319,6 +324,22 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
     io.write((error as Error).message);
     return 1;
   }
+}
+
+function writeTopLevelUsage(io: RunIo): void {
+  io.write("Usage: agentstack <command> [options]");
+  io.write("");
+  io.write("Commands:");
+  io.write("  validate       Validate project structure and release readiness");
+  io.write("  format         Check generated formatting-sensitive files");
+  io.write("  inspect        Inspect local project state");
+  io.write("  doctor         Diagnose local preview readiness");
+  io.write("  dev            Print local development preflight");
+  io.write("  sync           Plan or apply local cloud state");
+  io.write("  deploy         Plan or apply deploy actions");
+  io.write("  provider       Plan, inspect, link, adopt, or ledger provider resources");
+  io.write("  observe        Inspect telemetry and journey evidence");
+  io.write("  theme          Validate generated theme tokens");
 }
 
 async function validateCommand(argv: string[], io: RunIo): Promise<number> {

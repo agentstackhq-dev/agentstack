@@ -72,6 +72,18 @@ afterEach(async () => {
 });
 
 describe("runAgentstack", () => {
+  it("prints top-level usage for help flags", async () => {
+    const code = await runAgentstack(["--help"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output.join("\n")).toContain("Usage: agentstack <command>");
+    expect(output.join("\n")).toContain("validate");
+    expect(output.join("\n")).not.toContain("FAIL cli.unknown-command");
+  });
+
   it("validates the generated theme token contract", async () => {
     const code = await runAgentstack(["theme", "validate"], {
       cwd: dir,
