@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 export const providerLedgerPath = "docs/provider-resource-ledger.md";
@@ -33,6 +33,17 @@ export type ProviderLedgerRow = ProviderLedgerExpectedMatch & {
   externalIdOrUrl: string;
   cleanedAt: string;
   notes: string;
+};
+
+export type ProviderLedgerRecordInput = Omit<ProviderLedgerRow, "id" | "cleanedAt"> & {
+  id?: string;
+  cleanedAt?: string;
+  replace?: boolean;
+};
+
+export type ProviderLedgerRecordResult = {
+  path: string;
+  row: ProviderLedgerRow;
 };
 
 export type ProviderLedgerDecision =
@@ -204,6 +215,156 @@ export async function enforceProviderLedgerResourceFromCwd(
   }
 }
 
+export async function recordProviderLedgerResource(
+  cwd: string,
+  input: ProviderLedgerRecordInput
+): Promise<ProviderLedgerRecordResult> {
+  const path = join(cwd, providerLedgerPath);
+  const text = await readFile(path, "utf8");
+  const existingRows = parseProviderLedger(text);
+  const row = normalizeProviderLedgerRecord(input);
+  const replace = input.replace === true;
+
+  if (existingRows.some((candidate) => providerLedgerMatches(candidate, row))) {
+    if (!replace) {
+      throw invalidLedgerError(
+        `provider.ledger.duplicate: Ledger already has a row for ${row.provider} ${row.environment} ${row.resourceType} ${row.resourceName}.`
+      );
+    }
+
+    const updatedText = replaceProviderLedgerRow(text, row);
+    await writeFile(path, updatedText);
+    return { path: providerLedgerPath, row };
+  }
+
+  const updatedText = appendProviderLedgerRow(text, row);
+  await writeFile(path, updatedText);
+
+  return { path: providerLedgerPath, row };
+}
+
+function normalizeProviderLedgerRecord(input: ProviderLedgerRecordInput): ProviderLedgerRow {
+  const row: ProviderLedgerRow = {
+    id: input.id ?? defaultLedgerRowId(input.provider, input.environment, input.resourceType),
+    provider: input.provider,
+    environment: input.environment,
+    resourceType: input.resourceType,
+    resourceName: input.resourceName,
+    status: input.status,
+    ownerAccountOrProject: input.ownerAccountOrProject,
+    purpose: input.purpose,
+    createdBy: input.createdBy,
+    createdAt: input.createdAt,
+    expectedCleanupTriggerOrDate: input.expectedCleanupTriggerOrDate,
+    cleanupCommandOrProcedure: input.cleanupCommandOrProcedure,
+    evidenceLinkOrPath: input.evidenceLinkOrPath,
+    externalIdOrUrl: input.externalIdOrUrl,
+    cleanedAt: input.cleanedAt ?? "",
+    notes: input.notes
+  };
+
+  const cells = providerLedgerRowCells(row);
+  const invalidCell = cells.find((cell) => /[\r\n|]/.test(cell));
+  if (invalidCell !== undefined) {
+    throw invalidLedgerError("provider.ledger.invalid: ledger cell values cannot contain pipes or newlines.");
+  }
+
+  return row;
+}
+
+function appendProviderLedgerRow(text: string, row: ProviderLedgerRow): string {
+  const lines = text
+    .split(/\r?\n/)
+    .filter((line) => line.trim() !== "No real provider resources have been recorded yet.");
+  const ledgerStart = lines.findIndex((line) => line.trim() === "## Ledger");
+  if (ledgerStart < 0) {
+    throw invalidLedgerError("provider.ledger.invalid: missing Ledger section.");
+  }
+
+  const headerIndex = lines.findIndex(
+    (line, index) => index > ledgerStart && sameColumns(splitMarkdownRow(line).map(normalizeHeader), fullLedgerColumns)
+  );
+  if (headerIndex < 0) {
+    throw invalidLedgerError("provider.ledger.invalid: missing Ledger table header.");
+  }
+
+  const separatorIndex = headerIndex + 1;
+  if (!isSeparatorRow(splitMarkdownRow(lines[separatorIndex] ?? ""))) {
+    throw invalidLedgerError("provider.ledger.invalid: missing Ledger table separator.");
+  }
+
+  let insertIndex = separatorIndex + 1;
+  while (insertIndex < lines.length && lines[insertIndex]?.trim().startsWith("|")) {
+    insertIndex += 1;
+  }
+
+  lines.splice(insertIndex, 0, formatProviderLedgerRow(row));
+  return `${lines.join("\n").replace(/\n*$/, "")}\n`;
+}
+
+function replaceProviderLedgerRow(text: string, row: ProviderLedgerRow): string {
+  const lines = text.split(/\r?\n/);
+  const ledgerStart = lines.findIndex((line) => line.trim() === "## Ledger");
+  if (ledgerStart < 0) {
+    throw invalidLedgerError("provider.ledger.invalid: missing Ledger section.");
+  }
+
+  const headerIndex = lines.findIndex(
+    (line, index) => index > ledgerStart && sameColumns(splitMarkdownRow(line).map(normalizeHeader), fullLedgerColumns)
+  );
+  if (headerIndex < 0) {
+    throw invalidLedgerError("provider.ledger.invalid: missing Ledger table header.");
+  }
+
+  const separatorIndex = headerIndex + 1;
+  if (!isSeparatorRow(splitMarkdownRow(lines[separatorIndex] ?? ""))) {
+    throw invalidLedgerError("provider.ledger.invalid: missing Ledger table separator.");
+  }
+
+  let rowIndex = separatorIndex + 1;
+  while (rowIndex < lines.length && lines[rowIndex]?.trim().startsWith("|")) {
+    const cells = splitMarkdownRow(lines[rowIndex] ?? "");
+    if (cells.length === fullLedgerColumns.length && providerLedgerCellsMatch(cells, row)) {
+      lines[rowIndex] = formatProviderLedgerRow(row);
+      return `${lines.join("\n").replace(/\n*$/, "")}\n`;
+    }
+    rowIndex += 1;
+  }
+
+  throw invalidLedgerError(
+    `provider.ledger.missing: Ledger row for ${row.provider} ${row.environment} ${row.resourceType} ${row.resourceName} was not found for replacement.`
+  );
+}
+
+function formatProviderLedgerRow(row: ProviderLedgerRow): string {
+  return `| ${providerLedgerRowCells(row).join(" | ")} |`;
+}
+
+function providerLedgerRowCells(row: ProviderLedgerRow): string[] {
+  return [
+    row.id,
+    row.provider,
+    row.resourceType,
+    row.environment,
+    row.ownerAccountOrProject,
+    row.resourceName,
+    row.externalIdOrUrl,
+    row.purpose,
+    row.createdBy,
+    row.createdAt,
+    row.expectedCleanupTriggerOrDate,
+    row.status,
+    row.cleanupCommandOrProcedure,
+    row.cleanedAt,
+    row.evidenceLinkOrPath,
+    row.notes
+  ].map((cell) => cell.trim());
+}
+
+function defaultLedgerRowId(provider: string, environment: string, resourceType: string): string {
+  return `${normalizeMatch(provider)}-${normalizeMatch(environment)}-${normalizeMatch(resourceType)}`;
+}
+
 function splitMarkdownRow(line: string): string[] {
   const trimmed = line.trim();
   const withoutLeading = trimmed.startsWith("|") ? trimmed.slice(1) : trimmed;
@@ -239,6 +400,15 @@ function providerLedgerMatches(
     normalizeMatch(row.environment) === normalizeMatch(expectedMatch.environment) &&
     normalizeMatch(row.resourceType) === normalizeMatch(expectedMatch.resourceType) &&
     row.resourceName === expectedMatch.resourceName
+  );
+}
+
+function providerLedgerCellsMatch(cells: string[], expectedMatch: ProviderLedgerExpectedMatch): boolean {
+  return (
+    normalizeMatch(cells[1] ?? "") === normalizeMatch(expectedMatch.provider) &&
+    normalizeMatch(cells[3] ?? "") === normalizeMatch(expectedMatch.environment) &&
+    normalizeMatch(cells[2] ?? "") === normalizeMatch(expectedMatch.resourceType) &&
+    (cells[5] ?? "") === expectedMatch.resourceName
   );
 }
 

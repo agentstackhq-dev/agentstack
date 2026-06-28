@@ -715,7 +715,7 @@ describe("vercel command planner", () => {
           executions.push({ command, args });
           return {
             exitCode: 0,
-            stdout: "preview deployed with VERCEL_TOKEN=secret-token",
+            stdout: "preview deployed with VERCEL_TOKEN=secret-token\nhttps://acme-crm-git-m1-example.vercel.app\n",
             stderr: "",
             durationMs: 8
           };
@@ -735,7 +735,8 @@ describe("vercel command planner", () => {
         outputRedacted: true
       })
     ]);
-    expect(results[0]?.stdoutSummary).toBe("<redacted provider stdout: 1 line, 47 bytes>");
+    expect(results[0]?.deploymentUrl).toBe("https://acme-crm-git-m1-example.vercel.app");
+    expect(results[0]?.stdoutSummary).toBe("<redacted provider stdout: 3 lines, 91 bytes>");
     expect(JSON.stringify(results)).not.toContain("secret-token");
   });
 

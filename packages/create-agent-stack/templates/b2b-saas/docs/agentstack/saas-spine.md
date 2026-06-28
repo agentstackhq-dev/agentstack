@@ -24,7 +24,7 @@ Use `convex/saasSpine.ts` for current SaaS spine metadata. It identifies the fra
 
 `convex/schema.ts` currently materializes the runnable `workspaceStatuses` table for the generated workspace-status vertical.
 
-Convex functions should enforce membership and entitlement checks server-side. Web and mobile checks are product affordances only.
+`convex/workspaceStatus.ts` exposes `protectedStatus` as the M1 smoke query. It fails closed when `ctx.auth.getUserIdentity()` is null and returns a small workspace-status payload only for signed-in users. Convex functions should enforce membership and entitlement checks server-side. Web and mobile checks are product affordances only.
 
 ## Provider Wrapper Rule
 

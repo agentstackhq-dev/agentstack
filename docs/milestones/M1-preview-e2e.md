@@ -1,6 +1,6 @@
 # M1: Preview E2E (web + Clerk + Convex + Vercel)
 
-Status: **active**
+Status: **complete** — validated on 2026-06-28
 
 Hypothesis: [validation-hypothesis.md](../validation-hypothesis.md)
 
@@ -18,13 +18,13 @@ Generated Agentstack guidance + CLI can get a **preview** SaaS path live with le
 
 ## Done when (all required)
 
-- [ ] **Generate** — App created from B2B SaaS template (`create-agent-stack` or equivalent local generate) with valid anchors
-- [ ] **Ledger** — Preview resources recorded in [provider-resource-ledger.md](../provider-resource-ledger.md) with owner, purpose, cleanup
-- [ ] **Connect** — Preview Clerk + Convex + Vercel linked or adopted via Agentstack CLI (live or local path as implemented)
-- [ ] **Deploy** — Web app deployed to a Vercel preview URL via supported ledger-gated apply/deploy path
-- [ ] **Auth** — Clerk sign-in works on the deployed preview URL
-- [ ] **Data** — Signed-in user can call one protected Convex query or mutation from the web app
-- [ ] **Evidence** — Redacted bundle in [evidence/M1-preview-e2e/](./evidence/M1-preview-e2e/) with runbook, commands (redacted), deploy URL, smoke result
+- [x] **Generate** — App created from B2B SaaS template (`create-agent-stack` or equivalent local generate) with valid anchors
+- [x] **Ledger** — Preview resources recorded in [provider-resource-ledger.md](../provider-resource-ledger.md) with owner, purpose, cleanup
+- [x] **Connect** — Preview Clerk + Convex + Vercel linked or adopted via Agentstack CLI (live or local path as implemented)
+- [x] **Deploy** — Web app deployed to a Vercel preview URL via supported ledger-gated apply/deploy path
+- [x] **Auth** — Clerk sign-in works on the deployed preview URL
+- [x] **Data** — Signed-in user can call one protected Convex query or mutation from the web app
+- [x] **Evidence** — Redacted bundle in [evidence/M1-preview-e2e/](./evidence/M1-preview-e2e/) with runbook, commands (redacted), deploy URL, smoke result
 
 Optional stretch (not required for M1 pass):
 
@@ -45,39 +45,42 @@ Optional stretch (not required for M1 pass):
 - Quality gate additions (format/lint/generated) unless they block milestone CI
 - Expanding `consumer-production-readiness-progress.md`
 
-## Suggested E2E path (spike order)
+## Required E2E path
 
 1. Generate app → `pnpm run validate` (local structure)
-2. Add planned ledger rows for Clerk application, Convex deployment, Vercel project (preview)
-3. `agentstack provider plan` / inspect / inventory / link or adopt (preview)
-4. Convex apply + Vercel preview deploy apply (ledger-gated)
-5. Wire Clerk env to web; deploy; sign in
-6. Protected Convex call from web
-7. Capture evidence
+2. Run `pnpm run provider:preview:plan` to see intended provider lifecycle
+3. Run `pnpm run m1:providers:bootstrap -- --confirm-live-mutation` to create/reuse, ledger, and locally configure preview Clerk, Convex, and Vercel
+4. Run `pnpm run m1:providers:link`
+5. Run `pnpm run m1:preview:deploy -- --confirm-live-mutation`
+6. Sign in on the Vercel preview URL and capture the deployed DOM
+7. Run `pnpm run m1:preview:smoke -- --url <deploy-url> --dom-file .agentstack/m1-preview-dom.html`
+8. Complete the runbook with redacted facts and run `pnpm run m1:evidence:check`
 
-Adjust based on what the repo actually supports today — document gaps honestly.
+`m1:ledger:record` is a repair/fallback command for known existing resources or damaged rows. Do not make it the default M1 path while `m1:providers:bootstrap` can be run.
 
 ## Current blocker
 
-_none recorded yet — run spike thread to fill this in_
+None for M1. The generated app path reached real Clerk, Convex, and Vercel resources, deployed to Vercel preview, signed in through Clerk, loaded protected Convex data, and passed the generated evidence check.
 
 ## Last E2E attempt
 
 | Field | Value |
 | --- | --- |
-| Date | — |
-| Actor | — |
-| App path | — |
-| Result | not attempted |
-| Commands run | — |
-| Friction notes | — |
-| Next smallest step | Run spike thread per [THREAD-KICKOFF.md](./THREAD-KICKOFF.md) |
+| Date | 2026-06-28 |
+| Actor | Codex |
+| App path | `/tmp/agentstack-m1-live-20260627-211537-96116` |
+| Result | Generate PASS; provider bootstrap PASS; provider link PASS; Convex apply PASS; Vercel preview deploy PASS; Auth PASS; protected Convex data PASS; evidence check PASS |
+| Deploy URL | `https://tmp-agentstack-m1-live-20260627-211537-96116-iq375zhic.vercel.app/` |
+| Commands run | See [m1-live-preview-pass-2026-06-28.md](./evidence/M1-preview-e2e/m1-live-preview-pass-2026-06-28.md) |
+| Evidence | [m1-live-preview-pass-2026-06-28.md](./evidence/M1-preview-e2e/m1-live-preview-pass-2026-06-28.md) |
+| Friction notes | Vercel Deployment Protection was bypassed by using an authenticated browser path. The live Auth/Data fix required the generated web runtime to wait for Convex auth before protected queries and the bootstrap helper to ensure the Clerk `convex` JWT template. The Clerk smoke user used for browser sign-in had client trust bypass enabled for this M1 run and is ledgered for cleanup review. |
+| Next smallest step | Human pass criteria review, then cleanup or retain temporary provider resources according to [provider-resource-ledger.md](../provider-resource-ledger.md). |
 
-## Unblock queue (from spike; max 3)
+## Post-pass queue (max 3)
 
-1. _pending spike_
-2. —
-3. —
+1. Review whether M1 used generated docs/skills sufficiently or needs one final generated-guidance tightening pass.
+2. Clean up or intentionally retain the 2026-06-22 and 2026-06-28 preview provider resources in [provider-resource-ledger.md](../provider-resource-ledger.md).
+3. Separately clean up accidental `__APP_SLUG__-preview` resources from the temp-script copy mistake.
 
 ## Pass criteria review
 

@@ -50,3 +50,33 @@ export const checklistProgress = query({
     return getWorkspaceStatusChecklistProgress(existing ?? getWorkspaceStatusSeed());
   }
 });
+
+export const protectedStatus = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (identity === null) {
+      throw new Error("Not authenticated");
+    }
+
+    const status = getWorkspaceStatusSeed();
+    const existing = await ctx.db
+      .query("workspaceStatuses")
+      .withIndex("by_workspace", (q) => q.eq("workspaceId", status.workspaceId))
+      .first();
+    const workspaceStatus = existing ?? status;
+
+    return {
+      workspaceId: workspaceStatus.workspaceId,
+      workspaceName: workspaceStatus.workspaceName,
+      phase: workspaceStatus.phase,
+      checklistProgress: getWorkspaceStatusChecklistProgress(workspaceStatus),
+      viewer: {
+        subject: identity.subject,
+        issuer: identity.issuer,
+        name: identity.name ?? identity.email ?? "Signed-in user"
+      }
+    };
+  }
+});

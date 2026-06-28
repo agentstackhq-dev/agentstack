@@ -3,10 +3,12 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@clerk/react": "^6.10.4",
     "@app/domain": "workspace:*",
     "@app/theme": "workspace:*",
     "@app/ui": "workspace:*",
     "@vitejs/plugin-react": "^4.3.4",
+    "convex": "^1.41.0",
     "vite": "^6.0.7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

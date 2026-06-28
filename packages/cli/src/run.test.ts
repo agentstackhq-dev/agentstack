@@ -2967,11 +2967,14 @@ describe("runAgentstack", () => {
     const code = await runAgentstack(["provider", "apply", "--service", "vercel", "--env", "preview"], {
       cwd: dir,
       write: (line) => output.push(line),
-      providerExecutor: createMockProviderExecutor("deployed with API_TOKEN=provider-vercel-secret")
+      providerExecutor: createMockProviderExecutor(
+        "deployed with API_TOKEN=provider-vercel-secret\nhttps://acme-crm-git-m1-example.vercel.app\n"
+      )
     });
 
     expect(code).toBe(0);
     expect(output).toContain("APPLIED provider vercel preview");
+    expect(output).toContain("Deploy URL: https://acme-crm-git-m1-example.vercel.app");
     expect(output.join("\n")).toContain("Evidence: live-mutation");
     expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
       "exec vercel deploy --target=preview"
@@ -6001,6 +6004,246 @@ describe("runAgentstack", () => {
       code: "ENOENT"
     });
     expect(providerExecutions).toHaveLength(0);
+  });
+
+  it("records planned provider ledger rows locally before provider link", async () => {
+    await writeProviderLedger([]);
+    const secretLikeExternalId = "https://convex.cloud/d/secret-preview-1234567890";
+
+    const recordCode = await runAgentstack(
+      [
+        "provider",
+        "ledger",
+        "record",
+        "--service",
+        "convex",
+        "--env",
+        "preview",
+        "--resource-type",
+        "deployment",
+        "--name",
+        "acme-crm-preview",
+        "--external-id",
+        secretLikeExternalId,
+        "--owner",
+        "cardinal-dev",
+        "--purpose",
+        "M1 preview protected Convex data smoke",
+        "--created-by",
+        "Codex",
+        "--created-at",
+        "2026-06-22",
+        "--cleanup-trigger",
+        "M1 pass or pivot",
+        "--cleanup",
+        "delete through Convex dashboard",
+        "--evidence",
+        "docs/milestones/evidence/M1-preview-e2e/ledger-2026-06-22.md",
+        "--notes",
+        "planned row before provider mutation"
+      ],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: createMockProviderExecutor("provider ledger record should not run provider commands")
+      }
+    );
+
+    expect(recordCode).toBe(0);
+    expect(output).toContain("RECORDED provider ledger convex preview");
+    expect(output).toContain("Evidence: provider-ledger-record");
+    expect(output).toContain("Local mutation: docs/provider-resource-ledger.md");
+    expect(output).toContain("Provider mutation: none");
+    expect(output).toContain("Telemetry mutation: none");
+    expect(output.join("\n")).not.toContain(secretLikeExternalId);
+    expect(providerExecutions).toHaveLength(0);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+
+    const ledger = await readFile(join(dir, "docs", "provider-resource-ledger.md"), "utf8");
+    expect(ledger).toContain("| convex-preview-deployment | convex | deployment | preview | cardinal-dev | acme-crm-preview | https://convex.cloud/d/secret-preview-1234567890 | M1 preview protected Convex data smoke | Codex | 2026-06-22 | M1 pass or pivot | planned | delete through Convex dashboard |  | docs/milestones/evidence/M1-preview-e2e/ledger-2026-06-22.md | planned row before provider mutation |");
+    expect(ledger).not.toContain("No real provider resources have been recorded yet.");
+
+    output = [];
+    const linkCode = await runAgentstack(
+      [
+        "provider",
+        "link",
+        "--service",
+        "convex",
+        "--env",
+        "preview",
+        "--resource-type",
+        "deployment",
+        "--name",
+        "acme-crm-preview"
+      ],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: createMockProviderExecutor("provider link should remain local")
+      }
+    );
+
+    expect(linkCode).toBe(0);
+    expect(output).toContain("LINKED provider convex preview");
+    expect(output).toContain("Evidence: ledger-local-inventory");
+    expect(output).toContain("Provider mutation: none");
+    expect(output.join("\n")).not.toContain(secretLikeExternalId);
+  });
+
+  it("writes redacted provider ledger evidence when requested", async () => {
+    await writeProviderLedger([]);
+    const secretLikeExternalId = "https://convex.cloud/d/secret-preview-1234567890";
+    const evidencePath = "docs/milestones/evidence/M1-preview-e2e/provider-ledger-2026-06-22.md";
+
+    const recordCode = await runAgentstack(
+      [
+        "provider",
+        "ledger",
+        "record",
+        "--service",
+        "convex",
+        "--env",
+        "preview",
+        "--resource-type",
+        "deployment",
+        "--name",
+        "acme-crm-preview",
+        "--external-id",
+        secretLikeExternalId,
+        "--owner",
+        "cardinal-dev",
+        "--purpose",
+        "M1 preview protected Convex data smoke",
+        "--created-by",
+        "Codex",
+        "--created-at",
+        "2026-06-22",
+        "--cleanup-trigger",
+        "M1 pass or pivot",
+        "--cleanup",
+        "delete through Convex dashboard",
+        "--evidence",
+        evidencePath,
+        "--notes",
+        "planned row before provider mutation",
+        "--write-evidence"
+      ],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: createMockProviderExecutor("provider ledger record should not run provider commands")
+      }
+    );
+
+    expect(recordCode).toBe(0);
+    expect(output).toContain("RECORDED provider ledger convex preview");
+    expect(output).toContain("Evidence: provider-ledger-record");
+    expect(output).toContain("Local mutation: docs/provider-resource-ledger.md");
+    expect(output).toContain(`Local mutation: ${evidencePath}`);
+    expect(output).toContain("Provider mutation: none");
+    expect(output).toContain("Telemetry mutation: none");
+    expect(output.join("\n")).not.toContain(secretLikeExternalId);
+    expect(providerExecutions).toHaveLength(0);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+
+    const evidence = await readFile(join(dir, evidencePath), "utf8");
+    expect(evidence).toContain("# Provider Ledger Evidence - convex preview deployment");
+    expect(evidence).toContain("- Status: planned");
+    expect(evidence).toContain("- Owner account/project: cardinal-dev");
+    expect(evidence).toContain("- Purpose: M1 preview protected Convex data smoke");
+    expect(evidence).toContain("- External id/url: recorded in provider ledger (redacted)");
+    expect(evidence).toContain("Provider mutation: none");
+    expect(evidence).toContain("Telemetry mutation: none");
+    expect(evidence).not.toContain(secretLikeExternalId);
+
+    const ledger = await readFile(join(dir, "docs", "provider-resource-ledger.md"), "utf8");
+    expect(ledger).toContain(secretLikeExternalId);
+    expect(ledger).toContain(`| docs/milestones/evidence/M1-preview-e2e/provider-ledger-2026-06-22.md |`);
+  });
+
+  it("replaces an existing provider ledger row when explicitly requested", async () => {
+    await writeProviderLedger([
+      providerLedgerRow({
+        id: "convex-preview-deployment",
+        provider: "convex",
+        resourceType: "deployment",
+        environment: "preview",
+        name: "acme-crm-preview",
+        status: "planned",
+        externalId: "pending",
+        purpose: "M1 preview protected Convex data smoke",
+        createdBy: "Codex",
+        createdAt: "2026-06-22",
+        expectedCleanup: "M1 pass or pivot",
+        cleanupCommand: "delete through Convex dashboard",
+        evidence: "docs/milestones/evidence/M1-preview-e2e/provider-ledger-convex-2026-06-22.md"
+      })
+    ]);
+    const secretLikeExternalId = "https://convex.cloud/d/secret-preview-1234567890";
+
+    const recordCode = await runAgentstack(
+      [
+        "provider",
+        "ledger",
+        "record",
+        "--replace",
+        "--service",
+        "convex",
+        "--env",
+        "preview",
+        "--resource-type",
+        "deployment",
+        "--name",
+        "acme-crm-preview",
+        "--external-id",
+        secretLikeExternalId,
+        "--owner",
+        "cardinal-dev",
+        "--purpose",
+        "M1 preview protected Convex data smoke",
+        "--created-by",
+        "Codex",
+        "--created-at",
+        "2026-06-22",
+        "--status",
+        "active",
+        "--cleanup-trigger",
+        "M1 pass or pivot",
+        "--cleanup",
+        "delete through Convex dashboard",
+        "--evidence",
+        "docs/milestones/evidence/M1-preview-e2e/provider-ledger-convex-2026-06-22-active.md",
+        "--notes",
+        "updated after provider mutation"
+      ],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: createMockProviderExecutor("provider ledger replace should not run provider commands")
+      }
+    );
+
+    expect(recordCode).toBe(0);
+    expect(output).toContain("UPDATED provider ledger convex preview");
+    expect(output).toContain("Evidence: provider-ledger-record");
+    expect(output).toContain("Local mutation: docs/provider-resource-ledger.md");
+    expect(output).toContain("Provider mutation: none");
+    expect(output).toContain("Telemetry mutation: none");
+    expect(output.join("\n")).not.toContain(secretLikeExternalId);
+    expect(providerExecutions).toHaveLength(0);
+    await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+
+    const ledger = await readFile(join(dir, "docs", "provider-resource-ledger.md"), "utf8");
+    expect(ledger.match(/convex-preview-deployment/g)).toHaveLength(1);
+    expect(ledger).toContain("| convex-preview-deployment | convex | deployment | preview | cardinal-dev | acme-crm-preview | https://convex.cloud/d/secret-preview-1234567890 | M1 preview protected Convex data smoke | Codex | 2026-06-22 | M1 pass or pivot | active | delete through Convex dashboard |  | docs/milestones/evidence/M1-preview-e2e/provider-ledger-convex-2026-06-22-active.md | updated after provider mutation |");
+    expect(ledger).not.toContain("| pending |");
   });
 
   it("keeps default provider link local with explicit mutation boundaries and zero provider executors", async () => {

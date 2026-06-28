@@ -523,12 +523,18 @@ export async function executeVercelPreviewApply(
         commandKind: command.kind,
         command,
         result,
-        secretValues: options.secretValues
+        secretValues: options.secretValues,
+        deploymentUrl: extractVercelDeploymentUrl(result.stdout)
       })
     );
   }
 
   return results;
+}
+
+function extractVercelDeploymentUrl(stdout: string): string | undefined {
+  const match = stdout.match(/https:\/\/[^\s"'<>]+\.vercel\.app\b[^\s"'<>]*/);
+  return match?.[0];
 }
 
 function operationCommand(operation: ProviderOperation, target: VercelTarget): VercelCliCommand[] {

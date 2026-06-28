@@ -163,6 +163,7 @@ export type ProviderExecutionResult = {
   outputRedacted: boolean;
   resourceNames?: string[];
   providerResourceId?: string;
+  deploymentUrl?: string;
   liveIdentityFacts?: ProviderLiveIdentityFacts;
   identityCandidates?: ProviderIdentityCandidatesArtifact;
   exactIdentityProof?: ProviderExactIdentityProofArtifact;
@@ -183,6 +184,7 @@ export type ProviderExecutionResultInput = {
   result: ProviderCommandResult;
   secretValues?: string[];
   providerResourceId?: string;
+  deploymentUrl?: string;
   resourceNames?: string[];
   liveIdentityFacts?: ProviderLiveIdentityFacts;
   identityCandidates?: ProviderIdentityCandidatesArtifact;
@@ -240,6 +242,7 @@ export function createProviderExecutionResult(
     providerResourceId: input.providerResourceId
       ? redactProviderText(input.providerResourceId, { secretValues: input.secretValues })
       : undefined,
+    deploymentUrl: input.deploymentUrl ? redactProviderText(input.deploymentUrl, { secretValues: input.secretValues }) : undefined,
     liveIdentityFacts:
       status === "success" ? normalizeLiveIdentityFacts(input.liveIdentityFacts) : undefined,
     identityCandidates:

@@ -42,6 +42,9 @@ Only `planned` and `active` rows can authorize supported provider apply commands
 ## Operational Rules
 
 - Do not record raw secrets, tokens, private keys, passwords, session values, or full sensitive environment values in this file.
+- Prefer `agentstack provider ledger record` for planned or active rows so the table shape is validated before provider link/apply commands.
+- Use `agentstack provider ledger record --replace` only to replace the matching provider/environment/resource/name row after a planned `pending` row gets a real provider id or dashboard URL.
+- Use `--write-evidence` when `--evidence` points to a local milestone evidence markdown file. The command writes a redacted evidence note under `docs/milestones/evidence/` without calling provider CLIs or writing telemetry.
 - Do not create, adopt, inspect, or mutate untracked real provider resources. Add a row first, then run the provider operation.
 - Provider plans may report ledger state, but they do not create or update ledger rows.
 - Supported provider apply commands require a matching `planned` or `active` row with required fields complete before execution.

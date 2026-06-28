@@ -1,6 +1,6 @@
 import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
-import { dirname, extname, join } from "node:path";
+import { dirname, extname, join, normalize } from "node:path";
 import {
   createClerkCommandPlan,
   createConvexCommandPlan,
@@ -29,6 +29,7 @@ import {
   linkLedgerBackedProviderResource,
   parseProviderLedger,
   providerLedgerPath,
+  recordProviderLedgerResource,
   redactProviderText,
   type InspectEnvResource,
   type ProviderAdapterDefinition,
@@ -43,6 +44,7 @@ import {
   type ProviderInventorySource,
   type ProviderInventoryRow,
   type ProviderLifecyclePlan,
+  type ProviderLedgerRow,
   type ProviderLedgerDecision,
   type ProviderLedgerExpectedMatch,
   type ProviderProofContract,
@@ -247,6 +249,10 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
 
     if (command === "provider" && subcommand === "proof") {
       return await providerProofCommand(rest, io);
+    }
+
+    if (command === "provider" && subcommand === "ledger") {
+      return await providerLedgerCommand(rest, io);
     }
 
     if (command === "provider" && subcommand === "link") {
@@ -2377,6 +2383,236 @@ async function providerLinkCommand(argv: string[], io: RunIo): Promise<number> {
   return 0;
 }
 
+async function providerLedgerCommand(argv: string[], io: RunIo): Promise<number> {
+  const [subcommand, ...rest] = argv;
+  if (subcommand !== "record") {
+    io.write(
+      formatDiagnostic({
+        severity: "fail",
+        code: "provider.ledger.command.unsupported",
+        path: `provider ledger ${String(subcommand ?? "")}`.trim(),
+        message: "Provider ledger supports the record subcommand in this slice.",
+        fix:
+          "Run agentstack provider ledger record --service convex --env preview --resource-type deployment --name acme-crm-preview --owner <owner> --purpose <purpose> --created-by <name> --created-at <date> --cleanup <procedure> --cleanup-trigger <trigger> --evidence <path>.",
+        blocks: ["provider ledger"]
+      })
+    );
+    return 1;
+  }
+
+  return await providerLedgerRecordCommand(rest, io);
+}
+
+async function providerLedgerRecordCommand(argv: string[], io: RunIo): Promise<number> {
+  const options = parseOptions(argv);
+  const fix =
+    "Run agentstack provider ledger record --service convex --env preview --resource-type deployment --name acme-crm-preview --owner <owner> --purpose <purpose> --created-by <name> --created-at <date> --cleanup <procedure> --cleanup-trigger <trigger> --evidence <path>.";
+  const service = readProviderControlPlaneServiceOption(options.service, fix);
+  const environment = readProviderRuntimeEnvironmentOption(options.env, fix);
+  const resourceType = readRequiredStringOption(options["resource-type"], "resource-type", fix);
+  const name = readRequiredStringOption(options.name, "name", fix);
+  const externalIdOrUrl = readOptionalStringOption(options["external-id"]) ?? "pending";
+  const ownerAccountOrProject = readRequiredStringOption(options.owner, "owner", fix);
+  const purpose = readRequiredStringOption(options.purpose, "purpose", fix);
+  const createdBy = readRequiredStringOption(options["created-by"], "created-by", fix);
+  const createdAt = readRequiredStringOption(options["created-at"], "created-at", fix);
+  const cleanupCommandOrProcedure = readRequiredStringOption(options.cleanup, "cleanup", fix);
+  const expectedCleanupTriggerOrDate = readRequiredStringOption(options["cleanup-trigger"], "cleanup-trigger", fix);
+  const evidenceLinkOrPath = readRequiredStringOption(options.evidence, "evidence", fix);
+  const notes = typeof options.notes === "string" ? options.notes : "";
+  const status = readProviderLedgerRecordStatus(options.status);
+  const writeEvidence = readBooleanFlagOption(options["write-evidence"], "write-evidence", fix);
+  const replace = readBooleanFlagOption(options.replace, "replace", fix);
+  const evidenceWritePath = writeEvidence ? normalizeProviderLedgerEvidencePath(evidenceLinkOrPath) : undefined;
+  if (evidenceWritePath?.ok === false) {
+    io.write(
+      formatDiagnostic({
+        severity: "fail",
+        code: "provider.ledger.evidence.invalid",
+        path: evidenceLinkOrPath,
+        message: evidenceWritePath.message,
+        fix: "Use a markdown path under docs/milestones/evidence/<milestone-id>/, for example docs/milestones/evidence/M1-preview-e2e/provider-ledger-2026-06-22.md.",
+        blocks: ["provider ledger"]
+      })
+    );
+    return 1;
+  }
+
+  const normalizedEvidenceLinkOrPath = evidenceWritePath?.path ?? evidenceLinkOrPath;
+  if (writeEvidence) {
+    const existingEvidenceError = await providerLedgerEvidenceExists(io.cwd, normalizedEvidenceLinkOrPath);
+    if (existingEvidenceError !== undefined) {
+      io.write(
+        formatDiagnostic({
+          severity: "fail",
+          code: "provider.ledger.evidence.exists",
+          path: normalizedEvidenceLinkOrPath,
+          message: existingEvidenceError,
+          fix: "Choose a new evidence note path or review the existing evidence before recording another row.",
+          blocks: ["provider ledger"]
+        })
+      );
+      return 1;
+    }
+  }
+
+  const validation = await runLocalValidationGate(io.cwd);
+  validation.diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
+  if (validation.diagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
+    return 1;
+  }
+
+  try {
+    const result = await recordProviderLedgerResource(io.cwd, {
+      provider: service,
+      environment,
+      resourceType,
+      resourceName: name,
+      status,
+      ownerAccountOrProject,
+      purpose,
+      createdBy,
+      createdAt,
+      expectedCleanupTriggerOrDate,
+      cleanupCommandOrProcedure,
+      evidenceLinkOrPath: normalizedEvidenceLinkOrPath,
+      externalIdOrUrl,
+      notes,
+      replace
+    });
+    if (writeEvidence) {
+      await writeProviderLedgerRecordEvidence(io.cwd, normalizedEvidenceLinkOrPath, result.row);
+    }
+  } catch (error) {
+    io.write(
+      formatDiagnostic({
+        severity: "fail",
+        code: "provider.ledger.record.failed",
+        path: providerLedgerPath,
+        message: redactProviderText(error instanceof Error ? error.message : String(error)),
+        fix: "Fix docs/provider-resource-ledger.md or choose a unique provider/resource row before recording.",
+        blocks: ["provider ledger"]
+      })
+    );
+    return 1;
+  }
+
+  io.write(`${replace ? "UPDATED" : "RECORDED"} provider ledger ${service} ${environment}`);
+  io.write("Evidence: provider-ledger-record");
+  io.write(`Resource: ${resourceType} ${name}`);
+  io.write(`Status: ${status}`);
+  io.write(`Local mutation: ${providerLedgerPath}`);
+  if (writeEvidence) {
+    io.write(`Local mutation: ${normalizedEvidenceLinkOrPath}`);
+  }
+  io.write("Provider mutation: none");
+  io.write("Telemetry mutation: none");
+  return 0;
+}
+
+function readBooleanFlagOption(
+  value: string | boolean | undefined,
+  flag: string,
+  fix: string
+): boolean {
+  if (value === undefined) {
+    return false;
+  }
+  if (value === true) {
+    return true;
+  }
+
+  throw new Error(
+    [
+      "FAIL cli.option.invalid",
+      `Invalid --${flag} value. Use --${flag} without a value.`,
+      `Fix: ${fix}`
+    ].join("\n")
+  );
+}
+
+function normalizeProviderLedgerEvidencePath(
+  evidenceLinkOrPath: string
+): { ok: true; path: string } | { ok: false; message: string } {
+  if (evidenceLinkOrPath.startsWith("/") || evidenceLinkOrPath.includes("\\")) {
+    return { ok: false, message: "Provider ledger evidence must be a relative POSIX markdown path." };
+  }
+
+  const normalized = normalize(evidenceLinkOrPath).replace(/\\/g, "/");
+  if (
+    normalized === "." ||
+    normalized.startsWith("../") ||
+    normalized === ".." ||
+    normalized.includes("/../")
+  ) {
+    return { ok: false, message: "Provider ledger evidence cannot traverse outside the project." };
+  }
+
+  if (!normalized.startsWith("docs/milestones/evidence/")) {
+    return {
+      ok: false,
+      message: "Provider ledger evidence must be written under docs/milestones/evidence/."
+    };
+  }
+
+  if (extname(normalized) !== ".md") {
+    return { ok: false, message: "Provider ledger evidence must be a markdown file." };
+  }
+
+  return { ok: true, path: normalized };
+}
+
+async function providerLedgerEvidenceExists(cwd: string, evidencePath: string): Promise<string | undefined> {
+  try {
+    await stat(join(cwd, evidencePath));
+    return "Provider ledger evidence file already exists.";
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return undefined;
+    }
+    throw error;
+  }
+}
+
+async function writeProviderLedgerRecordEvidence(
+  cwd: string,
+  evidencePath: string,
+  row: ProviderLedgerRow
+): Promise<void> {
+  const absolutePath = join(cwd, evidencePath);
+  await mkdir(dirname(absolutePath), { recursive: true });
+  await writeFile(absolutePath, formatProviderLedgerRecordEvidence(row), { flag: "wx" });
+}
+
+function formatProviderLedgerRecordEvidence(row: ProviderLedgerRow): string {
+  const secretValues = [row.externalIdOrUrl].filter((value) => value !== "" && value !== "pending");
+  const redacted = (value: string): string => redactProviderText(value, { secretValues });
+
+  return [
+    `# Provider Ledger Evidence - ${redacted(row.provider)} ${redacted(row.environment)} ${redacted(row.resourceType)}`,
+    "",
+    "- Evidence type: provider-ledger-record",
+    `- Provider: ${redacted(row.provider)}`,
+    `- Environment: ${redacted(row.environment)}`,
+    `- Resource type: ${redacted(row.resourceType)}`,
+    `- Resource name: ${redacted(row.resourceName)}`,
+    `- Status: ${redacted(row.status)}`,
+    `- Owner account/project: ${redacted(row.ownerAccountOrProject)}`,
+    `- Purpose: ${redacted(row.purpose)}`,
+    `- Created by: ${redacted(row.createdBy)}`,
+    `- Created at: ${redacted(row.createdAt)}`,
+    `- Expected cleanup trigger/date: ${redacted(row.expectedCleanupTriggerOrDate)}`,
+    `- Cleanup command/procedure: ${redacted(row.cleanupCommandOrProcedure)}`,
+    "- External id/url: recorded in provider ledger (redacted)",
+    `- Evidence link/path: ${redacted(row.evidenceLinkOrPath)}`,
+    `- Notes: ${redacted(row.notes)}`,
+    "",
+    "Provider mutation: none",
+    "Telemetry mutation: none",
+    ""
+  ].join("\n");
+}
+
 async function providerAdoptCommand(argv: string[], io: RunIo): Promise<number> {
   const options = parseOptions(argv);
   const fix =
@@ -2911,6 +3147,24 @@ function readProviderControlPlaneServiceOption(
   );
 }
 
+function readProviderLedgerRecordStatus(value: string | boolean | undefined): "planned" | "active" {
+  if (value === undefined) {
+    return "planned";
+  }
+
+  if (value === "planned" || value === "active") {
+    return value;
+  }
+
+  throw new Error(
+    [
+      "FAIL cli.option.invalid",
+      `Invalid --status value: ${String(value)}. Expected one of: planned, active.`,
+      "Fix: Run agentstack provider ledger record --status planned."
+    ].join("\n")
+  );
+}
+
 function readProviderInventorySourceOption(
   value: string | boolean | undefined,
   live: string | boolean | undefined,
@@ -3037,6 +3291,9 @@ function writeProviderExecutionDiagnostics(io: RunIo, results: ProviderExecution
     const stderr = result.stderrSummary ? ` stderr=${result.stderrSummary}` : "";
     const failure = result.failureClass ? ` failure=${result.failureClass}` : "";
     io.write(`- ${result.commandKind} ${result.status} exit=${result.exitCode}${failure}${stdout}${stderr}`);
+    if (result.deploymentUrl) {
+      io.write(`Deploy URL: ${result.deploymentUrl}`);
+    }
   }
 }
 

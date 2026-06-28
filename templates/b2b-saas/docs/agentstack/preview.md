@@ -6,6 +6,77 @@ Clerk, Convex, Vercel, and EAS have command-plan surfaces. `clerk:command-plan`,
 
 Supported provider apply paths require a matching `planned` or `active` ledger row before the provider executor runs. Convex preview apply requires provider `convex`, env `preview`, resource type `deployment`, and name `__APP_SLUG__-preview`. Convex production apply requires provider `convex`, env `production`, resource type `deployment`, and name `prod`. Vercel preview apply requires provider `vercel`, env `preview`, resource type `project`, and name `__APP_SLUG__`. Missing, incomplete, invalid, blocked, cleanup-pending, cleaned, or abandoned-with-reason ledger rows block mutation with `FAIL provider.ledger.*` diagnostics. `provider plan` does not require or mutate the ledger, but prints sanitized summaries such as `Resource: project __APP_SLUG__`, `Ledger: missing`, and `Lifecycle: create` for every expected provider resource. `provider reconcile --plan` does not require or mutate the ledger either; it remains an unknown-current-state reconciliation artifact.
 
+## M1 web-only preview path
+
+Use this path when validating Agentstack M1 Preview E2E. M1 is web-only: it covers Clerk, Convex, and Vercel preview resources. Start with the aggregate provider plan to see intended lifecycle, then run the live bootstrap command:
+
+```bash
+pnpm run provider:preview:plan
+```
+
+```bash
+pnpm run m1:providers:bootstrap -- --confirm-live-mutation --created-by <name>
+```
+
+`m1:providers:bootstrap` is the primary M1 Ledger + Connect entrypoint. It uses local provider CLIs to create or reuse the Clerk preview application, Convex preview deployment, and Vercel project, records planned rows before create where needed, replaces them with active ledger rows once real resources exist, runs Clerk/Vercel link commands, saves Convex deploy-key env to `.agentstack/convex-preview.env`, configures the minimum Convex and Vercel runtime env needed for M1, and writes redacted `provider-bootstrap.txt` evidence.
+
+Provider CLI authentication, browser login, and Convex account/project selection are part of the path. If a CLI prints a login URL or interactive project selection requirement, complete that handoff and rerun the same bootstrap command. Do not replace this with undocumented dashboard setup or manual resource transcription.
+
+Use `m1:ledger:record` only as a low-level fallback when repairing rows or recording known existing resources that bootstrap cannot discover:
+
+```bash
+export M1_CLERK_EXTERNAL_ID=<real-id-or-url>
+export M1_CONVEX_EXTERNAL_ID=<real-id-or-url>
+export M1_VERCEL_EXTERNAL_ID=<real-id-or-url>
+pnpm run m1:ledger:record -- --owner <owner-account-or-project> --created-by <name> --created-at <yyyy-mm-dd> --status active --replace
+```
+
+Update `docs/milestones/evidence/M1-preview-e2e/runbook.md` as each real M1 step runs. Keep command notes redacted and do not paste raw provider CLI output, tokens, cookies, or raw DOM snapshots.
+
+After the three active M1 ledger rows exist, link the preview resources into local Agentstack provider-link state:
+
+```bash
+pnpm run m1:providers:link
+```
+
+`m1:providers:link` requires active Clerk, Convex, and Vercel M1 ledger rows before it calls the existing ledger-gated `provider link` commands. It writes `.agentstack/provider-links.json` plus redacted M1 link evidence at `docs/milestones/evidence/M1-preview-e2e/provider-links.txt`, prints `Evidence: m1-provider-link`, and does not call provider CLIs, mutate provider resources, mutate the ledger, or write telemetry. If any link command fails, it restores the previous `.agentstack/provider-links.json` state, removes stale `provider-links.txt`, and writes no `provider-links.txt` success evidence. This is local connection state, not external provider existence proof.
+
+After active ledger rows and local provider links exist, run the explicit M1 deploy helper:
+
+```bash
+pnpm run m1:preview:deploy -- --confirm-live-mutation
+```
+
+`m1:preview:deploy` requires active Clerk, Convex, and Vercel M1 ledger rows plus `.agentstack/provider-links.json` and top-level `Result: PASS` `provider-links.txt` evidence from a passing `m1:providers:link` run before provider execution. Missing, failed, or incomplete provider-link state prints `FAIL m1 preview deploy.provider-links-required` before provider execution and writes no deploy evidence. It then runs the existing ledger-gated `provider apply` command for Convex preview, then the existing ledger-gated `provider apply` command for Vercel preview. It requires `--confirm-live-mutation`, prints `Evidence: m1-preview-deploy`, captures the emitted Vercel `Deploy URL: ...` line, and writes only redacted local evidence files under `docs/milestones/evidence/M1-preview-e2e/`: `deploy-url.txt` and `deploy-output.txt`. When provider execution starts but the deploy attempt fails, it removes any stale `deploy-url.txt`, still writes `deploy-output.txt` with `Result: FAIL`, the failed stage, per-provider completion status, and no raw provider stdout, stderr, identifiers, tokens, or secrets. Any deploy attempt that reaches provider execution removes stale `smoke-output.txt` so Auth/Data smoke evidence must be rerun for the current deploy state. Active-ledger and provider-link refusals happen before provider execution and write no deploy evidence. Provider mutation is real Convex preview apply plus Vercel preview deploy; telemetry mutation is whatever the underlying provider apply commands record.
+
+Do not ledger, link, apply, or inspect EAS for M1 unless mobile scope is explicitly unlocked. `pnpm run provider:preview:plan`, `pnpm run preview:plan`, `pnpm run preview:apply`, and the local preview deploy rehearsal still include EAS because the full B2B SaaS template includes mobile; treat those as broader template rehearsals, not the M1 web-only path.
+
+## M1 deployed smoke markers
+
+After `m1:preview:deploy` writes `deploy-url.txt` and a `Result: PASS` `deploy-output.txt`, open that same URL and sign in through Clerk. Record redacted evidence when the deployed DOM shows `data-agentstack-auth-state="signed-in"` and the protected Convex call resolves with `data-agentstack-protected-data-state="protected-data-loaded"` plus `data-agentstack-protected-workspace-id`. Do not mark M1 Auth or Data complete from local builds, runtime-placeholder output, unmatched deploy URLs, or `signed-out` state alone.
+
+For repeatable evidence capture, save a temporary post-sign-in DOM snapshot outside git, then run the generated smoke helper:
+
+```bash
+mkdir -p .agentstack
+# In the signed-in browser console, run:
+# copy(document.documentElement.outerHTML)
+# Paste that clipboard text into .agentstack/m1-preview-dom.html without committing it.
+pnpm run m1:preview:smoke -- --url <deploy-url> --dom-file .agentstack/m1-preview-dom.html
+```
+
+`m1:preview:smoke` first requires `deploy-url.txt` and `deploy-output.txt` from a `m1:preview:deploy` run with top-level `Result: PASS` deploy evidence, and both deploy evidence files must match the `--url` value after URL normalization. If deploy evidence is missing, failed, or for a different URL, it prints `FAIL m1 preview smoke.deploy-evidence-required` and writes no smoke evidence. With matching deploy evidence, it writes `smoke-output.txt` with `Result: PASS` or a redacted `Result: FAIL` marker blocker; on pass it also refreshes `deploy-url.txt`. It refuses unless the DOM snapshot contains the signed-in auth marker, the loaded protected-data marker, and a non-empty protected workspace id marker. Smoke evidence records the DOM source only as a redacted local temporary file marker, not the supplied path. Do not commit the raw DOM snapshot, provider identifiers, cookies, or tokens.
+
+If the DOM is Vercel's Deployment Protection login page, `m1:preview:smoke` records a specific Vercel protection blocker. Complete one of the real access handoffs before claiming Auth/Data: authenticate in a Vercel-authorized browser and capture the post-Clerk DOM, configure Vercel Protection Bypass for Automation and pass the bypass secret to the browser/test, or disable protection for the M1 preview in the Vercel project settings.
+
+After the runbook, ledger notes, deploy evidence, and smoke output are updated, run the local evidence checker:
+
+```bash
+pnpm run m1:evidence:check
+```
+
+`m1:evidence:check` prints `Evidence: m1-evidence-check`, checks the redacted local M1 evidence bundle plus `.agentstack/provider-links.json`, verifies that provider-link, deploy, and smoke evidence each have a top-level `Result: PASS`, verifies that the provider-link state contains active Clerk, Convex, and Vercel preview links, verifies that `deploy-url.txt`, `deploy-output.txt`, and `smoke-output.txt` all name the same preview URL, verifies smoke `Checked at` is not older than deploy `Checked at`, rejects the untouched scaffold runbook, unresolved runbook placeholders, missing runbook step result lines, failed/not-run step results, missing final required M1 checkbox review lines, and final checkbox values other than pass, and does not call provider CLIs, mutate provider resources, write local state, or append telemetry. Do not treat a passing evidence check as live provider readiness; it only proves the local evidence bundle and local link state are complete enough for M1 review.
+
 ## Commands
 
 Plan preview service sync:
@@ -188,7 +259,7 @@ pnpm exec vercel deploy --target=preview
 Evidence: provider-command-plan
 ```
 
-Vercel env add/update/remove commands are printed with redacted values. Secret and non-secret values use `.agentstack/env-values.json` as the value source label, not the raw value.
+Vercel env add/update/remove commands are printed with redacted values. Secret and non-secret values use `.agentstack/env-values.json` as the value source label, not the raw value. The generated root `vercel.json` pins the Vercel framework preset to Vite, builds `@app/web`, and serves `apps/web/dist` so the root deploy command targets the generated web app in the monorepo.
 
 Inspect explicit read-only Vercel preview or production evidence:
 
@@ -205,7 +276,7 @@ Apply the explicit Vercel preview deploy:
 pnpm run provider:vercel:apply:preview
 ```
 
-This executes only `pnpm exec vercel deploy --target=preview` through the provider executor after the ledger gate passes, prints `Evidence: live-mutation`, and records redacted provider apply telemetry. It does not run Vercel env add/update/remove commands, and Vercel production apply is unavailable.
+This executes only `pnpm exec vercel deploy --target=preview` through the provider executor after the ledger gate passes, prints `Evidence: live-mutation`, uses the generated root `vercel.json` to build and serve `apps/web`, extracts the first `https://*.vercel.app` URL as `Deploy URL: ...` for the M1 evidence bundle, and records redacted provider apply telemetry. It does not run Vercel env add/update/remove commands, and Vercel production apply is unavailable.
 
 Plan EAS preview commands without running them:
 
