@@ -30,7 +30,15 @@ type ProtectedWorkspaceStatus = {
   };
 };
 
+type EntitlementGate = {
+  entitlementKey: "feature.auditLog";
+  state: "allowed" | "denied";
+  workspaceId: string;
+  source: "clerk-billing-webhook" | "default-deny";
+};
+
 const protectedWorkspaceStatusQuery = anyApi.workspaceStatus.protectedStatus;
+const protectedEntitlementGateQuery = anyApi.billing.protectedEntitlementGate;
 
 export function App({ runtimeReady = true }: AppProps) {
   const status = getWorkspaceStatusSeed();
@@ -173,8 +181,9 @@ function AuthRuntimePlaceholder() {
 
 function ProtectedConvexStatus() {
   const protectedStatus = useQuery(protectedWorkspaceStatusQuery, {}) as ProtectedWorkspaceStatus | undefined;
+  const entitlementGate = useQuery(protectedEntitlementGateQuery, {}) as EntitlementGate | undefined;
 
-  if (protectedStatus === undefined) {
+  if (protectedStatus === undefined || entitlementGate === undefined) {
     return (
       <p style={{ margin: 0 }} data-agentstack-protected-data-state="loading">
         Loading protected workspace status...
@@ -205,6 +214,20 @@ function ProtectedConvexStatus() {
           <dd style={{ margin: 0 }}>{protectedStatus.checklistProgress.requiredRemaining}</dd>
         </div>
       </dl>
+      <section
+        aria-labelledby="audit-log-title"
+        data-agentstack-entitlement-key={entitlementGate.entitlementKey}
+        data-agentstack-entitlement-state={entitlementGate.state}
+        data-agentstack-entitlement-source={entitlementGate.source}
+        style={{ marginTop: 24, paddingTop: 16, borderTop: `1px solid ${themeTokens.colors.muted}` }}
+      >
+        <h2 id="audit-log-title" style={{ margin: "0 0 8px" }}>
+          Audit log
+        </h2>
+        <p style={{ margin: 0 }}>
+          {entitlementGate.state === "allowed" ? "Audit log available." : "Audit log requires an active plan."}
+        </p>
+      </section>
     </div>
   );
 }

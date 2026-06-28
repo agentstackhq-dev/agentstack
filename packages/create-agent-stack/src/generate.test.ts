@@ -35,7 +35,9 @@ describe("generateProject", () => {
           "agentstack.config.ts",
           "apps/web/package.json",
           "apps/mobile/package.json",
-          "apps/convex/package.json"
+          "apps/convex/package.json",
+          "apps/convex/convex/billing.ts",
+          "apps/convex/convex/http.ts"
         ])
       );
       expect(files).not.toEqual(
@@ -125,6 +127,10 @@ describe("generateProject", () => {
       await expect(readFile(join(targetDir, "apps/convex/convex/workspaceStatus.ts"), "utf8")).resolves.toContain(
         'workspaceName: "Acme Crm"'
       );
+      const schema = await readFile(join(targetDir, "apps/convex/convex/schema.ts"), "utf8");
+      expect(schema).toContain("billingWebhookEvents");
+      expect(schema).toContain("billingEntitlements");
+      expect(schema).toContain("billingPrincipals");
       await expect(readFile(join(targetDir, "apps/mobile/app.config.ts"), "utf8")).resolves.toContain(
         "agentstackConfig.app.slug"
       );
@@ -136,6 +142,10 @@ describe("generateProject", () => {
       expect(webApp).toContain('data-agentstack-auth-state');
       expect(webApp).toContain('data-agentstack-protected-data-state');
       expect(webApp).toContain('data-agentstack-protected-workspace-id');
+      expect(webApp).toContain("anyApi.billing.protectedEntitlementGate");
+      expect(webApp).toContain('data-agentstack-entitlement-key');
+      expect(webApp).toContain('data-agentstack-entitlement-state');
+      expect(webApp).toContain("feature.auditLog");
 
       await expectNoTemplateTokens(targetDir);
     } finally {
