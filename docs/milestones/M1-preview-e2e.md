@@ -76,13 +76,13 @@ None for M1. The generated app path reached real Clerk, Convex, and Vercel resou
 | Commands run | See [m1-live-preview-pass-2026-06-28.md](./evidence/M1-preview-e2e/m1-live-preview-pass-2026-06-28.md) |
 | Evidence | [m1-live-preview-pass-2026-06-28.md](./evidence/M1-preview-e2e/m1-live-preview-pass-2026-06-28.md) |
 | Friction notes | Vercel Deployment Protection was bypassed by using an authenticated browser path. The live Auth/Data fix required the generated web runtime to wait for Convex auth before protected queries and the bootstrap helper to ensure the Clerk `convex` JWT template. The Clerk smoke user used for browser sign-in had client trust bypass enabled for this M1 run and is ledgered for cleanup review; generated M1 now includes `m1:auth:user` so future runs can create/reuse, update, and delete that fixture without manual Clerk API patching. |
-| Next smallest step | Human pass criteria review, then cleanup or retain temporary provider resources according to [provider-resource-ledger.md](../provider-resource-ledger.md). |
+| Next smallest step | Human pass criteria review and M2 approach discussion. Do not start M2 until that discussion happens. |
 
 ## Post-pass queue (max 3)
 
 1. Review whether M1 used generated docs/skills sufficiently or needs one final generated-guidance tightening pass.
-2. Clean up or intentionally retain the 2026-06-22 and 2026-06-28 preview provider resources in [provider-resource-ledger.md](../provider-resource-ledger.md).
-3. Separately clean up accidental `__APP_SLUG__-preview` resources from the temp-script copy mistake.
+2. Decide whether to retain or delete the successful 2026-06-28 M1 repro resources in [provider-resource-ledger.md](../provider-resource-ledger.md).
+3. Review Convex dashboard-only cleanup rows marked `abandoned-with-reason`; Clerk and Vercel superseded resources were cleaned in [m1-post-pass-closeout-2026-06-28.md](./evidence/M1-preview-e2e/m1-post-pass-closeout-2026-06-28.md).
 
 ## Pass criteria review
 
