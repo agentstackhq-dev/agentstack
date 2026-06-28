@@ -12,9 +12,10 @@ Complete this path using generated Agentstack docs, package scripts, and CLI com
 2. Run `pnpm run m1:providers:bootstrap -- --confirm-live-mutation` to create/reuse, ledger, and locally configure preview Clerk, Convex, and Vercel resources.
 3. Run `pnpm run m1:providers:link`.
 4. Deploy the web app to a Vercel preview URL with `pnpm run m1:preview:deploy -- --confirm-live-mutation`.
-5. Sign in with Clerk on that URL.
-6. Call one protected Convex query or mutation as the signed-in user.
-7. Produce a redacted evidence bundle under `docs/milestones/evidence/M1-preview-e2e/`.
+5. Run `pnpm run m1:auth:user -- ensure --confirm-live-mutation` to create/reuse and ledger the Clerk smoke user fixture.
+6. Sign in with Clerk on that URL.
+7. Call one protected Convex query or mutation as the signed-in user.
+8. Produce a redacted evidence bundle under `docs/milestones/evidence/M1-preview-e2e/`.
 
 Success means Agentstack orchestrated the path against real provider state. It does not require automating provider auth prompts, but it must not hide missing resource setup behind vague instructions.
 

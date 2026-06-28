@@ -37,6 +37,7 @@
     "provider:preview:reconcile:live": "node scripts/agentstack.mjs provider reconcile --env preview --plan --source live",
     "provider:production:reconcile:live": "node scripts/agentstack.mjs provider reconcile --env production --plan --source live",
     "m1:evidence:check": "node scripts/m1-evidence-check.mjs",
+    "m1:auth:user": "node scripts/m1-auth-user.mjs",
     "m1:ledger:record": "node scripts/m1-ledger-record.mjs",
     "m1:providers:bootstrap": "node scripts/m1-providers-bootstrap.mjs",
     "m1:providers:link": "node scripts/m1-providers-link.mjs",

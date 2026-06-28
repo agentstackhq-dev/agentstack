@@ -29,6 +29,7 @@ import {
   linkLedgerBackedProviderResource,
   parseProviderLedger,
   providerLedgerPath,
+  providerLedgerStatuses,
   recordProviderLedgerResource,
   redactProviderText,
   type InspectEnvResource,
@@ -44,6 +45,7 @@ import {
   type ProviderInventorySource,
   type ProviderInventoryRow,
   type ProviderLifecyclePlan,
+  type ProviderLedgerStatus,
   type ProviderLedgerRow,
   type ProviderLedgerDecision,
   type ProviderLedgerExpectedMatch,
@@ -2421,6 +2423,7 @@ async function providerLedgerRecordCommand(argv: string[], io: RunIo): Promise<n
   const evidenceLinkOrPath = readRequiredStringOption(options.evidence, "evidence", fix);
   const notes = typeof options.notes === "string" ? options.notes : "";
   const status = readProviderLedgerRecordStatus(options.status);
+  const cleanedAt = readOptionalStringOption(options["cleaned-at"]) ?? "";
   const writeEvidence = readBooleanFlagOption(options["write-evidence"], "write-evidence", fix);
   const replace = readBooleanFlagOption(options.replace, "replace", fix);
   const evidenceWritePath = writeEvidence ? normalizeProviderLedgerEvidencePath(evidenceLinkOrPath) : undefined;
@@ -2477,6 +2480,7 @@ async function providerLedgerRecordCommand(argv: string[], io: RunIo): Promise<n
       cleanupCommandOrProcedure,
       evidenceLinkOrPath: normalizedEvidenceLinkOrPath,
       externalIdOrUrl,
+      cleanedAt,
       notes,
       replace
     });
@@ -3147,19 +3151,19 @@ function readProviderControlPlaneServiceOption(
   );
 }
 
-function readProviderLedgerRecordStatus(value: string | boolean | undefined): "planned" | "active" {
+function readProviderLedgerRecordStatus(value: string | boolean | undefined): ProviderLedgerStatus {
   if (value === undefined) {
     return "planned";
   }
 
-  if (value === "planned" || value === "active") {
-    return value;
+  if (typeof value === "string" && (providerLedgerStatuses as readonly string[]).includes(value)) {
+    return value as ProviderLedgerStatus;
   }
 
   throw new Error(
     [
       "FAIL cli.option.invalid",
-      `Invalid --status value: ${String(value)}. Expected one of: planned, active.`,
+      `Invalid --status value: ${String(value)}. Expected one of: ${providerLedgerStatuses.join(", ")}.`,
       "Fix: Run agentstack provider ledger record --status planned."
     ].join("\n")
   );

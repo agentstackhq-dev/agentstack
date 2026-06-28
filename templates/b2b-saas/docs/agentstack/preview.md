@@ -51,9 +51,17 @@ pnpm run m1:preview:deploy -- --confirm-live-mutation
 
 Do not ledger, link, apply, or inspect EAS for M1 unless mobile scope is explicitly unlocked. `pnpm run provider:preview:plan`, `pnpm run preview:plan`, `pnpm run preview:apply`, and the local preview deploy rehearsal still include EAS because the full B2B SaaS template includes mobile; treat those as broader template rehearsals, not the M1 web-only path.
 
+Before browser sign-in, create or reuse the Clerk smoke user fixture:
+
+```bash
+pnpm run m1:auth:user -- ensure --confirm-live-mutation --created-by <name>
+```
+
+`m1:auth:user` owns the M1 Clerk smoke-user lifecycle. `ensure` creates or reuses the deterministic preview test user, rotates local-only credentials in `.agentstack/m1-auth-user.json`, records a `clerk | user | preview` ledger row, requests client-trust bypass where Clerk accepts it, and writes redacted `clerk-smoke-user.txt` evidence. `update` rotates credentials and metadata for the same ledgered user. `delete` deletes only the user named in `.agentstack/m1-auth-user.json`, removes local credential state, and records the ledger row as `cleaned`. Do not commit `.agentstack/m1-auth-user.json`, passwords, OTP codes, cookies, sessions, or full provider payloads.
+
 ## M1 deployed smoke markers
 
-After `m1:preview:deploy` writes `deploy-url.txt` and a `Result: PASS` `deploy-output.txt`, open that same URL and sign in through Clerk. Record redacted evidence when the deployed DOM shows `data-agentstack-auth-state="signed-in"` and the protected Convex call resolves with `data-agentstack-protected-data-state="protected-data-loaded"` plus `data-agentstack-protected-workspace-id`. Do not mark M1 Auth or Data complete from local builds, runtime-placeholder output, unmatched deploy URLs, or `signed-out` state alone.
+After `m1:preview:deploy` writes `deploy-url.txt` and a `Result: PASS` `deploy-output.txt`, and after `m1:auth:user` writes `clerk-smoke-user.txt`, open that same URL and sign in through Clerk. Record redacted evidence when the deployed DOM shows `data-agentstack-auth-state="signed-in"` and the protected Convex call resolves with `data-agentstack-protected-data-state="protected-data-loaded"` plus `data-agentstack-protected-workspace-id`. Do not mark M1 Auth or Data complete from local builds, runtime-placeholder output, unmatched deploy URLs, or `signed-out` state alone.
 
 For repeatable evidence capture, save a temporary post-sign-in DOM snapshot outside git, then run the generated smoke helper:
 
@@ -75,7 +83,7 @@ After the runbook, ledger notes, deploy evidence, and smoke output are updated, 
 pnpm run m1:evidence:check
 ```
 
-`m1:evidence:check` prints `Evidence: m1-evidence-check`, checks the redacted local M1 evidence bundle plus `.agentstack/provider-links.json`, verifies that provider-link, deploy, and smoke evidence each have a top-level `Result: PASS`, verifies that the provider-link state contains active Clerk, Convex, and Vercel preview links, verifies that `deploy-url.txt`, `deploy-output.txt`, and `smoke-output.txt` all name the same preview URL, verifies smoke `Checked at` is not older than deploy `Checked at`, rejects the untouched scaffold runbook, unresolved runbook placeholders, missing runbook step result lines, failed/not-run step results, missing final required M1 checkbox review lines, and final checkbox values other than pass, and does not call provider CLIs, mutate provider resources, write local state, or append telemetry. Do not treat a passing evidence check as live provider readiness; it only proves the local evidence bundle and local link state are complete enough for M1 review.
+`m1:evidence:check` prints `Evidence: m1-evidence-check`, checks the redacted local M1 evidence bundle plus `.agentstack/provider-links.json`, verifies that provider-link, deploy, Clerk smoke-user, and smoke evidence each have a top-level `Result: PASS`, verifies that the provider-link state contains active Clerk, Convex, and Vercel preview links, verifies that the Clerk smoke-user ledger row is active or cleaned with evidence, verifies that `deploy-url.txt`, `deploy-output.txt`, and `smoke-output.txt` all name the same preview URL, verifies smoke `Checked at` is not older than deploy `Checked at`, rejects the untouched scaffold runbook, unresolved runbook placeholders, missing runbook step result lines, failed/not-run step results, missing final required M1 checkbox review lines, and final checkbox values other than pass, and does not call provider CLIs, mutate provider resources, write local state, or append telemetry. Do not treat a passing evidence check as live provider readiness; it only proves the local evidence bundle and local link state are complete enough for M1 review.
 
 ## Commands
 

@@ -22,6 +22,7 @@ Generated Agentstack guidance + CLI can get a **preview** SaaS path live with le
 - [x] **Ledger** — Preview resources recorded in [provider-resource-ledger.md](../provider-resource-ledger.md) with owner, purpose, cleanup
 - [x] **Connect** — Preview Clerk + Convex + Vercel linked or adopted via Agentstack CLI (live or local path as implemented)
 - [x] **Deploy** — Web app deployed to a Vercel preview URL via supported ledger-gated apply/deploy path
+- [x] **Auth Fixture** — Clerk smoke user lifecycle is ledgered and repeatable for create/reuse, update, use, and cleanup in preview auth testing
 - [x] **Auth** — Clerk sign-in works on the deployed preview URL
 - [x] **Data** — Signed-in user can call one protected Convex query or mutation from the web app
 - [x] **Evidence** — Redacted bundle in [evidence/M1-preview-e2e/](./evidence/M1-preview-e2e/) with runbook, commands (redacted), deploy URL, smoke result
@@ -52,9 +53,10 @@ Optional stretch (not required for M1 pass):
 3. Run `pnpm run m1:providers:bootstrap -- --confirm-live-mutation` to create/reuse, ledger, and locally configure preview Clerk, Convex, and Vercel
 4. Run `pnpm run m1:providers:link`
 5. Run `pnpm run m1:preview:deploy -- --confirm-live-mutation`
-6. Sign in on the Vercel preview URL and capture the deployed DOM
-7. Run `pnpm run m1:preview:smoke -- --url <deploy-url> --dom-file .agentstack/m1-preview-dom.html`
-8. Complete the runbook with redacted facts and run `pnpm run m1:evidence:check`
+6. Run `pnpm run m1:auth:user -- ensure --confirm-live-mutation` to create/reuse and ledger the Clerk smoke user
+7. Sign in on the Vercel preview URL and capture the deployed DOM
+8. Run `pnpm run m1:preview:smoke -- --url <deploy-url> --dom-file .agentstack/m1-preview-dom.html`
+9. Complete the runbook with redacted facts and run `pnpm run m1:evidence:check`
 
 `m1:ledger:record` is a repair/fallback command for known existing resources or damaged rows. Do not make it the default M1 path while `m1:providers:bootstrap` can be run.
 
@@ -69,11 +71,11 @@ None for M1. The generated app path reached real Clerk, Convex, and Vercel resou
 | Date | 2026-06-28 |
 | Actor | Codex |
 | App path | `/tmp/agentstack-m1-live-20260627-211537-96116` |
-| Result | Generate PASS; provider bootstrap PASS; provider link PASS; Convex apply PASS; Vercel preview deploy PASS; Auth PASS; protected Convex data PASS; evidence check PASS |
+| Result | Generate PASS; provider bootstrap PASS; provider link PASS; Convex apply PASS; Vercel preview deploy PASS; Auth Fixture PASS; Auth PASS; protected Convex data PASS; evidence check PASS |
 | Deploy URL | `https://tmp-agentstack-m1-live-20260627-211537-96116-iq375zhic.vercel.app/` |
 | Commands run | See [m1-live-preview-pass-2026-06-28.md](./evidence/M1-preview-e2e/m1-live-preview-pass-2026-06-28.md) |
 | Evidence | [m1-live-preview-pass-2026-06-28.md](./evidence/M1-preview-e2e/m1-live-preview-pass-2026-06-28.md) |
-| Friction notes | Vercel Deployment Protection was bypassed by using an authenticated browser path. The live Auth/Data fix required the generated web runtime to wait for Convex auth before protected queries and the bootstrap helper to ensure the Clerk `convex` JWT template. The Clerk smoke user used for browser sign-in had client trust bypass enabled for this M1 run and is ledgered for cleanup review. |
+| Friction notes | Vercel Deployment Protection was bypassed by using an authenticated browser path. The live Auth/Data fix required the generated web runtime to wait for Convex auth before protected queries and the bootstrap helper to ensure the Clerk `convex` JWT template. The Clerk smoke user used for browser sign-in had client trust bypass enabled for this M1 run and is ledgered for cleanup review; generated M1 now includes `m1:auth:user` so future runs can create/reuse, update, and delete that fixture without manual Clerk API patching. |
 | Next smallest step | Human pass criteria review, then cleanup or retain temporary provider resources according to [provider-resource-ledger.md](../provider-resource-ledger.md). |
 
 ## Post-pass queue (max 3)

@@ -93,7 +93,25 @@ Evidence files:
 
 Notes: `[redacted notes or blocker]`
 
-### 5. Deployed Auth And Data Smoke
+### 5. Manage Clerk Smoke User
+
+```bash
+pnpm run m1:auth:user -- ensure --confirm-live-mutation --created-by <name>
+```
+
+Result: `[not run | pass | fail]`
+
+Creates or reuses the ledgered Clerk preview smoke user, rotates local-only credentials in `.agentstack/m1-auth-user.json`, requests client-trust bypass where supported for repeatable browser automation, and writes redacted `clerk-smoke-user.txt` evidence.
+
+Evidence file:
+
+- `clerk-smoke-user.txt`
+
+Use `pnpm run m1:auth:user -- update --confirm-live-mutation --created-by <name>` to rotate the local smoke password or repair user metadata. Use `pnpm run m1:auth:user -- delete --confirm-live-mutation --created-by <name>` after M1 review to delete only the ledgered smoke user and mark the ledger row cleaned.
+
+Notes: `[redacted notes or blocker]`
+
+### 6. Deployed Auth And Data Smoke
 
 ```bash
 pnpm run m1:preview:smoke -- --url <deploy-url> --dom-file .agentstack/m1-preview-dom.html
@@ -113,7 +131,7 @@ Do not check Auth/Data from local builds, local placeholder output, runtime-plac
 
 If smoke captures a Vercel Deployment Protection login page instead of the app, record that blocker here. Continue only after Vercel access is resolved by a Vercel-authenticated browser, a Protection Bypass for Automation secret supplied to the browser/test, or disabling protection for this M1 preview.
 
-### 6. Evidence Bundle Check
+### 7. Evidence Bundle Check
 
 ```bash
 pnpm run m1:evidence:check
@@ -125,6 +143,8 @@ Requires matching preview URLs across `deploy-url.txt`, `deploy-output.txt`, and
 
 Requires `.agentstack/provider-links.json` to contain active Clerk, Convex, and Vercel preview links.
 
+Requires `clerk-smoke-user.txt` and a ledger row for the Clerk smoke user with status `active` or `cleaned`.
+
 Notes: `[redacted notes or blocker]`
 
 ## Final M1 Checkbox Review
@@ -134,6 +154,7 @@ All required M1 checkbox review values must be `pass` before `m1:evidence:check`
 - Ledger: `[pass | fail | unchanged]`
 - Connect: `[pass | fail | unchanged]`
 - Deploy: `[pass | fail | unchanged]`
+- Auth Fixture: `[pass | fail | unchanged]`
 - Auth: `[pass | fail | unchanged]`
 - Data: `[pass | fail | unchanged]`
 - Evidence: `[pass | fail | unchanged]`

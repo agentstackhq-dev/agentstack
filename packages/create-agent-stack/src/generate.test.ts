@@ -36,6 +36,7 @@ const generatedAnchorFiles = [
   "docs/provider-resource-ledger.md",
   "docs/validation-hypothesis.md",
   "scripts/m1-evidence-check.mjs",
+  "scripts/m1-auth-user.mjs",
   "scripts/m1-ledger-record.mjs",
   "scripts/m1-providers-bootstrap.mjs",
   "scripts/m1-providers-link.mjs",
@@ -159,6 +160,7 @@ describe("generateProject", () => {
         "provider:production:reconcile:live":
           "node scripts/agentstack.mjs provider reconcile --env production --plan --source live",
         "m1:evidence:check": "node scripts/m1-evidence-check.mjs",
+        "m1:auth:user": "node scripts/m1-auth-user.mjs",
         "m1:ledger:record": "node scripts/m1-ledger-record.mjs",
         "m1:providers:bootstrap": "node scripts/m1-providers-bootstrap.mjs",
         "m1:providers:link": "node scripts/m1-providers-link.mjs",
@@ -1110,6 +1112,31 @@ describe("generateProject", () => {
       expect(deployEvidence).toContain("Convex apply: completed");
       expect(deployEvidence).toContain("Vercel apply: completed");
       expect(deployEvidence).toContain("Deploy URL: https://acme-crm-git-m1-example.vercel.app");
+      const fakeProviderBinDir = await writeFakeProviderPnpm(targetDir);
+      const authUser = await execFileAsync(
+        process.execPath,
+        ["scripts/m1-auth-user.mjs", "ensure", "--confirm-live-mutation", "--created-by", "Codex"],
+        {
+          cwd: targetDir,
+          env: {
+            ...sourceCliEnv(),
+            AGENTSTACK_M1_CREATED_AT: "2026-06-22",
+            AGENTSTACK_M1_AUTH_USER_PASSWORD: "workflow-local-password-should-not-leak",
+            PATH: `${fakeProviderBinDir}:${process.env.PATH ?? ""}`
+          }
+        }
+      );
+      const authUserOutput = `${authUser.stdout}${authUser.stderr}`;
+      expect(authUserOutput).toContain("PASS m1 auth user ensure");
+      expect(authUserOutput).toContain("Provider mutation: clerk user create/update");
+      expect(authUserOutput).not.toContain("workflow-local-password-should-not-leak");
+      const authUserEvidence = await readFile(
+        join(targetDir, "docs/milestones/evidence/M1-preview-e2e/clerk-smoke-user.txt"),
+        "utf8"
+      );
+      expect(authUserEvidence).toContain("Result: PASS");
+      expect(authUserEvidence).toContain("Action: ensure");
+      expect(authUserEvidence).not.toContain("workflow-local-password-should-not-leak");
       const fakeCliLog = (await readFile(join(targetDir, ".agentstack/m1-preview-deploy-cli.jsonl"), "utf8"))
         .trim()
         .split("\n")
@@ -1262,6 +1289,7 @@ describe("generateProject", () => {
       expect(evidenceCheckOutput).toContain("Checked: provider bootstrap evidence");
       expect(evidenceCheckOutput).toContain("Checked: provider link evidence");
       expect(evidenceCheckOutput).toContain("Checked: deploy evidence");
+      expect(evidenceCheckOutput).toContain("Checked: Clerk smoke user evidence");
       expect(evidenceCheckOutput).toContain("Checked: smoke evidence");
       expect(evidenceCheckOutput).toContain("Checked: runbook");
       expect(evidenceCheckOutput).toContain("Provider mutation: none");
@@ -1357,6 +1385,132 @@ describe("generateProject", () => {
     }
   });
 
+  test("generated M1 auth user helper manages a ledgered Clerk smoke user", async () => {
+    const tempRoot = await mkdtemp(join(tmpdir(), "agentstack-create-"));
+    const targetDir = join(tempRoot, "acme-crm");
+
+    try {
+      await generateProject({ name: "acme-crm", targetDir });
+      const fakeBinDir = await writeFakeProviderPnpm(targetDir);
+
+      await expect(
+        execFileAsync(process.execPath, ["scripts/m1-auth-user.mjs", "ensure"], {
+          cwd: targetDir,
+          env: {
+            ...sourceCliEnv(),
+            PATH: `${fakeBinDir}:${process.env.PATH ?? ""}`
+          }
+        })
+      ).rejects.toMatchObject({
+        stdout: expect.stringContaining("FAIL m1 auth user.confirmation-required")
+      });
+
+      const ensure = await execFileAsync(
+        process.execPath,
+        ["scripts/m1-auth-user.mjs", "ensure", "--confirm-live-mutation", "--created-by", "Codex"],
+        {
+          cwd: targetDir,
+          env: {
+            ...sourceCliEnv(),
+            AGENTSTACK_M1_CREATED_AT: "2026-06-28",
+            AGENTSTACK_M1_AUTH_USER_PASSWORD: "fake-local-password-should-not-leak",
+            PATH: `${fakeBinDir}:${process.env.PATH ?? ""}`
+          }
+        }
+      );
+      const ensureOutput = `${ensure.stdout}${ensure.stderr}`;
+      expect(ensureOutput).toContain("PASS m1 auth user ensure");
+      expect(ensureOutput).toContain("Evidence: m1-auth-user");
+      expect(ensureOutput).toContain("Clerk smoke user: created or reused");
+      expect(ensureOutput).toContain("Provider mutation: clerk user create/update");
+      expect(ensureOutput).toContain("Ledger mutation: docs/provider-resource-ledger.md");
+      expect(ensureOutput).toContain("Local mutation: .agentstack/m1-auth-user.json");
+      expect(ensureOutput).toContain("Local mutation: docs/milestones/evidence/M1-preview-e2e/clerk-smoke-user.txt");
+      expect(ensureOutput).not.toContain("fake-local-password-should-not-leak");
+
+      const localState = JSON.parse(await readFile(join(targetDir, ".agentstack/m1-auth-user.json"), "utf8"));
+      expect(localState).toMatchObject({
+        service: "clerk",
+        environment: "preview",
+        userId: "user_fake_m1_smoke",
+        email: "acme-crm+m1-smoke+clerk_test@example.com"
+      });
+      expect(localState.password).toBe("fake-local-password-should-not-leak");
+
+      const ledger = await readFile(join(targetDir, "docs/provider-resource-ledger.md"), "utf8");
+      expect(ledger).toContain(
+        "| clerk-preview-user | clerk | user | preview | owner@example.test | acme-crm+m1-smoke+clerk_test@example.com | user_fake_m1_smoke | M1 preview Clerk sign-in smoke user | Codex | 2026-06-28 | M1 pass or cleanup | active | delete through Clerk dashboard or `pnpm run m1:auth:user -- delete --confirm-live-mutation` |  | docs/milestones/evidence/M1-preview-e2e/clerk-smoke-user.txt | recorded by m1:auth:user ensure; client trust bypass requested |"
+      );
+      expect(ledger).not.toContain("fake-local-password-should-not-leak");
+
+      const userEvidence = await readFile(
+        join(targetDir, "docs/milestones/evidence/M1-preview-e2e/clerk-smoke-user.txt"),
+        "utf8"
+      );
+      expect(userEvidence).toContain("# M1 Clerk Smoke User Evidence");
+      expect(userEvidence).toContain("Result: PASS");
+      expect(userEvidence).toContain("Action: ensure");
+      expect(userEvidence).toContain("Clerk smoke user: created or reused");
+      expect(userEvidence).toContain("Client trust bypass: requested");
+      expect(userEvidence).toContain("Local credential state: .agentstack/m1-auth-user.json");
+      expect(userEvidence).toContain(
+        "Raw passwords, OTP codes, session tokens, cookies, provider stdout, and full user payloads are not stored"
+      );
+      expect(userEvidence).not.toContain("fake-local-password-should-not-leak");
+
+      const update = await execFileAsync(
+        process.execPath,
+        ["scripts/m1-auth-user.mjs", "update", "--confirm-live-mutation", "--created-by", "Codex"],
+        {
+          cwd: targetDir,
+          env: {
+            ...sourceCliEnv(),
+            AGENTSTACK_M1_CREATED_AT: "2026-06-28",
+            AGENTSTACK_M1_AUTH_USER_PASSWORD: "second-local-password-should-not-leak",
+            PATH: `${fakeBinDir}:${process.env.PATH ?? ""}`
+          }
+        }
+      );
+      expect(`${update.stdout}${update.stderr}`).toContain("PASS m1 auth user update");
+      const updatedState = JSON.parse(await readFile(join(targetDir, ".agentstack/m1-auth-user.json"), "utf8"));
+      expect(updatedState.password).toBe("second-local-password-should-not-leak");
+
+      const deleteResult = await execFileAsync(
+        process.execPath,
+        ["scripts/m1-auth-user.mjs", "delete", "--confirm-live-mutation", "--created-by", "Codex"],
+        {
+          cwd: targetDir,
+          env: {
+            ...sourceCliEnv(),
+            AGENTSTACK_M1_CREATED_AT: "2026-06-28",
+            PATH: `${fakeBinDir}:${process.env.PATH ?? ""}`
+          }
+        }
+      );
+      expect(`${deleteResult.stdout}${deleteResult.stderr}`).toContain("PASS m1 auth user delete");
+      await expect(readFile(join(targetDir, ".agentstack/m1-auth-user.json"), "utf8")).rejects.toThrow();
+      const cleanedLedger = await readFile(join(targetDir, "docs/provider-resource-ledger.md"), "utf8");
+      expect(cleanedLedger).toContain("| clerk-preview-user | clerk | user | preview | owner@example.test | acme-crm+m1-smoke+clerk_test@example.com | user_fake_m1_smoke | M1 preview Clerk sign-in smoke user | Codex | 2026-06-28 | M1 pass or cleanup | cleaned | delete through Clerk dashboard or `pnpm run m1:auth:user -- delete --confirm-live-mutation` | 2026-06-28 | docs/milestones/evidence/M1-preview-e2e/clerk-smoke-user.txt | recorded by m1:auth:user delete; verified cleanup through Clerk API |");
+
+      const providerCalls = (await readFile(join(targetDir, ".agentstack/fake-provider-calls.jsonl"), "utf8"))
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line).args.join(" "));
+      expect(providerCalls).toEqual([
+        "exec clerk whoami --json",
+        "exec clerk api /users?email_address=acme-crm%2Bm1-smoke%2Bclerk_test%40example.com",
+        'exec clerk api /users --data {"email_address":["acme-crm+m1-smoke+clerk_test@example.com"],"password":"fake-local-password-should-not-leak","skip_password_checks":true,"skip_password_requirement":false,"public_metadata":{"agentstack":"m1","appSlug":"acme-crm","fixture":"clerk-smoke-user"}} --yes',
+        'exec clerk api /users/user_fake_m1_smoke --method PATCH --data {"password":"fake-local-password-should-not-leak","skip_password_checks":true,"bypass_client_trust":true,"public_metadata":{"agentstack":"m1","appSlug":"acme-crm","fixture":"clerk-smoke-user"}} --yes',
+        "exec clerk whoami --json",
+        'exec clerk api /users/user_fake_m1_smoke --method PATCH --data {"password":"second-local-password-should-not-leak","skip_password_checks":true,"bypass_client_trust":true,"public_metadata":{"agentstack":"m1","appSlug":"acme-crm","fixture":"clerk-smoke-user"}} --yes',
+        "exec clerk whoami --json",
+        "exec clerk api /users/user_fake_m1_smoke --method DELETE --yes"
+      ]);
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  }, 15000);
+
   test("generated M1 evidence check requires active provider ledger rows", async () => {
     const tempRoot = await mkdtemp(join(tmpdir(), "agentstack-create-"));
     const targetDir = join(tempRoot, "acme-crm");
@@ -1391,6 +1545,48 @@ describe("generateProject", () => {
 
       await expect(execFileAsync("pnpm", ["run", "m1:evidence:check"], { cwd: targetDir })).rejects.toMatchObject({
         stdout: expect.stringContaining("provider ledger status is not active for clerk preview application")
+      });
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  }, 15000);
+
+  test("generated M1 evidence check requires Clerk smoke user fixture evidence", async () => {
+    const tempRoot = await mkdtemp(join(tmpdir(), "agentstack-create-"));
+    const targetDir = join(tempRoot, "acme-crm");
+
+    try {
+      await generateProject({ name: "acme-crm", targetDir });
+
+      await execFileAsync(
+        "pnpm",
+        [
+          "run",
+          "m1:ledger:record",
+          "--",
+          "--owner",
+          "cardinal-dev",
+          "--created-by",
+          "Codex",
+          "--created-at",
+          "2026-06-22",
+          "--status",
+          "active"
+        ],
+        {
+          cwd: targetDir,
+          env: {
+            ...sourceCliEnv(),
+            M1_CLERK_EXTERNAL_ID: "https://clerk.example/apps/secret-clerk-app-id-1234567890",
+            M1_CONVEX_EXTERNAL_ID: "https://convex.cloud/d/secret-preview-1234567890",
+            M1_VERCEL_EXTERNAL_ID: "https://vercel.com/cardinal-dev/secret-acme-crm-preview"
+          }
+        }
+      );
+      await writePassingM1EvidenceBundle(targetDir, { writeAuthFixture: false });
+
+      await expect(execFileAsync("pnpm", ["run", "m1:evidence:check"], { cwd: targetDir })).rejects.toMatchObject({
+        stdout: expect.stringContaining("missing Clerk smoke user evidence")
       });
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
@@ -2856,6 +3052,10 @@ async function writeFakeProviderPnpm(targetDir: string): Promise<string> {
       "if (command === 'clerk' && rest[0] === 'link' && rest[1] === '--app') { ensureDir('.clerk/project.json'); writeFileSync('.clerk/project.json', JSON.stringify({ appId: rest[2] }, null, 2)); console.log('Linked Clerk app'); process.exit(0); }",
       "if (command === 'clerk' && rest.join(' ') === 'api /jwt_templates') { console.log(JSON.stringify(state.clerkJwtTemplate ? [state.clerkJwtTemplate] : [])); process.exit(0); }",
       "if (command === 'clerk' && rest[0] === 'api' && rest[1] === '/jwt_templates' && rest[2] === '--data') { state.clerkJwtTemplate = { id: 'jwt_fake_convex_template', name: 'convex' }; save(); console.log(JSON.stringify(state.clerkJwtTemplate)); process.exit(0); }",
+      "if (command === 'clerk' && rest[0] === 'api' && rest[1] === '/users?email_address=acme-crm%2Bm1-smoke%2Bclerk_test%40example.com') { console.log(JSON.stringify(state.clerkSmokeUser ? [state.clerkSmokeUser] : [])); process.exit(0); }",
+      "if (command === 'clerk' && rest[0] === 'api' && rest[1] === '/users' && rest[2] === '--data') { const payload = JSON.parse(rest[3]); state.clerkSmokeUser = { id: 'user_fake_m1_smoke', email_addresses: [{ email_address: payload.email_address[0] }] }; save(); console.log(JSON.stringify(state.clerkSmokeUser)); process.exit(0); }",
+      "if (command === 'clerk' && rest[0] === 'api' && rest[1] === '/users/user_fake_m1_smoke' && rest[2] === '--method' && rest[3] === 'PATCH') { state.clerkSmokeUserUpdated = JSON.parse(rest[5]); save(); console.log(JSON.stringify({ id: 'user_fake_m1_smoke' })); process.exit(0); }",
+      "if (command === 'clerk' && rest[0] === 'api' && rest[1] === '/users/user_fake_m1_smoke' && rest[2] === '--method' && rest[3] === 'DELETE') { state.clerkSmokeUserDeleted = true; save(); console.log(JSON.stringify({ id: 'user_fake_m1_smoke', deleted: true })); process.exit(0); }",
       "if (command === 'convex' && rest.join(' ') === 'deployment create acme-crm-preview --type preview --expiration in 5 days') { console.log('Created new preview deployment:'); console.log('[Preview] cardinal:acme-crm:preview/acme-crm-preview'); console.log('<convex-url>'); console.log('teamSlug: cardinal'); console.log('projectSlug: acme-crm'); process.exit(0); }",
       "if (command === 'convex' && rest.join(' ') === 'env --deployment cardinal:acme-crm:preview/acme-crm-preview set CLERK_JWT_ISSUER_DOMAIN https://acme.clerk.accounts.dev') { state.convexIssuer = rest.at(-1); save(); console.log('Set Convex env'); process.exit(0); }",
       "if (command === 'convex' && rest[0] === 'deployment' && rest[1] === 'token' && rest[2] === 'create') { const envPath = rest.at(-1); ensureDir(envPath); writeFileSync(envPath, 'CONVEX_DEPLOY_KEY=convex_secret_deploy_key\\n'); console.log('Saved deploy key'); process.exit(0); }",
@@ -2893,7 +3093,10 @@ async function runPackageScript(
 
 async function writePassingM1EvidenceBundle(
   targetDir: string,
-  { writeProviderLinksState = true }: { writeProviderLinksState?: boolean } = {}
+  {
+    writeProviderLinksState = true,
+    writeAuthFixture = true
+  }: { writeProviderLinksState?: boolean; writeAuthFixture?: boolean } = {}
 ): Promise<void> {
   const evidenceDir = join(targetDir, "docs/milestones/evidence/M1-preview-e2e");
 
@@ -2996,9 +3199,47 @@ async function writePassingM1EvidenceBundle(
     ].join("\n")
   );
 
+  if (writeAuthFixture) {
+    await appendM1AuthFixtureLedgerRow(targetDir);
+    await writeFile(
+      join(evidenceDir, "clerk-smoke-user.txt"),
+      [
+        "# M1 Clerk Smoke User Evidence",
+        "",
+        "Result: PASS",
+        "Checked at: 2026-06-22T10:04:00.000Z",
+        "Action: ensure",
+        "Provider: clerk",
+        "Resource type: user",
+        "Environment: preview",
+        "Clerk smoke user: created or reused",
+        "Client trust bypass: requested",
+        "Local credential state: .agentstack/m1-auth-user.json",
+        "Provider mutation: clerk user create/update/delete",
+        "Ledger mutation: docs/provider-resource-ledger.md",
+        "Local mutation: .agentstack/m1-auth-user.json",
+        "Telemetry mutation: provider ledger telemetry only",
+        "",
+        "Raw passwords, OTP codes, session tokens, cookies, provider stdout, and full user payloads are not stored in this evidence file.",
+        ""
+      ].join("\n")
+    );
+  }
+
   const runbookPath = join(evidenceDir, "runbook.md");
   const runbook = await readFile(runbookPath, "utf8");
   await writeFile(runbookPath, completeM1RunbookScaffold(runbook));
+}
+
+async function appendM1AuthFixtureLedgerRow(targetDir: string): Promise<void> {
+  const ledgerPath = join(targetDir, "docs/provider-resource-ledger.md");
+  const ledger = await readFile(ledgerPath, "utf8");
+  const row =
+    "| clerk-preview-user | clerk | user | preview | cardinal-dev | acme-crm+m1-smoke+clerk_test@example.com | user_fake_m1_smoke | M1 preview Clerk sign-in smoke user | Codex | 2026-06-22 | M1 pass or cleanup | active | delete through Clerk dashboard or `pnpm run m1:auth:user -- delete --confirm-live-mutation` |  | docs/milestones/evidence/M1-preview-e2e/clerk-smoke-user.txt | recorded by m1:auth:user ensure; client trust bypass requested |";
+  if (ledger.includes("| clerk-preview-user | clerk | user | preview |")) {
+    return;
+  }
+  await writeFile(ledgerPath, `${ledger.replace(/\n*$/, "")}\n${row}\n`);
 }
 
 function completeM1RunbookScaffold(runbook: string): string {

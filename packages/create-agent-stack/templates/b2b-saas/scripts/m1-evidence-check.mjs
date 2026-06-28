@@ -18,6 +18,7 @@ const requiredRunbookSteps = [
   "Bootstrap Preview Providers",
   "Link Local Provider State",
   "Deploy Preview",
+  "Manage Clerk Smoke User",
   "Deployed Auth And Data Smoke",
   "Evidence Bundle Check"
 ];
@@ -71,6 +72,7 @@ const providerBootstrap = await readText(`${evidenceDir}/provider-bootstrap.txt`
 const providerLinks = await readText(`${evidenceDir}/provider-links.txt`, "provider link evidence");
 const providerLinksState = await readOptionalText(".agentstack/provider-links.json");
 const deployOutput = await readText(`${evidenceDir}/deploy-output.txt`, "deploy output evidence");
+const authUserEvidence = await readText(`${evidenceDir}/clerk-smoke-user.txt`, "Clerk smoke user evidence");
 const smokeOutput = await readText(`${evidenceDir}/smoke-output.txt`, "smoke output evidence");
 const runbook = await readText(`${evidenceDir}/runbook.md`, "runbook");
 
@@ -119,6 +121,10 @@ if (providerLinks) {
 
 checkProviderLinksState(providerLinksState);
 
+if (ledger) {
+  checkSmokeUserLedgerRow(ledger);
+}
+
 if (deployOutput) {
   requireTopLevelResultPass(deployOutput, "deploy output");
   requireContains(deployOutput, "Convex apply: completed", "deploy output is missing Convex apply completion");
@@ -131,6 +137,26 @@ if (deployOutput) {
     invalidMessage: "deploy output deploy URL is not a valid https URL",
     mismatchMessage: "deploy output deploy URL does not match deploy URL evidence"
   });
+}
+
+if (authUserEvidence) {
+  requireTopLevelResultPass(authUserEvidence, "Clerk smoke user evidence");
+  requireContains(authUserEvidence, "Action:", "Clerk smoke user evidence is missing action summary");
+  requireContains(
+    authUserEvidence,
+    "Clerk smoke user:",
+    "Clerk smoke user evidence is missing user lifecycle summary"
+  );
+  requireContains(
+    authUserEvidence,
+    "Client trust bypass:",
+    "Clerk smoke user evidence is missing client trust summary"
+  );
+  requireContains(
+    authUserEvidence,
+    "Raw passwords, OTP codes, session tokens, cookies, provider stdout, and full user payloads are not stored",
+    "Clerk smoke user evidence redaction boundary is missing"
+  );
 }
 
 if (smokeOutput) {
@@ -177,6 +203,7 @@ if (runbook) {
     "pnpm run m1:preview:deploy -- --confirm-live-mutation",
     "runbook is missing deploy command"
   );
+  requireContains(runbook, "pnpm run m1:auth:user", "runbook is missing Clerk smoke user command");
   requireContains(runbook, "pnpm run m1:preview:smoke", "runbook is missing smoke command");
 }
 
@@ -198,6 +225,7 @@ console.log("Checked: provider ledger rows");
 console.log("Checked: provider bootstrap evidence");
 console.log("Checked: provider link evidence");
 console.log("Checked: deploy evidence");
+console.log("Checked: Clerk smoke user evidence");
 console.log("Checked: smoke evidence");
 console.log("Checked: runbook");
 console.log("Provider mutation: none");
@@ -245,6 +273,45 @@ async function checkLedgerRow({ ledger, id, service, resourceType, environment, 
   if (evidence) {
     requireContains(evidence, "External id/url: recorded in provider ledger (redacted)", `${service} ledger evidence is not redacted`);
     requireContains(evidence, "Provider mutation: none", `${service} ledger evidence mutation boundary is missing`);
+  }
+}
+
+function checkSmokeUserLedgerRow(ledger) {
+  const expectedName = `${appSlug}+m1-smoke+clerk_test@example.com`;
+  const line = ledger
+    .split(/\r?\n/)
+    .find(
+      (candidate) =>
+        candidate.startsWith("|") &&
+        candidate.includes("| clerk | user | preview |") &&
+        candidate.includes(`| ${expectedName} |`)
+    );
+
+  if (!line) {
+    failures.push("missing provider ledger row for Clerk smoke user fixture");
+    return;
+  }
+
+  const cells = line
+    .split("|")
+    .slice(1, -1)
+    .map((cell) => cell.trim());
+  const externalId = cells[6];
+  const status = cells[11];
+  const cleanedAt = cells[13];
+  const evidencePath = cells[14];
+
+  if (!externalId || externalId === "pending") {
+    failures.push("provider ledger external id is not recorded for Clerk smoke user fixture");
+  }
+  if (status !== "active" && status !== "cleaned") {
+    failures.push("provider ledger status is not active or cleaned for Clerk smoke user fixture");
+  }
+  if (status === "cleaned" && !cleanedAt) {
+    failures.push("provider ledger cleaned timestamp is missing for Clerk smoke user fixture");
+  }
+  if (evidencePath !== `${evidenceDir}/clerk-smoke-user.txt`) {
+    failures.push("provider ledger evidence path is missing for Clerk smoke user fixture");
   }
 }
 
@@ -308,7 +375,7 @@ function checkRunbookResults(runbook) {
       }
     }
 
-    const checkboxResult = line.match(/^- (Ledger|Connect|Deploy|Auth|Data|Evidence):\s*(.+)\s*$/i);
+    const checkboxResult = line.match(/^- (Ledger|Connect|Deploy|Auth Fixture|Auth|Data|Evidence):\s*(.+)\s*$/i);
     if (checkboxResult) {
       finalCheckboxes.add(checkboxResult[1].toLowerCase());
       if (normalizeRunbookValue(checkboxResult[2]).toLowerCase() !== "pass") {
@@ -323,7 +390,7 @@ function checkRunbookResults(runbook) {
     }
   }
 
-  for (const required of ["Ledger", "Connect", "Deploy", "Auth", "Data", "Evidence"]) {
+  for (const required of ["Ledger", "Connect", "Deploy", "Auth Fixture", "Auth", "Data", "Evidence"]) {
     if (!finalCheckboxes.has(required.toLowerCase())) {
       failures.push(`runbook final ${required} checkbox is missing`);
     }

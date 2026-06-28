@@ -20,6 +20,7 @@ For the active milestone, start with the generated app path unless the current b
 pnpm run m1:providers:bootstrap -- --confirm-live-mutation
 pnpm run m1:providers:link
 pnpm run m1:preview:deploy -- --confirm-live-mutation
+pnpm run m1:auth:user -- ensure --confirm-live-mutation
 pnpm run m1:preview:smoke -- --url <deploy-url> --dom-file .agentstack/m1-preview-dom.html
 pnpm run m1:evidence:check
 ```

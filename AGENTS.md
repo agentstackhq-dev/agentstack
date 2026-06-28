@@ -10,8 +10,9 @@ The primary path is executable, not theoretical:
 2. From that generated app, run `pnpm run m1:providers:bootstrap -- --confirm-live-mutation`.
 3. Run `pnpm run m1:providers:link`.
 4. Run `pnpm run m1:preview:deploy -- --confirm-live-mutation`.
-5. Run `pnpm run m1:preview:smoke`.
-6. Complete the runbook and run `pnpm run m1:evidence:check`.
+5. Run `pnpm run m1:auth:user -- ensure --confirm-live-mutation`.
+6. Run `pnpm run m1:preview:smoke`.
+7. Complete the runbook and run `pnpm run m1:evidence:check`.
 
 Every session should either run this path, fix the first concrete blocker from this path, or record evidence that the path is not viable. Do not spend a session broadening diagnostics, readiness gates, or provider theory before the current blocker has been hit against real provider CLIs.
 
@@ -36,6 +37,7 @@ Validation-first work uses milestones, not open-ended readiness expansion.
 - Ledger every real external resource per `docs/provider-resource-ledger.md` before create/link/mutate.
 - Provider CLI installation and authentication are part of the work. Install missing CLIs through the generated dependencies or local package manager. If provider auth needs a browser/login link or interactive account selection, run the CLI until it prints the exact action the user must take, report that action, then resume from the same command after auth.
 - Do not stop at "provider inputs needed" when a CLI can discover, create, or link the resource. The generated `m1:providers:bootstrap` helper is the primary M1 Ledger + Connect entrypoint.
+- Clerk smoke-user lifecycle is part of M1. Use `m1:auth:user -- ensure|update|delete --confirm-live-mutation` for preview auth fixtures instead of manual Clerk dashboard/API patching.
 - `m1:ledger:record` is a low-level fallback for repairing ledger rows or recording a known existing resource. It is not the default M1 path while `m1:providers:bootstrap` exists.
 - Planned or pending ledger rows are blockers, not progress toward checked M1 acceptance boxes, until the bootstrap or repair path records active real resource identities.
 

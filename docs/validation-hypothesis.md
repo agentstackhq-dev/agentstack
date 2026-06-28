@@ -16,9 +16,10 @@ One person or agent completes the following using **only** generated Agentstack 
 2. Run `pnpm run m1:providers:bootstrap -- --confirm-live-mutation` to create/reuse, ledger, and locally configure preview Clerk, Convex, and Vercel resources
 3. Run `pnpm run m1:providers:link`
 4. Deploy the web app to a Vercel preview URL through `pnpm run m1:preview:deploy -- --confirm-live-mutation`
-5. Sign in with Clerk on that URL
-6. Call one protected Convex query/mutation as the signed-in user
-7. Produce a redacted evidence bundle under `docs/milestones/evidence/M1-preview-e2e/`
+5. Run `pnpm run m1:auth:user -- ensure --confirm-live-mutation` so the Clerk smoke user lifecycle is repeatable and ledgered
+6. Sign in with Clerk on that URL
+7. Call one protected Convex query/mutation as the signed-in user
+8. Produce a redacted evidence bundle under `docs/milestones/evidence/M1-preview-e2e/`
 
 Success means the framework makes contact with real provider state and orchestrates the path. Provider login links, browser auth, and one-time account/project selection are acceptable handoffs when the CLI requires them; undocumented dashboard setup or manual resource transcription is not.
 

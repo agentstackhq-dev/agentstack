@@ -11,6 +11,7 @@ Redacted artifacts from spike, unblock, and runtime threads for [M1](../../M1-pr
 - `deploy-output.txt` — redacted deploy-helper output from `pnpm run m1:preview:deploy -- --confirm-live-mutation`
 - `m1:evidence:check` output — local redacted evidence-bundle validation, not provider readiness
 - `m1-live-preview-pass-*.md` — redacted final live pass summary for the generated app path
+- `m1-clerk-auth-fixture-lifecycle-*.md` — generated-path hardening evidence for repeatable Clerk smoke-user lifecycle management
 - `workflow-guidance-*.md` — generated guidance fixes that keep M1 live evidence distinct from local preview rehearsal output
 - `provider-ledger-replace-*.md` — ledger repair support for replacing `pending` planned rows with real provider ids or dashboard URLs
 - `m1-ledger-pending-guard-*.md` — generated helper guardrails that keep implicit `pending` rows from looking like real Ledger progress
