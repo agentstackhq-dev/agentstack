@@ -80,7 +80,7 @@ None for M1. The generated app path reached real Clerk, Convex, and Vercel resou
 
 ## Post-pass queue (max 3)
 
-1. Review whether M1 used generated docs/skills sufficiently or needs one final generated-guidance tightening pass.
+1. Treat the generated docs/skills M1 path as a provider-path spike only; do not add more generated guidance to consumer apps.
 2. Decide whether to retain or delete the successful 2026-06-28 M1 repro resources in [provider-resource-ledger.md](../provider-resource-ledger.md).
 3. Review Convex dashboard-only cleanup rows marked `abandoned-with-reason`; Clerk and Vercel superseded resources were cleaned in [m1-post-pass-closeout-2026-06-28.md](./evidence/M1-preview-e2e/m1-post-pass-closeout-2026-06-28.md).
 
@@ -88,8 +88,8 @@ None for M1. The generated app path reached real Clerk, Convex, and Vercel resou
 
 When all required checkboxes are checked, human reviews:
 
-- Did we use generated docs/skills for the path?
+- Did the generated docs/skills path prove provider orchestration while exposing the wrong generated consumer shape?
 - Where did we need external provider docs?
-- Is meta-framework overhead acceptable?
+- Can the framework move that overhead behind package-owned CLI, typed schema diagnostics, and hidden `.agentstack/` state?
 
-Then unlock [M2](./M2-agent-completes-m1.md) or record kill/pivot in hypothesis doc.
+Then implement the lean generated-surface correction required by [M2](./M2-agent-completes-m1.md), or record kill/pivot in the hypothesis doc.

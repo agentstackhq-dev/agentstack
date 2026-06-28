@@ -4,14 +4,14 @@ Validation-driven execution. **Start with the active milestone**, not the consum
 
 ## Active milestone
 
-**[M1: Preview E2E](./M1-preview-e2e.md)** — web preview + Clerk auth + protected Convex + Vercel deploy
+**Post-M1 correction** — M1 provider path passed; next validation work must align generated apps with the lean package-driven contract in [M2](./M2-agent-completes-m1.md)
 
 ## All milestones
 
 | ID | Status | Doc |
 | --- | --- | --- |
 | M0 | Reference | [Hypothesis](../validation-hypothesis.md) |
-| M1 | **Active** | [M1-preview-e2e.md](./M1-preview-e2e.md) |
+| M1 | Complete | [M1-preview-e2e.md](./M1-preview-e2e.md) |
 | M2 | Locked | [M2-agent-completes-m1.md](./M2-agent-completes-m1.md) |
 | M3 | Locked | [M3-billing-webhook.md](./M3-billing-webhook.md) |
 | M4 | Locked | [M4-clean-machine-smoke.md](./M4-clean-machine-smoke.md) |
@@ -19,9 +19,8 @@ Validation-driven execution. **Start with the active milestone**, not the consum
 ## New coding agent?
 
 1. Read [validation hypothesis](../validation-hypothesis.md)
-2. Read [active milestone](./M1-preview-e2e.md)
-3. Use [THREAD-KICKOFF.md](./THREAD-KICKOFF.md) for your session type
-4. Read [operating model](../validation-operating-model.md) if unclear on scope
+2. Read the [M1 post-pass findings](./M1-preview-e2e.md), then read the locked [M2 lean contract](./M2-agent-completes-m1.md)
+3. Read [operating model](../validation-operating-model.md) if unclear on scope
 
 ## Evidence
 
