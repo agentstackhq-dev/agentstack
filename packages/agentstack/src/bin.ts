@@ -35,6 +35,7 @@ function writeTopLevelUsage(): number {
       "",
       "Examples:",
       "  agentstack create <app-name>",
+      "  agentstack create <app-name> --package-spec link:/path/to/agentstack",
       "  agentstack validate",
       "  agentstack deploy --env preview"
     ].join("\n")
@@ -44,19 +45,53 @@ function writeTopLevelUsage(): number {
 }
 
 async function createCommand(argv: string[]): Promise<number> {
-  const [name] = argv;
+  const parsed = parseCreateArgs(argv);
 
-  if (name === "--help" || name === "-h") {
-    process.stdout.write("Usage: agentstack create <app-name>\n");
+  if (parsed.help) {
+    process.stdout.write("Usage: agentstack create <app-name> [--package-spec <spec>]\n");
     return 0;
   }
 
-  if (!name) {
-    process.stderr.write("Usage: agentstack create <app-name>\n");
+  if (!parsed.name) {
+    process.stderr.write("Usage: agentstack create <app-name> [--package-spec <spec>]\n");
     return 1;
   }
 
-  await generateProject({ name, targetDir: resolve(process.cwd(), name) });
-  process.stdout.write(`Created ${name}\n`);
+  await generateProject({
+    name: parsed.name,
+    targetDir: resolve(process.cwd(), parsed.name),
+    packageSpec: parsed.packageSpec ?? process.env.AGENTSTACK_PACKAGE_SPEC
+  });
+  process.stdout.write(`Created ${parsed.name}\n`);
   return 0;
+}
+
+function parseCreateArgs(argv: string[]): { name?: string; packageSpec?: string; help: boolean } {
+  const parsed: { name?: string; packageSpec?: string; help: boolean } = { help: false };
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === "--help" || arg === "-h") {
+      parsed.help = true;
+      continue;
+    }
+    if (arg === "--package-spec") {
+      const value = argv[index + 1];
+      if (!value || value.startsWith("--")) {
+        throw new Error("Usage: agentstack create <app-name> [--package-spec <spec>]");
+      }
+      parsed.packageSpec = value;
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith("--")) {
+      throw new Error(`Unknown create option: ${arg}`);
+    }
+    if (parsed.name) {
+      throw new Error("Usage: agentstack create <app-name> [--package-spec <spec>]");
+    }
+    parsed.name = arg;
+  }
+
+  return parsed;
 }

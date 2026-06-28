@@ -1,6 +1,6 @@
 # M2: Agent Completes Lean Agentstack Preview
 
-Status: **ready for approach discussion** (lean generated-surface correction is implemented and verified; do not start the live M2 preview loop until the M2 approach is agreed)
+Status: **live preview path passed** (package-owned M2 preview loop passed against live Clerk, Convex, and Vercel on 2026-06-28; stop here before M3/M2+ scope decisions)
 
 ## Product correction
 
@@ -91,9 +91,9 @@ That state is runtime/evidence state, not generated source. It must be ignored b
 - [x] `agentstack.config.ts` imports a typed schema helper from the package and the package schema can load it through source e2e validation
 - [x] `agentstack validate` validates the typed config through the package schema and emits agent-actionable diagnostics
 - [x] Local source e2e invokes the public `agentstack` bin and generated app package scripts instead of internal framework functions
-- [ ] A fresh agent completes preview bootstrap, link, deploy, auth fixture, smoke, and evidence through package-owned CLI commands from the lean app
+- [x] A fresh agent completes preview bootstrap, link, deploy, auth fixture, smoke, and evidence through package-owned CLI commands from the lean app
 - [x] M2 evidence is recorded in this Agentstack framework repo, not as generated consumer-app docs
-- [ ] Friction log records every human/provider intervention and every place package-owned guidance was insufficient
+- [x] Friction log records every human/provider intervention and every place package-owned guidance was insufficient
 
 ## Failure conditions
 
@@ -112,8 +112,10 @@ M2 fails if any of these are required for the fresh-agent preview path:
 - Hosted control plane
 - Broad provider matrix expansion beyond the preview path needed to prove the corrected contract
 
-## Lean correction evidence
+## Evidence
 
 The unlock condition has been satisfied by the lean correction slice recorded in [evidence/M2-agent-completes-m1/lean-contract-correction-2026-06-28.md](./evidence/M2-agent-completes-m1/lean-contract-correction-2026-06-28.md).
 
-M2 live preview execution remains intentionally not started. The next session should discuss the package-owned provider/auth/evidence approach before running the live Clerk, Convex, and Vercel loop from the lean app.
+The live package-owned preview loop passed in [evidence/M2-agent-completes-m1/m2-live-preview-pass-2026-06-28.md](./evidence/M2-agent-completes-m1/m2-live-preview-pass-2026-06-28.md).
+
+Do not broaden into M3 or production readiness from this milestone without a separate approach discussion.

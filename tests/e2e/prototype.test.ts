@@ -45,6 +45,7 @@ describe("Agentstack consumer executable workflow", () => {
       dev: "agentstack dev",
       "provider:bootstrap": "agentstack provider bootstrap",
       "provider:link": "agentstack provider link",
+      "auth:user": "agentstack auth user",
       "preview:deploy": "agentstack deploy --env preview",
       "preview:smoke": "agentstack smoke --env preview",
       "evidence:check": "agentstack evidence check"

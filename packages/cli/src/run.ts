@@ -103,6 +103,14 @@ import {
   type WideEvent
 } from "@agentstack/telemetry";
 import { loadLocalEnvValues, loadProjectContext } from "./context.js";
+import {
+  m2AuthUserCommand,
+  m2DeployPreviewLiveCommand,
+  m2EvidenceCheckCommand,
+  m2ProviderBootstrapCommand,
+  m2ProviderLinkCommand,
+  m2SmokeCommand
+} from "./m2-live.js";
 
 export type RunIo = {
   cwd: string;
@@ -262,12 +270,32 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
       return await providerLedgerCommand(rest, io);
     }
 
+    if (command === "provider" && subcommand === "bootstrap") {
+      return await m2ProviderBootstrapCommand(rest, io);
+    }
+
     if (command === "provider" && subcommand === "link") {
+      const aggregateLink = await m2ProviderLinkCommand(rest, io);
+      if (aggregateLink !== undefined) {
+        return aggregateLink;
+      }
       return await providerLinkCommand(rest, io);
     }
 
     if (command === "provider" && subcommand === "adopt") {
       return await providerAdoptCommand(rest, io);
+    }
+
+    if (command === "auth" && subcommand === "user") {
+      return await m2AuthUserCommand(rest, io);
+    }
+
+    if (command === "smoke") {
+      return await m2SmokeCommand([subcommand, ...rest].filter(Boolean), io);
+    }
+
+    if (command === "evidence" && subcommand === "check") {
+      return await m2EvidenceCheckCommand(rest, io);
     }
 
     if (command === "prod") {
@@ -338,6 +366,9 @@ function writeTopLevelUsage(io: RunIo): void {
   io.write("  sync           Plan or apply local cloud state");
   io.write("  deploy         Plan or apply deploy actions");
   io.write("  provider       Plan, inspect, link, adopt, or ledger provider resources");
+  io.write("  auth           Manage package-owned auth fixtures");
+  io.write("  smoke          Validate preview auth/data smoke evidence");
+  io.write("  evidence       Check package-owned validation evidence");
   io.write("  observe        Inspect telemetry and journey evidence");
   io.write("  theme          Validate generated theme tokens");
 }
@@ -671,6 +702,11 @@ async function deployCommand(argv: string[], io: RunIo): Promise<number> {
     }
     context = validation.context;
     envValues = validation.envValues;
+
+    const livePreviewDeploy = await m2DeployPreviewLiveCommand(argv, io);
+    if (livePreviewDeploy !== undefined) {
+      return livePreviewDeploy;
+    }
   }
 
   const deployPlan = await new LocalCloudAdapter(io.cwd).deploy(context.manifest, environment, {

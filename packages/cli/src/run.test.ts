@@ -7435,6 +7435,153 @@ describe("runAgentstack", () => {
     expect(providerExecutions).toHaveLength(0);
   });
 
+  it("requires confirmation before package-owned M2 provider bootstrap mutates live providers", async () => {
+    const code = await runAgentstack(["provider", "bootstrap"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("live mutation should not run")
+    });
+
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL provider.bootstrap.confirmation-required");
+    expect(output).toContain("Evidence: m2-provider-bootstrap");
+    expect(output).toContain("Provider mutation: none");
+    expect(output).toContain("Local mutation: none");
+    expect(providerExecutions).toHaveLength(0);
+  });
+
+  it("links package-owned M2 provider bootstrap state without generated docs", async () => {
+    await writeM2ProviderResourcesState();
+
+    const code = await runAgentstack(["provider", "link"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("provider link should stay local")
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS provider link preview");
+    expect(output).toContain("Evidence: m2-provider-link");
+    expect(output).toContain("Local mutation: .agentstack/provider-links.json");
+    expect(output).toContain("Provider mutation: none");
+    expect(providerExecutions).toHaveLength(0);
+
+    const links = await readFile(join(dir, ".agentstack", "provider-links.json"), "utf8");
+    expect(links).toContain("acme-crm-preview");
+    await expect(readFile(join(dir, "docs", "provider-resource-ledger.md"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT"
+    });
+  });
+
+  it("requires confirmation before package-owned M2 Clerk smoke user mutations", async () => {
+    const code = await runAgentstack(["auth", "user", "ensure"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("live mutation should not run")
+    });
+
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL auth.user.confirmation-required");
+    expect(output).toContain("Evidence: m2-auth-user");
+    expect(output).toContain("Provider mutation: none");
+    expect(providerExecutions).toHaveLength(0);
+  });
+
+  it("accepts the pnpm run delimiter before package-owned M2 Clerk smoke user actions", async () => {
+    const code = await runAgentstack(["auth", "user", "--", "ensure"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("live mutation should not run")
+    });
+
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL auth.user.confirmation-required");
+    expect(output.join("\n")).not.toContain("Unexpected argument");
+    expect(providerExecutions).toHaveLength(0);
+  });
+
+  it("updates package-owned M2 Clerk smoke user metadata through Clerk's metadata endpoint", async () => {
+    const code = await runAgentstack(["auth", "user", "ensure", "--confirm-live-mutation"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: {
+        async execute(command, args, options) {
+          providerExecutions.push({ command, args, stdin: options.stdin });
+          const joined = args.join(" ");
+          if (joined.includes("clerk whoami --json")) {
+            return { exitCode: 0, stdout: JSON.stringify({ email: "tester@example.com" }), stderr: "", durationMs: 1 };
+          }
+          if (joined.includes("/users?email_address=")) {
+            return { exitCode: 0, stdout: JSON.stringify({ data: [{ id: "user_m2_smoke" }] }), stderr: "", durationMs: 1 };
+          }
+          return { exitCode: 0, stdout: JSON.stringify({ id: "user_m2_smoke" }), stderr: "", durationMs: 1 };
+        }
+      }
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS auth user ensure");
+    const commandLines = providerExecutions.map((execution) => execution.args.join(" "));
+    const userPatch = commandLines.find((line) => line.includes("/users/user_m2_smoke --method PATCH"));
+    expect(userPatch).toBeDefined();
+    expect(userPatch).not.toContain("public_metadata");
+    expect(commandLines.some((line) => line.includes("/users/user_m2_smoke/metadata --method PATCH"))).toBe(true);
+  });
+
+  it("passes package-owned M2 smoke from a post-sign-in DOM snapshot and hidden deploy evidence", async () => {
+    await writeM2DeployEvidence("https://acme-crm-preview.vercel.app/");
+    await writeFile(
+      join(dir, ".agentstack", "m2-preview-dom.html"),
+      [
+        '<main data-agentstack-auth-state="signed-in">',
+        '<section data-agentstack-protected-data-state="protected-data-loaded"',
+        ' data-agentstack-protected-workspace-id="workspace_secret_123"></section>',
+        "</main>"
+      ].join("\n"),
+      "utf8"
+    );
+
+    const code = await runAgentstack(
+      [
+        "smoke",
+        "--env",
+        "preview",
+        "--url",
+        "https://acme-crm-preview.vercel.app/",
+        "--dom-file",
+        ".agentstack/m2-preview-dom.html"
+      ],
+      {
+        cwd: dir,
+        write: (line) => output.push(line)
+      }
+    );
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS smoke preview");
+    expect(output).toContain("Evidence: m2-preview-smoke");
+    expect(output).toContain("Auth state: signed-in");
+    expect(output).toContain("Protected data state: protected-data-loaded");
+    expect(output.join("\n")).not.toContain("workspace_secret_123");
+    await expect(readFile(join(dir, ".agentstack", "evidence", "M2-agent-completes-m1", "smoke-output.txt"), "utf8")).resolves.toContain(
+      "Result: PASS"
+    );
+  });
+
+  it("reports missing package-owned M2 evidence instead of using generated runbooks", async () => {
+    const code = await runAgentstack(["evidence", "check"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL evidence check preview");
+    expect(output).toContain("Evidence: m2-evidence-check");
+    expect(output.join("\n")).toContain("missing provider bootstrap evidence");
+    expect(output.join("\n")).not.toContain("runbook");
+    expect(output.join("\n")).not.toContain("docs/milestones");
+  });
+
   it("fails cloud validation when cloud state is missing", async () => {
     const code = await runAgentstack(["validate", "--cloud"], {
       cwd: dir,
@@ -8963,6 +9110,56 @@ async function writeLocalEnvValues(values: unknown): Promise<void> {
   await writeFile(
     join(dir, ".agentstack", "env-values.json"),
     `${JSON.stringify(values, null, 2)}\n`,
+    "utf8"
+  );
+}
+
+async function writeM2ProviderResourcesState(): Promise<void> {
+  await mkdir(join(dir, ".agentstack"), { recursive: true });
+  await writeFile(
+    join(dir, ".agentstack", "provider-resources.json"),
+    `${JSON.stringify(
+      {
+        environment: "preview",
+        resources: [
+          {
+            service: "clerk",
+            resourceType: "application",
+            name: "acme-crm-preview",
+            externalId: "clerk_app_secret_123",
+            owner: "clerk-owner"
+          },
+          {
+            service: "convex",
+            resourceType: "deployment",
+            name: "acme-crm-preview",
+            externalId: "team:project:preview/acme-crm-preview",
+            owner: "team:project",
+            url: "<convex-url>"
+          },
+          {
+            service: "vercel",
+            resourceType: "project",
+            name: "acme-crm",
+            externalId: "prj_secret_123",
+            owner: "team_secret_123"
+          }
+        ]
+      },
+      null,
+      2
+    )}\n`,
+    "utf8"
+  );
+}
+
+async function writeM2DeployEvidence(url: string): Promise<void> {
+  const evidenceDir = join(dir, ".agentstack", "evidence", "M2-agent-completes-m1");
+  await mkdir(evidenceDir, { recursive: true });
+  await writeFile(join(evidenceDir, "deploy-url.txt"), `${url}\n`, "utf8");
+  await writeFile(
+    join(evidenceDir, "deploy-output.txt"),
+    ["# M2 Preview Deploy Output", "", "Result: PASS", "Convex apply: completed", "Vercel apply: completed", `Deploy URL: ${url}`, ""].join("\n"),
     "utf8"
   );
 }

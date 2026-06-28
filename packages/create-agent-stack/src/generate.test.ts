@@ -65,6 +65,7 @@ describe("generateProject", () => {
         dev: "agentstack dev",
         "provider:bootstrap": "agentstack provider bootstrap",
         "provider:link": "agentstack provider link",
+        "auth:user": "agentstack auth user",
         "preview:deploy": "agentstack deploy --env preview",
         "preview:smoke": "agentstack smoke --env preview",
         "evidence:check": "agentstack evidence check"
@@ -76,6 +77,26 @@ describe("generateProject", () => {
       expect(config).toContain("export default defineAgentstackConfig");
       expect(config).toContain('slug: "acme-crm"');
       expect(agents).toContain("Use package-owned Agentstack CLI help instead of generated runbooks.");
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  test("can generate an installable local package dependency for live consumer validation", async () => {
+    const tempRoot = await mkdtemp(join(tmpdir(), "agentstack-create-"));
+    const targetDir = join(tempRoot, "acme-crm");
+
+    try {
+      await generateProject({
+        name: "acme-crm",
+        targetDir,
+        packageSpec: "link:<agentstack-repo>/packages/agentstack"
+      });
+
+      const packageManifest = JSON.parse(await readFile(join(targetDir, "package.json"), "utf8"));
+      expect(packageManifest.dependencies.agentstack).toBe(
+        "link:<agentstack-repo>/packages/agentstack"
+      );
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }

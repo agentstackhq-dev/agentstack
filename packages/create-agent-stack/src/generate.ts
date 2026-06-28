@@ -11,6 +11,7 @@ const fsExtra = require("fs-extra") as {
 export type GenerateProjectInput = {
   name: string;
   targetDir: string;
+  packageSpec?: string;
 };
 
 export async function generateProject(input: GenerateProjectInput): Promise<void> {
@@ -25,7 +26,8 @@ export async function generateProject(input: GenerateProjectInput): Promise<void
   await fsExtra.copy(templateDir, input.targetDir);
   await replaceTokens(input.targetDir, {
     __APP_SLUG__: appSlug,
-    __APP_NAME__: appName
+    __APP_NAME__: appName,
+    __AGENTSTACK_PACKAGE_SPEC__: input.packageSpec ?? "0.0.0"
   });
 }
 
