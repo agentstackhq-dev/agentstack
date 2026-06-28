@@ -10,6 +10,7 @@ import { afterEach, describe, expect, test } from "vitest";
 const sourceDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(sourceDir, "../..");
 const agentstackBin = join(repoRoot, "packages/agentstack/src/bin.js");
+const agentstackPackageDir = join(repoRoot, "packages/agentstack");
 
 let tempRoot: string | undefined;
 
@@ -27,8 +28,12 @@ describe("Agentstack consumer executable workflow", () => {
     const helpResult = await invokeAgentstackBin(["--help"], tempRoot);
     expect(helpResult.exitCode).toBe(0);
     expect(helpResult.stdout).toContain("agentstack create <app-name>");
+    expect(helpResult.stdout).toContain("billing");
 
-    const createResult = await invokeAgentstackBin(["create", "acme-crm"], tempRoot);
+    const createResult = await invokeAgentstackBin(
+      ["create", "acme-crm", "--package-spec", `link:${agentstackPackageDir}`],
+      tempRoot
+    );
     expect(createResult.exitCode).toBe(0);
     expect(createResult.stdout).toContain("Created acme-crm");
 
@@ -36,22 +41,28 @@ describe("Agentstack consumer executable workflow", () => {
     await installLocalAgentstackPackage(appDir);
 
     const packageManifest = JSON.parse(await readFile(join(appDir, "package.json"), "utf8"));
-    const configPath = join(appDir, "agentstack.config.ts");
-    const generatedConfig = await readFile(configPath, "utf8");
+    const generatedConfig = await readFile(join(appDir, "agentstack.config.ts"), "utf8");
 
-    expect(packageManifest.dependencies).toMatchObject({ agentstack: expect.any(String) });
+    expect(packageManifest.dependencies).toMatchObject({ agentstack: `link:${agentstackPackageDir}` });
     expect(packageManifest.scripts).toMatchObject({
       validate: "agentstack validate",
       dev: "agentstack dev",
       "provider:bootstrap": "agentstack provider bootstrap",
       "provider:link": "agentstack provider link",
       "auth:user": "agentstack auth user",
+      "billing:bootstrap": "agentstack billing bootstrap",
+      "billing:fixture": "agentstack billing fixture",
+      "billing:smoke": "agentstack billing smoke",
       "preview:deploy": "agentstack deploy --env preview",
       "preview:smoke": "agentstack smoke --env preview",
       "evidence:check": "agentstack evidence check"
     });
     expect(generatedConfig).toContain('import { defineAgentstackConfig } from "agentstack/config";');
     expect(generatedConfig).toContain('slug: "acme-crm"');
+    expect(generatedConfig).toContain("billing:");
+    expect(generatedConfig).toContain('"feature.auditLog"');
+    expect(generatedConfig).toContain('providerFeature: "audit_log"');
+    expect(generatedConfig).not.toContain("STRIPE_MODE");
     await expect(readFile(join(appDir, "docs/agentstack/saas-spine.md"), "utf8")).rejects.toThrow();
     await expect(readFile(join(appDir, "scripts/agentstack.mjs"), "utf8")).rejects.toThrow();
     await expect(readFile(join(appDir, "packages/domain/src/index.ts"), "utf8")).rejects.toThrow();
@@ -67,29 +78,73 @@ describe("Agentstack consumer executable workflow", () => {
     await expect(readFile(join(appDir, "apps/convex/convex/schema.ts"), "utf8")).resolves.toContain(
       "workspaceStatuses"
     );
-    await writeFile(configPath, generatedConfig.replace("required: false", "required: true"));
-
-    const firstValidate = await runPackageScript("validate", [], appDir);
-    expect(firstValidate.exitCode).toBe(1);
-    expect(firstValidate.stdout).toContain("FAIL env.custom.missing");
-
-    const setPreviewEnv = await invokeAgentstackBin(
-      ["env", "set", "--env", "preview", "--surface", "convex", "--name", "STRIPE_MODE", "--value", "sandbox"],
-      appDir
-    );
-    expect(setPreviewEnv.exitCode).toBe(0);
-    expect(setPreviewEnv.stdout).toContain("PASS env set preview convex.STRIPE_MODE");
-
-    const setProductionEnv = await invokeAgentstackBin(
-      ["env", "set", "--env", "production", "--surface", "convex", "--name", "STRIPE_MODE", "--value", "live"],
-      appDir
-    );
-    expect(setProductionEnv.exitCode).toBe(0);
-    expect(setProductionEnv.stdout).toContain("PASS env set production convex.STRIPE_MODE");
 
     const validate = await runPackageScript("validate", [], appDir);
     expect(validate.exitCode).toBe(0);
     expect(validate.stdout).toContain("PASS validate");
+
+    const billingBootstrapWithoutConfirm = await runPackageScript(
+      "billing:bootstrap",
+      ["--env", "preview"],
+      appDir
+    );
+    expect(billingBootstrapWithoutConfirm.exitCode).toBe(1);
+    expect(billingBootstrapWithoutConfirm.stdout).toContain("FAIL billing.bootstrap.confirmation-required");
+
+    const billingFixtureWithoutConfirm = await runPackageScript(
+      "billing:fixture",
+      ["ensure", "--env", "preview", "--entitlement", "feature.auditLog"],
+      appDir
+    );
+    expect(billingFixtureWithoutConfirm.exitCode).toBe(1);
+    expect(billingFixtureWithoutConfirm.stdout).toContain("FAIL billing.fixture.confirmation-required");
+
+    await mkdir(join(appDir, ".agentstack"), { recursive: true });
+    await writeFile(
+      join(appDir, ".agentstack", "m3-denied-dom.html"),
+      [
+        '<main data-agentstack-auth-state="signed-in">',
+        '<section data-agentstack-protected-data-state="protected-data-loaded"></section>',
+        '<section data-agentstack-entitlement-key="feature.auditLog"',
+        ' data-agentstack-entitlement-state="denied"></section>',
+        "</main>"
+      ].join("\n"),
+      "utf8"
+    );
+    const billingDeniedSmoke = await runPackageScript(
+      "billing:smoke",
+      ["--env", "preview", "--expected", "denied", "--dom-file", ".agentstack/m3-denied-dom.html"],
+      appDir
+    );
+    expect(billingDeniedSmoke.exitCode).toBe(0);
+    expect(billingDeniedSmoke.stdout).toContain("PASS billing smoke preview");
+
+    await writeFile(
+      join(appDir, ".agentstack", "m3-allowed-dom.html"),
+      [
+        '<main data-agentstack-auth-state="signed-in">',
+        '<section data-agentstack-protected-data-state="protected-data-loaded"></section>',
+        '<section data-agentstack-entitlement-key="feature.auditLog"',
+        ' data-agentstack-entitlement-state="allowed"></section>',
+        "</main>"
+      ].join("\n"),
+      "utf8"
+    );
+    const billingAllowedSmoke = await runPackageScript(
+      "billing:smoke",
+      ["--env", "preview", "--expected", "allowed", "--dom-file", ".agentstack/m3-allowed-dom.html"],
+      appDir
+    );
+    expect(billingAllowedSmoke.exitCode).toBe(0);
+    expect(billingAllowedSmoke.stdout).toContain("Entitlement state: allowed");
+
+    const m3EvidenceMissing = await runPackageScript(
+      "evidence:check",
+      ["--env", "preview", "--milestone", "M3"],
+      appDir
+    );
+    expect(m3EvidenceMissing.exitCode).toBe(1);
+    expect(m3EvidenceMissing.stdout).toContain("Evidence: m3-evidence-check");
 
     const previewDeployPlan = await runPackageScript("preview:deploy", [], appDir);
     expect(previewDeployPlan.exitCode).toBe(0);
@@ -106,7 +161,6 @@ describe("Agentstack consumer executable workflow", () => {
 });
 
 async function installLocalAgentstackPackage(appDir: string): Promise<void> {
-  const agentstackPackageDir = join(repoRoot, "packages/agentstack");
   await mkdir(join(appDir, "node_modules", ".bin"), { recursive: true });
   await symlink(agentstackPackageDir, join(appDir, "node_modules", "agentstack"), "dir");
   await symlink(join(agentstackPackageDir, "src/bin.js"), join(appDir, "node_modules", ".bin", "agentstack"));
@@ -133,6 +187,7 @@ async function runCommand(command: string, args: string[], cwd: string): Promise
       cwd,
       env: {
         ...process.env,
+        PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN: "false",
         PATH: [join(cwd, "node_modules", ".bin"), process.env.PATH].filter(Boolean).join(":")
       }
     });

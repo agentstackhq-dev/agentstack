@@ -40,6 +40,20 @@ const previewWebConvexTargets: CustomEnvProviderTarget[] = [
 const easPreviewTarget: CustomEnvProviderTarget[] = [
   { service: "eas", surfaces: ["mobile"], environments: ["preview"], source: "local-value" }
 ];
+
+function satisfyBillingWithPreview(manifest: ReturnType<typeof createDefaultManifest>): void {
+  const clerkWasEnabled = manifest.services.clerk.enabled;
+  const convexWasEnabled = manifest.services.convex.enabled;
+  manifest.billing.requiredEnvironments = ["preview"];
+  manifest.services.clerk.enabled = true;
+  manifest.services.convex.enabled = true;
+  manifest.services.clerk.requiredEnvironments = clerkWasEnabled
+    ? Array.from(new Set(["preview", ...manifest.services.clerk.requiredEnvironments]))
+    : ["preview"];
+  manifest.services.convex.requiredEnvironments = convexWasEnabled
+    ? Array.from(new Set(["preview", ...manifest.services.convex.requiredEnvironments]))
+    : ["preview"];
+}
 const easProductionTarget: CustomEnvProviderTarget[] = [
   { service: "eas", surfaces: ["mobile"], environments: ["production"], source: "local-value" }
 ];
@@ -4570,6 +4584,7 @@ describe("runAgentstack", () => {
           manifest.services.convex.enabled = true;
           manifest.services.vercel.enabled = false;
           manifest.services.eas.enabled = false;
+          satisfyBillingWithPreview(manifest);
           manifest.env.custom.OPENAI_API_KEY = {
             surfaces: ["convex"],
             environments: ["production"],
@@ -4613,6 +4628,7 @@ describe("runAgentstack", () => {
           manifest.services.convex.enabled = false;
           manifest.services.vercel.enabled = false;
           manifest.services.eas.enabled = true;
+          satisfyBillingWithPreview(manifest);
           manifest.env.custom.SENTRY_AUTH_TOKEN = {
             surfaces: ["mobile"],
             environments: ["production"],
@@ -4709,6 +4725,7 @@ describe("runAgentstack", () => {
     manifest.services.convex.enabled = false;
     manifest.services.vercel.enabled = false;
     manifest.services.eas.enabled = true;
+    satisfyBillingWithPreview(manifest);
     manifest.env.custom.SENTRY_AUTH_TOKEN = {
       surfaces: ["mobile"],
       environments: ["production"],
@@ -4807,6 +4824,7 @@ describe("runAgentstack", () => {
     manifest.services.convex.enabled = false;
     manifest.services.vercel.enabled = false;
     manifest.services.eas.enabled = true;
+    satisfyBillingWithPreview(manifest);
     manifest.env.custom.SENTRY_AUTH_TOKEN = {
       surfaces: ["mobile"],
       environments: ["production"],
@@ -5381,6 +5399,7 @@ describe("runAgentstack", () => {
     manifest.services.convex.enabled = false;
     manifest.services.eas.enabled = false;
     manifest.services.vercel.enabled = true;
+    satisfyBillingWithPreview(manifest);
     manifest.env.custom.NEXT_PUBLIC_APP_URL = {
       surfaces: ["web"],
       environments: ["production"],
@@ -5461,6 +5480,11 @@ describe("runAgentstack", () => {
     expect(rendered).not.toContain(externalId);
     expect(rendered).not.toContain(owner);
     expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec clerk doctor --mode agent",
+      "exec clerk env pull --mode agent",
+      "exec clerk config pull --mode agent",
+      "exec clerk apps list --json",
+      "exec convex env --prod list",
       "exec vercel env ls production",
       "exec vercel project ls --json"
     ]);
@@ -5477,6 +5501,7 @@ describe("runAgentstack", () => {
     manifest.services.convex.enabled = false;
     manifest.services.vercel.enabled = false;
     manifest.services.eas.enabled = false;
+    satisfyBillingWithPreview(manifest);
     await writeFile(join(dir, "agentstack.config.json"), `${JSON.stringify(manifest, null, 2)}\n`);
     const rowId = "row-secret-live-clerk-prod-proof";
     const externalId = "res_live_clerk_prod_secret";
@@ -5547,7 +5572,8 @@ describe("runAgentstack", () => {
       "exec clerk doctor --mode agent",
       "exec clerk env pull --mode agent",
       "exec clerk config pull --mode agent",
-      "exec clerk apps list --json"
+      "exec clerk apps list --json",
+      "exec convex env --prod list"
     ]);
     await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
     await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
@@ -5755,6 +5781,7 @@ describe("runAgentstack", () => {
     manifest.services.convex.enabled = true;
     manifest.services.vercel.enabled = false;
     manifest.services.eas.enabled = false;
+    satisfyBillingWithPreview(manifest);
     manifest.env.custom.OPENAI_API_KEY = {
       surfaces: ["convex"],
       environments: ["production"],
@@ -5790,7 +5817,13 @@ describe("runAgentstack", () => {
     expect(rendered).not.toContain("OPENAI_API_KEY");
     expect(rendered).not.toContain("provider-production-secret");
     expect(rendered).not.toContain("sk-local-convex-production-live-validation");
-    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual(["exec convex env --prod list"]);
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      "exec clerk doctor --mode agent",
+      "exec clerk env pull --mode agent",
+      "exec clerk config pull --mode agent",
+      "exec clerk apps list --json",
+      "exec convex env --prod list"
+    ]);
     await expect(readFile(join(dir, ".agentstack", "events.jsonl"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
     await expect(readFile(join(dir, ".agentstack", "local-cloud.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
     await expect(readFile(join(dir, ".agentstack", "provider-links.json"), "utf8")).rejects.toMatchObject({ code: "ENOENT" });
@@ -7168,6 +7201,7 @@ describe("runAgentstack", () => {
     manifest.services.convex.enabled = true;
     manifest.services.vercel.enabled = false;
     manifest.services.eas.enabled = false;
+    satisfyBillingWithPreview(manifest);
     manifest.env.custom.OPENAI_API_KEY = {
       surfaces: ["convex"],
       environments: ["production"],
@@ -7580,6 +7614,233 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("missing provider bootstrap evidence");
     expect(output.join("\n")).not.toContain("runbook");
     expect(output.join("\n")).not.toContain("docs/milestones");
+  });
+
+  it("requires confirmation before package-owned M3 billing bootstrap mutates live providers", async () => {
+    const code = await runAgentstack(["billing", "bootstrap", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("live mutation should not run")
+    });
+
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL billing.bootstrap.confirmation-required");
+    expect(output).toContain("Evidence: m3-billing-bootstrap");
+    expect(output).toContain("Provider mutation: none");
+    expect(output).toContain("Local mutation: none");
+    expect(providerExecutions).toHaveLength(0);
+  });
+
+  it("requires confirmation before package-owned M3 billing fixture mutations", async () => {
+    const code = await runAgentstack(
+      ["billing", "fixture", "ensure", "--env", "preview", "--entitlement", "feature.auditLog"],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: createMockProviderExecutor("live mutation should not run")
+      }
+    );
+
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL billing.fixture.confirmation-required");
+    expect(output).toContain("Evidence: m3-billing-fixture");
+    expect(output).toContain("Provider mutation: none");
+    expect(output).toContain("Local mutation: none");
+    expect(providerExecutions).toHaveLength(0);
+  });
+
+  it("bootstraps package-owned M3 billing webhook state through provider commands", async () => {
+    await writeM2ProviderResourcesState();
+    await writeM2ProviderLinksState();
+    await mkdir(join(dir, ".agentstack"), { recursive: true });
+    await writeFile(join(dir, ".agentstack", "clerk-billing-webhook.env"), "CLERK_WEBHOOK_SIGNING_SECRET=whsec_secret_123\n", "utf8");
+
+    const code = await runAgentstack(["billing", "bootstrap", "--env", "preview", "--confirm-live-mutation"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: {
+        async execute(command, args, options) {
+          providerExecutions.push({ command, args, stdin: options.stdin });
+          if (args.join(" ").includes("/billing/plans")) {
+            return {
+              exitCode: 0,
+              stdout: JSON.stringify({ data: [] }),
+              stderr: "",
+              durationMs: 1
+            };
+          }
+          if (args.join(" ").includes("/webhooks/svix_url")) {
+            return {
+              exitCode: 0,
+              stdout: JSON.stringify({ svix_url: "https://app.svix.com/login#key=redacted" }),
+              stderr: "",
+              durationMs: 1
+            };
+          }
+          if (args.join(" ").includes("/webhooks/svix")) {
+            return {
+              exitCode: 1,
+              stdout: JSON.stringify({ errors: [{ code: "svix_app_exists" }] }),
+              stderr: "",
+              durationMs: 1
+            };
+          }
+          return { exitCode: 0, stdout: "ok", stderr: "", durationMs: 1 };
+        }
+      }
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS billing bootstrap preview");
+    expect(output).toContain("Evidence: m3-billing-bootstrap");
+    expect(output.join("\n")).not.toContain("whsec_secret_123");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      expect.stringContaining("clerk api /billing/plans --method GET"),
+      expect.stringContaining("clerk api /webhooks/svix --method POST"),
+      expect.stringContaining("clerk api /webhooks/svix_url --method POST"),
+      expect.stringContaining("convex env --deployment team:project:preview/acme-crm-preview set CLERK_WEBHOOK_SIGNING_SECRET")
+    ]);
+    await expect(readFile(join(dir, ".agentstack", "evidence", "M3-billing-webhook", "billing-bootstrap.txt"), "utf8")).resolves.toContain(
+      "Result: PASS"
+    );
+  });
+
+  it("reports Clerk Billing enablement as a live M3 bootstrap blocker", async () => {
+    await writeM2ProviderResourcesState();
+    await writeM2ProviderLinksState();
+
+    const code = await runAgentstack(["billing", "bootstrap", "--env", "preview", "--confirm-live-mutation"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: {
+        async execute(command, args, options) {
+          providerExecutions.push({ command, args, stdin: options.stdin });
+          if (args.join(" ").includes("/billing/plans")) {
+            return {
+              exitCode: 1,
+              stdout: JSON.stringify({ errors: [{ code: "billing_not_enabled" }] }),
+              stderr: "",
+              durationMs: 1
+            };
+          }
+          return { exitCode: 0, stdout: "ok", stderr: "", durationMs: 1 };
+        }
+      }
+    });
+
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL billing bootstrap preview");
+    expect(output.join("\n")).toContain("enable Clerk Billing");
+    expect(output.join("\n")).toContain("Expected feature slug: audit_log");
+    expect(providerExecutions.map((execution) => execution.args.join(" "))).toEqual([
+      expect.stringContaining("clerk api /billing/plans --method GET")
+    ]);
+  });
+
+  it("passes M3 billing fixture grant after Convex reports the Clerk entitlement", async () => {
+    await writeM2ProviderResourcesState();
+    await writeM2ProviderLinksState();
+    await writeM2AuthUserState();
+
+    const code = await runAgentstack(
+      ["billing", "fixture", "grant", "--env", "preview", "--entitlement", "feature.auditLog", "--confirm-live-mutation"],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: {
+          async execute(command, args, options) {
+            providerExecutions.push({ command, args, stdin: options.stdin });
+            return {
+              exitCode: 0,
+              stdout: JSON.stringify({
+                entitlements: [{ entitlementKey: "feature.auditLog", allowed: true }],
+                events: [{ entitlementKey: "feature.auditLog", status: "processed" }]
+              }),
+              stderr: "",
+              durationMs: 1
+            };
+          }
+        }
+      }
+    );
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS billing fixture grant");
+    expect(output).toContain("Entitlement state: allowed");
+    await expect(readFile(join(dir, ".agentstack", "evidence", "M3-billing-webhook", "billing-fixture-grant.txt"), "utf8")).resolves.toContain(
+      "Result: PASS"
+    );
+  });
+
+  it("passes package-owned M3 billing smoke from entitlement DOM markers", async () => {
+    await mkdir(join(dir, ".agentstack"), { recursive: true });
+    await writeFile(
+      join(dir, ".agentstack", "m3-allowed-dom.html"),
+      [
+        '<main data-agentstack-auth-state="signed-in">',
+        '<section data-agentstack-protected-data-state="protected-data-loaded"',
+        ' data-agentstack-protected-workspace-id="workspace_secret_123"></section>',
+        '<section data-agentstack-entitlement-key="feature.auditLog"',
+        ' data-agentstack-entitlement-state="allowed"',
+        ' data-agentstack-entitlement-source="clerk-billing-webhook"></section>',
+        "</main>"
+      ].join("\n"),
+      "utf8"
+    );
+
+    const code = await runAgentstack(
+      [
+        "billing",
+        "smoke",
+        "--env",
+        "preview",
+        "--expected",
+        "allowed",
+        "--dom-file",
+        ".agentstack/m3-allowed-dom.html"
+      ],
+      {
+        cwd: dir,
+        write: (line) => output.push(line)
+      }
+    );
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS billing smoke preview");
+    expect(output).toContain("Evidence: m3-billing-smoke");
+    expect(output).toContain("Entitlement state: allowed");
+    expect(output.join("\n")).not.toContain("workspace_secret_123");
+    await expect(readFile(join(dir, ".agentstack", "evidence", "M3-billing-webhook", "billing-smoke-allowed.txt"), "utf8")).resolves.toContain(
+      "Result: PASS"
+    );
+  });
+
+  it("reports missing package-owned M3 evidence", async () => {
+    const code = await runAgentstack(["evidence", "check", "--env", "preview", "--milestone", "M3"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL evidence check preview");
+    expect(output).toContain("Evidence: m3-evidence-check");
+    expect(output.join("\n")).toContain("missing billing bootstrap evidence");
+  });
+
+  it("passes package-owned M3 evidence check when M2 baseline and billing artifacts exist", async () => {
+    await writeM2PassingEvidence();
+    await writeM3PassingEvidence();
+
+    const code = await runAgentstack(["evidence", "check", "--env", "preview", "--milestone", "M3"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS evidence check preview");
+    expect(output).toContain("Evidence: m3-evidence-check");
+    expect(output).toContain("Checked: billing bootstrap evidence");
+    expect(output).toContain("Checked: billing smoke evidence");
   });
 
   it("fails cloud validation when cloud state is missing", async () => {
@@ -9056,6 +9317,46 @@ async function writeM2ProviderResourcesState(): Promise<void> {
   );
 }
 
+async function writeM2ProviderLinksState(): Promise<void> {
+  await mkdir(join(dir, ".agentstack"), { recursive: true });
+  await writeFile(
+    join(dir, ".agentstack", "provider-links.json"),
+    `${JSON.stringify(
+      {
+        environment: "preview",
+        links: [
+          { service: "clerk", resourceType: "application", name: "acme-crm-preview", environment: "preview" },
+          { service: "convex", resourceType: "deployment", name: "acme-crm-preview", environment: "preview" },
+          { service: "vercel", resourceType: "project", name: "acme-crm", environment: "preview" }
+        ]
+      },
+      null,
+      2
+    )}\n`,
+    "utf8"
+  );
+}
+
+async function writeM2AuthUserState(): Promise<void> {
+  await mkdir(join(dir, ".agentstack"), { recursive: true });
+  await writeFile(
+    join(dir, ".agentstack", "auth-user.json"),
+    `${JSON.stringify(
+      {
+        service: "clerk",
+        environment: "preview",
+        email: "m3-smoke@example.test",
+        userId: "user_m3_smoke",
+        password: "not-a-real-secret",
+        updatedAt: new Date(0).toISOString()
+      },
+      null,
+      2
+    )}\n`,
+    "utf8"
+  );
+}
+
 async function writeM2DeployEvidence(url: string): Promise<void> {
   const evidenceDir = join(dir, ".agentstack", "evidence", "M2-agent-completes-m1");
   await mkdir(evidenceDir, { recursive: true });
@@ -9065,6 +9366,38 @@ async function writeM2DeployEvidence(url: string): Promise<void> {
     ["# M2 Preview Deploy Output", "", "Result: PASS", "Convex apply: completed", "Vercel apply: completed", `Deploy URL: ${url}`, ""].join("\n"),
     "utf8"
   );
+}
+
+async function writeM2PassingEvidence(): Promise<void> {
+  const evidenceDir = join(dir, ".agentstack", "evidence", "M2-agent-completes-m1");
+  await mkdir(evidenceDir, { recursive: true });
+  const passFiles = [
+    "provider-bootstrap.txt",
+    "provider-links.txt",
+    "deploy-output.txt",
+    "clerk-smoke-user.txt",
+    "smoke-output.txt"
+  ];
+  for (const file of passFiles) {
+    await writeFile(join(evidenceDir, file), `Result: PASS\n`, "utf8");
+  }
+  await writeFile(join(evidenceDir, "deploy-url.txt"), "https://acme-crm-preview.vercel.app\n", "utf8");
+}
+
+async function writeM3PassingEvidence(): Promise<void> {
+  const evidenceDir = join(dir, ".agentstack", "evidence", "M3-billing-webhook");
+  await mkdir(evidenceDir, { recursive: true });
+  const passFiles = [
+    "billing-bootstrap.txt",
+    "billing-fixture-ensure.txt",
+    "billing-fixture-grant.txt",
+    "billing-fixture-replay-last.txt",
+    "billing-smoke-denied.txt",
+    "billing-smoke-allowed.txt"
+  ];
+  for (const file of passFiles) {
+    await writeFile(join(evidenceDir, file), `Result: PASS\n`, "utf8");
+  }
 }
 
 function createMockProviderExecutor(stdout = "ok"): ProviderCommandExecutor {

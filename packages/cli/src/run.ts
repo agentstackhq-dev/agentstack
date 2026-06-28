@@ -111,6 +111,12 @@ import {
   m2ProviderLinkCommand,
   m2SmokeCommand
 } from "./m2-live.js";
+import {
+  m3BillingBootstrapCommand,
+  m3BillingFixtureCommand,
+  m3BillingSmokeCommand,
+  m3EvidenceCheckCommand
+} from "./m3-billing.js";
 
 export type RunIo = {
   cwd: string;
@@ -290,11 +296,27 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
       return await m2AuthUserCommand(rest, io);
     }
 
+    if (command === "billing" && subcommand === "bootstrap") {
+      return await m3BillingBootstrapCommand(rest, io);
+    }
+
+    if (command === "billing" && subcommand === "fixture") {
+      return await m3BillingFixtureCommand(rest, io);
+    }
+
+    if (command === "billing" && subcommand === "smoke") {
+      return await m3BillingSmokeCommand(rest, io);
+    }
+
     if (command === "smoke") {
       return await m2SmokeCommand([subcommand, ...rest].filter(Boolean), io);
     }
 
     if (command === "evidence" && subcommand === "check") {
+      const m3Evidence = await m3EvidenceCheckCommand(rest, io);
+      if (m3Evidence !== undefined) {
+        return m3Evidence;
+      }
       return await m2EvidenceCheckCommand(rest, io);
     }
 
@@ -367,6 +389,7 @@ function writeTopLevelUsage(io: RunIo): void {
   io.write("  deploy         Plan or apply deploy actions");
   io.write("  provider       Plan, inspect, link, adopt, or ledger provider resources");
   io.write("  auth           Manage package-owned auth fixtures");
+  io.write("  billing        Bootstrap and verify Clerk Billing entitlement fixtures");
   io.write("  smoke          Validate preview auth/data smoke evidence");
   io.write("  evidence       Check package-owned validation evidence");
   io.write("  observe        Inspect telemetry and journey evidence");

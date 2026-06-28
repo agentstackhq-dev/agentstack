@@ -30,6 +30,7 @@ function writeTopLevelUsage(): number {
       "  dev           Print local development preflight",
       "  deploy        Plan or apply deploy actions",
       "  provider      Plan, inspect, link, adopt, or ledger provider resources",
+      "  billing       Bootstrap and verify Clerk Billing entitlement fixtures",
       "  observe       Inspect telemetry and journey evidence",
       "  theme         Validate generated theme tokens",
       "",

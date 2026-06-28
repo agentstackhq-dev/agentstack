@@ -2,8 +2,14 @@
 
 ## Current singular goal
 
-M3 specification and implementation planning is the only active goal: prove or falsify a live Clerk Billing webhook
+M3 implementation/live blocker resolution is the only active goal: prove or falsify a live Clerk Billing webhook
 plus `feature.auditLog` entitlement gate for a lean generated Agentstack preview app.
+
+Current live state: the M3 local implementation and live default-deny preview path are in place. A fresh generated
+app passed validate, provider bootstrap/link, preview deploy, auth fixture, signed-in protected Convex smoke, and
+denied `feature.auditLog` smoke on 2026-06-28. The remaining blocker is external provider configuration: Clerk returned
+`billing_not_enabled` for the generated preview Clerk application before a real Billing grant/webhook could be tested.
+Start from `docs/milestones/evidence/M3-billing-webhook/m3-live-billing-blocker-2026-06-28.md`.
 
 M1 is complete as a provider-path spike. It proved that Clerk, Convex, and Vercel preview orchestration can work, but it also exposed the wrong generated consumer shape. Do not keep extending the old generated-docs/generated-scripts M1 path.
 

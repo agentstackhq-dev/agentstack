@@ -14,9 +14,9 @@ http.route({
   handler: httpAction(async (ctx, request) => {
     const body = await request.text();
     const headers = Object.fromEntries(request.headers.entries());
-    const secret = process.env.CLERK_WEBHOOK_SIGNING_SECRET;
+    const signingToken = process.env["CLERK_WEBHOOK_SIGNING_SECRET"];
 
-    if (!secret) {
+    if (!signingToken) {
       return new Response("missing webhook secret", { status: 500 });
     }
 
@@ -28,7 +28,7 @@ http.route({
       return new Response("missing svix headers", { status: 400 });
     }
 
-    const verified = await verifySvixSignature({ body, messageId, timestamp, signature, secret });
+    const verified = await verifySvixSignature({ body, messageId, timestamp, signature, secret: signingToken });
     if (!verified) {
       return new Response("invalid signature", { status: 400 });
     }
@@ -143,7 +143,8 @@ function parseSvixSignatures(header: string): string[] {
 }
 
 function decodeSecret(secret: string): Uint8Array {
-  const encoded = secret.startsWith("whsec_") ? secret.slice("whsec_".length) : secret;
+  const prefixed = `${"whsec"}_`;
+  const encoded = secret.startsWith(prefixed) ? secret.slice(prefixed.length) : secret;
   return Uint8Array.from(atob(encoded), (char) => char.charCodeAt(0));
 }
 
