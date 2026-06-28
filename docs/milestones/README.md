@@ -4,7 +4,10 @@ Validation-driven execution. **Start with the active milestone**, not the consum
 
 ## Active milestone
 
-**M2 approach discussion** — M1 provider path passed and the lean generated-surface correction is verified; do not start the live M2 preview loop until the package-owned provider/auth/evidence approach is agreed in [M2](./M2-agent-completes-m1.md)
+**M3 specification and implementation planning**: M2 passed against live Clerk, Convex, and Vercel on 2026-06-28.
+The active scope is the Clerk Billing webhook plus `feature.auditLog` entitlement gate specified in
+[M3](./M3-billing-webhook.md). Do not start M4 or clean-machine packaging until M3 is either validated or explicitly
+stopped.
 
 ## All milestones
 
@@ -12,14 +15,14 @@ Validation-driven execution. **Start with the active milestone**, not the consum
 | --- | --- | --- |
 | M0 | Reference | [Hypothesis](../validation-hypothesis.md) |
 | M1 | Complete | [M1-preview-e2e.md](./M1-preview-e2e.md) |
-| M2 | Ready for approach discussion | [M2-agent-completes-m1.md](./M2-agent-completes-m1.md) |
-| M3 | Locked | [M3-billing-webhook.md](./M3-billing-webhook.md) |
+| M2 | Complete | [M2-agent-completes-m1.md](./M2-agent-completes-m1.md) |
+| M3 | Specified, awaiting implementation approval | [M3-billing-webhook.md](./M3-billing-webhook.md) |
 | M4 | Locked | [M4-clean-machine-smoke.md](./M4-clean-machine-smoke.md) |
 
 ## New coding agent?
 
 1. Read [validation hypothesis](../validation-hypothesis.md)
-2. Read the [M1 post-pass findings](./M1-preview-e2e.md), then read the [M2 lean contract](./M2-agent-completes-m1.md)
+2. Read the [M2 lean contract and pass evidence](./M2-agent-completes-m1.md), then read the [M3 milestone](./M3-billing-webhook.md)
 3. Read [operating model](../validation-operating-model.md) if unclear on scope
 
 ## Evidence
