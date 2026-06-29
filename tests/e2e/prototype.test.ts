@@ -29,6 +29,7 @@ describe("Agentstack consumer executable workflow", () => {
     expect(helpResult.exitCode).toBe(0);
     expect(helpResult.stdout).toContain("agentstack create <app-name>");
     expect(helpResult.stdout).not.toContain("create-agent-stack");
+    expect(helpResult.stdout).toContain("preview");
     expect(helpResult.stdout).toContain("billing");
 
     const createResult = await invokeAgentstackBin(

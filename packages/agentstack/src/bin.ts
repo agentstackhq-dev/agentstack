@@ -31,6 +31,7 @@ function writeTopLevelUsage(): number {
       "  doctor        Diagnose readiness without starting servers",
       "  sync          Rehearse local provider state under .agentstack/",
       "  env           Inspect or set local validation env values",
+      "  preview       Run live preview happy-path commands",
       "  deploy        Plan or apply deploy actions",
       "  provider      Bootstrap, link, inspect, adopt, or ledger provider resources",
       "  auth          Manage package-owned auth fixtures",
