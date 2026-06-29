@@ -16,35 +16,35 @@ runbooks.
 
 ## Happy Path
 
-- `pnpm run validate`
-- `pnpm run dev`
-- `pnpm run preview:sync`
-- `pnpm run preview:up -- --confirm-live-mutation`
+- `corepack pnpm run validate`
+- `corepack pnpm run dev`
+- `corepack pnpm run preview:sync`
+- `corepack pnpm run preview:up -- --confirm-live-mutation`
 
-`pnpm run dev:check` is diagnostics-only. `pnpm run dev` starts the local web
-surface. `pnpm run preview:sync` is local rehearsal only: it updates ignored
-`.agentstack/` state and does not mutate live providers. Use
-`pnpm run preview:up -- --confirm-live-mutation` for the live provider-backed
-preview path.
+`corepack pnpm run dev:check` is diagnostics-only. `corepack pnpm run dev`
+starts the local web surface. `corepack pnpm run preview:sync` is local
+rehearsal only: it updates ignored `.agentstack/` state and does not mutate
+live providers. Use `corepack pnpm run preview:up -- --confirm-live-mutation`
+for the live provider-backed preview path.
 
 ## Commands
 
-- `pnpm run validate`
-- `pnpm run dev`
-- `pnpm run dev:check`
-- `pnpm run doctor`
-- `pnpm run env:inspect`
-- `pnpm run preview:sync` (local rehearsal only)
-- `pnpm run preview:up -- --confirm-live-mutation` (live provider-backed)
-- `pnpm run provider:bootstrap`
-- `pnpm run provider:link`
-- `pnpm run auth:user`
-- `pnpm run billing:bootstrap`
-- `pnpm run billing:fixture`
-- `pnpm run billing:smoke`
-- `pnpm run preview:deploy`
-- `pnpm run preview:smoke`
-- `pnpm run evidence:check`
+- `corepack pnpm run validate`
+- `corepack pnpm run dev`
+- `corepack pnpm run dev:check`
+- `corepack pnpm run doctor`
+- `corepack pnpm run env:inspect`
+- `corepack pnpm run preview:sync` (local rehearsal only)
+- `corepack pnpm run preview:up -- --confirm-live-mutation` (live provider-backed)
+- `corepack pnpm run provider:bootstrap`
+- `corepack pnpm run provider:link`
+- `corepack pnpm run auth:user`
+- `corepack pnpm run billing:bootstrap`
+- `corepack pnpm run billing:fixture`
+- `corepack pnpm run billing:smoke`
+- `corepack pnpm run preview:deploy`
+- `corepack pnpm run preview:smoke`
+- `corepack pnpm run evidence:check`
 
 When a command fails, fix the first failing Agentstack diagnostic before
 broadening the investigation.

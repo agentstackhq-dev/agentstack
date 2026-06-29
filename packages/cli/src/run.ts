@@ -109,6 +109,7 @@ import {
   m2EvidenceCheckCommand,
   m2ProviderBootstrapCommand,
   m2ProviderLinkCommand,
+  m2PreviewSmokeCommand,
   m2SmokeCommand
 } from "./m2-live.js";
 import {
@@ -251,6 +252,10 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
 
     if (command === "preview" && subcommand === "up") {
       return await previewUpCommand(rest, io);
+    }
+
+    if (command === "preview" && subcommand === "smoke") {
+      return await m2PreviewSmokeCommand(rest, io);
     }
 
     if (command === "deploy") {
@@ -437,6 +442,7 @@ function writePreviewUsage(io: RunIo): void {
   io.write("");
   io.write("Commands:");
   io.write("  up      Run the live preview provider-backed happy path");
+  io.write("  smoke   Capture and validate signed-in preview smoke evidence");
 }
 
 function writePreviewUpUsage(io: RunIo): void {
@@ -948,7 +954,7 @@ async function previewUpCommand(argv: string[], io: RunIo): Promise<number> {
   }
 
   io.write("PASS preview up preview");
-  writeNextCommands(io, ["pnpm run preview:smoke", "pnpm run evidence:check"]);
+  writeNextCommands(io, ["corepack pnpm run preview:smoke", "corepack pnpm run evidence:check"]);
   return 0;
 }
 

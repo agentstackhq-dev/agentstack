@@ -76,7 +76,7 @@ describe("generateProject", () => {
         "provider:link": "agentstack provider link",
         "auth:user": "agentstack auth user",
         "preview:deploy": "agentstack deploy --env preview",
-        "preview:smoke": "agentstack smoke --env preview",
+        "preview:smoke": "agentstack preview smoke --env preview --capture",
         "evidence:check": "agentstack evidence check",
         "billing:bootstrap": "agentstack billing bootstrap",
         "billing:fixture": "agentstack billing fixture",
@@ -98,10 +98,11 @@ describe("generateProject", () => {
       expect(config).not.toContain("STRIPE_MODE");
       expect(agents).toContain("Use package-owned Agentstack CLI help instead of generated runbooks.");
       expect(agents).toContain("## Happy Path");
-      expect(agents).toContain("pnpm run dev:check` is diagnostics-only");
-      expect(agents).toContain("pnpm run billing:bootstrap");
-      expect(agents).toContain("pnpm run billing:fixture");
-      expect(agents).toContain("pnpm run billing:smoke");
+      expect(agents).toContain("corepack pnpm run dev:check` is diagnostics-only");
+      expect(agents).toContain("corepack pnpm run preview:up -- --confirm-live-mutation");
+      expect(agents).toContain("corepack pnpm run billing:bootstrap");
+      expect(agents).toContain("corepack pnpm run billing:fixture");
+      expect(agents).toContain("corepack pnpm run billing:smoke");
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }

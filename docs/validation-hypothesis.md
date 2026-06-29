@@ -22,14 +22,12 @@ local package-installability path with packed Agentstack artifacts in a clean te
 One person or agent completes the following using **only** the lean generated app, installed Agentstack package commands, package-owned Agentstack guidance, and provider CLI auth handoffs:
 
 1. Generate an app from the B2B SaaS template with `agentstack create <app-name>` and the corrected lean root surface
-2. Validate typed `agentstack.config.ts` through the installed Agentstack package schema with `pnpm run validate`
-3. Check the local web surface start path with `pnpm run dev:check`, then use `pnpm run dev` for long-running local work
-4. Run `pnpm run preview:up -- --confirm-live-mutation` to create/reuse, ledger, link, and deploy preview Clerk, Convex, and Vercel resources through package-owned Agentstack commands
-6. Run a package-owned Agentstack command so the Clerk smoke user lifecycle is repeatable and ledgered
-7. Sign in with Clerk on that URL
-8. Call one protected Convex query/mutation as the signed-in user
-9. Produce redacted evidence in the Agentstack framework repo, not as generated consumer-app docs
-10. For the first SaaS-spine extension, configure Clerk Billing, receive a real Billing webhook in Convex, and gate
+2. Validate typed `agentstack.config.ts` through the installed Agentstack package schema with `corepack pnpm run validate`
+3. Check the local web surface start path with `corepack pnpm run dev:check`, then use `corepack pnpm run dev` for long-running local work
+4. Run `corepack pnpm run preview:up -- --confirm-live-mutation` to create/reuse, ledger, link, hydrate env, repair preview access, create the auth fixture, and deploy preview Clerk, Convex, and Vercel resources through package-owned Agentstack commands
+5. Run `corepack pnpm run preview:smoke` so Agentstack signs in with the package-owned Clerk smoke user, captures `.agentstack/m2-preview-dom.html`, and validates the protected Convex markers
+6. Run `corepack pnpm run evidence:check` to produce redacted evidence in the Agentstack framework repo, not as generated consumer-app docs
+7. For the first SaaS-spine extension, configure Clerk Billing, receive a real Billing webhook in Convex, and gate
     `feature.auditLog` through package-owned commands and evidence
 
 Success means the framework makes contact with real provider state and orchestrates the path. Provider login links, browser auth, and one-time account/project selection are acceptable handoffs when the CLI requires them; undocumented dashboard setup or manual resource transcription is not.

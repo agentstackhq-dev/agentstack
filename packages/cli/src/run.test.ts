@@ -7648,7 +7648,8 @@ describe("runAgentstack", () => {
   });
 
   it("orchestrates preview up through package-owned M2 live steps", async () => {
-    const publishableKey = `pk_test_${Buffer.from("https://clerk.acme.test$").toString("base64url")}`;
+    const publishableKey = `pk_test_${Buffer.from("https://clerk-from-key.acme.test$").toString("base64url")}`;
+    let convexCreateAttempts = 0;
     const code = await runAgentstack(["preview", "up", "--env", "preview", "--confirm-live-mutation"], {
       cwd: dir,
       write: (line) => output.push(line),
@@ -7667,6 +7668,25 @@ describe("runAgentstack", () => {
               durationMs: 1
             };
           }
+          if (joined.includes("clerk api /domains")) {
+            return {
+              exitCode: 0,
+              stdout: JSON.stringify({
+                data: [{ frontend_api_url: "https://issuer-from-domains.clerk.accounts.dev", is_satellite: false }]
+              }),
+              stderr: "",
+              durationMs: 1
+            };
+          }
+          if (joined.includes("clerk env pull")) {
+            await mkdir(join(dir, ".agentstack"), { recursive: true });
+            await writeFile(
+              join(dir, ".agentstack", "clerk-preview.env"),
+              `${["CLERK_PUBLISHABLE_KEY=pk_test_secret", "CLERK_SECRET_KEY=sk_test_secret"].join("\n")}\n`,
+              "utf8"
+            );
+            return { exitCode: 0, stdout: "wrote env", stderr: "", durationMs: 1 };
+          }
           if (joined.includes("clerk api /jwt_templates")) {
             return { exitCode: 0, stdout: JSON.stringify({ data: [{ id: "jwt_convex", name: "convex" }] }), stderr: "", durationMs: 1 };
           }
@@ -7676,10 +7696,27 @@ describe("runAgentstack", () => {
           if (joined.includes("clerk api /users/user_m2_smoke")) {
             return { exitCode: 0, stdout: JSON.stringify({ id: "user_m2_smoke" }), stderr: "", durationMs: 1 };
           }
-          if (joined.includes("convex deployment create")) {
+          if (joined.includes("convex project create acme-crm-preview")) {
             return {
               exitCode: 0,
-              stdout: "team:project:preview/acme-crm-preview <convex-url>",
+              stdout: "Created project: https://dashboard.convex.dev/redacted/team-one/acme-crm-preview",
+              stderr: "",
+              durationMs: 1
+            };
+          }
+          if (joined.includes("convex deployment create")) {
+            convexCreateAttempts += 1;
+            if (convexCreateAttempts === 1) {
+              return {
+                exitCode: 1,
+                stdout: "",
+                stderr: "No project configured. Run convex dev --once --configure new or existing.",
+                durationMs: 1
+              };
+            }
+            return {
+              exitCode: 0,
+              stdout: "team-one:acme-crm-preview:preview/acme-crm-preview <convex-url>",
               stderr: "",
               durationMs: 1
             };
@@ -7710,6 +7747,17 @@ describe("runAgentstack", () => {
             );
             return { exitCode: 0, stdout: "linked", stderr: "", durationMs: 1 };
           }
+          if (joined.includes("vercel project protection acme-crm --format json")) {
+            return {
+              exitCode: 0,
+              stdout: JSON.stringify({ ssoProtection: { deploymentType: "all_except_custom_domains" } }),
+              stderr: "",
+              durationMs: 1
+            };
+          }
+          if (joined.includes("vercel project protection disable acme-crm --sso")) {
+            return { exitCode: 0, stdout: "disabled", stderr: "", durationMs: 1 };
+          }
           if (joined.includes("vercel deploy ")) {
             return { exitCode: 0, stdout: "https://acme-crm-preview.vercel.app", stderr: "", durationMs: 1 };
           }
@@ -7727,9 +7775,29 @@ describe("runAgentstack", () => {
     ]);
     expect(output).toContain("PASS preview up preview");
     expect(output).toContain("Next commands:");
-    expect(output).toContain("- pnpm run preview:smoke");
-    expect(output).toContain("- pnpm run evidence:check");
-    expect(providerExecutions.length).toBeGreaterThan(0);
+    expect(output).toContain("- corepack pnpm run preview:smoke");
+    expect(output).toContain("- corepack pnpm run evidence:check");
+    const commandLines = providerExecutions.map((execution) => execution.args.join(" "));
+    expect(commandLines).toEqual(expect.arrayContaining([
+      expect.stringContaining("clerk api /domains --instance dev --app app_m2"),
+      expect.stringContaining("clerk env pull --mode agent --app app_m2 --instance dev --file"),
+      expect.stringContaining("convex project create acme-crm-preview"),
+      expect.stringContaining(
+        "convex deployment create team-one:acme-crm-preview:preview/acme-crm-preview --type preview --expiration in 5 days"
+      ),
+      expect.stringContaining(
+        "convex env --deployment team-one:acme-crm-preview:preview/acme-crm-preview set CLERK_JWT_ISSUER_DOMAIN https://issuer-from-domains.clerk.accounts.dev"
+      ),
+      expect.stringContaining("vercel project protection acme-crm --format json --scope team_m2"),
+      expect.stringContaining("vercel project protection disable acme-crm --sso --scope team_m2")
+    ]));
+    const providerEnv = await readFile(join(dir, ".agentstack", "provider-env.json"), "utf8");
+    expect(providerEnv).toContain("CLERK_JWT_ISSUER_DOMAIN");
+    expect(providerEnv).toContain("VITE_CLERK_PUBLISHABLE_KEY");
+    expect(providerEnv).toContain("VITE_CONVEX_URL");
+    expect(providerEnv).toContain("CONVEX_SITE_URL");
+    expect(providerEnv).not.toContain("sk_test_secret");
+    expect(providerEnv).not.toContain("pk_test_secret");
   });
 
   it("links package-owned M2 provider bootstrap state without generated docs", async () => {
@@ -7848,6 +7916,65 @@ describe("runAgentstack", () => {
     await expect(readFile(join(dir, ".agentstack", "evidence", "M2-agent-completes-m1", "smoke-output.txt"), "utf8")).resolves.toContain(
       "Result: PASS"
     );
+  });
+
+  it("prints package-owned M2 smoke help without requiring a URL or DOM file", async () => {
+    const code = await runAgentstack(["smoke", "--help"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output.join("\n")).toContain("Usage: agentstack smoke --env preview");
+    expect(output.join("\n")).toContain(".agentstack/m2-preview-dom.html");
+  });
+
+  it("defaults package-owned M2 smoke to deploy evidence and the standard DOM snapshot", async () => {
+    await writeM2DeployEvidence("https://acme-crm-preview.vercel.app/");
+    await writeFile(
+      join(dir, ".agentstack", "m2-preview-dom.html"),
+      [
+        '<main data-agentstack-auth-state="signed-in">',
+        '<section data-agentstack-protected-data-state="protected-data-loaded"',
+        ' data-agentstack-protected-workspace-id="workspace_secret_123"></section>',
+        "</main>"
+      ].join("\n"),
+      "utf8"
+    );
+
+    const code = await runAgentstack(["smoke", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS smoke preview");
+    expect(output).toContain("Auth state: signed-in");
+  });
+
+  it("explains how to capture the standard DOM snapshot when package-owned M2 smoke has no DOM file", async () => {
+    await writeM2DeployEvidence("https://acme-crm-preview.vercel.app/");
+
+    const code = await runAgentstack(["smoke", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL smoke.dom-file-missing");
+    expect(output.join("\n")).toContain("agentstack preview smoke --capture");
+    expect(output.join("\n")).toContain(".agentstack/m2-preview-dom.html");
+  });
+
+  it("exposes a package-owned preview smoke capture command before browser execution", async () => {
+    const code = await runAgentstack(["preview", "smoke", "--help"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output.join("\n")).toContain("Usage: agentstack preview smoke --env preview");
+    expect(output.join("\n")).toContain("--capture");
   });
 
   it("reports missing package-owned M2 evidence instead of using generated runbooks", async () => {

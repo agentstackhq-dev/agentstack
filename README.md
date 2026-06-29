@@ -86,6 +86,8 @@ corepack pnpm install
 corepack pnpm run validate
 corepack pnpm run dev:check
 corepack pnpm run preview:up -- --confirm-live-mutation
+corepack pnpm run preview:smoke
+corepack pnpm run evidence:check
 ```
 
 See [docs/references/local-quickstart.md](./docs/references/local-quickstart.md) for PATH binary checks and
@@ -104,8 +106,10 @@ For repeated local runs, `AGENTSTACK_PACKAGE_SPEC` is also honored:
 AGENTSTACK_PACKAGE_SPEC=link:<agentstack-repo>/packages/agentstack agentstack create smoke-app
 ```
 
-Live preview and billing flows require authenticated provider CLIs plus explicit live-mutation confirmations. Use the
-milestone docs rather than older readiness-progress logs for those commands.
+Live preview and billing flows require authenticated provider CLIs plus explicit live-mutation confirmations.
+`preview:up` owns preview Clerk/Convex/Vercel bootstrap, provider env hydration, Vercel Deployment Protection repair,
+auth fixture creation, and deploy. `preview:smoke` owns signed-in DOM capture and marker validation. Use the milestone
+docs rather than older readiness-progress logs for those commands.
 
 ## Core Generated Scripts
 
@@ -130,7 +134,7 @@ evidence:check
 M3 billing subscription is repeatable with:
 
 ```sh
-pnpm run billing:fixture -- subscribe --env preview --entitlement feature.auditLog --confirm-live-mutation
+corepack pnpm run billing:fixture -- subscribe --env preview --entitlement feature.auditLog --confirm-live-mutation
 ```
 
 If that command requires a Clerk test payment method, follow

@@ -64,7 +64,7 @@ describe("Agentstack consumer executable workflow", () => {
       "billing:fixture": "agentstack billing fixture",
       "billing:smoke": "agentstack billing smoke",
       "preview:deploy": "agentstack deploy --env preview",
-      "preview:smoke": "agentstack smoke --env preview",
+      "preview:smoke": "agentstack preview smoke --env preview --capture",
       "evidence:check": "agentstack evidence check"
     });
     expect(generatedConfig).toContain('import { defineAgentstackConfig } from "agentstack/config";');

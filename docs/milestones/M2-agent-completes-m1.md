@@ -15,8 +15,9 @@ A fresh coding agent can take an ultra-lean generated app from zero to preview u
 - an installed/local-published `agentstack` CLI started from outside the app with `agentstack create <app-name>`
 - root `AGENTS.md`
 - root `agentstack.config.ts`
-- package scripts that call the installed `agentstack` CLI, starting with `pnpm run validate`, `pnpm run dev`, and
-  `pnpm run preview:up -- --confirm-live-mutation`
+- package scripts that call the installed `agentstack` CLI through Corepack, starting with
+  `corepack pnpm run validate`, `corepack pnpm run dev`, and
+  `corepack pnpm run preview:up -- --confirm-live-mutation`
 - package-owned Agentstack docs/help rendered on demand by CLI commands
 - provider CLI auth handoffs when the provider requires login or account selection
 
@@ -121,6 +122,9 @@ M2 fails if any of these are required for the fresh-agent preview path:
 The unlock condition has been satisfied by the lean correction slice recorded in [evidence/M2-agent-completes-m1/lean-contract-correction-2026-06-28.md](./evidence/M2-agent-completes-m1/lean-contract-correction-2026-06-28.md).
 
 The live package-owned preview loop passed in [evidence/M2-agent-completes-m1/m2-live-preview-pass-2026-06-28.md](./evidence/M2-agent-completes-m1/m2-live-preview-pass-2026-06-28.md).
+
+Post-pass preview bootstrap friction hardening is recorded in
+[evidence/M2-agent-completes-m1/preview-bootstrap-friction-hardening-2026-06-29.md](./evidence/M2-agent-completes-m1/preview-bootstrap-friction-hardening-2026-06-29.md).
 
 M3 was later approved and passed as the Clerk Billing webhook milestone. M4 later passed the local-pack clean-machine
 smoke; public npm release automation remains locked until its approach is discussed separately.

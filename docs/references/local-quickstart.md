@@ -102,10 +102,21 @@ Use the explicit confirmation gate for the live provider-backed preview path:
 
 ```sh
 corepack pnpm run preview:up -- --confirm-live-mutation
+corepack pnpm run preview:smoke
+corepack pnpm run evidence:check
 ```
 
-`preview:up` runs provider bootstrap, provider link, auth user setup, and preview deploy in order. It stops at the
-first failing step and prints the next action from the package-owned command.
+`preview:up` runs provider bootstrap, provider link, auth user setup, and preview deploy in order. It now also:
+
+- pulls Clerk preview env into ignored `.agentstack/clerk-preview.env`
+- discovers the Clerk issuer from Clerk domains before falling back to publishable-key decoding
+- creates the Convex project context automatically when the preview deployment command reports no configured project
+- writes redacted provider-env inventory to `.agentstack/provider-env.json`
+- sets Vercel preview env and disables Vercel SSO Deployment Protection when the Vercel CLI reports it is blocking previews
+
+It stops at the first failing step and prints the next action from the package-owned command. `preview:smoke` captures
+the signed-in preview DOM with the package-owned Clerk smoke user, writes `.agentstack/m2-preview-dom.html`, and then
+runs the same marker validation as `agentstack smoke --env preview`.
 
 ## 7. Next Validation Steps
 

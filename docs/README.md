@@ -58,6 +58,8 @@ superpowers plans are historical or backlog references unless a milestone points
 corepack pnpm run validate
 corepack pnpm run dev:check
 corepack pnpm run preview:up -- --confirm-live-mutation
+corepack pnpm run preview:smoke
+corepack pnpm run evidence:check
 ```
 
 - When code or templates change, update template mirror docs and run:

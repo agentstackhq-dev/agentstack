@@ -16,6 +16,7 @@ type M2ProviderResource = {
   externalId: string;
   owner: string;
   url?: string;
+  siteUrl?: string;
   publishableKey?: string;
   issuerDomain?: string;
 };
@@ -58,6 +59,9 @@ const providerResourcesPath = ".agentstack/provider-resources.json";
 const providerLinksPath = ".agentstack/provider-links.json";
 const authUserStatePath = ".agentstack/auth-user.json";
 const convexPreviewEnvPath = ".agentstack/convex-preview.env";
+const clerkPreviewEnvPath = ".agentstack/clerk-preview.env";
+const providerEnvPath = ".agentstack/provider-env.json";
+const defaultM2DomSnapshotPath = ".agentstack/m2-preview-dom.html";
 
 export async function m2ProviderBootstrapCommand(argv: string[], io: RunIo): Promise<number> {
   const options = parseOptions(argv);
@@ -94,6 +98,7 @@ export async function m2ProviderBootstrapCommand(argv: string[], io: RunIo): Pro
     resources.push(vercel);
 
     await writeProviderResourcesState(io.cwd, resources);
+    await writeProviderEnvState(io.cwd, { clerk, convex, vercel });
     await writeText(
       io.cwd,
       `${evidenceDir}/provider-bootstrap.txt`,
@@ -107,6 +112,8 @@ export async function m2ProviderBootstrapCommand(argv: string[], io: RunIo): Pro
         "Vercel preview project: active",
         "Provider mutation: clerk app/link, convex preview deployment/deploy-key/env, vercel project/link/env",
         `Local mutation: ${providerResourcesPath}`,
+        `Local mutation: ${providerEnvPath}`,
+        `Local mutation: ${clerkPreviewEnvPath}`,
         `Local mutation: ${convexPreviewEnvPath}`,
         "Notes:",
         ...notes.map((note) => `- ${redact(note)}`),
@@ -123,6 +130,7 @@ export async function m2ProviderBootstrapCommand(argv: string[], io: RunIo): Pro
     io.write("Bootstrapped: vercel preview project");
     io.write("Provider mutation: clerk app/link, convex preview deployment/deploy-key/env, vercel project/link/env");
     io.write(`Local mutation: ${providerResourcesPath}`);
+    io.write(`Local mutation: ${providerEnvPath}`);
     io.write(`Local mutation: ${evidenceDir}/provider-bootstrap.txt`);
     io.write("Telemetry mutation: none");
     return 0;
@@ -408,11 +416,23 @@ export async function m2AuthUserCommand(argv: string[], io: RunIo): Promise<numb
 
 export async function m2SmokeCommand(argv: string[], io: RunIo): Promise<number> {
   const options = parseOptions(argv);
-  const environment = readPreviewEnvironment(options.env, "Run agentstack smoke --env preview --url <url> --dom-file <path>.");
-  const url = readRequiredOption(options.url, "url", "Run agentstack smoke --env preview --url <url> --dom-file <path>.");
-  const domFile = readRequiredOption(options["dom-file"], "dom-file", "Run agentstack smoke --env preview --url <url> --dom-file <path>.");
-  const parsedUrl = parseHttpsUrl(url, "--url");
+  if (options.help === true) {
+    writeSmokeUsage(io);
+    return 0;
+  }
+  const environment = readPreviewEnvironment(options.env, "Run agentstack smoke --env preview.");
   const deployEvidence = await readDeployEvidence(io.cwd);
+  const url = readOptionalOption(options.url) ?? deployEvidence.url?.trim();
+  if (!url) {
+    io.write("FAIL smoke.url-missing");
+    io.write("Evidence: m2-preview-smoke");
+    io.write(`Fix: Run agentstack preview up --env preview --confirm-live-mutation or pass --url <preview-url>.`);
+    io.write("Provider mutation: none");
+    io.write("Local mutation: none");
+    return 1;
+  }
+  const domFile = readOptionalOption(options["dom-file"]) ?? defaultM2DomSnapshotPath;
+  const parsedUrl = parseHttpsUrl(url, "--url");
   const deployFailures = validateDeployEvidence(deployEvidence, parsedUrl.href);
   if (deployFailures.length > 0) {
     io.write(`FAIL smoke ${environment}`);
@@ -423,7 +443,17 @@ export async function m2SmokeCommand(argv: string[], io: RunIo): Promise<number>
     return 1;
   }
 
-  const dom = await readFile(resolve(io.cwd, domFile), "utf8");
+  const domPath = resolve(io.cwd, domFile);
+  const dom = await readOptionalAbsoluteText(domPath);
+  if (!dom) {
+    io.write("FAIL smoke.dom-file-missing");
+    io.write("Evidence: m2-preview-smoke");
+    io.write(`Reason: missing DOM snapshot ${domFile}`);
+    io.write(`Fix: Run agentstack preview smoke --capture or pass --dom-file <path>.`);
+    io.write("Provider mutation: none");
+    io.write("Local mutation: none");
+    return 1;
+  }
   const authStates = getAttributeValues(dom, "data-agentstack-auth-state");
   const protectedStates = getAttributeValues(dom, "data-agentstack-protected-data-state");
   const workspaceIds = getAttributeValues(dom, "data-agentstack-protected-workspace-id").filter(Boolean);
@@ -480,6 +510,60 @@ export async function m2SmokeCommand(argv: string[], io: RunIo): Promise<number>
   return 0;
 }
 
+export async function m2PreviewSmokeCommand(argv: string[], io: RunIo): Promise<number> {
+  const options = parseOptions(argv);
+  if (options.help === true) {
+    writePreviewSmokeUsage(io);
+    return 0;
+  }
+  if (options.capture !== true) {
+    return await m2SmokeCommand(argv, io);
+  }
+
+  const environment = readPreviewEnvironment(options.env, "Run agentstack preview smoke --env preview --capture.");
+  const deployEvidence = await readDeployEvidence(io.cwd);
+  const url = readOptionalOption(options.url) ?? deployEvidence.url?.trim();
+  if (!url) {
+    io.write("FAIL preview.smoke.capture-url-missing");
+    io.write("Evidence: m2-preview-smoke");
+    io.write("Fix: Run agentstack preview up --env preview --confirm-live-mutation first.");
+    io.write("Provider mutation: none");
+    io.write("Local mutation: none");
+    return 1;
+  }
+
+  let authUser: M2AuthUserState;
+  try {
+    authUser = await readAuthUserState(io.cwd);
+  } catch {
+    io.write("FAIL preview.smoke.capture-auth-state-missing");
+    io.write("Evidence: m2-preview-smoke");
+    io.write("Fix: Run agentstack auth user ensure --env preview --confirm-live-mutation first.");
+    io.write("Provider mutation: none");
+    io.write("Local mutation: none");
+    return 1;
+  }
+
+  try {
+    await captureSignedInPreviewDom({
+      cwd: io.cwd,
+      url,
+      email: authUser.email,
+      password: authUser.password,
+      outputPath: defaultM2DomSnapshotPath
+    });
+  } catch (error) {
+    io.write("FAIL preview.smoke.capture");
+    io.write("Evidence: m2-preview-smoke");
+    io.write(`Reason: ${redact(errorMessage(error))}`);
+    io.write("Provider mutation: none");
+    io.write("Local mutation: none");
+    return 1;
+  }
+
+  return await m2SmokeCommand(["--env", environment, "--url", url, "--dom-file", defaultM2DomSnapshotPath], io);
+}
+
 export async function m2EvidenceCheckCommand(argv: string[], io: RunIo): Promise<number> {
   const options = parseOptions(argv);
   const environment = readPreviewEnvironment(options.env, "Run agentstack evidence check --env preview.");
@@ -531,7 +615,6 @@ async function bootstrapClerk(input: {
   slug: string;
   notes: string[];
 }): Promise<M2ProviderResource> {
-  const webCwd = join(input.cwd, "apps", "web");
   const whoami = await runRequiredProvider(input.executor, {
     cwd: input.cwd,
     args: ["clerk", "whoami", "--json"],
@@ -562,6 +645,14 @@ async function bootstrapClerk(input: {
     args: ["clerk", "link", "--app", app.id],
     hint: "Run pnpm exec clerk auth login if the Clerk CLI is not authenticated."
   });
+  await pullClerkPreviewEnv({ cwd: input.cwd, executor: input.executor, appId: app.id, notes: input.notes });
+  const issuerDomain = await discoverClerkIssuerDomain({
+    cwd: input.cwd,
+    executor: input.executor,
+    appId: app.id,
+    publishableKey: app.publishableKey,
+    notes: input.notes
+  });
   await ensureClerkJwtTemplate(input.cwd, input.executor, input.notes);
 
   return {
@@ -571,8 +662,61 @@ async function bootstrapClerk(input: {
     owner,
     externalId: app.id,
     publishableKey: app.publishableKey,
-    issuerDomain: clerkIssuerDomainFromPublishableKey(app.publishableKey)
+    issuerDomain
   };
+}
+
+async function pullClerkPreviewEnv(input: {
+  cwd: string;
+  executor: ProviderCommandExecutor;
+  appId: string;
+  notes: string[];
+}): Promise<void> {
+  await mkdir(join(input.cwd, ".agentstack"), { recursive: true });
+  await runRequiredProvider(input.executor, {
+    cwd: input.cwd,
+    args: [
+      "clerk",
+      "env",
+      "pull",
+      "--mode",
+      "agent",
+      "--app",
+      input.appId,
+      "--instance",
+      "dev",
+      "--file",
+      join(input.cwd, clerkPreviewEnvPath)
+    ],
+    hint: "Run pnpm exec clerk auth login if the Clerk CLI is not authenticated."
+  });
+  input.notes.push("Clerk preview env: pulled into ignored .agentstack state");
+}
+
+async function discoverClerkIssuerDomain(input: {
+  cwd: string;
+  executor: ProviderCommandExecutor;
+  appId: string;
+  publishableKey: string;
+  notes: string[];
+}): Promise<string | undefined> {
+  const domains = await runProvider(input.executor, {
+    cwd: input.cwd,
+    args: ["clerk", "api", "/domains", "--instance", "dev", "--app", input.appId]
+  });
+  if (domains.exitCode === 0) {
+    const issuer = normalizeClerkIssuerDomain(parseClerkDomains(domains.stdout));
+    if (issuer) {
+      input.notes.push("Clerk issuer domain: discovered from Clerk domains API");
+      return issuer;
+    }
+  }
+
+  const issuer = clerkIssuerDomainFromPublishableKey(input.publishableKey);
+  if (issuer) {
+    input.notes.push("Clerk issuer domain: derived from publishable key fallback");
+  }
+  return issuer;
 }
 
 async function bootstrapConvex(input: {
@@ -588,15 +732,31 @@ async function bootstrapConvex(input: {
     cwd: convexCwd,
     args: ["convex", "deployment", "create", name, "--type", "preview", "--expiration", "in 5 days"]
   });
-  if (create.exitCode !== 0 && !/already exists|already.*deployment/i.test(`${create.stdout}\n${create.stderr}`)) {
-    throw new Error(
-      "Convex preview deployment bootstrap needs an authenticated Convex project context in apps/convex. Run cd apps/convex && pnpm exec convex dev --once --configure new or existing."
-    );
+  let combined = `${create.stdout}\n${create.stderr}`;
+  let deploymentReference = parseConvexDeploymentReference(combined) ?? (await readConvexProjectDeploymentReference(input.cwd, name));
+  if (create.exitCode !== 0 && !/already exists|already.*deployment/i.test(combined)) {
+    deploymentReference = await createConvexProjectContext({
+      cwd: input.cwd,
+      convexCwd,
+      executor: input.executor,
+      slug: input.slug,
+      deploymentName: name,
+      notes: input.notes
+    });
+    const retry = await runProvider(input.executor, {
+      cwd: convexCwd,
+      args: ["convex", "deployment", "create", deploymentReference, "--type", "preview", "--expiration", "in 5 days"]
+    });
+    if (retry.exitCode !== 0 && !/already exists|already.*deployment/i.test(`${retry.stdout}\n${retry.stderr}`)) {
+      throw new Error(
+        `Convex preview deployment creation failed after project context creation. ${providerDetail(retry)}`
+      );
+    }
+    combined = `${retry.stdout}\n${retry.stderr}`;
+    deploymentReference = parseConvexDeploymentReference(combined) ?? deploymentReference;
   }
-  const combined = `${create.stdout}\n${create.stderr}`;
-  const deploymentReference =
-    parseConvexDeploymentReference(combined) ?? (await readConvexProjectDeploymentReference(input.cwd, name)) ?? name;
-  const convexUrl = parseConvexUrl(combined);
+  deploymentReference = deploymentReference ?? name;
+  const convexUrl = parseConvexUrl(combined) ?? (await readConvexEnvLocalUrl(input.cwd));
   const issuerDomain = input.clerk.issuerDomain;
   if (!issuerDomain) {
     throw new Error("Clerk issuer domain could not be derived for Convex auth.");
@@ -630,7 +790,8 @@ async function bootstrapConvex(input: {
     name,
     owner: parseConvexOwner(deploymentReference) ?? "convex-selected-project",
     externalId: deploymentReference,
-    url: convexUrl
+    url: convexUrl,
+    siteUrl: deriveConvexSiteUrl(convexUrl)
   };
 }
 
@@ -680,6 +841,13 @@ async function bootstrapVercel(input: {
   if (input.convex.url) {
     await setVercelPreviewEnv(webCwd, input.executor, "VITE_CONVEX_URL", input.convex.url);
   }
+  await ensureVercelPreviewAccessible({
+    cwd: input.cwd,
+    executor: input.executor,
+    projectName: input.slug,
+    owner,
+    notes: input.notes
+  });
 
   return {
     service: "vercel",
@@ -688,6 +856,73 @@ async function bootstrapVercel(input: {
     owner,
     externalId: projectId
   };
+}
+
+async function createConvexProjectContext(input: {
+  cwd: string;
+  convexCwd: string;
+  executor: ProviderCommandExecutor;
+  slug: string;
+  deploymentName: string;
+  notes: string[];
+}): Promise<string> {
+  const projectName = `${input.slug}-preview`;
+  const create = await runProvider(input.executor, {
+    cwd: input.convexCwd,
+    args: ["convex", "project", "create", projectName]
+  });
+  if (create.exitCode !== 0 && !/already exists|already.*project/i.test(`${create.stdout}\n${create.stderr}`)) {
+    throw new Error(
+      [
+        "Convex preview project context could not be created automatically.",
+        providerDetail(create),
+        "Run cd apps/convex && corepack pnpm exec convex dev --once --configure new or existing, then rerun agentstack preview up --env preview --confirm-live-mutation."
+      ].join(" ")
+    );
+  }
+  const reference =
+    parseConvexProjectReference(`${create.stdout}\n${create.stderr}`, input.deploymentName) ??
+    (await readConvexProjectDeploymentReference(input.cwd, input.deploymentName));
+  if (!reference) {
+    throw new Error(
+      "Convex project creation completed but Agentstack could not discover the team/project reference. Run cd apps/convex && corepack pnpm exec convex dev --once --configure existing, then rerun agentstack preview up --env preview --confirm-live-mutation."
+    );
+  }
+  input.notes.push("Convex preview project context: created or reused automatically");
+  return reference;
+}
+
+async function ensureVercelPreviewAccessible(input: {
+  cwd: string;
+  executor: ProviderCommandExecutor;
+  projectName: string;
+  owner: string;
+  notes: string[];
+}): Promise<void> {
+  const protection = await runProvider(input.executor, {
+    cwd: input.cwd,
+    args: ["vercel", "project", "protection", input.projectName, "--format", "json", ...vercelScopeArgsForOwner(input.owner)]
+  });
+  if (protection.exitCode !== 0) {
+    input.notes.push("Vercel Deployment Protection: status unavailable; continuing with deploy evidence gate");
+    return;
+  }
+  const parsed = parseOptionalJson(protection.stdout.replace(/^Vercel CLI .*\n/, ""));
+  if (!parsed || typeof parsed !== "object") {
+    input.notes.push("Vercel Deployment Protection: status output unparseable; continuing with deploy evidence gate");
+    return;
+  }
+  const ssoProtection = (parsed as Record<string, unknown>).ssoProtection;
+  if (!ssoProtection) {
+    input.notes.push("Vercel Deployment Protection: not blocking preview deployments");
+    return;
+  }
+  await runRequiredProvider(input.executor, {
+    cwd: input.cwd,
+    args: ["vercel", "project", "protection", "disable", input.projectName, "--sso", ...vercelScopeArgsForOwner(input.owner)],
+    hint: "Run pnpm exec vercel login if the Vercel CLI is not authenticated or disable preview Deployment Protection in Vercel."
+  });
+  input.notes.push("Vercel Deployment Protection: disabled SSO protection for preview smoke");
 }
 
 async function listClerkApps(cwd: string, executor: ProviderCommandExecutor): Promise<ClerkAppRow[]> {
@@ -935,6 +1170,39 @@ async function writeProviderResourcesState(cwd: string, resources: M2ProviderRes
   );
 }
 
+async function writeProviderEnvState(
+  cwd: string,
+  resources: { clerk: M2ProviderResource; convex: M2ProviderResource; vercel: M2ProviderResource }
+): Promise<void> {
+  const clerkEnv = await readEnvFile(join(cwd, clerkPreviewEnvPath));
+  const convexEnv = await readEnvFile(join(cwd, convexPreviewEnvPath));
+  const entries = [
+    providerEnvEntry("CLERK_PUBLISHABLE_KEY", "clerk env pull", ["apps/web"], false, Boolean(clerkEnv.CLERK_PUBLISHABLE_KEY)),
+    providerEnvEntry("CLERK_SECRET_KEY", "clerk env pull", ["package-owned CLI only"], true, Boolean(clerkEnv.CLERK_SECRET_KEY)),
+    providerEnvEntry("CLERK_JWT_ISSUER_DOMAIN", "clerk domains API", ["apps/convex"], false, Boolean(resources.clerk.issuerDomain)),
+    providerEnvEntry("CONVEX_DEPLOY_KEY", "convex deployment token create", ["apps/convex deploy"], true, Boolean(convexEnv.CONVEX_DEPLOY_KEY)),
+    providerEnvEntry("CONVEX_URL", "convex deployment create", ["apps/web"], false, Boolean(resources.convex.url)),
+    providerEnvEntry("CONVEX_SITE_URL", "convex deployment create", ["apps/convex webhook"], false, Boolean(resources.convex.siteUrl)),
+    providerEnvEntry("VITE_CLERK_PUBLISHABLE_KEY", "vercel env add preview", ["Vercel preview"], false, Boolean(resources.clerk.publishableKey)),
+    providerEnvEntry("VITE_CONVEX_URL", "vercel env add preview", ["Vercel preview"], false, Boolean(resources.convex.url))
+  ];
+  await writeText(
+    cwd,
+    providerEnvPath,
+    `${JSON.stringify({ environment: "preview", entries, updatedAt: new Date().toISOString() }, null, 2)}\n`
+  );
+}
+
+function providerEnvEntry(
+  name: string,
+  source: string,
+  destinations: string[],
+  secret: boolean,
+  present: boolean
+): { name: string; source: string; destinations: string[]; secret: boolean; present: boolean; value: "redacted" | "not-stored" } {
+  return { name, source, destinations, secret, present, value: present ? "redacted" : "not-stored" };
+}
+
 async function readAuthUserState(cwd: string): Promise<M2AuthUserState> {
   const text = await readOptionalText(cwd, authUserStatePath);
   if (!text) {
@@ -948,6 +1216,57 @@ async function readDeployEvidence(cwd: string): Promise<{ url?: string; output?:
     url: await readOptionalText(cwd, `${evidenceDir}/deploy-url.txt`),
     output: await readOptionalText(cwd, `${evidenceDir}/deploy-output.txt`)
   };
+}
+
+async function captureSignedInPreviewDom(input: {
+  cwd: string;
+  url: string;
+  email: string;
+  password: string;
+  outputPath: string;
+}): Promise<void> {
+  const playwright = await importOptionalPlaywright();
+  if (!playwright?.chromium) {
+    throw new Error(
+      "Playwright is unavailable. Install the generated app dependencies with corepack pnpm install, then rerun agentstack preview smoke --capture."
+    );
+  }
+
+  const browser = await playwright.chromium.launch({ headless: process.env.AGENTSTACK_HEADLESS !== "false" });
+  try {
+    const page = await browser.newPage();
+    await page.goto(input.url, { waitUntil: "networkidle", timeout: 60_000 });
+    if (!await page.locator('[data-agentstack-auth-state="signed-in"]').count()) {
+      await clickFirstVisible(page, [
+        'button:has-text("Sign in")',
+        'a:has-text("Sign in")',
+        '[data-clerk-element="signInButton"]',
+        '[data-localization-key="signIn.start.actionText"]'
+      ]);
+      await fillFirstVisible(page, [
+        'input[name="identifier"]',
+        'input[name="emailAddress"]',
+        'input[name="email"]',
+        'input[type="email"]'
+      ], input.email);
+      await clickFirstVisible(page, [
+        'button:has-text("Continue")',
+        'button:has-text("Next")',
+        'button[type="submit"]'
+      ]);
+      await fillFirstVisible(page, ['input[name="password"]', 'input[type="password"]'], input.password);
+      await clickFirstVisible(page, [
+        'button:has-text("Continue")',
+        'button:has-text("Sign in")',
+        'button[type="submit"]'
+      ]);
+    }
+    await page.locator('[data-agentstack-auth-state="signed-in"]').waitFor({ timeout: 60_000 });
+    await page.locator('[data-agentstack-protected-data-state="protected-data-loaded"]').waitFor({ timeout: 60_000 });
+    await writeText(input.cwd, input.outputPath, await page.content());
+  } finally {
+    await browser.close();
+  }
 }
 
 function validateDeployEvidence(evidence: { url?: string; output?: string }, expectedUrl: string): string[] {
@@ -991,6 +1310,37 @@ async function readEnvFile(path: string): Promise<Record<string, string>> {
   return env;
 }
 
+async function importOptionalPlaywright(): Promise<any | undefined> {
+  try {
+    const dynamicImport = new Function("specifier", "return import(specifier)") as (specifier: string) => Promise<any>;
+    return await dynamicImport("playwright");
+  } catch {
+    return undefined;
+  }
+}
+
+async function clickFirstVisible(page: any, selectors: string[]): Promise<void> {
+  for (const selector of selectors) {
+    const locator = page.locator(selector).first();
+    if ((await locator.count()) > 0 && (await locator.isVisible().catch(() => false))) {
+      await locator.click({ timeout: 10_000 });
+      return;
+    }
+  }
+  throw new Error(`Could not find a visible control for selectors: ${selectors.join(", ")}`);
+}
+
+async function fillFirstVisible(page: any, selectors: string[], value: string): Promise<void> {
+  for (const selector of selectors) {
+    const locator = page.locator(selector).first();
+    if ((await locator.count()) > 0 && (await locator.isVisible().catch(() => false))) {
+      await locator.fill(value, { timeout: 10_000 });
+      return;
+    }
+  }
+  throw new Error(`Could not find a visible input for selectors: ${selectors.join(", ")}`);
+}
+
 async function readVercelProjectLink(cwd: string): Promise<{ projectId?: string; orgId?: string } | undefined> {
   const text = await readOptionalText(cwd, ".vercel/project.json");
   if (!text) {
@@ -1007,6 +1357,11 @@ async function readConvexProjectDeploymentReference(cwd: string, deploymentName:
   const envLocal = await readOptionalText(cwd, "apps/convex/.env.local");
   const context = envLocal?.match(/#\s*team:\s*([a-z0-9_-]+),\s*project:\s*([a-z0-9_-]+)/i);
   return context ? `${context[1]}:${context[2]}:preview/${deploymentName}` : undefined;
+}
+
+async function readConvexEnvLocalUrl(cwd: string): Promise<string | undefined> {
+  const env = await readEnvFile(join(cwd, "apps", "convex", ".env.local"));
+  return env.CONVEX_URL;
 }
 
 function resolveExecutor(io: RunIo): ProviderCommandExecutor {
@@ -1167,11 +1522,8 @@ function readPreviewEnvironment(value: string | boolean | undefined, fix: string
   throw new Error(["FAIL m2.environment.unsupported", "M2 live preview commands support --env preview only.", `Fix: ${fix}`].join("\n"));
 }
 
-function readRequiredOption(value: string | boolean | undefined, flag: string, fix: string): string {
-  if (typeof value === "string" && value.length > 0) {
-    return value;
-  }
-  throw new Error(["FAIL cli.option.missing", `--${flag} requires a value.`, `Fix: ${fix}`].join("\n"));
+function readOptionalOption(value: string | boolean | undefined): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
 function parseJson(value: string, label: string): any {
@@ -1187,6 +1539,21 @@ function parseJson(value: string, label: string): any {
   }
 }
 
+function parseOptionalJson(value: string): unknown | undefined {
+  const trimmed = value.trim();
+  const objectIndex = trimmed.indexOf("{");
+  const arrayIndex = trimmed.indexOf("[");
+  const indexes = [objectIndex, arrayIndex].filter((index) => index >= 0);
+  if (indexes.length === 0) {
+    return undefined;
+  }
+  try {
+    return JSON.parse(trimmed.slice(Math.min(...indexes)));
+  } catch {
+    return undefined;
+  }
+}
+
 function firstString(...values: unknown[]): string | undefined {
   for (const value of values) {
     if (typeof value === "string" && value.trim().length > 0) {
@@ -1194,6 +1561,30 @@ function firstString(...values: unknown[]): string | undefined {
     }
   }
   return undefined;
+}
+
+function parseClerkDomains(output: string): string | undefined {
+  const parsed = parseOptionalJson(output);
+  const rawDomains: unknown[] = Array.isArray(parsed)
+    ? parsed
+    : parsed && typeof parsed === "object" && Array.isArray((parsed as Record<string, unknown>).data)
+      ? ((parsed as Record<string, unknown>).data as unknown[])
+      : [];
+  const normalized = rawDomains
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry && typeof entry === "object"))
+    .map((entry) => ({
+      frontendApiUrl: firstString(entry.frontend_api_url, entry.frontendApiUrl, entry.url, entry.name),
+      isSatellite: entry.is_satellite === true || entry.isSatellite === true
+    }));
+  return normalized.find((domain) => domain.frontendApiUrl && !domain.isSatellite)?.frontendApiUrl
+    ?? normalized.find((domain) => domain.frontendApiUrl)?.frontendApiUrl;
+}
+
+function normalizeClerkIssuerDomain(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  return value.startsWith("http://") || value.startsWith("https://") ? value : `https://${value}`;
 }
 
 function clerkIssuerDomainFromPublishableKey(publishableKey: string): string | undefined {
@@ -1221,8 +1612,28 @@ function parseConvexDeploymentReference(output: string): string | undefined {
   return output.match(/\b([a-z0-9_-]+:[a-z0-9_-]+:preview\/[a-z0-9_-]+)\b/i)?.[1];
 }
 
+function parseConvexProjectReference(output: string, deploymentName: string): string | undefined {
+  const direct = parseConvexDeploymentReference(output);
+  if (direct) {
+    return direct;
+  }
+  const dashboard = output.match(/dashboard\.convex\.dev\/t\/([a-z0-9_-]+)\/([a-z0-9_-]+)/i);
+  if (dashboard) {
+    return `${dashboard[1]}:${dashboard[2]}:preview/${deploymentName}`;
+  }
+  const teamProject = output.match(/\bteam:\s*([a-z0-9_-]+),\s*project:\s*([a-z0-9_-]+)/i);
+  if (teamProject) {
+    return `${teamProject[1]}:${teamProject[2]}:preview/${deploymentName}`;
+  }
+  return undefined;
+}
+
 function parseConvexUrl(output: string): string | undefined {
   return output.match(/\bhttps:\/\/[a-z0-9-]+\.convex\.cloud\b/i)?.[0];
+}
+
+function deriveConvexSiteUrl(convexUrl: string | undefined): string | undefined {
+  return convexUrl?.replace(/\.convex\.cloud\b/i, ".convex.site");
 }
 
 function parseConvexOwner(output: string): string | undefined {
@@ -1311,4 +1722,18 @@ function redact(value: string): string {
 function writeProviderBootstrapUsage(io: RunIo): void {
   io.write("Usage: agentstack provider bootstrap --env preview --confirm-live-mutation");
   io.write("Creates or reuses preview Clerk, Convex, and Vercel resources using provider CLIs.");
+}
+
+function writeSmokeUsage(io: RunIo): void {
+  io.write("Usage: agentstack smoke --env preview [--url <url>] [--dom-file <path>]");
+  io.write("");
+  io.write(`Defaults to deploy evidence and ${defaultM2DomSnapshotPath}.`);
+  io.write("Run agentstack preview smoke --capture to create the standard DOM snapshot.");
+}
+
+function writePreviewSmokeUsage(io: RunIo): void {
+  io.write("Usage: agentstack preview smoke --env preview [--capture]");
+  io.write("");
+  io.write("Captures a signed-in preview DOM with the package-owned Clerk smoke user, then runs smoke validation.");
+  io.write(`Writes ${defaultM2DomSnapshotPath}.`);
 }
