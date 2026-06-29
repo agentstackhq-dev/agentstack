@@ -7,81 +7,81 @@ for (const link of document.querySelectorAll(".nav a")) {
 
 const scenarios = {
   lifecycleInspector: {
-    title: "Lifecycle preflight",
-    command: "pnpm run inspect && pnpm run skills:inspect && pnpm run preview:apply && pnpm run doctor && pnpm run dev",
-    result: "PASS inspect acme-crm / PASS skills inspect / PASS doctor preview / PASS dev preflight preview",
-    detail: "Inspect summarizes generated anchors, services, and preview local-cloud state. Skills inspect verifies versioned repo-local guidance without MCP. Doctor runs validation plus selected-environment local-cloud checks. Dev is a preflight only: it prints next validation, env, sync, web, and mobile commands without starting real servers.",
-    files: ["packages/core/src/lifecycle.ts", "packages/core/src/guidance.ts", "packages/cli/src/run.ts", "templates/b2b-saas/skills/agentstack/SKILL.md"]
+    title: "Lean happy path preflight",
+    command: "pnpm run validate && pnpm run dev:check",
+    result: "PASS validate / PASS dev check web",
+    detail: "Validate checks the typed config and generated app boundary. Dev check verifies the web start path without running a long-lived server.",
+    files: ["packages/core/src/validation.ts", "packages/cli/src/run.ts", "templates/b2b-saas/package.json"]
   },
   missingAnchor: {
     title: "Generated anchor removed",
     command: "pnpm run validate",
     result: "FAIL template.anchor.missing",
-    detail: "If a required file such as apps/web/package.json, pnpm-workspace.yaml, or docs/agentstack/theming.md is missing or is a directory, validation blocks before cloud checks run.",
+    detail: "If a required file such as agentstack.config.ts, apps/web/package.json, apps/convex/package.json, or pnpm-workspace.yaml is missing or is a directory, validation blocks before provider work.",
     files: ["packages/core/src/validation.ts", "packages/cli/src/run.ts", "packages/cli/src/run.test.ts"]
   },
   envValues: {
-    title: "Required custom env value",
-    command: "pnpm run validate",
-    result: "PASS validate",
-    detail: "A required env declaration is satisfiable by .agentstack/env-values.json when it uses the environment -> surface -> variable -> string shape. agentstack env set writes local validation state only; invalid JSON or wrong leaf types fail explicitly.",
+    title: "Preview environment inspection",
+    command: "pnpm run env:inspect",
+    result: "PASS env inspect preview",
+    detail: "Environment inspection reads the typed config and local .agentstack state without mutating providers. Missing local values remain agent-readable diagnostics.",
     files: ["packages/core/src/env-graph.ts", "packages/cli/src/context.ts", "templates/b2b-saas/.gitignore"]
   },
   providerEnvResources: {
-    title: "Provider env resource rehearsal",
-    command: "agentstack sync --env preview --apply && agentstack validate --cloud --env preview",
-    result: "set-env preview.convex.STRIPE_MODE / PASS validate --cloud / Evidence: local-rehearsal / Scope: local-cloud state only; no live provider reads",
-    detail: "Local-cloud sync rehearses provider env resources without calling real provider APIs. It refuses missing or invalid declared values before planning or applying, then stores redacted metadata and valueHash only so raw values such as sandbox are not copied into local-cloud state.",
-    files: ["packages/adapters/src/local-cloud.ts", "templates/b2b-saas/docs/agentstack/environments.md", "tests/e2e/prototype.test.ts"]
+    title: "Preview local rehearsal",
+    command: "pnpm run preview:sync",
+    result: "APPLIED local rehearsal preview / Scope: ignored .agentstack state only; no live provider mutation",
+    detail: "Preview sync is deliberately local. It updates ignored .agentstack rehearsal state and does not mutate Clerk, Convex, Vercel, or EAS.",
+    files: ["packages/adapters/src/local-cloud.ts", "packages/cli/src/run.ts", "tests/e2e/prototype.test.ts"]
   },
   staleCloud: {
-    title: "Stale linked service",
-    command: "agentstack sync --env preview --apply",
-    result: "APPLIED preview / unlink preview.clerk",
-    detail: "If a service was linked and later disabled in the manifest, validate --cloud reports cloud.service.stale. Sync reconciles by removing the stale selected-environment entry.",
-    files: ["packages/adapters/src/local-cloud.ts", "packages/adapters/src/local-cloud.test.ts"]
+    title: "Preview live confirmation gate",
+    command: "pnpm run preview:up",
+    result: "FAIL preview.up.confirmation-required",
+    detail: "The live preview path refuses to mutate providers unless --confirm-live-mutation is passed through the package script.",
+    files: ["packages/cli/src/run.ts", "packages/cli/src/run.test.ts", "templates/b2b-saas/package.json"]
   },
   themeDrift: {
-    title: "Theme mirror drift",
-    command: "pnpm run theme:validate",
-    result: "FAIL theme.tokens.mirror-drift",
-    detail: "Theme tokens live in packages/theme/tokens.json. The typed wrapper must import that JSON source instead of copying token values, so web and mobile cannot silently read stale theme constants.",
-    files: ["packages/core/src/theme.ts", "packages/cli/src/run.ts", "templates/b2b-saas/packages/theme/src/index.ts"]
+    title: "Stale binary repair",
+    command: "which agentstack && agentstack --help",
+    result: "Help must show create",
+    detail: "If help does not show create, the visible binary is stale or points at @agentstack/cli instead of the agentstack facade package. The local quickstart documents symlink cleanup.",
+    files: ["docs/references/local-quickstart.md", "packages/agentstack/src/bin.ts", "tests/e2e/prototype.test.ts"]
   },
   previewDeploy: {
-    title: "Preview deploy rehearsal",
-    command: "pnpm run preview:deploy && pnpm run preview:deploy:apply",
-    result: "PLAN deploy preview / APPLIED deploy preview / Evidence: local-rehearsal",
-    detail: "The deploy rehearsal is local-only. Plan does not write a deployment artifact. Apply writes .agentstack/deployments/preview.json and records agentstack.deploy.completed telemetry without calling real provider APIs.",
-    files: ["templates/b2b-saas/docs/agentstack/preview.md", "packages/cli/src/run.ts", "tests/e2e/prototype.test.ts"]
+    title: "Live preview happy path",
+    command: "pnpm run preview:up -- --confirm-live-mutation",
+    result: "provider bootstrap -> provider link -> auth user -> preview deploy",
+    detail: "Preview up runs the package-owned live sequence in order and stops at exact provider auth or browser handoffs when needed.",
+    files: ["packages/cli/src/run.ts", "packages/cli/src/m2-live.ts", "templates/b2b-saas/package.json"]
   },
   productionRelease: {
-    title: "Production release rehearsal",
-    command: "pnpm run prod:prepare && pnpm run prod:provision && pnpm run prod:provision:apply && pnpm run prod:validate && pnpm run prod:deploy && pnpm run prod:deploy:apply",
-    result: "PASS prod prepare production / PLAN prod provision production / APPLIED prod provision production / PASS validate --release production / PLAN deploy production / APPLIED deploy production / Evidence: local-rehearsal",
-    detail: "The production release rehearsal is local-only. Prepare checks readiness and reports repair commands. Provision plans and applies local production state. Validate runs release validation. Deploy plans production deploy, and deploy apply writes a local artifact only after explicit production confirmation through the script. No real provider APIs are called.",
-    files: ["templates/b2b-saas/docs/agentstack/release.md", "templates/b2b-saas/package.json", "packages/create-agent-stack/src/generate.test.ts"]
+    title: "M4 remains locked",
+    command: "Read docs/milestones/M4-clean-machine-smoke.md",
+    result: "Status: locked",
+    detail: "Clean-machine packaging and public installability require an explicit approach discussion before execution.",
+    files: ["docs/milestones/M4-clean-machine-smoke.md", "docs/README.md", "README.md"]
   },
   mobileBuild: {
-    title: "Mobile build rehearsal",
-    command: "pnpm run mobile:build:preview && pnpm run mobile:build:preview:apply",
-    result: "PLAN mobile build preview / APPLIED mobile build preview / Evidence: local-rehearsal",
-    detail: "The mobile build rehearsal checks local validation and EAS readiness, then writes .agentstack/builds/mobile-preview.json only when apply is used. It records agentstack.mobile.build.completed without submitting a real EAS build.",
-    files: ["packages/core/src/mobile-build.ts", "packages/cli/src/run.ts", "templates/b2b-saas/docs/agentstack/mobile.md"]
+    title: "Mobile anchors present",
+    command: "pnpm run validate",
+    result: "PASS validate",
+    detail: "Mobile is part of the generated lean root, but live mobile build execution is outside M3. Keep Expo/EAS anchors in apps/mobile for later milestones.",
+    files: ["templates/b2b-saas/apps/mobile/app.config.ts", "templates/b2b-saas/apps/mobile/eas.json", "templates/b2b-saas/apps/mobile/src/App.tsx"]
   },
   telemetry: {
-    title: "Inspect a validation journey",
-    command: "agentstack observe timeline --env preview --journey validation && agentstack observe export --env preview --format otlp-json",
-    result: "PASS observe timeline 2 / EXPORTED observe otlp-json preview <count> / .agentstack/exports/telemetry-preview-otlp.json",
-    detail: "JSONL telemetry events remain the source for local inspection. Export writes an OTLP-shaped JSON local export artifact from redacted store query output; no network export or hosted provider is configured by default.",
-    files: ["packages/telemetry/src/events.ts", "packages/telemetry/src/store.ts", "packages/cli/src/run.ts"]
+    title: "Evidence check",
+    command: "pnpm run evidence:check",
+    result: "PASS evidence check",
+    detail: "Evidence checks are package-owned and read ignored .agentstack artifacts. Generated apps should not carry copied runbooks or evidence source files.",
+    files: ["packages/cli/src/run.ts", "docs/milestones/M3-billing-webhook.md", "templates/b2b-saas/package.json"]
   },
   observabilityInspection: {
-    title: "Narrow an incident from local events",
-    command: "agentstack observe errors --env production --since 2h --group-by component",
-    result: "PASS observe errors / grouped by component",
-    detail: "Start broad with query or timeline, then pivot into trace, journey, errors, webhook, component, or compare. These commands inspect redacted .agentstack/events.jsonl evidence through the current local telemetry boundary; hosted/network export, provider dashboards, and retention are outside the generated framework boundary.",
-    files: ["templates/b2b-saas/docs/agentstack/observability.md", "packages/telemetry/src/store.ts", "packages/cli/src/run.ts"]
+    title: "Current source of truth",
+    command: "Read README.md, docs/README.md, and milestones",
+    result: "Use milestone docs before historical spinup pages",
+    detail: "This site includes older prototype deep dives. The docs index and milestone cards decide which commands are current.",
+    files: ["README.md", "docs/README.md", "docs/milestones/README.md"]
   }
 };
 
@@ -115,45 +115,45 @@ if (scenarioButtons.length > 0) {
 const concerns = {
   architecture: {
     title: "Architecture and ownership",
-    summary: "The repo is split into five framework packages plus a generated B2B SaaS template. Core owns contracts and diagnostics; the CLI composes commands; adapters model provider boundaries; telemetry stores/query events; the generator copies the template.",
+    summary: "The repo is split into framework packages plus a lean B2B SaaS template. Core owns contracts and diagnostics; the CLI composes commands; adapters model provider boundaries; telemetry stores/query events; the agentstack facade owns creation.",
     commands: ["pnpm typecheck", "pnpm test"],
     files: [
       "packages/core/src/manifest.ts",
       "packages/cli/src/run.ts",
       "packages/adapters/src/types.ts",
       "packages/telemetry/src/events.ts",
-      "packages/create-agent-stack/src/generate.ts"
+      "packages/agentstack/src/create/generate.ts"
     ]
   },
   workflow: {
     title: "Workflow orchestration",
-    summary: "Generated apps expose scripts that route through scripts/agentstack.mjs. In source-prototype mode the wrapper uses AGENTSTACK_CLI_BIN and AGENTSTACK_TSX_BIN; in an installed package it resolves the agentstack bin without embedding local machine paths.",
-    commands: ["pnpm run inspect", "pnpm run doctor", "pnpm run dev", "pnpm run preview:apply"],
-    files: ["templates/b2b-saas/package.json", "templates/b2b-saas/scripts/agentstack.mjs", "packages/cli/src/context.ts"]
+    summary: "Generated apps expose scripts that route through the installed agentstack binary. Local source testing passes --package-spec link:<agentstack-repo>/packages/agentstack instead of copying scripts into the app.",
+    commands: ["pnpm run validate", "pnpm run dev:check", "pnpm run preview:sync", "pnpm run preview:up -- --confirm-live-mutation"],
+    files: ["templates/b2b-saas/package.json", "templates/b2b-saas/agentstack.config.ts", "packages/cli/src/context.ts"]
   },
   providers: {
     title: "Env and provider orchestration",
-    summary: "Provider work is explicit by evidence tier. Local-cloud state records linked services, provider operation IDs, env resource metadata, deployments, and mobile builds. Command-plan adapters print Clerk, Convex, Vercel, and EAS command shapes with Evidence: provider-command-plan. Provider inspect uses Evidence: live-read. Supported provider apply uses Evidence: live-mutation and is ledger-gated before the executor runs.",
-    commands: ["pnpm run env:inspect", "pnpm run provider:convex:preview", "pnpm run provider:eas:production"],
-    files: ["packages/adapters/src/local-cloud.ts", "packages/adapters/src/provider-operations.ts", "packages/adapters/src/convex.ts", "packages/adapters/src/eas.ts"]
+    summary: "Provider work is explicit by evidence tier. Local preview sync updates ignored .agentstack state only. Live preview up requires confirmation and runs package-owned bootstrap, link, auth fixture, and deploy steps against Clerk, Convex, and Vercel.",
+    commands: ["pnpm run env:inspect", "pnpm run preview:sync", "pnpm run preview:up -- --confirm-live-mutation"],
+    files: ["packages/adapters/src/local-cloud.ts", "packages/cli/src/m2-live.ts", "packages/cli/src/run.ts"]
   },
   generated: {
     title: "Generated app contract",
-    summary: "The generated app is intentionally small but structured: web, mobile, Convex, theme, UI, config, telemetry, domain, runtime, docs, skills, and manifest anchors. Add commands extend that shape through generated feature, event, and billing-plan anchors.",
-    commands: ["create-agent-stack acme-crm", "agentstack add feature invoices --surfaces web,mobile --backend convex", "agentstack add billing-plan pro --entitlements feature.auditLog --seats 10"],
-    files: ["templates/b2b-saas/agentstack.config.json", "templates/b2b-saas/docs/agentstack", "templates/b2b-saas/packages"]
+    summary: "The generated app is intentionally lean: apps/web, apps/mobile, apps/convex, typed config, root guidance, package scripts, and ignored .agentstack state. The installed agentstack package owns provider glue, diagnostics, evidence, and docs/help.",
+    commands: ["agentstack create acme-crm", "pnpm run validate", "pnpm run preview:up -- --confirm-live-mutation"],
+    files: ["templates/b2b-saas/agentstack.config.ts", "templates/b2b-saas/apps", "templates/b2b-saas/package.json"]
   },
   telemetry: {
     title: "Telemetry and timeline inspection",
-    summary: "Telemetry is local and redacted today. The CLI writes/query JSONL events, supports timeline/query/trace/journey/errors/webhook/component/compare views, and can write an OTLP-shaped JSON export artifact for handoff.",
+    summary: "Telemetry remains package-owned and redacted. Generated consumer apps should not receive copied telemetry packages or docs unless a later milestone deliberately adds that surface.",
     commands: ["agentstack observe timeline --env preview --journey deployment", "agentstack observe export --env preview --format otlp-json"],
-    files: ["packages/telemetry/src/store.ts", "packages/telemetry/src/otlp.ts", "templates/b2b-saas/docs/agentstack/observability.md"]
+    files: ["packages/telemetry/src/store.ts", "packages/telemetry/src/otlp.ts", "packages/cli/src/run.ts"]
   },
   gaps: {
     title: "Current progress and gaps",
-    summary: "The slice proves the command contract and provider boundaries. Provider execution is explicit through provider inspect/apply: Clerk and Convex inspect are diagnostics, Convex apply executes provider commands, Vercel preview apply runs only the preview deploy command, and EAS preview/production inspect runs only env:list for the selected environment. Generated deploy rehearsals, EAS builds, env mutations, real app servers, hosted/network telemetry export, provider dashboards, retention, live Stripe integration, and store submission flows are outside the current generated framework boundary.",
-    commands: ["pnpm run preview:deploy", "pnpm run preview:deploy:apply", "pnpm run prod:deploy"],
-    files: ["README.md", "tests/e2e/prototype.test.ts", "templates/b2b-saas/docs/agentstack/release.md"]
+    summary: "M1, M2, and M3 have live evidence. M4 clean-machine packaging is intentionally locked until the packaging approach is discussed, so public npm or clean-machine installability should not be implied by this site.",
+    commands: ["agentstack create acme-crm --package-spec link:<agentstack-repo>/packages/agentstack", "pnpm run validate", "pnpm run preview:up -- --confirm-live-mutation"],
+    files: ["README.md", "docs/milestones/M4-clean-machine-smoke.md", "tests/e2e/prototype.test.ts"]
   }
 };
 

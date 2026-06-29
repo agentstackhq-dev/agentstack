@@ -15,7 +15,7 @@ A consumer can install Agentstack packages, generate an app, and run documented 
 ## Approach questions before unlock
 
 - Use public npm publish, private/local npm registry, or local `pnpm pack` artifacts for the first smoke?
-- Which package names and versions are the install surface: `agentstack`, `create-agent-stack`, or both?
+- Which versioned `agentstack` package artifact should the smoke install, and how should the global `agentstack` bin be exposed?
 - What counts as a clean machine for this repo: a fresh temp directory on this Mac, a container, or another host?
 - Which commands prove success without relying on monorepo source paths?
 - What cleanup is expected for packed artifacts, temp generated apps, and any provider resources?

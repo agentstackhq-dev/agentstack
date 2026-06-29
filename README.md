@@ -82,6 +82,8 @@ cd /tmp/agentstack-smoke
 cd smoke-app
 corepack pnpm install
 corepack pnpm run validate
+corepack pnpm run dev:check
+corepack pnpm run preview:up -- --confirm-live-mutation
 ```
 
 See [docs/references/local-quickstart.md](./docs/references/local-quickstart.md) for PATH binary checks and
@@ -110,6 +112,8 @@ Generated app `package.json` scripts call the installed `agentstack` CLI:
 ```text
 validate
 dev
+dev:check
+preview:up
 provider:bootstrap
 provider:link
 auth:user

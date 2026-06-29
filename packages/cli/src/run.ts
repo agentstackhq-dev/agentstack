@@ -4544,8 +4544,8 @@ async function envSetCommand(argv: string[], io: RunIo): Promise<number> {
       [
         "FAIL env.custom.undeclared",
         `Path: env.custom.${name}`,
-        `${name} is not declared in agentstack.config.json.`,
-        "Fix: Declare the custom env value in agentstack.config.json before setting a local value."
+        `${name} is not declared in agentstack.config.ts.`,
+        "Fix: Declare the custom env value in agentstack.config.ts before setting a local value."
       ].join("\n")
     );
   }

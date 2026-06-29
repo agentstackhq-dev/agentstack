@@ -31,7 +31,7 @@ superpowers plans are historical or backlog references unless a milestone points
 | Document | Status | Notes |
 | --- | --- | --- |
 | [provider-resource-ledger.md](./provider-resource-ledger.md) | Current | Required before/after any real provider resource create/link/mutate/cleanup |
-| [references/local-quickstart.md](./references/local-quickstart.md) | Current | Local source checkout generation, PATH binary checks, and package-spec repair |
+| [references/local-quickstart.md](./references/local-quickstart.md) | Current | Local source checkout generation, `agentstack` PATH checks, stale symlink cleanup, and package-spec repair |
 | [references/m3-clerk-billing-fixture.md](./references/m3-clerk-billing-fixture.md) | Current | Repeatable M3 Clerk Billing setup, payment-method handoff, subscription, replay, cleanup |
 
 ## Backlog And Historical Rationale
@@ -40,6 +40,7 @@ superpowers plans are historical or backlog references unless a milestone points
 | --- | --- | --- |
 | [consumer-production-readiness-roadmap.md](./consumer-production-readiness-roadmap.md) | Backlog snapshot | Useful for long-term gaps; pre-M2 status details are superseded by M1-M3 milestones |
 | [consumer-production-readiness-progress.md](./consumer-production-readiness-progress.md) | Archived | Do not extend slice-by-slice |
+| [spinup-site/](./spinup-site/index.html) | Internal historical site | Entry, generated-app, and workflow pages are partially refreshed; deeper pages preserve earlier prototype slices and are not canonical |
 | [superpowers/specs/2026-06-20-agent-first-meta-framework-design.md](./superpowers/specs/2026-06-20-agent-first-meta-framework-design.md) | Historical design seed | Original design intent; generated surface and config format were corrected by M2 |
 | [superpowers/specs/2026-06-28-agentstack-m3-clerk-billing-webhook-design.md](./superpowers/specs/2026-06-28-agentstack-m3-clerk-billing-webhook-design.md) | Implemented design | M3 design rationale; milestone doc is the current pass/fail state |
 | [superpowers/plans/](./superpowers/plans/) | Historical execution plans | Preserve rationale, but verify against current code before following commands |
@@ -51,11 +52,17 @@ superpowers plans are historical or backlog references unless a milestone points
 - Mark historical docs explicitly when newer milestones supersede their command or generated-surface assumptions.
 - Do not write secrets, raw provider stdout, cookies, smoke-user passwords, setup intent secrets, or webhook signing
   secrets into docs.
+- The current generated-app happy path is:
+
+```sh
+corepack pnpm run validate
+corepack pnpm run dev:check
+corepack pnpm run preview:up -- --confirm-live-mutation
+```
+
 - When code or templates change, update template mirror docs and run:
 
 ```sh
 diff -rq templates/b2b-saas packages/agentstack/templates/b2b-saas
-corepack pnpm typecheck
-corepack pnpm test
 git diff --check
 ```

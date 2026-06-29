@@ -5,9 +5,9 @@ Last reviewed: 2026-06-29
 Use this while Agentstack is being tested from the local source checkout, before M4 public packaging or clean-machine
 installability is validated.
 
-## 1. Verify PATH Binaries
+## 1. Verify PATH Binary
 
-The local development binaries should resolve to this checkout:
+The supported consumer entrypoint is `agentstack`. The local development binary should resolve to this checkout:
 
 ```sh
 which agentstack
@@ -24,6 +24,16 @@ Expected on this machine:
 `agentstack --help` must show `create`. If it does not, the visible binary is stale or points directly at
 `@agentstack/cli` instead of the `agentstack` facade package.
 
+If `which agentstack` points at an old symlink, remove that symlink and reinstall from this checkout:
+
+```sh
+rm "$(which agentstack)"
+cd <agentstack-repo>
+corepack pnpm install
+```
+
+Do not check for or run a `create-agent-stack` binary. It is not a supported consumer entrypoint.
+
 ## 2. Generate From Local Source
 
 Preferred path:
@@ -34,6 +44,7 @@ agentstack create ags01 --package-spec link:<agentstack-repo>/packages/agentstac
 cd ags01
 corepack pnpm install
 corepack pnpm run validate
+corepack pnpm run dev:check
 ```
 
 The `--package-spec` value is required for local source testing. Without it, the generated app may try to install
@@ -72,6 +83,7 @@ Then rerun:
 ```sh
 corepack pnpm install
 corepack pnpm run validate
+corepack pnpm run dev:check
 ```
 
 ## 5. Workspace File
@@ -94,6 +106,9 @@ corepack pnpm run preview:up -- --confirm-live-mutation
 first failing step and prints the next action from the package-owned command.
 
 ## 7. Next Validation Steps
+
+Use `corepack pnpm run dev` when you want to start the local web server. It is long-running, so keep it in its own
+terminal while you run other checks.
 
 After local `validate` passes, follow the active milestone docs:
 

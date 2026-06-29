@@ -21,10 +21,9 @@ has also proved one Clerk Billing webhook and entitlement path without violating
 One person or agent completes the following using **only** the lean generated app, installed Agentstack package commands, package-owned Agentstack guidance, and provider CLI auth handoffs:
 
 1. Generate an app from the B2B SaaS template with `agentstack create <app-name>` and the corrected lean root surface
-2. Validate typed `agentstack.config.ts` through the installed Agentstack package schema
-3. Run package-owned Agentstack commands to create/reuse, ledger, and locally configure preview Clerk, Convex, and Vercel resources
-4. Run package-owned Agentstack commands to link provider resources
-5. Deploy the web app to a Vercel preview URL through package-owned Agentstack commands
+2. Validate typed `agentstack.config.ts` through the installed Agentstack package schema with `pnpm run validate`
+3. Check the local web surface start path with `pnpm run dev:check`, then use `pnpm run dev` for long-running local work
+4. Run `pnpm run preview:up -- --confirm-live-mutation` to create/reuse, ledger, link, and deploy preview Clerk, Convex, and Vercel resources through package-owned Agentstack commands
 6. Run a package-owned Agentstack command so the Clerk smoke user lifecycle is repeatable and ledgered
 7. Sign in with Clerk on that URL
 8. Call one protected Convex query/mutation as the signed-in user

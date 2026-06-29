@@ -15,7 +15,8 @@ A fresh coding agent can take an ultra-lean generated app from zero to preview u
 - an installed/local-published `agentstack` CLI started from outside the app with `agentstack create <app-name>`
 - root `AGENTS.md`
 - root `agentstack.config.ts`
-- package scripts that call the installed `agentstack` CLI
+- package scripts that call the installed `agentstack` CLI, starting with `pnpm run validate`, `pnpm run dev`, and
+  `pnpm run preview:up -- --confirm-live-mutation`
 - package-owned Agentstack docs/help rendered on demand by CLI commands
 - provider CLI auth handoffs when the provider requires login or account selection
 

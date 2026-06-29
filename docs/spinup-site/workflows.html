@@ -69,71 +69,20 @@
             <div class="grid two">
               <div class="card">
                 <h3>Source prototype smoke</h3>
-                <pre><code>pnpm install
-pnpm test
-pnpm tsx packages/create-agent-stack/src/bin.ts acme-crm
+<pre><code>pnpm install
+agentstack create acme-crm --package-spec link:<agentstack-repo>/packages/agentstack
 cd acme-crm
-export AGENTSTACK_CLI_BIN=../../packages/cli/src/bin.ts
-export AGENTSTACK_TSX_BIN=../../node_modules/.bin/tsx
-node scripts/agentstack.mjs add feature invoices --surfaces web,mobile --backend convex
-node scripts/agentstack.mjs add billing-plan pro --entitlements feature.auditLog,feature.advancedReports --seats 10
-node scripts/agentstack.mjs add event billing.subscription.updated --journey billing --surfaces web,convex --state plan:string,seatCount:number
-node scripts/agentstack.mjs env set --env preview --surface convex --name STRIPE_MODE --value sandbox
-pnpm run inspect
-pnpm run skills:inspect
 pnpm run validate
-pnpm run generated:check
-pnpm run validate:quality
-pnpm run env:inspect
-pnpm run preview:plan
-pnpm run preview:apply
-pnpm run preview:validate
-pnpm run doctor
-pnpm run dev
-pnpm run preview:deploy
-pnpm run preview:deploy:apply
-pnpm run prod:prepare
-pnpm run prod:provision
-pnpm run prod:provision:apply
-pnpm run prod:validate
-pnpm run prod:deploy
-pnpm run prod:deploy:apply
-pnpm run mobile:build:preview
-pnpm run mobile:build:preview:apply
-node scripts/agentstack.mjs observe timeline --env preview --journey deployment
-node scripts/agentstack.mjs observe timeline --env production --journey deployment
-node scripts/agentstack.mjs observe timeline --env production --journey production-release
-node scripts/agentstack.mjs observe timeline --env preview --journey mobile-build
-node scripts/agentstack.mjs observe timeline --env development --journey billing
-node scripts/agentstack.mjs observe timeline --env development --journey telemetry-generation</code></pre>
+pnpm run dev:check
+pnpm run preview:up -- --confirm-live-mutation</code></pre>
               </div>
               <div class="card">
                 <h3>What each command proves</h3>
                 <ol>
-                  <li><code>create-agent-stack</code> copies the template, replaces app tokens, and includes the local workspace-status vertical.</li>
-                  <li><code>add feature</code> creates coordinated domain, Convex, surface, telemetry, and feature-doc anchors.</li>
-                  <li><code>add billing-plan</code> creates coordinated billing-plan anchors across domain, Convex, web, mobile, telemetry, and docs.</li>
-                  <li><code>add event</code> creates typed telemetry definitions and generated event docs.</li>
-                  <li><code>env set</code> writes scoped local env state without exposing values in output.</li>
-                  <li><code>inspect</code> summarizes app identity, generated anchors, enabled services, and preview local-cloud state.</li>
-                  <li><code>skills:inspect</code> confirms the versioned repo-local skill pack and no-MCP guidance contract are present.</li>
-                  <li><code>validate</code> checks manifest, env, telemetry policy, and generated files. Evidence: <code>local-structure</code>.</li>
-                  <li><code>generated:check</code> checks generated anchors and guidance only. Evidence: <code>generated-boundary</code>; scope: no local-cloud writes, provider executor, or live provider reads.</li>
-                  <li><code>validate:quality</code> runs structural validation plus local package quality commands including <code>generated:check</code>. Evidence: <code>local-quality</code>; scope: local filesystem and package commands only.</li>
-                  <li><code>env:inspect</code> prints expected preview services and env bindings.</li>
-                  <li><code>preview:plan</code> plans local-cloud repair before <code>preview:apply</code>.</li>
-                  <li><code>preview:validate</code> confirms local-cloud state matches the manifest. Evidence: <code>local-rehearsal</code>; scope: local-cloud state only, no live provider reads.</li>
-                  <li><code>doctor</code> runs local validation plus preview local-cloud checks before provider, env, build, sync, or deploy work.</li>
-                  <li><code>dev</code> is a preflight for local product work; it points agents at workspace-status surfaces plus validation, env, and sync commands without mutating providers.</li>
-                  <li><code>preview:deploy</code> prints <code>PLAN deploy preview</code> without writing a deployment artifact. Evidence: <code>local-rehearsal</code>.</li>
-                  <li><code>preview:deploy:apply</code> prints <code>APPLIED deploy preview</code>, writes <code>.agentstack/deployments/preview.json</code>, and records <code>agentstack.deploy.completed</code>. Evidence: <code>local-rehearsal</code>.</li>
-                  <li><code>prod:prepare</code> checks production release readiness and reports repair commands.</li>
-                  <li><code>prod:provision</code> plans production local-cloud state; <code>prod:provision:apply</code> applies that local state. Evidence: <code>local-rehearsal</code>.</li>
-                  <li><code>prod:validate</code> runs release validation, then <code>prod:deploy</code> plans production deploy.</li>
-                  <li><code>prod:deploy:apply</code> applies the local production artifact only and requires explicit production confirmation through the script. No real provider APIs are called.</li>
-                  <li><code>mobile:build:preview</code> prints <code>PLAN mobile build preview</code> without writing a build artifact. Evidence: <code>local-rehearsal</code>.</li>
-                  <li><code>mobile:build:preview:apply</code> prints <code>APPLIED mobile build preview</code>, writes <code>.agentstack/builds/mobile-preview.json</code>, and records <code>agentstack.mobile.build.completed</code>. Evidence: <code>local-rehearsal</code>.</li>
-                  <li><code>observe timeline --journey billing</code> confirms billing-plan generation telemetry, including <code>agentstack.billing-plan.added</code>.</li>
+                  <li><code>agentstack create</code> copies the lean template, replaces app tokens, and writes a typed <code>agentstack.config.ts</code>.</li>
+                  <li><code>validate</code> checks the typed config, generated anchors, env contract, and package-owned framework boundary.</li>
+                  <li><code>dev:check</code> verifies the local web start path without running a long-lived server; <code>dev</code> starts the web surface for local work.</li>
+                  <li><code>preview:up -- --confirm-live-mutation</code> runs the package-owned live preview sequence and stops at exact provider auth or browser handoffs when needed.</li>
                 </ol>
               </div>
             </div>
@@ -159,8 +108,8 @@ node scripts/agentstack.mjs observe timeline --env development --journey telemet
                 <text class="svg-label" x="566" y="118">check anchors</text>
                 <text class="svg-small" x="566" y="139">files, not dirs</text>
                 <rect class="svg-box svg-rose" x="714" y="92" width="150" height="62" rx="8"></rect>
-                <text class="svg-label" x="746" y="118">cloud checks</text>
-                <text class="svg-small" x="746" y="139">only if local passes</text>
+                <text class="svg-label" x="746" y="118">provider steps</text>
+                <text class="svg-small" x="746" y="139">only behind gates</text>
                 <path class="svg-line" marker-end="url(#arrow-pipe)" d="M154 123 H182"></path>
                 <path class="svg-line" marker-end="url(#arrow-pipe)" d="M324 123 H352"></path>
                 <path class="svg-line" marker-end="url(#arrow-pipe)" d="M504 123 H532"></path>
@@ -177,54 +126,34 @@ node scripts/agentstack.mjs observe timeline --env development --journey telemet
               </thead>
               <tbody>
                 <tr>
-                  <td>Feature file already exists</td>
-                  <td>Add-feature refuses an unsafe overwrite.</td>
-                  <td>Choose a new feature name or update the existing feature anchors intentionally.</td>
-                </tr>
-                <tr>
-                  <td>Event file already exists</td>
-                  <td>Add-event refuses an unsafe overwrite.</td>
-                  <td>Choose a new event name or update the existing generated event file intentionally.</td>
-                </tr>
-                <tr>
-                  <td>Billing-plan file already exists</td>
-                  <td>Add-billing-plan refuses an unsafe overwrite.</td>
-                  <td>Choose a new billing plan name or update the existing generated billing-plan anchors intentionally.</td>
-                </tr>
-                <tr>
-                  <td>Generated billing-plan anchor missing</td>
-                  <td><code>FAIL template.anchor.missing</code></td>
-                  <td>Restore the missing billing-plan file or rerun the generator in a clean project.</td>
-                </tr>
-                <tr>
                   <td>Generated file missing</td>
                   <td><code>FAIL template.anchor.missing</code></td>
-                  <td>Restore generated anchor or regenerate the project.</td>
+                  <td>Restore the generated file or regenerate the app from a clean target directory.</td>
                 </tr>
                 <tr>
-                  <td>Required env value missing</td>
-                  <td><code>FAIL env.custom.missing</code></td>
-                  <td>Run <code>agentstack env set --env preview --surface convex --name STRIPE_MODE --value sandbox</code>.</td>
+                  <td>Stale or wrong binary</td>
+                  <td><code>agentstack --help</code> does not show <code>create</code></td>
+                  <td>Follow <code>docs/references/local-quickstart.md</code> to remove the stale symlink and reinstall from this checkout.</td>
                 </tr>
                 <tr>
-                  <td>Cloud not initialized</td>
-                  <td><code>FAIL cloud.service.missing</code></td>
-                  <td>Run <code>pnpm run preview:plan</code>, then <code>pnpm run preview:apply</code>.</td>
+                  <td>Local package dependency resolves to npm</td>
+                  <td><code>ERR_PNPM_NO_MATCHING_VERSION agentstack@0.0.0</code></td>
+                  <td>Use <code>agentstack create --package-spec link:<agentstack-repo>/packages/agentstack</code> or repair the generated dependency.</td>
                 </tr>
                 <tr>
-                  <td>Manifest disables a linked service</td>
-                  <td><code>FAIL cloud.service.stale</code></td>
-                  <td>Run <code>agentstack sync --env preview --apply</code> to unlink stale state.</td>
+                  <td>Preview rehearsal confused with live mutation</td>
+                  <td><code>preview:sync</code> reports local rehearsal scope</td>
+                  <td>Use <code>preview:sync</code> for ignored local state only; use <code>preview:up -- --confirm-live-mutation</code> for live provider work.</td>
                 </tr>
                 <tr>
-                  <td>Preview deploy rehearsal not applied</td>
-                  <td>No <code>.agentstack/deployments/preview.json</code></td>
-                  <td>Run <code>pnpm run preview:deploy:apply</code>; this writes local state only and does not call real providers.</td>
+                  <td>Live preview confirmation missing</td>
+                  <td><code>FAIL preview.up.confirmation-required</code></td>
+                  <td>Rerun <code>pnpm run preview:up -- --confirm-live-mutation</code> only when live provider mutation is intended.</td>
                 </tr>
                 <tr>
-                  <td>Mobile build rehearsal not applied</td>
-                  <td>No <code>.agentstack/builds/mobile-preview.json</code></td>
-                  <td>Run <code>pnpm run mobile:build:preview:apply</code>; this writes local state only and does not submit an EAS build.</td>
+                  <td>Clerk Billing needs a payment source</td>
+                  <td>Billing fixture reports the browser SDK handoff</td>
+                  <td>Follow <code>docs/references/m3-clerk-billing-fixture.md</code>, then rerun the package-owned subscribe command.</td>
                 </tr>
               </tbody>
             </table>

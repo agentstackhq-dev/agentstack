@@ -25,12 +25,12 @@
       <main class="main">
         <header class="hero">
           <div>
-            <h1>The generated app is a bounded playground.</h1>
+            <h1>The generated app is a lean consumer workspace.</h1>
             <p>
-              It is not a full SaaS product yet. It is a minimal, typed, agent-readable shell with
-              a runnable local workspace-status vertical that proves the framework can own project
-              shape, feature anchors, scripts, safety defaults, docs, validation, and one small
-              product path.
+              It is not a framework dump. It is a typed app shell with web, mobile, and Convex
+              surfaces, a schema-driven Agentstack config, package scripts that call the installed
+              <code>agentstack</code> binary, and ignored <code>.agentstack/</code> state for provider
+              evidence and fixtures.
             </p>
           </div>
           <div class="diagram hero-art">
@@ -38,9 +38,9 @@
               <rect class="svg-box svg-teal" x="40" y="34" width="240" height="46" rx="8"></rect>
               <text class="svg-label" x="66" y="64">acme-crm/</text>
               <rect class="svg-box" x="70" y="98" width="210" height="34" rx="6"></rect>
-              <text class="svg-small" x="92" y="121">agentstack.config.json</text>
+              <text class="svg-small" x="92" y="121">agentstack.config.ts</text>
               <rect class="svg-box" x="70" y="142" width="210" height="34" rx="6"></rect>
-              <text class="svg-small" x="92" y="165">AGENTS.md + docs/agentstack</text>
+              <text class="svg-small" x="92" y="165">AGENTS.md + package.json</text>
               <rect class="svg-box svg-blue" x="330" y="34" width="220" height="46" rx="8"></rect>
               <text class="svg-label" x="358" y="64">surfaces</text>
               <rect class="svg-box" x="340" y="98" width="190" height="34" rx="6"></rect>
@@ -48,11 +48,11 @@
               <rect class="svg-box" x="340" y="142" width="190" height="34" rx="6"></rect>
               <text class="svg-small" x="362" y="165">apps/mobile/package.json</text>
               <rect class="svg-box" x="340" y="186" width="190" height="34" rx="6"></rect>
-              <text class="svg-small" x="362" y="209">convex/schema.ts</text>
+              <text class="svg-small" x="362" y="209">apps/convex/convex/schema.ts</text>
               <rect class="svg-box svg-amber" x="70" y="230" width="210" height="46" rx="8"></rect>
-              <text class="svg-label" x="100" y="260">shared packages</text>
+              <text class="svg-label" x="100" y="260">.agentstack state</text>
               <rect class="svg-box svg-rose" x="330" y="250" width="220" height="46" rx="8"></rect>
-              <text class="svg-label" x="358" y="280">scripts/agentstack.mjs</text>
+              <text class="svg-label" x="358" y="280">installed agentstack CLI</text>
             </svg>
           </div>
         </header>
@@ -61,85 +61,71 @@
           <section class="section">
             <h2>Generated project contents</h2>
             <div class="grid three">
-              <div class="card"><h3>App identity</h3><p><code>agentstack.config.json</code> contains app slug/name, environments, surfaces, enabled services, env declarations, and telemetry policy.</p></div>
-              <div class="card"><h3>Surfaces</h3><p>Web, mobile, and Convex now include a small local workspace-status path so validation checks more than file presence.</p></div>
-              <div class="card"><h3>Shared packages</h3><p><code>domain</code>, <code>theme</code>, <code>config</code>, <code>ui</code>, <code>telemetry</code>, and runtime packages carry the shared status contract, tokens, unstyled primitives, and telemetry helpers.</p></div>
-              <div class="card"><h3>Workspace status</h3><p>The generated local app path reads a shared workspace-status domain model, exposes Convex status data, renders web and mobile status views, and uses unstyled <code>@app/ui</code> primitive metadata.</p></div>
-              <div class="card"><h3>SaaS spine</h3><p><code>packages/domain/src/saas-spine.ts</code>, <code>convex/saasSpine.ts</code>, and <code>docs/agentstack/saas-spine.md</code> define roles, memberships, billing plans, entitlements, Clerk webhooks, and audit events.</p></div>
-              <div class="card"><h3>Theme contract</h3><p><code>packages/theme/tokens.json</code> is the source of truth. <code>@app/theme</code> imports it, and <code>@app/ui</code> uses token roles instead of hardcoded colors.</p></div>
-              <div class="card"><h3>Feature workflow</h3><p><code>agentstack add feature &lt;name&gt; --surfaces web,mobile --backend convex</code> creates coordinated product anchors before surface code diverges.</p></div>
-              <div class="card"><h3>Event workflow</h3><p><code>agentstack add event billing.subscription.updated --journey billing --surfaces web,convex --state plan:string,seatCount:number</code> creates typed telemetry files and generated event docs.</p></div>
-              <div class="card"><h3>Agent docs</h3><p><code>AGENTS.md</code>, <code>docs/agentstack/</code>, and <code>skills/agentstack/</code> teach agents the local workflow, feature-first generation, and boundaries.</p></div>
-              <div class="card"><h3>Guidance skill pack</h3><p><code>skills/agentstack/SKILL.md</code> gives installable-skill-aware agents deeper workflows while <code>pnpm run skills:inspect</code> verifies version and file presence. There is no MCP dependency.</p></div>
+              <div class="card"><h3>Typed config</h3><p><code>agentstack.config.ts</code> contains app identity, environments, surfaces, services, telemetry policy, and Clerk Billing entitlement keys through <code>defineAgentstackConfig</code>.</p></div>
+              <div class="card"><h3>Surfaces</h3><p><code>apps/web</code>, <code>apps/mobile</code>, and <code>apps/convex</code> contain the runnable app code. Convex functions live under <code>apps/convex/convex</code>, not a root <code>convex/</code> directory.</p></div>
+              <div class="card"><h3>Package boundary</h3><p>The generated app depends on <code>agentstack</code>. Provider glue, diagnostics, evidence checks, and runbooks stay package-owned instead of copied into the app.</p></div>
+              <div class="card"><h3>Auth and data</h3><p>The web surface uses Clerk and Convex, including signed-in protected data smoke hooks and stable <code>data-agentstack-*</code> markers for automated checks.</p></div>
+              <div class="card"><h3>Billing gate</h3><p>Convex contains the Clerk Billing webhook route and <code>feature.auditLog</code> entitlement gate used by M3 live validation.</p></div>
+              <div class="card"><h3>Workspace file</h3><p><code>pnpm-workspace.yaml</code> is generated alongside <code>package.json</code> so pnpm and TypeScript language servers resolve <code>apps/*</code> consistently.</p></div>
               <div class="card"><h3>Safety defaults</h3><p>Generated <code>.gitignore</code> protects <code>.agentstack/</code>, <code>.env</code>, and <code>.env.*</code>.</p></div>
-              <div class="card"><h3>Lifecycle scripts</h3><p><code>inspect</code>, <code>doctor</code>, and <code>dev</code> help agents read project state, run preflight checks, and enter the local workspace-status flow before provider-facing work.</p></div>
-              <div class="card"><h3>Scripts</h3><p><code>validate</code>, <code>generated:check</code>, <code>validate:quality</code>, <code>env:inspect</code>, <code>preview:plan</code>, <code>preview:apply</code>, <code>preview:validate</code>, <code>preview:deploy</code>, <code>prod:prepare</code>, <code>prod:provision</code>, <code>prod:validate</code>, <code>prod:deploy</code>, and <code>observe:timeline</code> delegate to an installed CLI or explicit source-prototype env vars.</p></div>
-              <div class="card"><h3>Provider env rehearsal</h3><p><code>agentstack env set</code> writes local validation values only. <code>sync --env preview</code> refuses missing or invalid values before planning or applying provider env resources; applied sync stores hash-only metadata in <code>.agentstack/local-cloud.json</code>.</p></div>
-              <div class="card"><h3>Observability inspection</h3><p><code>docs/agentstack/observability.md</code> teaches <code>agentstack observe</code> workflows over redacted local JSONL, including timeline, journey, errors, and compare inspection objects.</p></div>
-              <div class="card"><h3>Telemetry export</h3><p><code>telemetry:export:preview</code> and <code>telemetry:export:production</code> write an <code>OTLP-shaped JSON</code> local export artifact from redacted store query output without configuring network export or a hosted provider.</p></div>
-              <div class="card"><h3>Preview runbook</h3><p><code>docs/agentstack/preview.md</code> documents exact local rehearsal commands, expected output, files written, and non-goals. It states the workflow is not real provider deployment.</p></div>
-              <div class="card"><h3>Mobile build profiles</h3><p><code>apps/mobile/eas.json</code> and <code>apps/mobile/app.config.ts</code> define generated EAS/Expo anchors. Root and mobile package scripts route through <code>agentstack build mobile</code>.</p></div>
+              <div class="card"><h3>Lifecycle scripts</h3><p><code>validate</code>, <code>dev</code>, <code>dev:check</code>, <code>preview:sync</code>, <code>preview:up</code>, provider, auth, billing, smoke, and evidence scripts all delegate to the installed <code>agentstack</code> binary.</p></div>
+              <div class="card"><h3>Provider state</h3><p>Provider links, evidence bundles, auth fixtures, ledgers, and smoke artifacts are mutable state under ignored <code>.agentstack/</code> files.</p></div>
             </div>
           </section>
 
           <section class="section">
             <h2>Generated app topology</h2>
             <div class="flow-row" aria-label="Generated app topology">
-              <div class="flow-step"><strong>Manifest</strong><span>Declares app identity, envs, surfaces, services, telemetry, generated anchors.</span><code>agentstack.config.json</code></div>
+              <div class="flow-step"><strong>Config</strong><span>Declares app identity, envs, surfaces, services, telemetry, and billing entitlements.</span><code>agentstack.config.ts</code></div>
               <div class="flow-step"><strong>Scripts</strong><span>Expose stable commands for agents and humans without committing local source paths.</span><code>package.json</code></div>
-              <div class="flow-step"><strong>Surfaces</strong><span>Web, mobile, and Convex carry the local workspace-status path.</span><code>apps/* convex/*</code></div>
-              <div class="flow-step"><strong>Shared packages</strong><span>Domain, config, telemetry, theme, UI primitives, runtime, and SaaS-spine contracts.</span><code>packages/*</code></div>
-              <div class="flow-step"><strong>Agent docs</strong><span>Workflow, validation, env, release, observability, generated-boundary, and skill guidance.</span><code>docs/agentstack</code></div>
-              <div class="flow-step"><strong>Local state</strong><span>Gitignored env values, local-cloud rehearsal, deploy/build artifacts, and events.</span><code>.agentstack/*</code></div>
+              <div class="flow-step"><strong>Surfaces</strong><span>Web, mobile, and Convex carry app runtime code.</span><code>apps/*</code></div>
+              <div class="flow-step"><strong>CLI package</strong><span>Owns provider glue, diagnostics, docs/help, and validation workflows.</span><code>agentstack</code></div>
+              <div class="flow-step"><strong>State</strong><span>Gitignored provider links, fixtures, deploy metadata, ledgers, smoke artifacts, and evidence.</span><code>.agentstack/*</code></div>
             </div>
           </section>
 
           <section class="section">
             <h2>Runnable Workspace Status</h2>
             <p class="lede">
-              The generated app now includes one intentionally small vertical slice. It is local
-              product behavior across shared domain, Convex, web, mobile, and unstyled UI
-              primitives. Preview deploy, production provision, production deploy, and mobile build
-              commands are local rehearsals unless an explicit ledger-gated provider apply command is run.
+              The generated app includes one intentionally small vertical slice so validation checks
+              more than file presence. The web app can render local workspace status, Clerk auth
+              state, Convex protected data, and the M3 entitlement gate. Mobile carries matching
+              app anchors for later execution.
             </p>
-            <pre><code>packages/domain/src/workspace-status.ts     shared status model and fixture
-packages/ui/src/index.ts                   unstyled status primitive metadata
-convex/workspaceStatus.ts                  Convex status query/action anchor
-apps/web/src/index.ts                      web status rendering entry
-apps/mobile/src/index.ts                   mobile status rendering entry
-docs/agentstack/workspace-status.md        agent-readable local vertical contract</code></pre>
+            <pre><code>apps/web/src/App.tsx                         Clerk, Convex, protected-data, entitlement UI
+apps/web/src/workspaceStatus.ts             local web workspace fixture
+apps/convex/convex/workspaceStatus.ts       protected Convex query anchor
+apps/mobile/src/App.tsx                     mobile workspace status surface
+apps/mobile/src/workspaceStatus.ts          local mobile workspace fixture</code></pre>
             <p class="lede">
-              Add product telemetry where behavior crosses a real product boundary: web interaction
-              handlers in <code>apps/web</code>, mobile screen/action handlers in <code>apps/mobile</code>,
-              and Convex queries, mutations, or actions in <code>convex</code>. Follow the workspace-status
-              pattern by importing generated event definitions, attaching actor, org, journey, trace,
-              surface, and component context through <code>createAppTelemetry(runtime).identify(...)</code>,
-              and emitting only redacted state snapshots.
+              App-specific telemetry, domain packages, docs, and skills are not copied into the
+              generated root by default. Agentstack should add those through package-owned commands
+              when a milestone requires them.
             </p>
           </section>
 
           <section class="section">
-            <h2>Core SaaS Spine</h2>
+            <h2>Auth, Billing, And Webhook Anchors</h2>
             <p class="lede">
-              The generated SaaS spine connects shared domain types, Convex authorization, local
-              agent docs, and validation anchors so agents can reason about identity, membership,
-              billing, entitlements, webhook intake, and audit history from one documented contract.
+              The current runtime proof path is intentionally narrow: Clerk auth, Convex protected
+              data, Clerk Billing webhook ingestion, and a <code>feature.auditLog</code> entitlement
+              gate. Provider-specific Billing slugs come from <code>agentstack.config.ts</code>.
             </p>
-            <pre><code>packages/domain/src/saas-spine.ts        typed roles, memberships, plans, entitlements, audit events
-convex/saasSpine.ts                     Convex org, membership, and role authorization anchors
-docs/agentstack/saas-spine.md           agent-readable SaaS contract and workflow notes
-pnpm run skills:inspect                 guidance version and installable skill anchors
-pnpm run validate                       Clerk identity, Clerk webhooks, billing, entitlement, and audit anchors</code></pre>
+            <pre><code>agentstack.config.ts                       feature.auditLog -> Clerk feature/plan slugs
+apps/convex/convex/http.ts                Clerk Billing webhook HTTP action
+apps/convex/convex/billing.ts             entitlement persistence and gate
+apps/convex/convex/auth.config.ts         Clerk issuer configuration
+apps/web/src/App.tsx                      signed-in protected data and entitlement smoke hooks</code></pre>
           </section>
 
           <section class="section">
             <h2>Why two template copies exist</h2>
             <p class="lede">
               The root <code>templates/b2b-saas</code> copy is easy to inspect in the repository.
-              The package-local copy under <code>packages/create-agent-stack/templates/b2b-saas</code>
+              The package-local copy under <code>packages/agentstack/templates/b2b-saas</code>
               is what the generator can ship in an npm package. Tests enforce byte-for-byte parity.
             </p>
-            <pre><code>diff -qr templates/b2b-saas packages/create-agent-stack/templates/b2b-saas</code></pre>
+            <pre><code>diff -rq templates/b2b-saas packages/agentstack/templates/b2b-saas</code></pre>
           </section>
 
           <section class="section">
@@ -153,77 +139,65 @@ pnpm run validate                       Clerk identity, Clerk webhooks, billing,
                   <td>Generated projects should not contain a machine-specific repo path.</td>
                 </tr>
                 <tr>
-                  <td>Source prototype</td>
-                  <td>Set <code>AGENTSTACK_CLI_BIN</code> and <code>AGENTSTACK_TSX_BIN</code>.</td>
-                  <td>Lets this local repo prove real CLI behavior before publishing packages.</td>
+                  <td>Local source testing</td>
+                  <td>Run <code>agentstack create --package-spec link:<agentstack-repo>/packages/agentstack</code>.</td>
+                  <td>Keeps consumer tests on the public package boundary while M4 packaging remains locked.</td>
                 </tr>
                 <tr>
-                  <td>Lifecycle preflight</td>
-                  <td>Run <code>inspect</code>, <code>doctor</code>, then <code>dev</code> before provider-facing work.</td>
-                  <td><code>dev</code> runs the local workspace-status preflight; provider execution happens only through explicit provider inspect/apply/proof or live reconcile reads.</td>
+                  <td>Local preflight</td>
+                  <td>Run <code>validate</code>, <code>dev:check</code>, and <code>preview:sync</code>.</td>
+                  <td>Checks the typed config, local web start path, and ignored local rehearsal state without mutating live providers.</td>
                 </tr>
                 <tr>
-                  <td>Agent guidance</td>
-                  <td>Run <code>skills:inspect</code>, then read <code>skills/agentstack/SKILL.md</code> and matching references for the task.</td>
-                  <td>The framework gives agents versioned workflows without making MCP part of the product contract.</td>
+                  <td>Local server</td>
+                  <td>Run <code>dev</code> when you need the web surface.</td>
+                  <td>The command is intentionally long-running and should live in its own terminal.</td>
                 </tr>
                 <tr>
-                  <td>Local preview deploy rehearsal</td>
-                  <td>Run <code>preview:deploy</code> for <code>PLAN deploy preview</code> and <code>preview:deploy:apply</code> for <code>APPLIED deploy preview</code>. Evidence: <code>local-rehearsal</code>.</td>
-                  <td>Writes <code>.agentstack/deployments/preview.json</code> and telemetry locally without calling provider APIs.</td>
+                  <td>Live preview</td>
+                  <td>Run <code>preview:up -- --confirm-live-mutation</code>.</td>
+                  <td>Runs package-owned provider bootstrap, link, auth fixture, and preview deploy in order, stopping at explicit provider handoffs.</td>
                 </tr>
                 <tr>
-                  <td>Local provider env resource rehearsal</td>
-                  <td>Run <code>env set</code> for local validation values, then <code>sync --env preview --apply</code> and <code>validate --cloud --env preview</code>. Evidence: <code>local-rehearsal</code>; scope: local-cloud state only.</td>
-                  <td>Stores redacted provider env resource metadata and <code>valueHash</code> in local-cloud state, never raw env values.</td>
-                </tr>
-                <tr>
-                  <td>Local production release rehearsal</td>
-                  <td>Run <code>prod:prepare</code>, <code>prod:provision</code>, <code>prod:validate</code>, <code>prod:deploy</code>, and their apply variants where available.</td>
-                  <td>Plans and applies local production state and artifacts only with <code>Evidence: local-rehearsal</code>; <code>prod:deploy:apply</code> requires explicit production confirmation through the script and calls no provider APIs.</td>
+                  <td>Billing fixture</td>
+                  <td>Run <code>billing:fixture -- subscribe --env preview --entitlement feature.auditLog --confirm-live-mutation</code>.</td>
+                  <td>Uses the package-owned M3 subscription flow and browser handoff when Clerk requires a payment method.</td>
                 </tr>
               </tbody>
             </table>
           </section>
 
           <section class="section">
-            <h2>Telemetry runtime anchors</h2>
+            <h2>Generated Scripts</h2>
             <p class="lede">
-              Web, mobile, and Convex anchors import generated event definitions and call
-              <code>createAppTelemetry(runtime).event(...)</code>. The helper creates typed local
-              envelopes only. Local JSONL remains the source for inspection, and export scripts write
-              an <code>OTLP-shaped JSON</code> local export artifact without sending app events over the
-              network or configuring provider ingestion.
+              Generated scripts stay small and stable. They expose the happy path plus repeatable
+              provider, auth, billing, smoke, and evidence commands while the installed package owns
+              the implementation details.
             </p>
-            <pre><code>packages/telemetry/package.json
-packages/telemetry/src/events.ts
-packages/telemetry/src/index.ts
-packages/agentstack-runtime/src/index.ts
-apps/web/src/index.ts
-apps/mobile/src/index.ts
-convex/agentstack.ts
-docs/agentstack/observability.md
-.agentstack/events.jsonl
-pnpm run telemetry:export:preview
-pnpm run telemetry:export:production</code></pre>
+            <pre><code>pnpm run validate
+pnpm run dev
+pnpm run dev:check
+pnpm run preview:sync
+pnpm run preview:up -- --confirm-live-mutation
+pnpm run billing:fixture -- subscribe --env preview --entitlement feature.auditLog --confirm-live-mutation
+pnpm run preview:smoke
+pnpm run evidence:check</code></pre>
           </section>
           <section class="section">
-            <h2>Mobile build anchors</h2>
+            <h2>Mobile Anchors</h2>
             <p class="lede">
-              Mobile build rehearsal is local-first. Planning does not write state. Apply writes
-              <code>.agentstack/builds/mobile-preview.json</code> and emits
-              <code>agentstack.mobile.build.completed</code> on the <code>mobile-build</code> journey.
+              The mobile app is present in the lean root but is not part of the M3 live proof. It
+              keeps Expo/EAS anchors available for later milestones without adding copied framework
+              packages or runbooks.
             </p>
             <pre><code>apps/mobile/eas.json
 apps/mobile/app.config.ts
-docs/agentstack/mobile.md
-pnpm run mobile:build:development
-pnpm run mobile:build:preview
-pnpm run mobile:build:preview:apply
-pnpm run mobile:build:production</code></pre>
+apps/mobile/App.tsx
+apps/mobile/src/App.tsx
+apps/mobile/src/workspaceStatus.ts</code></pre>
           </section>
         </section>
-        <footer class="footer">Evidence: <code>packages/create-agent-stack/src/generate.ts</code>, <code>templates/b2b-saas/</code>, <code>packages/create-agent-stack/src/generate.test.ts</code>.</footer>
+        <footer class="footer">Evidence: <code>packages/agentstack/src/create/generate.ts</code>, <code>templates/b2b-saas/</code>, <code>packages/agentstack/src/create/generate.test.ts</code>.</footer>
       </main>
     </div>
     <script src="assets/site.js"></script>

@@ -11,7 +11,7 @@
       <aside class="sidebar">
         <div class="brand">
           <strong>Agentstack Spin-Up</strong>
-          <span>Internal map of the current framework</span>
+          <span>Internal map with historical deep dives</span>
         </div>
         <nav class="nav" aria-label="Spin-up navigation">
           <a data-page="home" href="index.html">Start Here</a>
@@ -30,18 +30,18 @@
           <div>
             <h1>What we built, why it matters, and how the pieces fit.</h1>
             <p>
-              Agentstack is currently a local, executable proof of an agent-first framework contract.
-              Provider execution is explicit and bounded: plans do not execute, live reads are
-              read-only diagnostics, and mutations are limited to ledger-gated Convex apply plus
-              Vercel preview deploy apply. It now proves a generated workspace-status app vertical,
-              validation model, generated project shape, provider proof boundary, and telemetry
-              inspection path bounded to local JSONL inspection and local OTLP-shaped artifact export.
+              Agentstack is an agent-first meta-framework package. The current milestone contract
+              is lean: consumers run <code>agentstack create</code>, get a small app root, and use
+              package-owned commands for validation, provider bootstrap/link/deploy, auth fixtures,
+              Clerk Billing fixtures, smoke checks, and evidence. Some deeper pages on this site
+              preserve earlier prototype slices; use README, docs/README, and the milestone cards as
+              the current source of truth.
             </p>
             <div class="pill-row">
               <span class="pill">TypeScript monorepo</span>
               <span class="pill">Convex/Clerk/Vercel/EAS model</span>
-              <span class="pill">Runnable workspace-status vertical</span>
-              <span class="pill">OpenTelemetry-ready wide events</span>
+              <span class="pill">Lean generated surface</span>
+              <span class="pill">M1-M3 live evidence</span>
             </div>
           </div>
           <div class="hero-art diagram" aria-label="Agentstack high-level diagram">
@@ -56,13 +56,13 @@
               <text class="svg-small" x="58" y="99">asks for command contract</text>
               <rect class="svg-box svg-blue" x="340" y="42" width="170" height="70" rx="8"></rect>
               <text class="svg-label" x="368" y="78">Agentstack CLI</text>
-              <text class="svg-small" x="368" y="99">validate, sync, observe</text>
+              <text class="svg-small" x="368" y="99">create, validate, preview up</text>
               <rect class="svg-box svg-amber" x="60" y="210" width="150" height="70" rx="8"></rect>
               <text class="svg-label" x="90" y="246">Generated App</text>
               <text class="svg-small" x="90" y="267">web, mobile, convex</text>
               <rect class="svg-box svg-rose" x="330" y="210" width="180" height="70" rx="8"></rect>
-              <text class="svg-label" x="360" y="246">Local Cloud</text>
-              <text class="svg-small" x="360" y="267">drift simulation</text>
+              <text class="svg-label" x="360" y="246">.agentstack</text>
+              <text class="svg-small" x="360" y="267">evidence and fixtures</text>
               <path class="svg-line" marker-end="url(#arrow-home)" d="M188 77 H332"></path>
               <path class="svg-line" marker-end="url(#arrow-home)" d="M420 114 V200"></path>
               <path class="svg-line" marker-end="url(#arrow-home)" d="M330 245 H220"></path>
@@ -85,8 +85,8 @@
               <span>generated app surfaces: web, mobile, Convex</span>
             </div>
             <div class="card metric">
-              <strong>0</strong>
-              <span>real provider API calls in this slice</span>
+              <strong>3</strong>
+              <span>validated milestones: provider path, lean app, billing webhook</span>
             </div>
             <div class="card metric">
               <strong>1</strong>
@@ -97,17 +97,16 @@
           <section class="section">
             <h2>Current repo atlas</h2>
             <p class="lede">
-              Agentstack currently contains a framework workspace, a packageable generator, a
-              mirrored B2B SaaS template, and a generated-project contract that the smoke workflow
-              can create on demand. The framework packages are source TypeScript; the generated app
-              is the shape they create and validate.
+              Agentstack currently contains a framework workspace, a packageable <code>agentstack</code>
+              facade, a mirrored lean B2B SaaS template, and generated-app scripts that call the
+              installed package rather than copied framework internals.
             </p>
             <div class="mini-map" aria-label="Repository atlas">
               <div><strong>@agentstack/core</strong><span>manifest, diagnostics, validation, env graph, feature/event/billing/theme/mobile/release contracts</span></div>
               <div><strong>@agentstack/cli</strong><span>command router, project context, script-facing workflows, provider plans</span></div>
               <div><strong>@agentstack/adapters</strong><span>local-cloud state and provider operation planning for Clerk, Convex, Vercel, EAS</span></div>
               <div><strong>@agentstack/telemetry</strong><span>wide events, redaction, JSONL store, OTLP-shaped local export</span></div>
-              <div><strong>create-agent-stack</strong><span>copies the B2B SaaS template and replaces app identity tokens</span></div>
+              <div><strong>agentstack create</strong><span>copies the B2B SaaS template and replaces app identity tokens</span></div>
             </div>
           </section>
 
@@ -117,19 +116,19 @@
               <div class="card">
                 <h3>What exists now</h3>
                 <p>
-                  A local-first framework kernel with a manifest schema, generated app template,
-                  runnable workspace-status surface, CLI command router, validation engine,
-                  filesystem-backed local-cloud adapter, JSONL telemetry store, and end-to-end
-                  prototype workflow test.
+                  A local source package that can generate a lean consumer app, validate typed
+                  <code>agentstack.config.ts</code>, run local dev checks, rehearse preview state,
+                  execute the live preview happy path, and verify the M3 Clerk Billing entitlement
+                  gate through package-owned commands.
                 </p>
               </div>
               <div class="card">
                 <h3>What it proves</h3>
                 <p>
-                  An agent can bootstrap a project, run a small cross-surface local app path,
-                  validate local structure, initialize simulated provider state, reconcile drift,
-                  and inspect redacted telemetry without getting lost in provider dashboards, env
-                  state, or hand-written setup steps.
+                  An agent can start from an empty directory and use one public command surface:
+                  <code>agentstack create</code>, generated package scripts, and package-owned
+                  provider/auth/billing/evidence flows. The generated app no longer receives copied
+                  docs, scripts, skills, root Convex, or framework package internals.
                 </p>
               </div>
             </div>
@@ -138,12 +137,12 @@
           <section class="section">
             <h2>The loop Agentstack is proving</h2>
             <div class="flow-row" aria-label="Agentstack command loop">
-              <div class="flow-step"><strong>Create</strong><span>Copy the app template and replace identity tokens.</span><code>create-agent-stack</code></div>
-              <div class="flow-step"><strong>Add</strong><span>Generate coordinated feature, event, and billing-plan anchors.</span><code>agentstack add</code></div>
-              <div class="flow-step"><strong>Validate</strong><span>Check manifest, anchors, env values, telemetry, theme, and source secrets.</span><code>pnpm run validate</code></div>
-              <div class="flow-step"><strong>Sync</strong><span>Plan/apply selected-environment local-cloud repair and env resource rehearsal.</span><code>sync --env preview</code></div>
-              <div class="flow-step"><strong>Rehearse</strong><span>Plan/apply local preview deploy, production release, and mobile build artifacts.</span><code>deploy/build</code></div>
-              <div class="flow-step"><strong>Observe</strong><span>Query redacted JSONL timelines and write local OTLP-shaped export artifacts.</span><code>observe</code></div>
+              <div class="flow-step"><strong>Create</strong><span>Copy the app template and replace identity tokens.</span><code>agentstack create</code></div>
+              <div class="flow-step"><strong>Validate</strong><span>Check typed config, app anchors, and package-owned boundary.</span><code>pnpm run validate</code></div>
+              <div class="flow-step"><strong>Check</strong><span>Verify the local web start path without running a long-lived server.</span><code>pnpm run dev:check</code></div>
+              <div class="flow-step"><strong>Rehearse</strong><span>Write ignored local preview rehearsal state only.</span><code>pnpm run preview:sync</code></div>
+              <div class="flow-step"><strong>Preview</strong><span>Bootstrap/link/deploy live provider preview state behind confirmation.</span><code>pnpm run preview:up</code></div>
+              <div class="flow-step"><strong>Evidence</strong><span>Run smoke and evidence checks from package-owned commands.</span><code>evidence:check</code></div>
             </div>
           </section>
 
@@ -187,7 +186,8 @@
           <section class="section">
             <h2>Evidence anchors</h2>
             <p class="lede">
-              The explanations here are grounded in the current code. These are the most important files to know.
+              The current contract is grounded in these files. Treat older deep-dive pages as historical unless a
+              milestone card points at them.
             </p>
             <table class="table">
               <thead>
@@ -199,19 +199,19 @@
               </thead>
               <tbody>
                 <tr>
-                  <td>Manifest and local validation</td>
+                  <td>Typed config and validation</td>
                   <td><code>packages/core/src/manifest.ts</code>, <code>packages/core/src/validation.ts</code></td>
                   <td>Defines the typed project contract and generated-anchor rules.</td>
                 </tr>
                 <tr>
                   <td>CLI workflows</td>
                   <td><code>packages/cli/src/run.ts</code>, <code>packages/cli/src/context.ts</code></td>
-                  <td>Orchestrates validate, env inspect, sync, and observe commands.</td>
+                  <td>Orchestrates validate, dev, sync, preview, provider, auth, billing, smoke, and evidence commands.</td>
                 </tr>
                 <tr>
-                  <td>Local cloud drift</td>
+                  <td>Provider state and evidence</td>
                   <td><code>packages/adapters/src/local-cloud.ts</code></td>
-                  <td>Simulates provider state and tests the drift-repair contract.</td>
+                  <td>Supports local rehearsal state while live evidence and fixtures stay under ignored <code>.agentstack/</code>.</td>
                 </tr>
                 <tr>
                   <td>Telemetry inspection</td>
@@ -220,7 +220,7 @@
                 </tr>
                 <tr>
                   <td>Generator</td>
-                  <td><code>packages/create-agent-stack/src/generate.ts</code>, <code>templates/b2b-saas/</code></td>
+                  <td><code>packages/agentstack/src/create/generate.ts</code>, <code>templates/b2b-saas/</code></td>
                   <td>Copies the project template and replaces app identity tokens.</td>
                 </tr>
               </tbody>
@@ -230,10 +230,10 @@
           <section class="section">
             <h2>Progress and gaps</h2>
             <div class="status-strip">
-              <div class="status-item done"><strong>Working locally</strong><span>Generate project, run the workspace-status vertical, add feature/event/billing anchors, validate, inspect, sync, rehearse deploy/build, observe timelines.</span></div>
-              <div class="status-item done"><strong>Guarded</strong><span>Generated anchors, env-value shape, source-secret policy, theme mirror drift, guidance anchors, local-cloud drift.</span></div>
-              <div class="status-item partial"><strong>Explicit providers</strong><span>Provider plan prints redacted command shapes; live reads inspect Clerk/Convex/Vercel/EAS diagnostics, including EAS env-list and proof-only project-info; apply executes Convex and Vercel preview deploy only.</span></div>
-              <div class="status-item gap"><strong>Outside current boundary</strong><span>Vercel production apply, Vercel env mutation execution, EAS apply/build/project:init/env mutation, hosted telemetry ingestion, Stripe provider execution, broader workflows, and app-store submission.</span></div>
+              <div class="status-item done"><strong>M1</strong><span>Provider preview bootstrap, link, deploy, and smoke blocker analysis proved the live provider path.</span></div>
+              <div class="status-item done"><strong>M2</strong><span>Lean generated app proved the product boundary through installed <code>agentstack</code> commands.</span></div>
+              <div class="status-item done"><strong>M3</strong><span>Live Clerk Billing webhook and <code>feature.auditLog</code> entitlement gate passed with replay/idempotency evidence.</span></div>
+              <div class="status-item gap"><strong>Locked</strong><span>M4 clean-machine packaging is intentionally blocked pending an explicit packaging approach discussion.</span></div>
             </div>
           </section>
         </section>

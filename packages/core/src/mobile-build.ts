@@ -52,7 +52,7 @@ export function validateMobileBuildManifest(
       code: "mobile.surface.disabled",
       path: "surfaces",
       message: "Mobile builds require the mobile surface to be enabled.",
-      fix: "Add mobile to surfaces in agentstack.config.json.",
+      fix: "Add mobile to surfaces in agentstack.config.ts.",
       blocks: ["build mobile"]
     });
   }
@@ -63,7 +63,7 @@ export function validateMobileBuildManifest(
       code: "mobile.eas.disabled",
       path: `${environment}.eas`,
       message: `EAS is not enabled for ${environment}.`,
-      fix: "Enable services.eas for the selected environment in agentstack.config.json.",
+      fix: "Enable services.eas for the selected environment in agentstack.config.ts.",
       blocks: ["build mobile"]
     });
   }
