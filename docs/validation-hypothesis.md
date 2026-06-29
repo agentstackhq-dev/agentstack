@@ -12,8 +12,9 @@ An agent-first meta-framework can take a developer or coding agent from zero to 
 Post-M1 correction result: M1 proved the provider path could work, but the generated consumer surface was wrong. The
 lean correction is now verified through M2: Agentstack is a package dependency, not copied framework internals. The
 generated app exposes app code, `AGENTS.md`, `package.json`, `.gitignore`, and a typed `agentstack.config.ts`; deeper
-framework knowledge must come from package-owned CLI/docs so guidance does not go stale. M3 has also proved one Clerk
-Billing webhook and entitlement path without violating that lean boundary.
+framework knowledge must come from package-owned CLI/docs so guidance does not go stale. `pnpm-workspace.yaml` is part
+of the lean root because pnpm and TypeScript language servers require workspace metadata for app package resolution. M3
+has also proved one Clerk Billing webhook and entitlement path without violating that lean boundary.
 
 ## What would validate the bet (v0)
 

@@ -31,6 +31,7 @@ superpowers plans are historical or backlog references unless a milestone points
 | Document | Status | Notes |
 | --- | --- | --- |
 | [provider-resource-ledger.md](./provider-resource-ledger.md) | Current | Required before/after any real provider resource create/link/mutate/cleanup |
+| [references/local-quickstart.md](./references/local-quickstart.md) | Current | Local source checkout generation, PATH binary checks, and package-spec repair |
 | [references/m3-clerk-billing-fixture.md](./references/m3-clerk-billing-fixture.md) | Current | Repeatable M3 Clerk Billing setup, payment-method handoff, subscription, replay, cleanup |
 
 ## Backlog And Historical Rationale

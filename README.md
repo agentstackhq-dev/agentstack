@@ -29,6 +29,7 @@ of retained M3 smoke billing resources and any docs/maintenance work needed to k
 - [docs/validation-hypothesis.md](./docs/validation-hypothesis.md) - north-star hypothesis and milestone ladder.
 - [docs/milestones/README.md](./docs/milestones/README.md) - active milestone state and evidence locations.
 - [docs/provider-resource-ledger.md](./docs/provider-resource-ledger.md) - required ledger for real provider resources.
+- [docs/references/local-quickstart.md](./docs/references/local-quickstart.md) - local source checkout quickstart.
 - [docs/references/m3-clerk-billing-fixture.md](./docs/references/m3-clerk-billing-fixture.md) - repeatable Clerk Billing fixture workflow.
 
 ## Package Layout
@@ -83,6 +84,9 @@ cd smoke-app
 corepack pnpm install
 corepack pnpm run validate
 ```
+
+See [docs/references/local-quickstart.md](./docs/references/local-quickstart.md) for PATH binary checks, direct
+`create-agent-stack` usage, and existing-app repair.
 
 If you call the lower-level `create-agent-stack` bin directly during local framework development, pass the same package
 spec so the generated app does not try to install a registry version:

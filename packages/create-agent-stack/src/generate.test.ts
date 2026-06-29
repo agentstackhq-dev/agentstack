@@ -27,6 +27,8 @@ describe("generateProject", () => {
 
       const files = await listFiles(targetDir);
       const packageManifest = JSON.parse(await readFile(join(targetDir, "package.json"), "utf8"));
+      const webPackageManifest = JSON.parse(await readFile(join(targetDir, "apps/web/package.json"), "utf8"));
+      const mobilePackageManifest = JSON.parse(await readFile(join(targetDir, "apps/mobile/package.json"), "utf8"));
       const config = await readFile(join(targetDir, "agentstack.config.ts"), "utf8");
       const agents = await readFile(join(targetDir, "AGENTS.md"), "utf8");
 
@@ -35,6 +37,7 @@ describe("generateProject", () => {
           "AGENTS.md",
           ".gitignore",
           "package.json",
+          "pnpm-workspace.yaml",
           "agentstack.config.ts",
           "apps/web/package.json",
           "apps/mobile/package.json",
@@ -52,8 +55,7 @@ describe("generateProject", () => {
           "scripts/m1-providers-bootstrap.mjs",
           "skills/agentstack/SKILL.md",
           "convex/schema.ts",
-          "vercel.json",
-          "pnpm-workspace.yaml"
+          "vercel.json"
         ])
       );
       expect(files.some((file) => file.startsWith("docs/"))).toBe(false);
@@ -80,6 +82,9 @@ describe("generateProject", () => {
       });
       expect(Object.values(packageManifest.scripts).join("\n")).not.toContain("scripts/");
       expect(Object.keys(packageManifest.scripts).some((script) => script.startsWith("m1:"))).toBe(false);
+      expect(webPackageManifest.dependencies.react).toBe("^18.3.1");
+      expect(webPackageManifest.dependencies["react-dom"]).toBe("^18.3.1");
+      expect(mobilePackageManifest.dependencies.react).toBe("^18.3.1");
 
       expect(config).toContain('import { defineAgentstackConfig } from "agentstack/config";');
       expect(config).toContain("export default defineAgentstackConfig");

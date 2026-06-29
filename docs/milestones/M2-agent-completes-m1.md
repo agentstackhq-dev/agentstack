@@ -35,9 +35,12 @@ agentstack.config.ts
 AGENTS.md
 .gitignore
 package.json
+pnpm-workspace.yaml
 ```
 
-Package-manager lockfiles may appear after install, but Agentstack must not use generated root clutter as a substitute for package-owned framework behavior.
+Package-manager workspace metadata is part of the lean root because pnpm and TypeScript language servers need it to
+resolve app packages correctly. Lockfiles may appear after install, but Agentstack must not use generated root clutter as
+a substitute for package-owned framework behavior.
 
 ## Typed config contract
 

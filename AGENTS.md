@@ -23,7 +23,7 @@ M3 must preserve that product boundary.
 
 The corrected product contract is:
 
-- `agentstack create <app-name>` is the consumer entrypoint for generating an ultra-lean app root: `apps/mobile`, `apps/web`, `apps/convex`, `agentstack.config.ts`, `AGENTS.md`, `.gitignore`, and `package.json`.
+- `agentstack create <app-name>` is the consumer entrypoint for generating an ultra-lean app root: `apps/mobile`, `apps/web`, `apps/convex`, `agentstack.config.ts`, `AGENTS.md`, `.gitignore`, `package.json`, and `pnpm-workspace.yaml`.
 - `agentstack.config.ts` is mandatory, fully typed, and schema-driven from the installed Agentstack package.
 - Agentstack is a package dependency and CLI, not copied framework internals inside the generated app.
 - Package-owned CLI/docs/help own provider glue, validation, diagnostics, evidence, and runbooks.
