@@ -1,4 +1,4 @@
-import { readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,6 +12,7 @@ export type GenerateProjectInput = {
   name: string;
   targetDir: string;
   packageSpec?: string;
+  packageOverrides?: Record<string, string>;
 };
 
 export async function generateProject(input: GenerateProjectInput): Promise<void> {
@@ -24,11 +25,13 @@ export async function generateProject(input: GenerateProjectInput): Promise<void
   const templateDir = findTemplateDir();
 
   await fsExtra.copy(templateDir, input.targetDir);
+  await ensureGeneratedGitignore(input.targetDir);
   await replaceTokens(input.targetDir, {
     __APP_SLUG__: appSlug,
     __APP_NAME__: appName,
     __AGENTSTACK_PACKAGE_SPEC__: input.packageSpec ?? "0.0.0"
   });
+  await writePackageOverrides(input.targetDir, input.packageOverrides);
 }
 
 function findTemplateDir(): string {
@@ -86,4 +89,54 @@ async function replaceTokens(
       }
     })
   );
+}
+
+async function ensureGeneratedGitignore(targetDir: string): Promise<void> {
+  const gitignorePath = join(targetDir, ".gitignore");
+  const fallbackPath = join(targetDir, "_gitignore");
+  const hasGitignore = await fileExists(gitignorePath);
+  const hasFallback = await fileExists(fallbackPath);
+
+  if (hasGitignore && hasFallback) {
+    await rm(fallbackPath);
+    return;
+  }
+
+  if (!hasGitignore && hasFallback) {
+    await rename(fallbackPath, gitignorePath);
+  }
+}
+
+async function writePackageOverrides(
+  targetDir: string,
+  packageOverrides: Record<string, string> | undefined
+): Promise<void> {
+  if (!packageOverrides || Object.keys(packageOverrides).length === 0) {
+    return;
+  }
+
+  const packageJsonPath = join(targetDir, "package.json");
+  const packageManifest = JSON.parse(await readFile(packageJsonPath, "utf8")) as {
+    pnpm?: { overrides?: Record<string, string> };
+  };
+  packageManifest.pnpm = {
+    ...packageManifest.pnpm,
+    overrides: {
+      ...packageManifest.pnpm?.overrides,
+      ...packageOverrides
+    }
+  };
+  await writeFile(packageJsonPath, `${JSON.stringify(packageManifest, null, 2)}\n`);
+}
+
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    const pathStat = await stat(path);
+    return pathStat.isFile();
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return false;
+    }
+    throw error;
+  }
 }

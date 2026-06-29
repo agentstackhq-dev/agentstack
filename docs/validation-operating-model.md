@@ -4,12 +4,12 @@ Date: 2026-06-22
 Updated: 2026-06-29
 
 This is how Agentstack milestone sessions run after M1 proved the provider path, M2 corrected the generated consumer
-shape, and M3 proved the Clerk Billing webhook entitlement path.
+shape, M3 proved the Clerk Billing webhook entitlement path, and M4 proved a local packed-package consumer smoke.
 
 ## Principles
 
-1. **One validation milestone at a time.** M1 and M2 are complete. M3 has a live pass with cleanup pending. M4 is locked
-   until the packaging approach is discussed.
+1. **One validation milestone at a time.** M1, M2, and M4 are complete. M3 has a live pass with cleanup pending. M5
+   public release or hosted-control-plane work is locked until the approach is discussed.
 2. **Generated apps stay lean.** Do not add copied framework docs, copied scripts, generated skills, generated provider
    ledgers, root `convex/`, root `vercel.json`, or copied runbooks to consumer apps.
 3. **Agentstack owns framework glue.** Provider orchestration, validation, diagnostics, docs/help, evidence, hidden
@@ -25,26 +25,33 @@ shape, and M3 proved the Clerk Billing webhook entitlement path.
 
 ### M3 Cleanup / Documentation Health
 
-Use this loop while M3 live pass has retained billing resources and M4 is still locked.
+Use this loop while the M3 live pass has retained billing resources.
 
 1. Read `README.md`, `docs/README.md`, `ARCHITECTURE.md`, `AGENTS.md`, and `docs/milestones/README.md`.
 2. If touching live billing resources, also read `docs/milestones/M3-billing-webhook.md`,
    `docs/references/m3-clerk-billing-fixture.md`, and `docs/provider-resource-ledger.md`.
-3. Keep docs aligned to the current M1-M3 state without creating M4 tasks.
+3. Keep docs aligned to the current M1-M4 state without creating public-release or hosted-control-plane tasks.
 4. If cleanup runs, update the provider ledger and append redacted evidence.
 5. Run focused docs/code checks, `pnpm typecheck`, and `pnpm test` when framework files or templates change.
 
-### M4 Approach Discussion
+### M4 Local-Pack Smoke
 
-M4 should not begin implicitly. Before any clean-machine packaging work starts, agree the packaging strategy:
+M4 passed through a local pack/install smoke, not a public npm release. The validated path is:
 
-- public npm publish versus local pack/link flow
-- package names and versioning
-- clean-machine fixture location
-- expected install/generate/validate smoke commands
-- evidence and cleanup expectations
+- pack the Agentstack workspace packages into local tarballs
+- install only the public `agentstack` facade package in a launcher and generated app
+- resolve internal `@agentstack/*` tarballs through `pnpm.overrides`
+- generate a lean consumer through the public `agentstack create` bin
+- run generated `validate`, `dev:check`, and the preview live-mutation confirmation gate
 
-After agreement, update `docs/milestones/M4-clean-machine-smoke.md` before implementation.
+Run it with:
+
+```sh
+corepack pnpm run m4:pack:smoke
+```
+
+Public npm publication, versioning policy, release automation, and any hosted control plane are deliberately outside
+M4. Discuss that approach before starting the next milestone.
 
 ## Completed Milestone Lessons
 
@@ -83,6 +90,12 @@ pnpm run billing:fixture -- subscribe --env preview --entitlement feature.auditL
 
 The only allowed manual provider work in this path is an exact handoff printed or documented by Agentstack, such as the
 Clerk browser SDK test-payment-method setup in `docs/references/m3-clerk-billing-fixture.md`.
+
+### M4 Clean-Machine Local Pack
+
+M4 proved that a consumer can install and use Agentstack from packed artifacts without linking the source workspace. The
+generated app still has one direct framework dependency, `agentstack`; internal workspace packages are hidden in
+`pnpm.overrides` for the local tarball smoke only.
 
 ## Thread Types
 
@@ -149,7 +162,7 @@ Before ending:
 2. Append redacted evidence if real commands ran.
 3. Report pass/fail/blocked plus the smallest next step.
 4. Do not extend `docs/consumer-production-readiness-progress.md`.
-5. Do not start M4 without explicit user direction.
+5. Do not start public npm release, M5, or hosted-control-plane work without explicit user direction.
 
 ## Forbidden By Default
 
@@ -192,6 +205,6 @@ docs/
     M1-preview-e2e.md             # Complete provider-path spike
     M2-agent-completes-m1.md      # Complete lean generated-surface proof
     M3-billing-webhook.md         # Live billing pass, cleanup pending
-    M4-clean-machine-smoke.md     # Locked packaging proof
+    M4-clean-machine-smoke.md     # Complete local-pack clean-machine smoke
     evidence/                     # Redacted historical evidence
 ```

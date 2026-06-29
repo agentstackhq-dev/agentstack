@@ -14,7 +14,8 @@ lean correction is now verified through M2: Agentstack is a package dependency, 
 generated app exposes app code, `AGENTS.md`, `package.json`, `.gitignore`, and a typed `agentstack.config.ts`; deeper
 framework knowledge must come from package-owned CLI/docs so guidance does not go stale. `pnpm-workspace.yaml` is part
 of the lean root because pnpm and TypeScript language servers require workspace metadata for app package resolution. M3
-has also proved one Clerk Billing webhook and entitlement path without violating that lean boundary.
+has also proved one Clerk Billing webhook and entitlement path without violating that lean boundary. M4 then proved the
+local package-installability path with packed Agentstack artifacts in a clean temp consumer workspace.
 
 ## What would validate the bet (v0)
 
@@ -46,12 +47,11 @@ Success means the framework makes contact with real provider state and orchestra
 
 ## Current boundary
 
-M1 and M2 are complete. M3 has a live pass with cleanup pending. M4 is locked until the cleanup state and clean-machine
-packaging approach are discussed.
+M1 and M2 are complete. M3 has a live pass with cleanup pending. M4 is complete as a local-pack clean-machine smoke.
 
-Out of scope until M4 is explicitly started:
+Out of scope until explicitly started after M4:
 
-- Public npm publish and clean-machine install
+- Public npm publish and release automation
 - Production release gates and production payment setup
 - Hosted control plane
 - EAS mobile builds and mobile billing surfaces
@@ -87,7 +87,8 @@ See `docs/milestones/` for active cards and acceptance criteria.
 - M3 live billing passed on 2026-06-29 with Clerk Billing, a Convex webhook, allowed/denied web smoke, replay
   idempotency, and package-owned subscribe evidence.
 - Remaining M3 work is cleanup/revert of retained smoke billing resources, not new product scope.
-- M4 clean-machine packaging has not started.
+- M4 local-pack clean-machine smoke passed on 2026-06-29 with packed `agentstack` artifacts, generated app install,
+  `validate`, `dev:check`, and the live-preview confirmation gate.
 
 ## Infra litmus test
 

@@ -56,10 +56,10 @@ const scenarios = {
     files: ["packages/cli/src/run.ts", "packages/cli/src/m2-live.ts", "templates/b2b-saas/package.json"]
   },
   productionRelease: {
-    title: "M4 remains locked",
+    title: "M4 local pack passed",
     command: "Read docs/milestones/M4-clean-machine-smoke.md",
-    result: "Status: locked",
-    detail: "Clean-machine packaging and public installability require an explicit approach discussion before execution.",
+    result: "Status: complete",
+    detail: "The local packed-package smoke passed without public npm publication. Public release automation remains a later approach discussion.",
     files: ["docs/milestones/M4-clean-machine-smoke.md", "docs/README.md", "README.md"]
   },
   mobileBuild: {
@@ -151,8 +151,8 @@ const concerns = {
   },
   gaps: {
     title: "Current progress and gaps",
-    summary: "M1, M2, and M3 have live evidence. M4 clean-machine packaging is intentionally locked until the packaging approach is discussed, so public npm or clean-machine installability should not be implied by this site.",
-    commands: ["agentstack create acme-crm --package-spec link:<agentstack-repo>/packages/agentstack", "pnpm run validate", "pnpm run preview:up -- --confirm-live-mutation"],
+    summary: "M1, M2, M3, and M4 have evidence. M4 proved local tarball installability; public npm publication, release automation, and hosted control-plane work remain locked until the next approach discussion.",
+    commands: ["corepack pnpm run m4:pack:smoke", "pnpm run validate", "pnpm run preview:up -- --confirm-live-mutation"],
     files: ["README.md", "docs/milestones/M4-clean-machine-smoke.md", "tests/e2e/prototype.test.ts"]
   }
 };

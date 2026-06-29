@@ -16,10 +16,12 @@ Last reviewed: 2026-06-29
 | M1 Preview E2E | Complete provider-path spike | [M1](./docs/milestones/M1-preview-e2e.md) |
 | M2 Lean preview | Complete live package-owned path | [M2](./docs/milestones/M2-agent-completes-m1.md) |
 | M3 Billing webhook | Live billing path passed; cleanup pending | [M3](./docs/milestones/M3-billing-webhook.md) |
-| M4 Clean-machine smoke | Locked until the M4 approach is discussed | [M4](./docs/milestones/M4-clean-machine-smoke.md) |
+| M4 Clean-machine smoke | Complete local-pack clean-consumer proof | [M4](./docs/milestones/M4-clean-machine-smoke.md) |
 
-M3 has passed the live Clerk Billing webhook and `feature.auditLog` entitlement proof. The active non-M4 gap is cleanup
-of retained M3 smoke billing resources and any docs/maintenance work needed to keep M1-M3 evidence usable.
+M3 has passed the live Clerk Billing webhook and `feature.auditLog` entitlement proof. M4 has passed a local-pack
+clean-consumer smoke: packed Agentstack artifacts install in a clean temp workspace, generate an app, and run local
+validation without monorepo source `link:` dependencies. M4 is not M5, public npm publishing, hosted control-plane work,
+or live provider mutation.
 
 ## Repository Map
 
@@ -29,7 +31,7 @@ of retained M3 smoke billing resources and any docs/maintenance work needed to k
 - [docs/validation-hypothesis.md](./docs/validation-hypothesis.md) - north-star hypothesis and milestone ladder.
 - [docs/milestones/README.md](./docs/milestones/README.md) - active milestone state and evidence locations.
 - [docs/provider-resource-ledger.md](./docs/provider-resource-ledger.md) - required ledger for real provider resources.
-- [docs/references/local-quickstart.md](./docs/references/local-quickstart.md) - local source checkout quickstart.
+- [docs/references/local-quickstart.md](./docs/references/local-quickstart.md) - local source checkout quickstart and M4 local-pack pointer.
 - [docs/references/m3-clerk-billing-fixture.md](./docs/references/m3-clerk-billing-fixture.md) - repeatable Clerk Billing fixture workflow.
 
 ## Package Layout

@@ -2,8 +2,9 @@
 
 Last reviewed: 2026-06-29
 
-Use this while Agentstack is being tested from the local source checkout, before M4 public packaging or clean-machine
-installability is validated.
+Use this when Agentstack is being tested from the local source checkout. For the completed M4 clean-machine smoke, use
+[M4-clean-machine-smoke.md](../milestones/M4-clean-machine-smoke.md), which validates local `pnpm pack` artifacts from a
+clean consumer workspace instead of source `link:` specs.
 
 ## 1. Verify PATH Binary
 
@@ -48,7 +49,8 @@ corepack pnpm run dev:check
 ```
 
 The `--package-spec` value is required for local source testing. Without it, the generated app may try to install
-`agentstack` from the public npm registry. M4 has not validated the public/clean-machine package path yet.
+`agentstack` from the public npm registry. This source-link path is not the M4 clean-machine proof; M4 uses local packed
+tarballs and records evidence separately.
 
 ## 3. Repeated Local Runs
 
@@ -110,10 +112,12 @@ first failing step and prints the next action from the package-owned command.
 Use `corepack pnpm run dev` when you want to start the local web server. It is long-running, so keep it in its own
 terminal while you run other checks.
 
-After local `validate` passes, follow the active milestone docs:
+After local `validate` passes, follow the relevant milestone docs:
 
 - M2 preview path: `docs/milestones/M2-agent-completes-m1.md`
 - M3 billing path: `docs/milestones/M3-billing-webhook.md`
 - M3 Clerk Billing details: `docs/references/m3-clerk-billing-fixture.md`
+- M4 local-pack clean-machine smoke: `docs/milestones/M4-clean-machine-smoke.md`
 
-Do not start M4 clean-machine packaging from this guide. M4 requires an explicit packaging approach discussion first.
+Do not use source `link:` specs as M4 pass evidence. M4 pass evidence must come from packed artifacts in a clean consumer
+workspace and must not include live provider mutation.

@@ -41,9 +41,14 @@ function writeTopLevelUsage(): number {
       "  observe       Inspect telemetry and journey evidence",
       "  theme         Validate generated theme tokens",
       "",
+      "Create options:",
+      "  --package-spec <spec>",
+      "  --package-override <name=spec>",
+      "",
       "Examples:",
       "  agentstack create <app-name>",
       "  agentstack create <app-name> --package-spec link:/path/to/agentstack",
+      "  agentstack create <app-name> --package-spec file:/tmp/agentstack.tgz --package-override @agentstack/cli=file:/tmp/agentstack-cli.tgz",
       "  agentstack validate",
       "  agentstack deploy --env preview"
     ].join("\n")
@@ -56,26 +61,41 @@ async function createCommand(argv: string[]): Promise<number> {
   const parsed = parseCreateArgs(argv);
 
   if (parsed.help) {
-    process.stdout.write("Usage: agentstack create <app-name> [--package-spec <spec>]\n");
+    process.stdout.write(
+      "Usage: agentstack create <app-name> [--package-spec <spec>] [--package-override <name=spec>]\n"
+    );
     return 0;
   }
 
   if (!parsed.name) {
-    process.stderr.write("Usage: agentstack create <app-name> [--package-spec <spec>]\n");
+    process.stderr.write(
+      "Usage: agentstack create <app-name> [--package-spec <spec>] [--package-override <name=spec>]\n"
+    );
     return 1;
   }
 
   await generateProject({
     name: parsed.name,
     targetDir: resolve(process.cwd(), parsed.name),
-    packageSpec: parsed.packageSpec ?? process.env.AGENTSTACK_PACKAGE_SPEC
+    packageSpec: parsed.packageSpec ?? process.env.AGENTSTACK_PACKAGE_SPEC,
+    packageOverrides: parsed.packageOverrides
   });
   process.stdout.write(`Created ${parsed.name}\n`);
   return 0;
 }
 
-function parseCreateArgs(argv: string[]): { name?: string; packageSpec?: string; help: boolean } {
-  const parsed: { name?: string; packageSpec?: string; help: boolean } = { help: false };
+function parseCreateArgs(argv: string[]): {
+  name?: string;
+  packageSpec?: string;
+  packageOverrides: Record<string, string>;
+  help: boolean;
+} {
+  const parsed: {
+    name?: string;
+    packageSpec?: string;
+    packageOverrides: Record<string, string>;
+    help: boolean;
+  } = { help: false, packageOverrides: {} };
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -92,11 +112,32 @@ function parseCreateArgs(argv: string[]): { name?: string; packageSpec?: string;
       index += 1;
       continue;
     }
+    if (arg === "--package-override") {
+      const value = argv[index + 1];
+      if (!value || value.startsWith("--") || !value.includes("=")) {
+        throw new Error(
+          "Usage: agentstack create <app-name> [--package-spec <spec>] [--package-override <name=spec>]"
+        );
+      }
+      const separatorIndex = value.indexOf("=");
+      const name = value.slice(0, separatorIndex);
+      const spec = value.slice(separatorIndex + 1);
+      if (!name || !spec) {
+        throw new Error(
+          "Usage: agentstack create <app-name> [--package-spec <spec>] [--package-override <name=spec>]"
+        );
+      }
+      parsed.packageOverrides[name] = spec;
+      index += 1;
+      continue;
+    }
     if (arg.startsWith("--")) {
       throw new Error(`Unknown create option: ${arg}`);
     }
     if (parsed.name) {
-      throw new Error("Usage: agentstack create <app-name> [--package-spec <spec>]");
+      throw new Error(
+        "Usage: agentstack create <app-name> [--package-spec <spec>] [--package-override <name=spec>]"
+      );
     }
     parsed.name = arg;
   }

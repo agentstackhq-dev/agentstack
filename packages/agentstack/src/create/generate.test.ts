@@ -127,6 +127,57 @@ describe("generateProject", () => {
     }
   });
 
+  test("can generate local-pack overrides without exposing internal packages as dependencies", async () => {
+    const tempRoot = await mkdtemp(join(tmpdir(), "agentstack-create-"));
+    const targetDir = join(tempRoot, "acme-crm");
+
+    try {
+      const input = {
+        name: "acme-crm",
+        targetDir,
+        packageSpec: "file:/tmp/agentstack-m4-pack/agentstack-0.0.0.tgz",
+        packageOverrides: {
+          "@agentstack/cli": "file:/tmp/agentstack-m4-pack/agentstack-cli-0.0.0.tgz",
+          "@agentstack/core": "file:/tmp/agentstack-m4-pack/agentstack-core-0.0.0.tgz"
+        }
+      } as Parameters<typeof generateProject>[0] & { packageOverrides: Record<string, string> };
+
+      await generateProject(input);
+
+      const packageManifest = JSON.parse(await readFile(join(targetDir, "package.json"), "utf8"));
+      expect(packageManifest.dependencies).toEqual({
+        agentstack: "file:/tmp/agentstack-m4-pack/agentstack-0.0.0.tgz"
+      });
+      expect(packageManifest.pnpm).toEqual({
+        overrides: {
+          "@agentstack/cli": "file:/tmp/agentstack-m4-pack/agentstack-cli-0.0.0.tgz",
+          "@agentstack/core": "file:/tmp/agentstack-m4-pack/agentstack-core-0.0.0.tgz"
+        }
+      });
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  test("keeps a pack-safe gitignore fallback out of generated apps", async () => {
+    await expect(readFile(join(packageTemplateDir, "_gitignore"), "utf8")).resolves.toBe(
+      await readFile(join(rootTemplateDir, ".gitignore"), "utf8")
+    );
+
+    const tempRoot = await mkdtemp(join(tmpdir(), "agentstack-create-"));
+    const targetDir = join(tempRoot, "acme-crm");
+
+    try {
+      await generateProject({ name: "acme-crm", targetDir });
+
+      const files = await listFiles(targetDir);
+      expect(files).toContain(".gitignore");
+      expect(files).not.toContain("_gitignore");
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
   test("replaces app tokens in config and self-contained app code", async () => {
     const tempRoot = await mkdtemp(join(tmpdir(), "agentstack-create-"));
     const targetDir = join(tempRoot, "acme-crm");

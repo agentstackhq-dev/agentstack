@@ -23,7 +23,7 @@ superpowers plans are historical or backlog references unless a milestone points
 | [milestones/M1-preview-e2e.md](./milestones/M1-preview-e2e.md) | Complete | Provider-path spike; do not revive generated docs/scripts as the product contract |
 | [milestones/M2-agent-completes-m1.md](./milestones/M2-agent-completes-m1.md) | Complete | Lean generated app and package-owned CLI contract |
 | [milestones/M3-billing-webhook.md](./milestones/M3-billing-webhook.md) | Live pass, cleanup pending | Clerk Billing webhook and `feature.auditLog` entitlement proof |
-| [milestones/M4-clean-machine-smoke.md](./milestones/M4-clean-machine-smoke.md) | Locked | Public/local package installability proof; do not start without approach discussion |
+| [milestones/M4-clean-machine-smoke.md](./milestones/M4-clean-machine-smoke.md) | Complete | Local-pack clean-consumer installability proof |
 | [milestones/evidence/](./milestones/evidence/) | Redacted evidence | Evidence files are append-only historical proof, not active runbooks unless referenced by a milestone |
 
 ## Operational References
@@ -31,7 +31,7 @@ superpowers plans are historical or backlog references unless a milestone points
 | Document | Status | Notes |
 | --- | --- | --- |
 | [provider-resource-ledger.md](./provider-resource-ledger.md) | Current | Required before/after any real provider resource create/link/mutate/cleanup |
-| [references/local-quickstart.md](./references/local-quickstart.md) | Current | Local source checkout generation, `agentstack` PATH checks, stale symlink cleanup, and package-spec repair |
+| [references/local-quickstart.md](./references/local-quickstart.md) | Current | Local source checkout generation, local-pack M4 pointer, `agentstack` PATH checks, stale symlink cleanup, and package-spec repair |
 | [references/m3-clerk-billing-fixture.md](./references/m3-clerk-billing-fixture.md) | Current | Repeatable M3 Clerk Billing setup, payment-method handoff, subscription, replay, cleanup |
 
 ## Backlog And Historical Rationale

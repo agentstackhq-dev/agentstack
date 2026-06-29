@@ -1,0 +1,10 @@
+.agentstack/
+.env
+.env.*
+!.env.example
+node_modules/
+dist/
+.vercel/
+.convex/
+.expo/
+.DS_Store
