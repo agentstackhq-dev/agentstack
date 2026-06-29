@@ -771,12 +771,12 @@ async function devCommand(argv: string[], io: RunIo): Promise<number> {
 
 function devCommandForSurface(surface: SurfaceName): LocalCommandSpec {
   if (surface === "web") {
-    return { id: "dev:web", command: "pnpm", args: ["--filter", "@app/web", "dev"] };
+    return { id: "dev:web", command: "corepack", args: ["pnpm", "--filter", "@app/web", "dev"] };
   }
   if (surface === "mobile") {
-    return { id: "dev:mobile", command: "pnpm", args: ["--filter", "@app/mobile", "dev"] };
+    return { id: "dev:mobile", command: "corepack", args: ["pnpm", "--filter", "@app/mobile", "dev"] };
   }
-  return { id: "dev:convex", command: "pnpm", args: ["--filter", "@app/convex", "dev"] };
+  return { id: "dev:convex", command: "corepack", args: ["pnpm", "--filter", "@app/convex", "dev"] };
 }
 
 function formatCommandSpec(spec: LocalCommandSpec): string {
@@ -4067,8 +4067,8 @@ function writeDevNextCommands(io: RunIo, environment: EnvironmentName, commands:
     "pnpm run env:inspect",
     syncCommand,
     ...commands,
-    "pnpm --filter @app/web dev",
-    "pnpm --filter @app/mobile dev"
+    "corepack pnpm --filter @app/web dev",
+    "corepack pnpm --filter @app/mobile dev"
   ]);
   writeNextCommands(io, Array.from(devCommands));
 }

@@ -583,8 +583,8 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(0);
     expect(output).toContain("PASS dev preflight preview web");
-    expect(output.join("\n")).toContain("pnpm --filter @app/web dev");
-    expect(output.join("\n")).toContain("pnpm --filter @app/mobile dev");
+    expect(output.join("\n")).toContain("corepack pnpm --filter @app/web dev");
+    expect(output.join("\n")).toContain("corepack pnpm --filter @app/mobile dev");
   });
 
   it("dev next commands only reference generated scripts that exist", async () => {
@@ -633,7 +633,9 @@ describe("runAgentstack", () => {
 
     expect(code).toBe(0);
     expect(output).toContain("PASS dev preflight development web");
-    expect(commands).toEqual([{ id: "dev:web", command: "pnpm", args: ["--filter", "@app/web", "dev"] }]);
+    expect(commands).toEqual([
+      { id: "dev:web", command: "corepack", args: ["pnpm", "--filter", "@app/web", "dev"] }
+    ]);
   });
 
   it("keeps dev check as diagnostics-only", async () => {
