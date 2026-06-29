@@ -7699,9 +7699,10 @@ describe("runAgentstack", () => {
             };
           }
           if (joined.includes("vercel link ")) {
-            await mkdir(join(options.cwd, ".vercel"), { recursive: true });
+            const cwd = options.cwd ?? dir;
+            await mkdir(join(cwd, ".vercel"), { recursive: true });
             await writeFile(
-              join(options.cwd, ".vercel", "project.json"),
+              join(cwd, ".vercel", "project.json"),
               `${JSON.stringify({ projectId: "prj_m2", orgId: "team_m2" }, null, 2)}\n`,
               "utf8"
             );

@@ -745,11 +745,10 @@ async function devCommand(argv: string[], io: RunIo): Promise<number> {
       await recordCommandEvent(io, {
         name: "agentstack.dev.started",
         environment,
-        surface,
         journey: "agent-command",
         command: ["dev", ...argv].join(" "),
         status: exitCode === 0 ? "ok" : "fail",
-        state: { exitCode }
+        state: { surface, exitCode }
       });
       return exitCode;
     }
@@ -813,10 +812,10 @@ async function runInteractiveCommand(io: RunIo, spec: LocalCommandSpec): Promise
 
 function filterCloudDiagnosticsForSurface(diagnostics: Diagnostic[], surface: SurfaceName): Diagnostic[] {
   if (surface === "web") {
-    return diagnostics.filter((diagnostic) => !diagnostic.path.includes(".eas"));
+    return diagnostics.filter((diagnostic) => !(diagnostic.path ?? "").includes(".eas"));
   }
   if (surface === "mobile") {
-    return diagnostics.filter((diagnostic) => !diagnostic.path.includes(".vercel"));
+    return diagnostics.filter((diagnostic) => !(diagnostic.path ?? "").includes(".vercel"));
   }
   return diagnostics;
 }
