@@ -2,7 +2,7 @@
 import { resolve } from "node:path";
 
 import { runAgentstack } from "@agentstack/cli";
-import { generateProject } from "create-agent-stack";
+import { generateProject } from "./create/generate.js";
 
 const argv = process.argv.slice(2);
 const [command, ...rest] = argv;

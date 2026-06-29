@@ -20,6 +20,6 @@
     "**/dist/**",
     "**/node_modules/**",
     "**/.agentstack/**",
-    "packages/create-agent-stack/templates/**"
+    "packages/agentstack/templates/**"
   ]
 }

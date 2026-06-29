@@ -54,7 +54,7 @@ superpowers plans are historical or backlog references unless a milestone points
 - When code or templates change, update template mirror docs and run:
 
 ```sh
-diff -rq templates/b2b-saas packages/create-agent-stack/templates/b2b-saas
+diff -rq templates/b2b-saas packages/agentstack/templates/b2b-saas
 corepack pnpm typecheck
 corepack pnpm test
 git diff --check

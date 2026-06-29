@@ -37,7 +37,7 @@ function findTemplateDir(): string {
 
 function findPackageRoot(): string {
   const sourceDir = dirname(fileURLToPath(import.meta.url));
-  return dirname(sourceDir);
+  return dirname(dirname(sourceDir));
 }
 
 function slugify(name: string): string {

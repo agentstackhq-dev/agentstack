@@ -36,7 +36,6 @@ of retained M3 smoke billing resources and any docs/maintenance work needed to k
 
 ```text
 packages/agentstack          Public package facade and `agentstack` bin
-packages/create-agent-stack  Lean app generator and B2B SaaS template
 packages/cli                 Agentstack command implementation
 packages/core                Manifest schema, validation, guidance, release, theme, billing contracts
 packages/adapters            Provider command plans, proof contracts, ledger, and provider executors
@@ -85,20 +84,20 @@ corepack pnpm install
 corepack pnpm run validate
 ```
 
-See [docs/references/local-quickstart.md](./docs/references/local-quickstart.md) for PATH binary checks, direct
-`create-agent-stack` usage, and existing-app repair.
+See [docs/references/local-quickstart.md](./docs/references/local-quickstart.md) for PATH binary checks and
+existing-app repair.
 
-If you call the lower-level `create-agent-stack` bin directly during local framework development, pass the same package
-spec so the generated app does not try to install a registry version:
+For local framework development, pass the package spec through `agentstack create` so the generated app does not try to
+install a registry version:
 
 ```sh
-create-agent-stack smoke-app --package-spec link:<agentstack-repo>/packages/agentstack
+agentstack create smoke-app --package-spec link:<agentstack-repo>/packages/agentstack
 ```
 
 For repeated local runs, `AGENTSTACK_PACKAGE_SPEC` is also honored:
 
 ```sh
-AGENTSTACK_PACKAGE_SPEC=link:<agentstack-repo>/packages/agentstack create-agent-stack smoke-app
+AGENTSTACK_PACKAGE_SPEC=link:<agentstack-repo>/packages/agentstack agentstack create smoke-app
 ```
 
 Live preview and billing flows require authenticated provider CLIs plus explicit live-mutation confirmations. Use the
@@ -144,7 +143,7 @@ git diff --check
 If templates change, verify both template mirrors stay aligned:
 
 ```sh
-diff -rq templates/b2b-saas packages/create-agent-stack/templates/b2b-saas
+diff -rq templates/b2b-saas packages/agentstack/templates/b2b-saas
 ```
 
 For live-provider work, update the active milestone card, append redacted evidence under

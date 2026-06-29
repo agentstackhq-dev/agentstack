@@ -28,6 +28,7 @@ describe("Agentstack consumer executable workflow", () => {
     const helpResult = await invokeAgentstackBin(["--help"], tempRoot);
     expect(helpResult.exitCode).toBe(0);
     expect(helpResult.stdout).toContain("agentstack create <app-name>");
+    expect(helpResult.stdout).not.toContain("create-agent-stack");
     expect(helpResult.stdout).toContain("billing");
 
     const createResult = await invokeAgentstackBin(
@@ -44,6 +45,8 @@ describe("Agentstack consumer executable workflow", () => {
     const generatedConfig = await readFile(join(appDir, "agentstack.config.ts"), "utf8");
 
     expect(packageManifest.dependencies).toMatchObject({ agentstack: `link:${agentstackPackageDir}` });
+    expect(packageManifest.dependencies.agentstack).toBe(`link:${agentstackPackageDir}`);
+    expect(packageManifest.scripts).not.toHaveProperty("create-agent-stack");
     expect(packageManifest.scripts).toMatchObject({
       validate: "agentstack validate",
       dev: "agentstack dev",
