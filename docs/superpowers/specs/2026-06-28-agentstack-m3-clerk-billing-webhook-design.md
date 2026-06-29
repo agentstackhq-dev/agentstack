@@ -1,6 +1,6 @@
 # Agentstack M3 Clerk Billing Webhook Design
 
-Status: proposed for approval
+Status: implemented with live pass on 2026-06-29; see `../../milestones/M3-billing-webhook.md` for current state
 Date: 2026-06-28
 
 ## Milestone Target
@@ -44,6 +44,7 @@ The public consumer path for M3 is through generated package scripts that call t
 ```text
 pnpm run billing:bootstrap -- --env preview --confirm-live-mutation
 pnpm run billing:fixture -- ensure --env preview --entitlement feature.auditLog --confirm-live-mutation
+pnpm run billing:fixture -- subscribe --env preview --entitlement feature.auditLog --confirm-live-mutation
 pnpm run billing:fixture -- grant --env preview --entitlement feature.auditLog --confirm-live-mutation
 pnpm run billing:fixture -- replay-last --env preview --entitlement feature.auditLog --confirm-live-mutation
 pnpm run billing:fixture -- delete --env preview --entitlement feature.auditLog --confirm-live-mutation
@@ -212,8 +213,13 @@ The CLI should automate Clerk API/CLI actions where Clerk exposes a stable API:
 - create, update, and delete fixture metadata
 - inspect billing plans, features, subscriptions, and webhook deliveries where provider APIs expose them
 
-If Clerk does not expose a stable API for creating Billing plans/features or triggering a subscription transition,
-`agentstack billing bootstrap` must fail with a precise provider-action-required diagnostic. The diagnostic must state:
+Clerk Billing plan/feature creation is still a provider setup handoff when the Clerk API/CLI cannot create the desired
+objects. Subscription transition is now package-owned through `billing:fixture -- subscribe`; if the smoke user lacks a
+test payment method, the command fails with the documented Clerk browser SDK handoff in
+`../../references/m3-clerk-billing-fixture.md`.
+
+If Clerk does not expose a stable API for creating Billing plans/features, `agentstack billing bootstrap` must fail with
+a precise provider-action-required diagnostic. The diagnostic must state:
 
 - the Clerk application name
 - the exact Clerk Dashboard page/action needed
@@ -231,7 +237,9 @@ ledgered as active, and a real Clerk Billing event reaches Convex.
 `agentstack billing fixture` owns repeatable dev/test/staging setup:
 
 - `ensure`: create or reuse the M3 Clerk smoke principal and a Convex `billingPrincipals` row; ensure default denied
-- `grant`: cause a real Clerk Billing subscription/feature event for the smoke principal, then wait until Convex
+- `subscribe`: transition the smoke user from the active free subscription item to the configured Clerk Billing plan,
+  or print the exact test-payment-method handoff when Clerk requires one
+- `grant`: verify a real Clerk Billing subscription/feature event for the smoke principal, then wait until Convex
   reports `feature.auditLog` allowed
 - `revoke`: cause a real Clerk Billing event that removes the feature, then wait until Convex reports denied
 - `replay-last`: replay or re-deliver the last provider event when Clerk exposes this, or report an exact provider
@@ -256,7 +264,8 @@ Required evidence:
 - duplicate/replay event detected as idempotent
 - web UI denied DOM capture
 - web UI allowed DOM capture
-- fixture cleanup result
+- fixture subscribe result
+- fixture cleanup result or explicitly deferred cleanup state in the M3 milestone card
 
 Evidence must not store:
 

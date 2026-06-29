@@ -1,6 +1,6 @@
 # M2: Agent Completes Lean Agentstack Preview
 
-Status: **live preview path passed** (package-owned M2 preview loop passed against live Clerk, Convex, and Vercel on 2026-06-28; stop here before M3/M2+ scope decisions)
+Status: **complete** (package-owned M2 preview loop passed against live Clerk, Convex, and Vercel on 2026-06-28)
 
 ## Product correction
 
@@ -118,4 +118,5 @@ The unlock condition has been satisfied by the lean correction slice recorded in
 
 The live package-owned preview loop passed in [evidence/M2-agent-completes-m1/m2-live-preview-pass-2026-06-28.md](./evidence/M2-agent-completes-m1/m2-live-preview-pass-2026-06-28.md).
 
-Do not broaden into M3 or production readiness from this milestone without a separate approach discussion.
+M3 was later approved and passed as the Clerk Billing webhook milestone. M4 clean-machine packaging remains locked until
+its approach is discussed separately.

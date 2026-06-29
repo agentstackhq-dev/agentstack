@@ -76,7 +76,7 @@ None for M1. The generated app path reached real Clerk, Convex, and Vercel resou
 | Commands run | See [m1-live-preview-pass-2026-06-28.md](./evidence/M1-preview-e2e/m1-live-preview-pass-2026-06-28.md) |
 | Evidence | [m1-live-preview-pass-2026-06-28.md](./evidence/M1-preview-e2e/m1-live-preview-pass-2026-06-28.md) |
 | Friction notes | Vercel Deployment Protection was bypassed by using an authenticated browser path. The live Auth/Data fix required the generated web runtime to wait for Convex auth before protected queries and the bootstrap helper to ensure the Clerk `convex` JWT template. The Clerk smoke user used for browser sign-in had client trust bypass enabled for this M1 run and is ledgered for cleanup review; generated M1 now includes `m1:auth:user` so future runs can create/reuse, update, and delete that fixture without manual Clerk API patching. |
-| Next smallest step | Human pass criteria review and M2 approach discussion. Do not start M2 until that discussion happens. |
+| Next smallest step | Complete. M2 approach discussion happened and M2 passed; use [M2](./M2-agent-completes-m1.md) for the current lean generated-surface contract. |
 
 ## Post-pass queue (max 3)
 
@@ -92,4 +92,5 @@ When all required checkboxes are checked, human reviews:
 - Where did we need external provider docs?
 - Can the framework move that overhead behind package-owned CLI, typed schema diagnostics, and hidden `.agentstack/` state?
 
-Then implement the lean generated-surface correction required by [M2](./M2-agent-completes-m1.md), or record kill/pivot in the hypothesis doc.
+That review produced the lean generated-surface correction validated by [M2](./M2-agent-completes-m1.md). Keep M1 as
+historical provider-path evidence; do not revive its generated docs/scripts/runbook surface as current product behavior.

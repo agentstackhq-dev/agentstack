@@ -20,6 +20,9 @@ runbooks.
 - `pnpm run provider:bootstrap`
 - `pnpm run provider:link`
 - `pnpm run auth:user`
+- `pnpm run billing:bootstrap`
+- `pnpm run billing:fixture`
+- `pnpm run billing:smoke`
 - `pnpm run preview:deploy`
 - `pnpm run preview:smoke`
 - `pnpm run evidence:check`

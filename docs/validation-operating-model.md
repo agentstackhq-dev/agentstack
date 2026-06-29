@@ -1,76 +1,101 @@
 # Agentstack Validation Operating Model
 
 Date: 2026-06-22
-Updated: 2026-06-28
+Updated: 2026-06-29
 
-How we run coding-agent threads after M1 proved the live provider path but exposed the wrong generated consumer shape.
+This is how Agentstack milestone sessions run after M1 proved the provider path, M2 corrected the generated consumer
+shape, and M3 proved the Clerk Billing webhook entitlement path.
 
 ## Principles
 
-1. **One milestone active at a time.** M1 is complete as a provider-path spike and the lean generated-surface correction is verified. Do not start M2 live preview execution until the package-owned provider/auth/evidence approach is agreed.
-2. **Generated apps must stay lean.** Do not add copied framework docs, copied scripts, generated skills, generated provider ledgers, or copied runbooks to consumer apps.
-3. **Agentstack owns framework glue.** Provider orchestration, validation, diagnostics, docs/help, evidence, and hidden state belong in the installed Agentstack package and CLI.
-4. **Typed config is the agent feedback boundary.** `agentstack.config.ts` must be schema-driven from the package so TypeScript and CLI diagnostics point agents to precise config paths and fixes.
-5. **Real provider attempts still beat mock-only proof expansion.** Ledger every real resource, but keep ledger/evidence state in package-owned or ignored `.agentstack/` surfaces, not generated app docs.
+1. **One validation milestone at a time.** M1 and M2 are complete. M3 has a live pass with cleanup pending. M4 is locked
+   until the packaging approach is discussed.
+2. **Generated apps stay lean.** Do not add copied framework docs, copied scripts, generated skills, generated provider
+   ledgers, root `convex/`, root `vercel.json`, or copied runbooks to consumer apps.
+3. **Agentstack owns framework glue.** Provider orchestration, validation, diagnostics, docs/help, evidence, hidden
+   state, auth fixtures, and billing fixtures belong in the installed Agentstack package and CLI.
+4. **Typed config is the agent feedback boundary.** `agentstack.config.ts` is the current config format. JSON config is
+   historical for this repo.
+5. **Real provider attempts beat theory.** Ledger every real resource, run provider CLIs until the exact handoff is
+   known, and record redacted evidence when live commands run.
+6. **No fake readiness.** Distinguish local checks, provider command plans, live reads, live mutations, and evidence
+   bundles in docs and command output.
 
-## Current approach loop
+## Current Loops
 
-Before M2 live preview execution starts, agree how the package-owned CLI will carry the provider/auth/evidence behavior that M1 previously proved with generated scripts.
+### M3 Cleanup / Documentation Health
 
-The lean correction already proved the generated app behaves like an app using a meta-framework:
+Use this loop while M3 live pass has retained billing resources and M4 is still locked.
 
-1. Run `agentstack create <tmp-app>` through the installed/local-published Agentstack package bin.
-2. Verify the generated root surface is limited to:
+1. Read `README.md`, `docs/README.md`, `ARCHITECTURE.md`, `AGENTS.md`, and `docs/milestones/README.md`.
+2. If touching live billing resources, also read `docs/milestones/M3-billing-webhook.md`,
+   `docs/references/m3-clerk-billing-fixture.md`, and `docs/provider-resource-ledger.md`.
+3. Keep docs aligned to the current M1-M3 state without creating M4 tasks.
+4. If cleanup runs, update the provider ledger and append redacted evidence.
+5. Run focused docs/code checks, `pnpm typecheck`, and `pnpm test` when framework files or templates change.
 
-   ```text
-   apps/mobile
-   apps/web
-   apps/convex
-   agentstack.config.ts
-   AGENTS.md
-   .gitignore
-   package.json
-   ```
+### M4 Approach Discussion
 
-   Package-manager lockfiles may appear after install.
+M4 should not begin implicitly. Before any clean-machine packaging work starts, agree the packaging strategy:
 
-3. Verify the app root does **not** contain copied `docs/`, `scripts/`, `skills/`, root `convex/`, `vercel.json`, provider ledger source files, or copied M1 runbooks.
-4. Verify `package.json` depends on Agentstack and scripts call `agentstack`.
-5. Verify `agentstack.config.ts` imports a typed schema helper from the Agentstack package.
-6. Run package-owned local validation and preview deploy rehearsal from the generated app package scripts.
-7. Record evidence in this Agentstack framework repo.
+- public npm publish versus local pack/link flow
+- package names and versioning
+- clean-machine fixture location
+- expected install/generate/validate smoke commands
+- evidence and cleanup expectations
 
-The local proof must not import source functions such as `generateProject` or `runAgentstack`. Those are implementation details. M2 execution uses command invocation as the product boundary.
+After agreement, update `docs/milestones/M4-clean-machine-smoke.md` before implementation.
 
-Only after the package-owned provider/auth/evidence approach is agreed should M2 attempt the fresh-agent preview path.
+## Completed Milestone Lessons
 
-## M2 preview loop
+### M1 Provider-Path Spike
 
-M2 should use package-owned CLI commands from the lean generated app. The exact command names must be discoverable through package-owned help, not generated runbooks.
+M1 proved real Clerk, Convex, and Vercel preview orchestration could work, but the generated consumer app shape was too
+heavy. Do not extend its generated docs/scripts/runbook pattern.
 
-Conceptually, the fresh agent must be able to:
+### M2 Lean Generated Surface
 
-1. Bootstrap or reuse preview Clerk, Convex, and Vercel resources.
-2. Link provider resources to ignored local Agentstack state.
-3. Deploy the web app to Vercel preview.
-4. Create/reuse/update/delete the Clerk smoke user fixture.
-5. Sign in and prove one protected Convex data path.
-6. Produce redacted evidence in this framework repo.
+M2 proved the corrected product boundary:
 
-Provider auth and CLI setup are still part of the work. If a provider CLI requires browser login, account selection, or project selection, run the CLI until it prints the exact handoff, record that as the current blocker, and resume from the same command after the user completes it.
+```text
+agentstack create <tmp-app>
+apps/mobile
+apps/web
+apps/convex
+agentstack.config.ts
+AGENTS.md
+.gitignore
+package.json
+```
 
-## Thread types
+The generated `package.json` depends on `agentstack`, and package scripts call the installed `agentstack` CLI. Local
+and live success paths must invoke the public bin or generated package scripts, not internal helpers such as
+`generateProject` or `runAgentstack`.
 
-### Correction
+### M3 Billing Webhook
 
-**Goal:** Replace the generated-app shape with the lean package-driven contract.
+M3 proved a Clerk Billing feature/plan, real Clerk/Svix webhook delivery to Convex, idempotent replay, and web
+entitlement smoke for `feature.auditLog`. The repeatable subscription command is:
+
+```sh
+pnpm run billing:fixture -- subscribe --env preview --entitlement feature.auditLog --confirm-live-mutation
+```
+
+The only allowed manual provider work in this path is an exact handoff printed or documented by Agentstack, such as the
+Clerk browser SDK test-payment-method setup in `docs/references/m3-clerk-billing-fixture.md`.
+
+## Thread Types
+
+### Documentation Health
+
+**Goal:** Keep canonical docs truthful and navigable.
 
 **Deliverables:**
 
-- M2 card updated if requirements change
-- Focused tests for generated root shape, typed config, and package-owned command usage
-- `pnpm typecheck` and `pnpm test`
-- Evidence appended under `docs/milestones/evidence/` if live or generated-app verification ran
+- Update `README.md`, `ARCHITECTURE.md`, `docs/README.md`, `AGENTS.md`, active milestone cards, or references as needed.
+- Mark historical docs when newer milestones supersede their commands or generated-surface assumptions.
+- Avoid new one-off docs unless they remove real ambiguity or codify a repeatable workflow.
+- Run link/staleness scans or focused tests that match the changed docs.
 
 ### Spike
 
@@ -78,9 +103,9 @@ Provider auth and CLI setup are still part of the work. If a provider CLI requir
 
 **Deliverables:**
 
-- Milestone card checkboxes updated (pass / fail / not attempted)
-- Last attempt or blocker section updated
-- Ranked list of at most 3 unblock items, smallest first
+- Milestone card checkboxes updated with pass/fail/not attempted.
+- Latest attempt or blocker section updated.
+- Ranked list of at most three unblock items, smallest first.
 - Honest friction note: is the meta-framework helping?
 
 ### Unblock
@@ -89,72 +114,84 @@ Provider auth and CLI setup are still part of the work. If a provider CLI requir
 
 **Deliverables:**
 
-- One acceptance criterion moves toward pass
-- Focused tests plus `pnpm typecheck` and `pnpm test` when code changed
-- Evidence appended to `docs/milestones/evidence/<milestone>/`
-- Milestone card updated
+- One acceptance criterion moves toward pass.
+- Focused tests plus `pnpm typecheck` and `pnpm test` when code changed.
+- Evidence appended to `docs/milestones/evidence/<milestone>/` when real commands ran.
+- Milestone card updated.
 
 **Rules:**
 
-- No new generated consumer-app docs or scripts as a workaround
-- No provider x environment matrix expansion
-- No quality-gate additions unless blocking CI for the milestone
-- No new documentation unless it changes package-owned CLI behavior or prevents stale guidance
+- No generated consumer-app docs or scripts as a workaround.
+- No provider x environment matrix expansion unless it is the named blocker.
+- No quality-gate additions unless blocking CI for the milestone.
 
 ### Runtime
 
-**Goal:** Generated app behavior for the active milestone: auth, Convex, web/mobile runtime, smoke, and evidence.
+**Goal:** Generated app behavior for the active milestone: auth, Convex, web/mobile runtime, billing, smoke, and
+evidence.
 
-Runtime work must still preserve the lean generated surface. If a fix wants to add generated framework files to the consumer app, move that behavior into the Agentstack package instead.
+Runtime work must preserve the lean generated surface. If a fix wants to add generated framework files to the consumer
+app, move that behavior into the Agentstack package instead.
 
-## Session checklist
+## Session Checklist
 
 Before coding:
 
-1. Read `docs/validation-hypothesis.md`
-2. Read `docs/milestones/README.md`
-3. Read the current milestone card
-4. Read `AGENTS.md`
-5. State which acceptance checkbox this session targets
+1. Read `README.md`, `docs/README.md`, and `ARCHITECTURE.md`.
+2. Read `docs/validation-hypothesis.md`.
+3. Read `docs/milestones/README.md`.
+4. Read the current milestone card or reference doc for the target area.
+5. State which milestone checkbox, cleanup gap, or documentation health gap the session targets.
 
 Before ending:
 
-1. Update the milestone card
-2. Append redacted evidence if real commands ran
-3. Report pass / fail / blocked plus the smallest next step
-4. Do not extend `docs/consumer-production-readiness-progress.md`
+1. Update the active milestone card or docs index if state changed.
+2. Append redacted evidence if real commands ran.
+3. Report pass/fail/blocked plus the smallest next step.
+4. Do not extend `docs/consumer-production-readiness-progress.md`.
+5. Do not start M4 without explicit user direction.
 
-## Forbidden by default
+## Forbidden By Default
 
-- Adding copied framework docs to generated apps
-- Adding copied framework scripts to generated apps
-- Adding generated skills to generated apps
-- Using `agentstack.config.json` for the corrected path
-- Slice-by-slice progress log updates
-- Candidate-evidence or partial-drift diagnostic expansion unrelated to the active blocker
-- Plan-only lifecycle or reconcile artifact additions
-- Readiness percentage updates
-- Claiming pass without evidence
+- Adding copied framework docs to generated apps.
+- Adding copied framework scripts to generated apps.
+- Adding generated skills to generated apps.
+- Reintroducing `agentstack.config.json` for the corrected path.
+- Slice-by-slice progress log updates.
+- Candidate-evidence or partial-drift diagnostic expansion unrelated to the active blocker.
+- Plan-only lifecycle or reconcile artifact additions.
+- Readiness percentage updates.
+- Claiming pass without evidence.
 
-## Allowed infra examples
+## Allowed Infra Examples
 
-- Lean generated root-surface enforcement
-- Typed `agentstack.config.ts` schema helpers
-- Package-owned `agentstack docs`, `agentstack explain`, and command help
-- Package-owned provider bootstrap/link/deploy/smoke/evidence commands
-- Ignored `.agentstack/` state for provider links, ledgers, auth fixtures, deploy metadata, and smoke artifacts
-- Diagnostics that map provider/runtime failures back to typed schema paths and smallest next edits
+- Lean generated root-surface enforcement.
+- Typed `agentstack.config.ts` schema helpers.
+- Package-owned `agentstack help`, `agentstack docs`, or `agentstack explain` style guidance when implemented.
+- Package-owned provider bootstrap/link/deploy/smoke/evidence commands.
+- Package-owned auth and billing fixture commands.
+- Ignored `.agentstack/` state for provider links, ledgers, auth fixtures, billing fixtures, deploy metadata, and smoke
+  artifacts.
+- Diagnostics that map provider/runtime failures back to typed schema paths and smallest next edits.
 
-## File layout
+## File Layout
 
 ```text
+README.md                         # Repo entrypoint
+AGENTS.md                         # Agent execution rules
+ARCHITECTURE.md                   # Current architecture map
 docs/
-  validation-hypothesis.md      # North star
-  validation-operating-model.md # This file
+  README.md                       # Docs index and status map
+  validation-hypothesis.md        # North star
+  validation-operating-model.md   # This file
+  provider-resource-ledger.md     # Real provider resource ledger
+  references/
+    m3-clerk-billing-fixture.md   # Billing fixture workflow
   milestones/
     README.md
-    M1-preview-e2e.md           # Complete provider-path spike
-    M2-agent-completes-m1.md    # Lean generated-surface contract and M2 preview criteria
-    evidence/
-      M1-preview-e2e/           # Historical redacted M1 evidence
+    M1-preview-e2e.md             # Complete provider-path spike
+    M2-agent-completes-m1.md      # Complete lean generated-surface proof
+    M3-billing-webhook.md         # Live billing pass, cleanup pending
+    M4-clean-machine-smoke.md     # Locked packaging proof
+    evidence/                     # Redacted historical evidence
 ```

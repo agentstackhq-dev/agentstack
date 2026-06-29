@@ -5,6 +5,10 @@
 > **Active execution:** [validation-hypothesis.md](./validation-hypothesis.md) · [milestones/](./milestones/) · [validation-operating-model.md](./validation-operating-model.md)
 >
 > This document remains a historical snapshot of the readiness expansion phase. New coding agents start from the milestone system, not from this log.
+>
+> **Known stale scope as of 2026-06-29:** this file predates the M2 lean generated-surface correction and M3 Clerk
+> Billing live pass. It is intentionally not updated with current resource ledger state, milestone status, or command
+> names. Use `README.md`, `ARCHITECTURE.md`, `docs/README.md`, and `docs/milestones/` for current state.
 
 Date: 2026-06-22
 

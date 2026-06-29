@@ -1,5 +1,10 @@
 # Agent-First Meta-Framework Design
 
+Status: historical design seed. The agent-first direction remains relevant, but M2 superseded the generated repository
+shape and config format: the current consumer surface is lean, uses `agentstack.config.ts`, and relies on the installed
+`agentstack` package for framework glue. See `../../../ARCHITECTURE.md` and `../../milestones/M2-agent-completes-m1.md`
+for current implementation boundaries.
+
 ## Summary
 
 The framework is an agent-first control framework for building B2B SaaS products on Convex, Clerk, React, React Native, Vercel, and Expo/EAS.

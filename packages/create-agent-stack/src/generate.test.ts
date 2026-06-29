@@ -86,6 +86,9 @@ describe("generateProject", () => {
       expect(config).toContain('providerFeature: "audit_log"');
       expect(config).not.toContain("STRIPE_MODE");
       expect(agents).toContain("Use package-owned Agentstack CLI help instead of generated runbooks.");
+      expect(agents).toContain("pnpm run billing:bootstrap");
+      expect(agents).toContain("pnpm run billing:fixture");
+      expect(agents).toContain("pnpm run billing:smoke");
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }

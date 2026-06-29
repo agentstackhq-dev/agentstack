@@ -12,6 +12,9 @@ plan, Convex processed the real Billing webhook, allowed UI smoke passed, Svix r
 evidence check passed. Start from `docs/milestones/evidence/M3-billing-webhook/m3-live-billing-check-2026-06-29.md`
 and `docs/references/m3-clerk-billing-fixture.md`.
 
+Documentation health work is allowed while M3 cleanup remains pending, but it must keep the current M1-M3 evidence
+truthful and must not start M4 packaging or clean-machine execution.
+
 M1 is complete as a provider-path spike. It proved that Clerk, Convex, and Vercel preview orchestration can work, but it also exposed the wrong generated consumer shape. Do not keep extending the old generated-docs/generated-scripts M1 path.
 
 M2 is complete as the lean generated-surface proof. It proved a fresh consumer app can run preview provider bootstrap,
@@ -36,12 +39,14 @@ Do not start M4 or clean-machine packaging yet.
 
 Validation-first work uses milestones, not open-ended readiness expansion.
 
-1. Read `docs/validation-hypothesis.md`
-2. Read `docs/milestones/README.md`
-3. Read `docs/milestones/M3-billing-webhook.md`
-4. Read `docs/superpowers/specs/2026-06-28-agentstack-m3-clerk-billing-webhook-design.md`
-5. Read `docs/superpowers/plans/2026-06-28-agentstack-m3-clerk-billing-webhook.md`
-6. Read `docs/validation-operating-model.md` when scope is unclear
+1. Read `README.md`
+2. Read `docs/README.md`
+3. Read `ARCHITECTURE.md`
+4. Read `docs/validation-hypothesis.md`
+5. Read `docs/milestones/README.md`
+6. Read `docs/milestones/M3-billing-webhook.md`
+7. Read `docs/references/m3-clerk-billing-fixture.md` before touching live billing
+8. Read `docs/validation-operating-model.md` when scope is unclear
 
 `docs/consumer-production-readiness-roadmap.md` is backlog reference. `docs/consumer-production-readiness-progress.md` is **archived** - do not extend it slice-by-slice.
 

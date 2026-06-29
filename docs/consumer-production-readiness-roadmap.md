@@ -1,10 +1,16 @@
 # Agentstack Consumer Production Readiness Roadmap
 
-> **Backlog reference, not the active task list (2026-06-22).**
+> **Backlog reference, not the active task list (last reviewed 2026-06-29).**
 >
-> **Active execution:** [validation-hypothesis.md](./validation-hypothesis.md) · [milestones/M1-preview-e2e.md](./milestones/M1-preview-e2e.md) · [validation-operating-model.md](./validation-operating-model.md)
+> **Active execution:** [validation-hypothesis.md](./validation-hypothesis.md) · [milestones/](./milestones/) · [validation-operating-model.md](./validation-operating-model.md)
 >
-> Use this roadmap for capability gaps and long-term finish-plan context. Coding agents implement against milestone acceptance criteria first.
+> Use this roadmap for capability gaps and long-term finish-plan context. Coding agents implement against milestone
+> acceptance criteria first.
+>
+> **Known stale scope:** this snapshot predates the M2 lean generated-surface correction and the M3 Clerk Billing live
+> pass. Statements about `agentstack.config.json`, copied generated docs/scripts/skills, readiness percentages, or the
+> absence of live billing evidence are historical. Current source of truth is `README.md`, `ARCHITECTURE.md`,
+> `docs/README.md`, and the M1-M4 milestone cards.
 
 ## Verdict
 
