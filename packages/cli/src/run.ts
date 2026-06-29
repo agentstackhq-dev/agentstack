@@ -244,6 +244,15 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
       return await syncCommand(argv.slice(1), io);
     }
 
+    if (command === "preview" && (isHelpArg(subcommand) || subcommand === undefined)) {
+      writePreviewUsage(io);
+      return 0;
+    }
+
+    if (command === "preview" && subcommand === "up") {
+      return await previewUpCommand(rest, io);
+    }
+
     if (command === "deploy") {
       return await deployCommand(argv.slice(1), io);
     }
@@ -397,6 +406,7 @@ function writeTopLevelUsage(io: RunIo): void {
   io.write("  dev            Start a local app surface after preflight");
   io.write("  doctor         Diagnose readiness without starting servers");
   io.write("  sync           Rehearse local provider state under .agentstack/");
+  io.write("  preview        Run live preview happy-path commands");
   io.write("  env            Inspect or set local validation env values");
   io.write("  deploy         Plan or apply deploy actions");
   io.write("  provider       Bootstrap, link, inspect, adopt, or ledger provider resources");
@@ -420,6 +430,22 @@ function writeSyncUsage(io: RunIo): void {
   io.write("Examples:");
   io.write("  agentstack sync --env preview");
   io.write("  agentstack sync --env preview --apply");
+}
+
+function writePreviewUsage(io: RunIo): void {
+  io.write("Usage: agentstack preview <command> [options]");
+  io.write("");
+  io.write("Commands:");
+  io.write("  up      Run the live preview provider-backed happy path");
+}
+
+function writePreviewUpUsage(io: RunIo): void {
+  io.write("Usage: agentstack preview up --env preview --confirm-live-mutation");
+  io.write("");
+  io.write("Runs provider bootstrap, provider link, auth user, and deploy.");
+  io.write("");
+  io.write("Examples:");
+  io.write("  agentstack preview up --env preview --confirm-live-mutation");
 }
 
 function writeEnvUsage(io: RunIo): void {
@@ -879,6 +905,51 @@ async function deployCommand(argv: string[], io: RunIo): Promise<number> {
       services: Array.from(new Set(deployPlan.steps.map((step) => step.service)))
     }
   });
+  return 0;
+}
+
+async function previewUpCommand(argv: string[], io: RunIo): Promise<number> {
+  if (argv.some(isHelpArg)) {
+    writePreviewUpUsage(io);
+    return 0;
+  }
+
+  const options = parseOptions(argv);
+  const environment = readEnvironmentOption(options.env ?? "preview", {
+    flag: "env",
+    fix: "Run agentstack preview up --env preview --confirm-live-mutation."
+  });
+
+  if (environment !== "preview") {
+    io.write("FAIL preview.up.environment-unsupported");
+    io.write("Fix: Run agentstack preview up --env preview --confirm-live-mutation.");
+    return 1;
+  }
+
+  if (options["confirm-live-mutation"] !== true) {
+    io.write("FAIL preview.up.confirmation-required");
+    io.write("Fix: Run agentstack preview up --env preview --confirm-live-mutation.");
+    return 1;
+  }
+
+  const liveArgs = ["--env", "preview", "--confirm-live-mutation"];
+  const steps: Array<{ label: string; run: () => Promise<number> }> = [
+    { label: "provider bootstrap", run: () => m2ProviderBootstrapCommand(liveArgs, io) },
+    { label: "provider link", run: () => m2ProviderLinkCommand(["--env", "preview"], io).then((code) => code ?? 1) },
+    { label: "auth user", run: () => m2AuthUserCommand(["ensure", ...liveArgs], io) },
+    { label: "deploy", run: () => m2DeployPreviewLiveCommand(liveArgs, io).then((code) => code ?? 1) }
+  ];
+
+  for (const step of steps) {
+    io.write(`STEP preview.up ${step.label}`);
+    const code = await step.run();
+    if (code !== 0) {
+      return code;
+    }
+  }
+
+  io.write("PASS preview up preview");
+  writeNextCommands(io, ["pnpm run preview:smoke", "pnpm run evidence:check"]);
   return 0;
 }
 
@@ -4378,7 +4449,8 @@ async function syncCommand(argv: string[], io: RunIo): Promise<number> {
     envValues
   });
 
-  io.write(`${plan.applied ? "APPLIED" : "PLAN"} ${plan.environment}`);
+  io.write(`${plan.applied ? "APPLIED" : "PLAN"} local rehearsal ${plan.environment}`);
+  io.write("Scope: ignored .agentstack state only; no live provider mutation");
   io.write("Evidence: local-rehearsal");
   plan.changes.forEach((change) => io.write(`- ${change}`));
   await recordCommandEvent(io, {

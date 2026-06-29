@@ -7601,6 +7601,134 @@ describe("runAgentstack", () => {
     expect(providerExecutions).toHaveLength(0);
   });
 
+  it("prints preview up help without requiring provider state", async () => {
+    const code = await runAgentstack(["preview", "up", "--help"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("live mutation should not run")
+    });
+
+    expect(code).toBe(0);
+    expect(output.join("\n")).toContain(
+      "Usage: agentstack preview up --env preview --confirm-live-mutation"
+    );
+    expect(output.join("\n")).toContain("Runs provider bootstrap, provider link, auth user, and deploy.");
+    expect(providerExecutions).toHaveLength(0);
+  });
+
+  it("requires confirmation before preview up mutates live providers", async () => {
+    const code = await runAgentstack(["preview", "up", "--env", "preview"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: createMockProviderExecutor("live mutation should not run")
+    });
+
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL preview.up.confirmation-required");
+    expect(output).toContain("Fix: Run agentstack preview up --env preview --confirm-live-mutation.");
+    expect(providerExecutions).toHaveLength(0);
+  });
+
+  it("rejects unsupported preview up environments before provider execution", async () => {
+    const code = await runAgentstack(
+      ["preview", "up", "--env", "production", "--confirm-live-mutation"],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: createMockProviderExecutor("live mutation should not run")
+      }
+    );
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL preview.up.environment-unsupported");
+    expect(output.join("\n")).toContain("Fix: Run agentstack preview up --env preview --confirm-live-mutation.");
+    expect(providerExecutions).toHaveLength(0);
+  });
+
+  it("orchestrates preview up through package-owned M2 live steps", async () => {
+    const publishableKey = `pk_test_${Buffer.from("https://clerk.acme.test$").toString("base64url")}`;
+    const code = await runAgentstack(["preview", "up", "--env", "preview", "--confirm-live-mutation"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      providerExecutor: {
+        async execute(command, args, options) {
+          providerExecutions.push({ command, args, stdin: options.stdin });
+          const joined = args.join(" ");
+          if (joined.includes("clerk whoami --json")) {
+            return { exitCode: 0, stdout: JSON.stringify({ email: "tester@example.com" }), stderr: "", durationMs: 1 };
+          }
+          if (joined.includes("clerk apps list --json")) {
+            return {
+              exitCode: 0,
+              stdout: JSON.stringify({ data: [{ id: "app_m2", name: "acme-crm-preview", publishable_key: publishableKey }] }),
+              stderr: "",
+              durationMs: 1
+            };
+          }
+          if (joined.includes("clerk api /jwt_templates")) {
+            return { exitCode: 0, stdout: JSON.stringify({ data: [{ id: "jwt_convex", name: "convex" }] }), stderr: "", durationMs: 1 };
+          }
+          if (joined.includes("/users?email_address=")) {
+            return { exitCode: 0, stdout: JSON.stringify({ data: [{ id: "user_m2_smoke" }] }), stderr: "", durationMs: 1 };
+          }
+          if (joined.includes("clerk api /users/user_m2_smoke")) {
+            return { exitCode: 0, stdout: JSON.stringify({ id: "user_m2_smoke" }), stderr: "", durationMs: 1 };
+          }
+          if (joined.includes("convex deployment create")) {
+            return {
+              exitCode: 0,
+              stdout: "team:project:preview/acme-crm-preview <convex-url>",
+              stderr: "",
+              durationMs: 1
+            };
+          }
+          if (joined.includes("convex deployment token create")) {
+            await mkdir(join(dir, ".agentstack"), { recursive: true });
+            await writeFile(join(dir, ".agentstack", "convex-preview.env"), "CONVEX_DEPLOY_KEY=test\n", "utf8");
+            return { exitCode: 0, stdout: "created", stderr: "", durationMs: 1 };
+          }
+          if (joined.includes("vercel whoami")) {
+            return { exitCode: 0, stdout: "tester", stderr: "", durationMs: 1 };
+          }
+          if (joined.includes("vercel project ls --json")) {
+            return {
+              exitCode: 0,
+              stdout: JSON.stringify({ projects: [{ id: "prj_m2", name: "acme-crm", accountId: "team_m2" }] }),
+              stderr: "",
+              durationMs: 1
+            };
+          }
+          if (joined.includes("vercel link ")) {
+            await mkdir(join(options.cwd, ".vercel"), { recursive: true });
+            await writeFile(
+              join(options.cwd, ".vercel", "project.json"),
+              `${JSON.stringify({ projectId: "prj_m2", orgId: "team_m2" }, null, 2)}\n`,
+              "utf8"
+            );
+            return { exitCode: 0, stdout: "linked", stderr: "", durationMs: 1 };
+          }
+          if (joined.includes("vercel deploy ")) {
+            return { exitCode: 0, stdout: "https://acme-crm-preview.vercel.app", stderr: "", durationMs: 1 };
+          }
+          return { exitCode: 0, stdout: "ok", stderr: "", durationMs: 1 };
+        }
+      }
+    });
+
+    expect(code).toBe(0);
+    expect(output.filter((line) => line.startsWith("STEP preview.up "))).toEqual([
+      "STEP preview.up provider bootstrap",
+      "STEP preview.up provider link",
+      "STEP preview.up auth user",
+      "STEP preview.up deploy"
+    ]);
+    expect(output).toContain("PASS preview up preview");
+    expect(output).toContain("Next commands:");
+    expect(output).toContain("- pnpm run preview:smoke");
+    expect(output).toContain("- pnpm run evidence:check");
+    expect(providerExecutions.length).toBeGreaterThan(0);
+  });
+
   it("links package-owned M2 provider bootstrap state without generated docs", async () => {
     await writeM2ProviderResourcesState();
 
@@ -8304,7 +8432,8 @@ describe("runAgentstack", () => {
     });
 
     expect(code).toBe(0);
-    expect(output).toContain("APPLIED preview");
+    expect(output).toContain("APPLIED local rehearsal preview");
+    expect(output).toContain("Scope: ignored .agentstack state only; no live provider mutation");
     expect(output).toContain("Evidence: local-rehearsal");
   });
 

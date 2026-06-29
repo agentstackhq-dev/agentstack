@@ -11,18 +11,14 @@ The local development binaries should resolve to this checkout:
 
 ```sh
 which agentstack
-which create-agent-stack
 realpath "$(which agentstack)"
-realpath "$(which create-agent-stack)"
 ```
 
 Expected on this machine:
 
 ```text
 <node-bin>/agentstack
-<node-bin>/create-agent-stack
 <agentstack-repo>/packages/agentstack/src/bin.js
-<agentstack-repo>/packages/create-agent-stack/src/bin.js
 ```
 
 `agentstack --help` must show `create`. If it does not, the visible binary is stale or points directly at
@@ -40,16 +36,6 @@ corepack pnpm install
 corepack pnpm run validate
 ```
 
-The lower-level generator also works:
-
-```sh
-cd ~/code
-create-agent-stack ags01 --package-spec link:<agentstack-repo>/packages/agentstack
-cd ags01
-corepack pnpm install
-corepack pnpm run validate
-```
-
 The `--package-spec` value is required for local source testing. Without it, the generated app may try to install
 `agentstack` from the public npm registry. M4 has not validated the public/clean-machine package path yet.
 
@@ -60,10 +46,10 @@ For repeated local tests, set the package spec once in the shell:
 ```sh
 export AGENTSTACK_PACKAGE_SPEC=link:<agentstack-repo>/packages/agentstack
 cd ~/code
-create-agent-stack ags02
+agentstack create ags02
 ```
 
-`agentstack create` and `create-agent-stack` both honor `AGENTSTACK_PACKAGE_SPEC`.
+`agentstack create` honors `AGENTSTACK_PACKAGE_SPEC`.
 
 ## 4. Repair An Existing Generated App
 
@@ -93,7 +79,21 @@ corepack pnpm run validate
 Generated apps include `pnpm-workspace.yaml` at the root. Keep it committed. It is required for pnpm installs and
 TypeScript language servers to resolve `apps/*` packages consistently.
 
-## 6. Next Validation Steps
+## 6. Local Rehearsal Vs Live Preview
+
+`pnpm run preview:sync` runs `agentstack sync --env preview --apply`. It is local rehearsal only: it updates ignored
+`.agentstack/` state and does not mutate Clerk, Convex, Vercel, EAS, or any other live provider.
+
+Use the explicit confirmation gate for the live provider-backed preview path:
+
+```sh
+corepack pnpm run preview:up -- --confirm-live-mutation
+```
+
+`preview:up` runs provider bootstrap, provider link, auth user setup, and preview deploy in order. It stops at the
+first failing step and prints the next action from the package-owned command.
+
+## 7. Next Validation Steps
 
 After local `validate` passes, follow the active milestone docs:
 

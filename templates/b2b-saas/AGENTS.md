@@ -18,10 +18,14 @@ runbooks.
 
 - `pnpm run validate`
 - `pnpm run dev`
+- `pnpm run preview:sync`
 - `pnpm run preview:up -- --confirm-live-mutation`
 
 `pnpm run dev:check` is diagnostics-only. `pnpm run dev` starts the local web
-surface.
+surface. `pnpm run preview:sync` is local rehearsal only: it updates ignored
+`.agentstack/` state and does not mutate live providers. Use
+`pnpm run preview:up -- --confirm-live-mutation` for the live provider-backed
+preview path.
 
 ## Commands
 
@@ -30,8 +34,8 @@ surface.
 - `pnpm run dev:check`
 - `pnpm run doctor`
 - `pnpm run env:inspect`
-- `pnpm run preview:sync`
-- `pnpm run preview:up`
+- `pnpm run preview:sync` (local rehearsal only)
+- `pnpm run preview:up -- --confirm-live-mutation` (live provider-backed)
 - `pnpm run provider:bootstrap`
 - `pnpm run provider:link`
 - `pnpm run auth:user`
