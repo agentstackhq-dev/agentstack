@@ -12,6 +12,9 @@ and has live evidence in
 and
 [evidence/M3-billing-webhook/m3-live-billing-check-2026-06-29.md](./evidence/M3-billing-webhook/m3-live-billing-check-2026-06-29.md).
 
+Repeatable Clerk Billing setup, test payment method handoff, subscription transition, and cleanup steps are captured in
+[../references/m3-clerk-billing-fixture.md](../references/m3-clerk-billing-fixture.md).
+
 ## Hypothesis under test
 
 The lean generated SaaS spine can handle one real Clerk Billing webhook delivered to a Convex HTTP
@@ -59,7 +62,10 @@ On 2026-06-29, Clerk Billing was enabled for `m3-live-audit-preview`, Feature sl
 `billing:bootstrap -- --env preview --confirm-live-mutation` passed.
 
 After a Clerk test payment method was added for the smoke user, the smoke principal was transitioned from the
-default `free_user` plan to `agentstack_m3_audit_log`. Clerk emitted real Billing webhook deliveries, Convex
+default `free_user` plan to `agentstack_m3_audit_log`. The repeatable path is now
+`billing:fixture -- subscribe`, which verifies the configured plan/feature/price, uses the preview Clerk app id for the
+Backend API transition, writes redacted subscribe evidence, and prints the precise Clerk browser SDK payment-method
+handoff when the smoke user has no test payment source. Clerk emitted real Billing webhook deliveries, Convex
 processed `subscriptionItem.active` into an allowed `feature.auditLog` entitlement, the authenticated preview UI
 rendered the allowed state, and replaying the same Svix delivery produced a duplicate record. The generated app's
 `evidence:check -- --env preview --milestone M3` passed.
@@ -94,6 +100,7 @@ pnpm run billing:bootstrap -- --env preview --confirm-live-mutation
 pnpm run billing:fixture -- ensure --env preview --entitlement feature.auditLog --confirm-live-mutation
 browser sign-in with the generated smoke user
 pnpm run billing:smoke -- --env preview --expected denied --dom-file <denied-dom>
+pnpm run billing:fixture -- subscribe --env preview --entitlement feature.auditLog --confirm-live-mutation
 pnpm run billing:fixture -- grant --env preview --entitlement feature.auditLog --confirm-live-mutation
 pnpm run billing:smoke -- --env preview --expected allowed --dom-file <allowed-dom>
 pnpm run billing:fixture -- replay-last --env preview --entitlement feature.auditLog --confirm-live-mutation

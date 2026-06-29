@@ -37,6 +37,28 @@ type M3AuthUserState = {
   updatedAt: string;
 };
 
+type ClerkBillingPlan = {
+  id: string;
+  slug: string;
+  features?: Array<{ slug?: string }>;
+};
+
+type ClerkBillingPrice = {
+  id: string;
+  plan_id: string;
+  is_default?: boolean;
+};
+
+type ClerkSubscriptionItem = {
+  id: string;
+  status?: string;
+  price_id?: string;
+  plan_id?: string;
+  plan?: {
+    slug?: string;
+  };
+};
+
 const evidenceDir = ".agentstack/evidence/M3-billing-webhook";
 const m2EvidenceDir = ".agentstack/evidence/M2-agent-completes-m1";
 const providerResourcesPath = ".agentstack/provider-resources.json";
@@ -168,7 +190,7 @@ export async function m3BillingFixtureCommand(argv: string[], io: RunIo): Promis
     return 1;
   }
 
-  if (!["ensure", "grant", "revoke", "replay-last", "delete"].includes(action)) {
+  if (!["ensure", "subscribe", "grant", "revoke", "replay-last", "delete"].includes(action)) {
     io.write("FAIL billing.fixture.action-invalid");
     io.write(`Reason: unsupported action ${action}`);
     return 1;
@@ -226,6 +248,36 @@ export async function m3BillingFixtureCommand(argv: string[], io: RunIo): Promis
       io.write("Provider mutation: convex fixture principal");
       io.write(`Local mutation: ${billingStatePath}`);
       return 0;
+    }
+
+    if (action === "subscribe") {
+      const context = await loadProjectContext(io.cwd);
+      const clerk = requireResource(state, "clerk");
+      const entitlementConfig = context.manifest.billing.entitlements[entitlementKey];
+      const subscribeResult = await subscribeClerkBillingFixture({
+        cwd: io.cwd,
+        executor,
+        clerkAppId: clerk.externalId,
+        authUser,
+        providerPlan: entitlementConfig.providerPlan,
+        providerFeature: entitlementConfig.providerFeature,
+        environment,
+        entitlement
+      });
+
+      await writeFixtureEvidence(io.cwd, action, subscribeResult.ok ? "PASS" : "FAIL", subscribeResult.notes);
+      if (subscribeResult.state) {
+        await writeText(io.cwd, billingStatePath, `${JSON.stringify(subscribeResult.state, null, 2)}\n`);
+      }
+      io.write(`${subscribeResult.ok ? "PASS" : "FAIL"} billing fixture subscribe`);
+      io.write("Evidence: m3-billing-fixture");
+      subscribeResult.notes.forEach((note) => io.write(note));
+      io.write(`Provider mutation: ${subscribeResult.providerMutation}`);
+      io.write(`Local mutation: ${evidenceDir}/billing-fixture-subscribe.txt`);
+      if (subscribeResult.state) {
+        io.write(`Local mutation: ${billingStatePath}`);
+      }
+      return subscribeResult.ok ? 0 : 1;
     }
 
     const remoteEvidence = await readRemoteBillingEvidence({ cwd: io.cwd, executor, deployment: convex.externalId });
@@ -337,6 +389,7 @@ export async function m3EvidenceCheckCommand(argv: string[], io: RunIo): Promise
     ["M2 smoke output evidence", `${m2EvidenceDir}/smoke-output.txt`, "Result: PASS"],
     ["billing bootstrap evidence", `${evidenceDir}/billing-bootstrap.txt`, "Result: PASS"],
     ["billing fixture ensure evidence", `${evidenceDir}/billing-fixture-ensure.txt`, "Result: PASS"],
+    ["billing fixture subscribe evidence", `${evidenceDir}/billing-fixture-subscribe.txt`, "Result: PASS"],
     ["billing fixture grant evidence", `${evidenceDir}/billing-fixture-grant.txt`, "Result: PASS"],
     ["billing fixture replay-last evidence", `${evidenceDir}/billing-fixture-replay-last.txt`, "Result: PASS"],
     ["billing smoke denied evidence", `${evidenceDir}/billing-smoke-denied.txt`, "Result: PASS"],
@@ -373,6 +426,248 @@ export async function m3EvidenceCheckCommand(argv: string[], io: RunIo): Promise
   io.write("Provider mutation: none");
   io.write("Local mutation: none");
   return 0;
+}
+
+async function subscribeClerkBillingFixture(input: {
+  cwd: string;
+  executor: ProviderCommandExecutor;
+  clerkAppId: string;
+  authUser: M3AuthUserState;
+  providerPlan: string;
+  providerFeature: string;
+  environment: "preview";
+  entitlement: string;
+}): Promise<{
+  ok: boolean;
+  notes: string[];
+  providerMutation: "none" | "clerk billing subscription transition";
+  state?: Record<string, unknown>;
+}> {
+  const target = await readClerkBillingTarget(input);
+  const subscription = await readClerkUserSubscription(input);
+  const activeItems = subscription.subscription_items?.filter((item) => item.status === undefined || item.status === "active") ?? [];
+  const existingTarget = activeItems.find(
+    (item) =>
+      item.price_id === target.price.id ||
+      item.plan_id === target.plan.id ||
+      item.plan?.slug === input.providerPlan
+  );
+  const now = new Date().toISOString();
+
+  if (existingTarget) {
+    return {
+      ok: true,
+      notes: [`Subscription state: already on ${input.providerPlan}`],
+      providerMutation: "none",
+      state: {
+        environment: input.environment,
+        entitlement: input.entitlement,
+        clerkUserId: input.authUser.userId,
+        providerPlan: input.providerPlan,
+        providerFeature: input.providerFeature,
+        providerPriceId: target.price.id,
+        subscriptionItemId: existingTarget.id,
+        updatedAt: now
+      }
+    };
+  }
+
+  const sourceItem = activeItems.find((item) => item.id && item.price_id);
+  if (!sourceItem?.price_id) {
+    return {
+      ok: false,
+      notes: [
+        "Provider action required: create a Clerk Billing subscription item for the smoke user before transition.",
+        "Expected source item: active item with a price_id.",
+        "Then rerun: pnpm run billing:fixture -- subscribe --env preview --entitlement feature.auditLog --confirm-live-mutation"
+      ],
+      providerMutation: "none"
+    };
+  }
+
+  const transition = await runProvider(input.executor, {
+    cwd: input.cwd,
+    args: [
+      "clerk",
+      "api",
+      `/billing/subscription_items/${sourceItem.id}/price_transition`,
+      "--method",
+      "POST",
+      "--app",
+      input.clerkAppId,
+      "--data",
+      JSON.stringify({ from_price_id: sourceItem.price_id, to_price_id: target.price.id }),
+      "--yes"
+    ]
+  });
+
+  if (transition.exitCode !== 0) {
+    const rawDetail = [transition.stdout, transition.stderr].filter(Boolean).join("\n");
+    const detail = providerDetail(transition);
+    if (rawDetail.includes("payment_method_required_for_transition")) {
+      return {
+        ok: false,
+        notes: [
+          "Provider action required: add a Clerk test payment method for the smoke user.",
+          "Use Clerk browser SDK initializePaymentMethod, Stripe test card 4242, then user.addPaymentMethod.",
+          "Then rerun: pnpm run billing:fixture -- subscribe --env preview --entitlement feature.auditLog --confirm-live-mutation"
+        ],
+        providerMutation: "none"
+      };
+    }
+    throw new Error(`Clerk Billing subscription transition failed. ${detail}`);
+  }
+
+  const transitionedItem = readRecord(parseJson(transition.stdout).subscription_item);
+  const subscriptionItemId = firstString(transitionedItem.id) ?? sourceItem.id;
+
+  return {
+    ok: true,
+    notes: [`Subscription state: transitioned to ${input.providerPlan}`],
+    providerMutation: "clerk billing subscription transition",
+    state: {
+      environment: input.environment,
+      entitlement: input.entitlement,
+      clerkUserId: input.authUser.userId,
+      providerPlan: input.providerPlan,
+      providerFeature: input.providerFeature,
+      providerPriceId: target.price.id,
+      subscriptionItemId,
+      updatedAt: now
+    }
+  };
+}
+
+async function readClerkBillingTarget(input: {
+  cwd: string;
+  executor: ProviderCommandExecutor;
+  clerkAppId: string;
+  providerPlan: string;
+  providerFeature: string;
+}): Promise<{ plan: ClerkBillingPlan; price: ClerkBillingPrice }> {
+  const plansResult = await runProvider(input.executor, {
+    cwd: input.cwd,
+    args: ["clerk", "api", "/billing/plans", "--method", "GET", "--app", input.clerkAppId, "--yes"]
+  });
+  if (plansResult.exitCode !== 0) {
+    throw new Error(`Clerk Billing plan lookup failed. ${providerDetail(plansResult)}`);
+  }
+
+  const plans = readArray(parseJson(plansResult.stdout).data)
+    .map(readClerkBillingPlan)
+    .filter((plan): plan is ClerkBillingPlan => plan !== undefined);
+  const plan = plans.find((candidate) => candidate.slug === input.providerPlan);
+  if (!plan) {
+    throw new Error(
+      [
+        "Provider action required: create or verify the Clerk Billing plan before subscription.",
+        `Expected plan slug: ${input.providerPlan}.`,
+        `Expected feature slug: ${input.providerFeature}.`
+      ].join(" ")
+    );
+  }
+  if (!plan.features?.some((feature) => feature.slug === input.providerFeature)) {
+    throw new Error(
+      [
+        "Provider action required: attach the Clerk Billing feature to the configured plan before subscription.",
+        `Expected plan slug: ${input.providerPlan}.`,
+        `Expected feature slug: ${input.providerFeature}.`
+      ].join(" ")
+    );
+  }
+
+  const pricesResult = await runProvider(input.executor, {
+    cwd: input.cwd,
+    args: ["clerk", "api", "/billing/prices", "--method", "GET", "--app", input.clerkAppId, "--yes"]
+  });
+  if (pricesResult.exitCode !== 0) {
+    throw new Error(`Clerk Billing price lookup failed. ${providerDetail(pricesResult)}`);
+  }
+
+  const prices = readArray(parseJson(pricesResult.stdout).data)
+    .map(readClerkBillingPrice)
+    .filter((price): price is ClerkBillingPrice => price !== undefined)
+    .filter((price) => price.plan_id === plan.id);
+  const price = prices.find((candidate) => candidate.is_default === true) ?? prices[0];
+  if (!price) {
+    throw new Error(
+      [
+        "Provider action required: create or verify the Clerk Billing price before subscription.",
+        `Expected plan slug: ${input.providerPlan}.`
+      ].join(" ")
+    );
+  }
+
+  return { plan, price };
+}
+
+async function readClerkUserSubscription(input: {
+  cwd: string;
+  executor: ProviderCommandExecutor;
+  clerkAppId: string;
+  authUser: M3AuthUserState;
+}): Promise<{ subscription_items?: ClerkSubscriptionItem[] }> {
+  const result = await runProvider(input.executor, {
+    cwd: input.cwd,
+    args: [
+      "clerk",
+      "api",
+      `/users/${input.authUser.userId}/billing/subscription`,
+      "--method",
+      "GET",
+      "--app",
+      input.clerkAppId,
+      "--yes"
+    ]
+  });
+  if (result.exitCode !== 0) {
+    throw new Error(`Clerk Billing subscription lookup failed. ${providerDetail(result)}`);
+  }
+
+  return {
+    subscription_items: readArray(parseJson(result.stdout).subscription_items)
+      .map(readClerkSubscriptionItem)
+      .filter((item): item is ClerkSubscriptionItem => item !== undefined)
+  };
+}
+
+function readClerkBillingPlan(value: unknown): ClerkBillingPlan | undefined {
+  const record = readRecord(value);
+  const id = firstString(record.id);
+  const slug = firstString(record.slug);
+  if (!id || !slug) {
+    return undefined;
+  }
+  return {
+    id,
+    slug,
+    features: readArray(record.features).map((feature) => ({ slug: firstString(readRecord(feature).slug) }))
+  };
+}
+
+function readClerkBillingPrice(value: unknown): ClerkBillingPrice | undefined {
+  const record = readRecord(value);
+  const id = firstString(record.id);
+  const planId = firstString(record.plan_id);
+  if (!id || !planId) {
+    return undefined;
+  }
+  return { id, plan_id: planId, is_default: record.is_default === true };
+}
+
+function readClerkSubscriptionItem(value: unknown): ClerkSubscriptionItem | undefined {
+  const record = readRecord(value);
+  const id = firstString(record.id);
+  if (!id) {
+    return undefined;
+  }
+  return {
+    id,
+    status: firstString(record.status),
+    price_id: firstString(record.price_id),
+    plan_id: firstString(record.plan_id),
+    plan: { slug: firstString(readRecord(record.plan).slug) }
+  };
 }
 
 async function ensureClerkWebhook(input: {
@@ -738,6 +1033,14 @@ function parseJson(stdout: string): Record<string, unknown> {
   } catch {
     return {};
   }
+}
+
+function readRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function readArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
 }
 
 function firstString(...values: unknown[]): string | undefined {

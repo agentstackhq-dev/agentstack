@@ -17,7 +17,7 @@ stat -f '%Sp %N' .agentstack/clerk-billing-webhook.env
 ./node_modules/.bin/clerk api /billing/plans --method GET --yes
 ./node_modules/.bin/clerk api /billing/prices --method GET --yes
 Clerk browser SDK smoke-user payment-method setup with Stripe test card 4242
-./node_modules/.bin/clerk api /billing/subscription_items/<free-item-id>/price_transition --method POST --app <clerk-app-id> --data <redacted price ids> --yes
+corepack pnpm run billing:fixture -- subscribe --env preview --entitlement feature.auditLog --confirm-live-mutation
 corepack pnpm run billing:fixture -- grant --env preview --entitlement feature.auditLog --confirm-live-mutation
 ./node_modules/.bin/clerk api /users/<smoke-user-id>/billing/subscription --method GET --yes
 ../../node_modules/.bin/convex run billing:readM3BillingEvidence --deployment <provider-owner>:m3-live-audit:preview/m3-live-audit-preview
@@ -41,8 +41,8 @@ corepack pnpm run evidence:check -- --env preview --milestone M3
 - Local secret file permissions: `-rw------- .agentstack/clerk-billing-webhook.env`.
 - Clerk test payment source: added for the smoke user through the live preview's Clerk browser SDK; stored by Clerk,
   not in the repo.
-- Clerk Billing subscription transition: free plan to `agentstack_m3_audit_log` passed through the Backend API with
-  explicit `--app <clerk-app-id>`.
+- Clerk Billing subscription transition: free plan to `agentstack_m3_audit_log` passed through the package-owned
+  `billing:fixture -- subscribe` command, which uses the Backend API with explicit preview app targeting.
 - Real webhook grant: Convex processed `subscriptionItem.active` and wrote allowed `feature.auditLog`.
 - Allowed UI smoke: PASS with `data-agentstack-auth-state="signed-in"`,
   `data-agentstack-protected-data-state="protected-data-loaded"`, and
@@ -55,6 +55,7 @@ Generated app evidence was written to:
 
 ```text
 .agentstack/evidence/M3-billing-webhook/billing-bootstrap.txt
+.agentstack/evidence/M3-billing-webhook/billing-fixture-subscribe.txt
 .agentstack/evidence/M3-billing-webhook/billing-fixture-grant.txt
 .agentstack/evidence/M3-billing-webhook/billing-smoke-allowed.txt
 .agentstack/evidence/M3-billing-webhook/billing-fixture-replay-last.txt
@@ -70,6 +71,13 @@ passwords are not stored in repo evidence.
 ```text
 PASS billing fixture grant
 Entitlement state: allowed
+```
+
+`billing:fixture subscribe`:
+
+```text
+PASS billing fixture subscribe
+Subscription state: already on agentstack_m3_audit_log
 ```
 
 `billing:smoke --expected allowed`:

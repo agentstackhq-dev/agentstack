@@ -300,6 +300,11 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
       return await m3BillingBootstrapCommand(rest, io);
     }
 
+    if (command === "billing" && (subcommand === undefined || subcommand === "--help" || subcommand === "-h")) {
+      writeBillingUsage(io);
+      return 0;
+    }
+
     if (command === "billing" && subcommand === "fixture") {
       return await m3BillingFixtureCommand(rest, io);
     }
@@ -394,6 +399,21 @@ function writeTopLevelUsage(io: RunIo): void {
   io.write("  evidence       Check package-owned validation evidence");
   io.write("  observe        Inspect telemetry and journey evidence");
   io.write("  theme          Validate generated theme tokens");
+}
+
+function writeBillingUsage(io: RunIo): void {
+  io.write("Usage: agentstack billing <command> [options]");
+  io.write("");
+  io.write("Commands:");
+  io.write("  bootstrap      Verify Clerk Billing plan/feature and configure the Convex webhook");
+  io.write("  fixture ensure Create the preview smoke billing principal in Convex");
+  io.write("  fixture subscribe");
+  io.write("                 Move the smoke user to the configured Clerk Billing plan");
+  io.write("  fixture grant  Verify the real webhook granted feature.auditLog");
+  io.write("  fixture replay-last");
+  io.write("                 Verify replay idempotency for the last Billing webhook");
+  io.write("  fixture delete Remove local/Convex billing fixture state");
+  io.write("  smoke          Validate entitlement DOM markers from a signed-in preview page");
 }
 
 async function validateCommand(argv: string[], io: RunIo): Promise<number> {

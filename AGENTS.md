@@ -5,11 +5,12 @@
 M3 implementation/live blocker resolution is the only active goal: prove or falsify a live Clerk Billing webhook
 plus `feature.auditLog` entitlement gate for a lean generated Agentstack preview app.
 
-Current live state: the M3 local implementation and live default-deny preview path are in place. A fresh generated
-app passed validate, provider bootstrap/link, preview deploy, auth fixture, signed-in protected Convex smoke, and
-denied `feature.auditLog` smoke on 2026-06-28. The remaining blocker is external provider configuration: Clerk returned
-`billing_not_enabled` for the generated preview Clerk application before a real Billing grant/webhook could be tested.
-Start from `docs/milestones/evidence/M3-billing-webhook/m3-live-billing-blocker-2026-06-28.md`.
+Current live state: the M3 live Clerk Billing path passed on 2026-06-29. Clerk Billing was enabled, the
+`audit_log` feature and `agentstack_m3_audit_log` plan were present, the Convex webhook was configured, a Clerk test
+payment source was added through the live preview Clerk browser SDK, the smoke user was subscribed to the configured
+plan, Convex processed the real Billing webhook, allowed UI smoke passed, Svix replay idempotency passed, and M3
+evidence check passed. Start from `docs/milestones/evidence/M3-billing-webhook/m3-live-billing-check-2026-06-29.md`
+and `docs/references/m3-clerk-billing-fixture.md`.
 
 M1 is complete as a provider-path spike. It proved that Clerk, Convex, and Vercel preview orchestration can work, but it also exposed the wrong generated consumer shape. Do not keep extending the old generated-docs/generated-scripts M1 path.
 
@@ -56,8 +57,11 @@ Validation-first work uses milestones, not open-ended readiness expansion.
 - Provider CLI installation and authentication remain part of live-provider work. Install missing CLIs through package-owned Agentstack dependencies or local package manager. If provider auth needs a browser/login link or interactive account selection, run the CLI until it prints the exact action the user must take, report that action, then resume from the same command after auth.
 - Do not stop at "provider inputs needed" when a package-owned CLI can discover, create, or link the resource.
 - Clerk Billing smoke-user, smoke-organization, subscription fixture, entitlement, and cleanup lifecycle are part of M3.
-  Use package-owned M3 billing commands once implemented instead of manual Clerk dashboard/API patching, except for exact
-  provider handoffs printed by those commands.
+  Use package-owned M3 billing commands instead of manual Clerk dashboard/API patching, except for exact provider
+  handoffs printed by those commands. The repeatable subscription path is
+  `pnpm run billing:fixture -- subscribe --env preview --entitlement feature.auditLog --confirm-live-mutation`; if it
+  reports that a payment method is required, follow the Clerk browser SDK handoff documented in
+  `docs/references/m3-clerk-billing-fixture.md`, then rerun the subscribe command.
 - Planned or pending ledger rows are blockers, not progress toward checked acceptance boxes, until the package-owned bootstrap or repair path records active real resource identities.
 
 ## Green-field rules

@@ -94,6 +94,18 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).not.toContain("FAIL cli.unknown-command");
   });
 
+  it("prints billing usage for billing help", async () => {
+    const code = await runAgentstack(["billing", "--help"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output.join("\n")).toContain("Usage: agentstack billing <command>");
+    expect(output.join("\n")).toContain("fixture subscribe");
+    expect(output.join("\n")).toContain("Move the smoke user to the configured Clerk Billing plan");
+  });
+
   it("validates the generated theme token contract", async () => {
     const code = await runAgentstack(["theme", "validate"], {
       cwd: dir,
@@ -7772,6 +7784,310 @@ describe("runAgentstack", () => {
     );
   });
 
+  it("transitions the M3 smoke user to the configured Clerk Billing plan", async () => {
+    await writeM2ProviderResourcesState();
+    await writeM2AuthUserState();
+
+    const code = await runAgentstack(
+      ["billing", "fixture", "subscribe", "--env", "preview", "--entitlement", "feature.auditLog", "--confirm-live-mutation"],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: {
+          async execute(command, args, options) {
+            providerExecutions.push({ command, args, stdin: options.stdin });
+            const joined = args.join(" ");
+            if (joined.includes("/billing/plans")) {
+              return {
+                exitCode: 0,
+                stdout: JSON.stringify({
+                  data: [
+                    { id: "plan_free", slug: "free_user", features: [] },
+                    {
+                      id: "plan_audit",
+                      slug: "agentstack_m3_audit_log",
+                      features: [{ slug: "audit_log" }]
+                    }
+                  ]
+                }),
+                stderr: "",
+                durationMs: 1
+              };
+            }
+            if (joined.includes("/billing/prices")) {
+              return {
+                exitCode: 0,
+                stdout: JSON.stringify({
+                  data: [
+                    { id: "price_free", plan_id: "plan_free", is_default: true },
+                    { id: "price_audit", plan_id: "plan_audit", is_default: true, amount: 100 }
+                  ]
+                }),
+                stderr: "",
+                durationMs: 1
+              };
+            }
+            if (joined.includes("/users/user_m3_smoke/billing/subscription")) {
+              return {
+                exitCode: 0,
+                stdout: JSON.stringify({
+                  subscription_items: [
+                    {
+                      id: "sub_item_free",
+                      status: "active",
+                      price_id: "price_free",
+                      plan_id: "plan_free",
+                      plan: { slug: "free_user" }
+                    }
+                  ]
+                }),
+                stderr: "",
+                durationMs: 1
+              };
+            }
+            if (joined.includes("/billing/subscription_items/sub_item_free/price_transition")) {
+              return {
+                exitCode: 0,
+                stdout: JSON.stringify({
+                  subscription_item: {
+                    id: "sub_item_audit",
+                    status: "active",
+                    price_id: "price_audit",
+                    plan_id: "plan_audit",
+                    plan: { slug: "agentstack_m3_audit_log" }
+                  }
+                }),
+                stderr: "",
+                durationMs: 1
+              };
+            }
+            return { exitCode: 1, stdout: "unexpected provider command", stderr: joined, durationMs: 1 };
+          }
+        }
+      }
+    );
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS billing fixture subscribe");
+    expect(output).toContain("Subscription state: transitioned to agentstack_m3_audit_log");
+    expect(output).toContain("Provider mutation: clerk billing subscription transition");
+    const commandLines = providerExecutions.map((execution) => execution.args.join(" "));
+    expect(commandLines).toEqual([
+      expect.stringContaining("clerk api /billing/plans --method GET --app clerk_app_secret_123 --yes"),
+      expect.stringContaining("clerk api /billing/prices --method GET --app clerk_app_secret_123 --yes"),
+      expect.stringContaining("clerk api /users/user_m3_smoke/billing/subscription --method GET --app clerk_app_secret_123 --yes"),
+      expect.stringContaining(
+        'clerk api /billing/subscription_items/sub_item_free/price_transition --method POST --app clerk_app_secret_123 --data {"from_price_id":"price_free","to_price_id":"price_audit"} --yes'
+      )
+    ]);
+    expect(output.join("\n")).not.toContain("price_free");
+    expect(output.join("\n")).not.toContain("price_audit");
+    await expect(readFile(join(dir, ".agentstack", "billing-fixture.json"), "utf8")).resolves.toContain(
+      "sub_item_audit"
+    );
+    await expect(readFile(join(dir, ".agentstack", "evidence", "M3-billing-webhook", "billing-fixture-subscribe.txt"), "utf8")).resolves.toContain(
+      "Result: PASS"
+    );
+  });
+
+  it("treats M3 billing fixture subscribe as a no-op when already on the configured plan", async () => {
+    await writeM2ProviderResourcesState();
+    await writeM2AuthUserState();
+
+    const code = await runAgentstack(
+      ["billing", "fixture", "subscribe", "--env", "preview", "--entitlement", "feature.auditLog", "--confirm-live-mutation"],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: {
+          async execute(command, args, options) {
+            providerExecutions.push({ command, args, stdin: options.stdin });
+            const joined = args.join(" ");
+            if (joined.includes("/billing/plans")) {
+              return {
+                exitCode: 0,
+                stdout: JSON.stringify({
+                  data: [
+                    {
+                      id: "plan_audit",
+                      slug: "agentstack_m3_audit_log",
+                      features: [{ slug: "audit_log" }]
+                    }
+                  ]
+                }),
+                stderr: "",
+                durationMs: 1
+              };
+            }
+            if (joined.includes("/billing/prices")) {
+              return {
+                exitCode: 0,
+                stdout: JSON.stringify({ data: [{ id: "price_audit", plan_id: "plan_audit", is_default: true }] }),
+                stderr: "",
+                durationMs: 1
+              };
+            }
+            if (joined.includes("/users/user_m3_smoke/billing/subscription")) {
+              return {
+                exitCode: 0,
+                stdout: JSON.stringify({
+                  subscription_items: [
+                    {
+                      id: "sub_item_audit",
+                      status: "active",
+                      price_id: "price_audit",
+                      plan_id: "plan_audit",
+                      plan: { slug: "agentstack_m3_audit_log" }
+                    }
+                  ]
+                }),
+                stderr: "",
+                durationMs: 1
+              };
+            }
+            return { exitCode: 1, stdout: "unexpected provider command", stderr: joined, durationMs: 1 };
+          }
+        }
+      }
+    );
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS billing fixture subscribe");
+    expect(output).toContain("Subscription state: already on agentstack_m3_audit_log");
+    expect(output).toContain("Provider mutation: none");
+    expect(providerExecutions.map((execution) => execution.args.join(" ")).join("\n")).not.toContain("price_transition");
+  });
+
+  it("fails M3 billing fixture subscribe when the configured Clerk plan does not include the feature", async () => {
+    await writeM2ProviderResourcesState();
+    await writeM2AuthUserState();
+
+    const code = await runAgentstack(
+      ["billing", "fixture", "subscribe", "--env", "preview", "--entitlement", "feature.auditLog", "--confirm-live-mutation"],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: {
+          async execute(command, args, options) {
+            providerExecutions.push({ command, args, stdin: options.stdin });
+            const joined = args.join(" ");
+            if (joined.includes("/billing/plans")) {
+              return {
+                exitCode: 0,
+                stdout: JSON.stringify({
+                  data: [
+                    {
+                      id: "plan_audit",
+                      slug: "agentstack_m3_audit_log",
+                      features: [{ slug: "other_feature" }]
+                    }
+                  ]
+                }),
+                stderr: "",
+                durationMs: 1
+              };
+            }
+            return { exitCode: 1, stdout: "unexpected provider command", stderr: joined, durationMs: 1 };
+          }
+        }
+      }
+    );
+
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL billing fixture subscribe");
+    expect(output.join("\n")).toContain("Provider action required: attach the Clerk Billing feature to the configured plan before subscription.");
+    expect(output.join("\n")).toContain("Expected plan slug: agentstack_m3_audit_log.");
+    expect(output.join("\n")).toContain("Expected feature slug: audit_log.");
+    expect(providerExecutions.map((execution) => execution.args.join(" ")).join("\n")).not.toContain("/billing/prices");
+  });
+
+  it("prints the Clerk test-payment-method handoff when billing subscribe cannot transition yet", async () => {
+    await writeM2ProviderResourcesState();
+    await writeM2AuthUserState();
+
+    const code = await runAgentstack(
+      ["billing", "fixture", "subscribe", "--env", "preview", "--entitlement", "feature.auditLog", "--confirm-live-mutation"],
+      {
+        cwd: dir,
+        write: (line) => output.push(line),
+        providerExecutor: {
+          async execute(command, args, options) {
+            providerExecutions.push({ command, args, stdin: options.stdin });
+            const joined = args.join(" ");
+            if (joined.includes("/billing/plans")) {
+              return {
+                exitCode: 0,
+                stdout: JSON.stringify({
+                  data: [
+                    {
+                      id: "plan_audit",
+                      slug: "agentstack_m3_audit_log",
+                      features: [{ slug: "audit_log" }]
+                    }
+                  ]
+                }),
+                stderr: "",
+                durationMs: 1
+              };
+            }
+            if (joined.includes("/billing/prices")) {
+              return {
+                exitCode: 0,
+                stdout: JSON.stringify({ data: [{ id: "price_audit", plan_id: "plan_audit", is_default: true }] }),
+                stderr: "",
+                durationMs: 1
+              };
+            }
+            if (joined.includes("/users/user_m3_smoke/billing/subscription")) {
+              return {
+                exitCode: 0,
+                stdout: JSON.stringify({
+                  subscription_items: [
+                    {
+                      id: "sub_item_free",
+                      status: "active",
+                      price_id: "price_free",
+                      plan_id: "plan_free",
+                      plan: { slug: "free_user" }
+                    }
+                  ]
+                }),
+                stderr: "",
+                durationMs: 1
+              };
+            }
+            if (joined.includes("/billing/subscription_items/sub_item_free/price_transition")) {
+              return {
+                exitCode: 1,
+                stdout: JSON.stringify({
+                  errors: [
+                    {
+                      code: "payment_method_required_for_transition",
+                      long_message: "A payment method is required to upgrade from a free plan."
+                    }
+                  ]
+                }),
+                stderr: "",
+                durationMs: 1
+              };
+            }
+            return { exitCode: 1, stdout: "unexpected provider command", stderr: joined, durationMs: 1 };
+          }
+        }
+      }
+    );
+
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL billing fixture subscribe");
+    expect(output.join("\n")).toContain("Provider action required: add a Clerk test payment method for the smoke user.");
+    expect(output.join("\n")).toContain("Use Clerk browser SDK initializePaymentMethod, Stripe test card 4242, then user.addPaymentMethod.");
+    expect(output.join("\n")).toContain("Then rerun: pnpm run billing:fixture -- subscribe --env preview --entitlement feature.auditLog --confirm-live-mutation");
+    expect(output.join("\n")).not.toContain("payment_method_required_for_transition");
+    await expect(readFile(join(dir, ".agentstack", "evidence", "M3-billing-webhook", "billing-fixture-subscribe.txt"), "utf8")).resolves.toContain(
+      "Result: FAIL"
+    );
+  });
+
   it("passes package-owned M3 billing smoke from entitlement DOM markers", async () => {
     await mkdir(join(dir, ".agentstack"), { recursive: true });
     await writeFile(
@@ -9390,6 +9706,7 @@ async function writeM3PassingEvidence(): Promise<void> {
   const passFiles = [
     "billing-bootstrap.txt",
     "billing-fixture-ensure.txt",
+    "billing-fixture-subscribe.txt",
     "billing-fixture-grant.txt",
     "billing-fixture-replay-last.txt",
     "billing-smoke-denied.txt",
