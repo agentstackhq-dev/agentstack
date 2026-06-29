@@ -66,7 +66,12 @@ describe("generateProject", () => {
       });
       expect(packageManifest.scripts).toMatchObject({
         validate: "agentstack validate",
-        dev: "agentstack dev",
+        dev: "agentstack dev --surface web",
+        "dev:check": "agentstack dev --surface web --check",
+        doctor: "agentstack doctor --env preview",
+        "env:inspect": "agentstack env inspect --env preview",
+        "preview:sync": "agentstack sync --env preview --apply",
+        "preview:up": "agentstack preview up --env preview",
         "provider:bootstrap": "agentstack provider bootstrap",
         "provider:link": "agentstack provider link",
         "auth:user": "agentstack auth user",
@@ -77,6 +82,7 @@ describe("generateProject", () => {
         "billing:fixture": "agentstack billing fixture",
         "billing:smoke": "agentstack billing smoke"
       });
+      expect(packageManifest.scripts).not.toHaveProperty("preview:apply");
       expect(Object.values(packageManifest.scripts).join("\n")).not.toContain("scripts/");
       expect(Object.keys(packageManifest.scripts).some((script) => script.startsWith("m1:"))).toBe(false);
       expect(webPackageManifest.dependencies.react).toBe("^18.3.1");
@@ -91,6 +97,8 @@ describe("generateProject", () => {
       expect(config).toContain('providerFeature: "audit_log"');
       expect(config).not.toContain("STRIPE_MODE");
       expect(agents).toContain("Use package-owned Agentstack CLI help instead of generated runbooks.");
+      expect(agents).toContain("## Happy Path");
+      expect(agents).toContain("pnpm run dev:check` is diagnostics-only");
       expect(agents).toContain("pnpm run billing:bootstrap");
       expect(agents).toContain("pnpm run billing:fixture");
       expect(agents).toContain("pnpm run billing:smoke");

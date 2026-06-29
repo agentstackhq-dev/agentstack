@@ -7,7 +7,11 @@ import { createDefaultManifest, defaultThemeTokens } from "@agentstack/core";
 import type { ProviderCommandExecutor } from "@agentstack/adapters";
 import { createWideEvent, JsonlTelemetryStore } from "@agentstack/telemetry";
 import { runAgentstack } from "./index.js";
-import { formatProviderExactIdentityReportFields, formatProviderInventoryRow } from "./run.js";
+import {
+  formatProviderExactIdentityReportFields,
+  formatProviderInventoryRow,
+  type LocalCommandSpec
+} from "./run.js";
 
 const packageDir = dirname(dirname(fileURLToPath(import.meta.url)));
 const packageManifestPath = join(packageDir, "package.json");
@@ -92,6 +96,56 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("Usage: agentstack <command>");
     expect(output.join("\n")).toContain("validate");
     expect(output.join("\n")).not.toContain("FAIL cli.unknown-command");
+  });
+
+  it("lists every supported public command in top-level help", async () => {
+    const code = await runAgentstack(["--help"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    for (const command of [
+      "create",
+      "validate",
+      "dev",
+      "doctor",
+      "sync",
+      "env",
+      "deploy",
+      "provider",
+      "auth",
+      "billing",
+      "smoke",
+      "evidence",
+      "observe",
+      "theme"
+    ]) {
+      expect(output.join("\n")).toContain(command);
+    }
+  });
+
+  it("prints sync help without requiring --env", async () => {
+    const code = await runAgentstack(["sync", "--help"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output.join("\n")).toContain("Usage: agentstack sync --env <environment> [--apply]");
+    expect(output.join("\n")).toContain("Local rehearsal only");
+  });
+
+  it("prints env help without requiring a subcommand", async () => {
+    const code = await runAgentstack(["env", "--help"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output.join("\n")).toContain("Usage: agentstack env <command> [options]");
+    expect(output.join("\n")).toContain("inspect");
+    expect(output.join("\n")).toContain("set");
   });
 
   it("prints billing usage for billing help", async () => {
@@ -519,18 +573,32 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).not.toContain("sk-local-provider-value");
   });
 
-  it("prints dev preflight commands without starting servers", async () => {
+  it("prints dev preflight commands without starting servers in check mode", async () => {
     await runAgentstack(["sync", "--env", "preview", "--apply"], { cwd: dir, write: () => undefined });
 
-    const code = await runAgentstack(["dev", "--env", "preview"], {
+    const code = await runAgentstack(["dev", "--env", "preview", "--check"], {
       cwd: dir,
       write: (line) => output.push(line)
     });
 
     expect(code).toBe(0);
-    expect(output).toContain("PASS dev preflight preview");
+    expect(output).toContain("PASS dev preflight preview web");
     expect(output.join("\n")).toContain("pnpm --filter @app/web dev");
     expect(output.join("\n")).toContain("pnpm --filter @app/mobile dev");
+  });
+
+  it("dev next commands only reference generated scripts that exist", async () => {
+    await runAgentstack(["sync", "--env", "preview", "--apply"], { cwd: dir, write: () => undefined });
+
+    const code = await runAgentstack(["dev", "--env", "preview", "--surface", "web", "--check"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output.join("\n")).toContain("pnpm run env:inspect");
+    expect(output.join("\n")).toContain("pnpm run preview:sync");
+    expect(output.join("\n")).not.toContain("pnpm run preview:apply");
   });
 
   it("prints development dev preflight without preview-only script names", async () => {
@@ -539,15 +607,52 @@ describe("runAgentstack", () => {
       write: () => undefined
     });
 
-    const code = await runAgentstack(["dev", "--env", "development"], {
+    const code = await runAgentstack(["dev", "--env", "development", "--check"], {
       cwd: dir,
       write: (line) => output.push(line)
     });
 
     expect(code).toBe(0);
-    expect(output).toContain("PASS dev preflight development");
-    expect(output.join("\n")).toContain("node scripts/agentstack.mjs sync --env development --apply");
+    expect(output).toContain("PASS dev preflight development web");
+    expect(output.join("\n")).toContain("agentstack sync --env development --apply");
     expect(output.join("\n")).not.toContain("sync:development:apply");
+  });
+
+  it("starts the web dev surface after passing preflight", async () => {
+    await runAgentstack(["sync", "--env", "development", "--apply"], { cwd: dir, write: () => undefined });
+    const commands: LocalCommandSpec[] = [];
+
+    const code = await runAgentstack(["dev", "--surface", "web"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      commandRunner: async (command) => {
+        commands.push(command);
+        return { exitCode: 0, stdout: "VITE ready", stderr: "" };
+      }
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS dev preflight development web");
+    expect(commands).toEqual([{ id: "dev:web", command: "pnpm", args: ["--filter", "@app/web", "dev"] }]);
+  });
+
+  it("keeps dev check as diagnostics-only", async () => {
+    await runAgentstack(["sync", "--env", "development", "--apply"], { cwd: dir, write: () => undefined });
+    const commands: LocalCommandSpec[] = [];
+
+    const code = await runAgentstack(["dev", "--surface", "web", "--check"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      commandRunner: async (command) => {
+        commands.push(command);
+        return { exitCode: 0, stdout: "", stderr: "" };
+      }
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS dev preflight development web");
+    expect(output.join("\n")).toContain("pnpm run dev");
+    expect(commands).toEqual([]);
   });
 
   it("records lifecycle command telemetry", async () => {
@@ -555,7 +660,7 @@ describe("runAgentstack", () => {
 
     expect(await runAgentstack(["inspect", "--env", "preview"], { cwd: dir, write: () => undefined })).toBe(0);
     expect(await runAgentstack(["doctor", "--env", "preview"], { cwd: dir, write: () => undefined })).toBe(0);
-    expect(await runAgentstack(["dev", "--env", "preview"], { cwd: dir, write: () => undefined })).toBe(0);
+    expect(await runAgentstack(["dev", "--env", "preview", "--check"], { cwd: dir, write: () => undefined })).toBe(0);
 
     const code = await runAgentstack(
       ["observe", "timeline", "--env", "preview", "--journey", "agent-command"],

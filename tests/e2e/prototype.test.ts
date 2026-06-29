@@ -49,7 +49,12 @@ describe("Agentstack consumer executable workflow", () => {
     expect(packageManifest.scripts).not.toHaveProperty("create-agent-stack");
     expect(packageManifest.scripts).toMatchObject({
       validate: "agentstack validate",
-      dev: "agentstack dev",
+      dev: "agentstack dev --surface web",
+      "dev:check": "agentstack dev --surface web --check",
+      doctor: "agentstack doctor --env preview",
+      "env:inspect": "agentstack env inspect --env preview",
+      "preview:sync": "agentstack sync --env preview --apply",
+      "preview:up": "agentstack preview up --env preview",
       "provider:bootstrap": "agentstack provider bootstrap",
       "provider:link": "agentstack provider link",
       "auth:user": "agentstack auth user",

@@ -14,9 +14,24 @@ runbooks.
 - Do not add generated `docs/`, `scripts/`, `skills/`, root `convex/`, root
   `vercel.json`, or root `packages/` framework internals to this app.
 
+## Happy Path
+
+- `pnpm run validate`
+- `pnpm run dev`
+- `pnpm run preview:up -- --confirm-live-mutation`
+
+`pnpm run dev:check` is diagnostics-only. `pnpm run dev` starts the local web
+surface.
+
 ## Commands
 
 - `pnpm run validate`
+- `pnpm run dev`
+- `pnpm run dev:check`
+- `pnpm run doctor`
+- `pnpm run env:inspect`
+- `pnpm run preview:sync`
+- `pnpm run preview:up`
 - `pnpm run provider:bootstrap`
 - `pnpm run provider:link`
 - `pnpm run auth:user`

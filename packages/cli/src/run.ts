@@ -215,7 +215,7 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
   try {
     const [command, subcommand, ...rest] = argv;
 
-    if (command === "--help" || command === "-h") {
+    if (isHelpArg(command)) {
       writeTopLevelUsage(io);
       return 0;
     }
@@ -345,6 +345,11 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
       return await skillsInspectCommand(io);
     }
 
+    if (command === "env" && (isHelpArg(subcommand) || subcommand === undefined)) {
+      writeEnvUsage(io);
+      return 0;
+    }
+
     if (command === "env" && subcommand === "inspect") {
       return await envInspectCommand(rest, io);
     }
@@ -385,20 +390,44 @@ function writeTopLevelUsage(io: RunIo): void {
   io.write("Usage: agentstack <command> [options]");
   io.write("");
   io.write("Commands:");
+  io.write("  create         Create a lean Agentstack app");
   io.write("  validate       Validate project structure and release readiness");
   io.write("  format         Check generated formatting-sensitive files");
   io.write("  inspect        Inspect local project state");
-  io.write("  doctor         Diagnose local preview readiness");
-  io.write("  dev            Print local development preflight");
-  io.write("  sync           Plan or apply local cloud state");
+  io.write("  dev            Start a local app surface after preflight");
+  io.write("  doctor         Diagnose readiness without starting servers");
+  io.write("  sync           Rehearse local provider state under .agentstack/");
+  io.write("  env            Inspect or set local validation env values");
   io.write("  deploy         Plan or apply deploy actions");
-  io.write("  provider       Plan, inspect, link, adopt, or ledger provider resources");
+  io.write("  provider       Bootstrap, link, inspect, adopt, or ledger provider resources");
   io.write("  auth           Manage package-owned auth fixtures");
   io.write("  billing        Bootstrap and verify Clerk Billing entitlement fixtures");
   io.write("  smoke          Validate preview auth/data smoke evidence");
   io.write("  evidence       Check package-owned validation evidence");
   io.write("  observe        Inspect telemetry and journey evidence");
   io.write("  theme          Validate generated theme tokens");
+}
+
+function isHelpArg(value: string | undefined): boolean {
+  return value === "--help" || value === "-h" || value === "help";
+}
+
+function writeSyncUsage(io: RunIo): void {
+  io.write("Usage: agentstack sync --env <environment> [--apply]");
+  io.write("");
+  io.write("Local rehearsal only. This updates ignored .agentstack state and does not mutate live providers.");
+  io.write("");
+  io.write("Examples:");
+  io.write("  agentstack sync --env preview");
+  io.write("  agentstack sync --env preview --apply");
+}
+
+function writeEnvUsage(io: RunIo): void {
+  io.write("Usage: agentstack env <command> [options]");
+  io.write("");
+  io.write("Commands:");
+  io.write("  inspect      Inspect declared local and provider env binding state");
+  io.write("  set          Store a local validation env value under .agentstack/");
 }
 
 function writeBillingUsage(io: RunIo): void {
@@ -658,22 +687,46 @@ async function doctorCommand(argv: string[], io: RunIo): Promise<number> {
 }
 
 async function devCommand(argv: string[], io: RunIo): Promise<number> {
-  const environment = readDevEnvironmentOption(parseOptions(argv).env);
+  const options = parseOptions(argv);
+  const environment = readDevEnvironmentOption(options.env);
+  const surface = readSurfaceOption(options.surface, {
+    flag: "surface",
+    fix: "Run agentstack dev --surface web.",
+    defaultValue: "web"
+  });
+  const checkOnly = Boolean(options.check);
   const { summary, localDiagnostics, cloudDiagnostics } = await loadLifecycleSummary(io.cwd, environment, {
     includeCloudDiagnostics: true
   });
   const localFailed = localDiagnostics.some((diagnostic) => diagnostic.severity === "fail");
+  const surfacedCloudDiagnostics = filterCloudDiagnosticsForSurface(cloudDiagnostics, surface);
 
   if (localFailed) {
-    io.write(`FAIL dev preflight ${environment}`);
+    io.write(`FAIL dev preflight ${environment} ${surface}`);
     localDiagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
   } else {
-    io.write(`PASS dev preflight ${environment}`);
-    if (cloudDiagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
+    io.write(`PASS dev preflight ${environment} ${surface}`);
+    if (surfacedCloudDiagnostics.some((diagnostic) => diagnostic.severity === "fail")) {
       io.write(`WARN dev cloud ${environment}`);
-      cloudDiagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
+      surfacedCloudDiagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
     }
-    writeDevNextCommands(io, environment, summary.nextCommands);
+    if (checkOnly) {
+      writeDevNextCommands(io, environment, summary.nextCommands);
+    } else {
+      const command = devCommandForSurface(surface);
+      io.write(`Starting ${surface} dev server: ${formatCommandSpec(command)}`);
+      const exitCode = await runInteractiveCommand(io, command);
+      await recordCommandEvent(io, {
+        name: "agentstack.dev.started",
+        environment,
+        surface,
+        journey: "agent-command",
+        command: ["dev", ...argv].join(" "),
+        status: exitCode === 0 ? "ok" : "fail",
+        state: { exitCode }
+      });
+      return exitCode;
+    }
   }
 
   await recordCommandEvent(io, {
@@ -684,11 +737,62 @@ async function devCommand(argv: string[], io: RunIo): Promise<number> {
     status: localFailed ? "fail" : "ok",
     state: {
       localDiagnostics: localDiagnostics.length,
-      cloudDiagnostics: cloudDiagnostics.length,
+      cloudDiagnostics: surfacedCloudDiagnostics.length,
       cloudMissing: summary.cloud?.missingServices.length ?? 0
     }
   });
   return localFailed ? 1 : 0;
+}
+
+function devCommandForSurface(surface: SurfaceName): LocalCommandSpec {
+  if (surface === "web") {
+    return { id: "dev:web", command: "pnpm", args: ["--filter", "@app/web", "dev"] };
+  }
+  if (surface === "mobile") {
+    return { id: "dev:mobile", command: "pnpm", args: ["--filter", "@app/mobile", "dev"] };
+  }
+  return { id: "dev:convex", command: "pnpm", args: ["--filter", "@app/convex", "dev"] };
+}
+
+function formatCommandSpec(spec: LocalCommandSpec): string {
+  return [spec.command, ...spec.args].join(" ");
+}
+
+async function runInteractiveCommand(io: RunIo, spec: LocalCommandSpec): Promise<number> {
+  if (io.commandRunner) {
+    const result = await io.commandRunner(spec);
+    if (result.stdout) {
+      io.write(result.stdout.trimEnd());
+    }
+    if (result.stderr) {
+      io.write(result.stderr.trimEnd());
+    }
+    return result.exitCode;
+  }
+
+  return await new Promise((resolvePromise) => {
+    const child = spawn(spec.command, spec.args, {
+      cwd: io.cwd,
+      stdio: "inherit",
+      shell: false,
+      env: process.env
+    });
+    child.on("error", (error) => {
+      io.write(error.message);
+      resolvePromise(1);
+    });
+    child.on("close", (exitCode) => resolvePromise(exitCode ?? 1));
+  });
+}
+
+function filterCloudDiagnosticsForSurface(diagnostics: Diagnostic[], surface: SurfaceName): Diagnostic[] {
+  if (surface === "web") {
+    return diagnostics.filter((diagnostic) => !diagnostic.path.includes(".eas"));
+  }
+  if (surface === "mobile") {
+    return diagnostics.filter((diagnostic) => !diagnostic.path.includes(".vercel"));
+  }
+  return diagnostics;
 }
 
 async function deployCommand(argv: string[], io: RunIo): Promise<number> {
@@ -3885,10 +3989,11 @@ function writeNextCommands(io: RunIo, commands: string[]): void {
 function writeDevNextCommands(io: RunIo, environment: EnvironmentName, commands: string[]): void {
   const syncCommand =
     environment === "preview"
-      ? "pnpm run preview:apply"
-      : `node scripts/agentstack.mjs sync --env ${environment} --apply`;
+      ? "pnpm run preview:sync"
+      : `agentstack sync --env ${environment} --apply`;
   const devCommands = new Set([
     "pnpm run validate",
+    "pnpm run dev",
     "pnpm run env:inspect",
     syncCommand,
     ...commands,
@@ -4252,6 +4357,11 @@ function containsSecretLikeValue(content: string): boolean {
 }
 
 async function syncCommand(argv: string[], io: RunIo): Promise<number> {
+  if (argv.some(isHelpArg)) {
+    writeSyncUsage(io);
+    return 0;
+  }
+
   const options = parseOptions(argv);
   const environment = readEnvironmentOption(options.env, {
     flag: "env",
@@ -5174,9 +5284,13 @@ function readReleaseEnvironmentOption(
 }
 
 function readDevEnvironmentOption(value: string | boolean | undefined): EnvironmentName {
+  if (value === undefined) {
+    return "development";
+  }
+
   const environment = readLifecycleEnvironmentOption(value, {
     flag: "env",
-    fix: "Run agentstack dev --env preview."
+    fix: "Run agentstack dev --env development."
   });
 
   if (environment === "development" || environment === "preview") {
@@ -5187,15 +5301,19 @@ function readDevEnvironmentOption(value: string | boolean | undefined): Environm
     [
       "FAIL cli.option.invalid",
       "Invalid --env value: production. Expected one of: development, preview.",
-      "Fix: Run agentstack dev --env preview."
+      "Fix: Run agentstack dev --env development."
     ].join("\n")
   );
 }
 
 function readSurfaceOption(
   value: string | boolean | undefined,
-  options: { flag: string; fix: string }
+  options: { flag: string; fix: string; defaultValue?: SurfaceName }
 ): SurfaceName {
+  if (value === undefined && options.defaultValue) {
+    return options.defaultValue;
+  }
+
   if (typeof value !== "string") {
     throw new Error(
       [
