@@ -4,10 +4,11 @@ Validation-driven execution. **Start with the active milestone**, not the consum
 
 ## Active milestone
 
-**M3 implementation/live blocker**: M2 passed against live Clerk, Convex, and Vercel on 2026-06-28. M3 local
-implementation and the live default-deny preview path are in place, but the real Billing grant/webhook path is blocked
-because Clerk Billing is not enabled for the generated preview Clerk application. Do not start M4 or clean-machine
-packaging until M3 is either validated or explicitly stopped.
+**M3 live pass**: M2 passed against live Clerk, Convex, and Vercel on 2026-06-28. M3 local implementation, live
+default-deny preview path, Clerk Billing feature/plan verification, webhook bootstrap, real Billing grant webhook,
+allowed preview UI smoke, Svix replay idempotency, and M3 evidence check passed on 2026-06-29. Do not start M4 or
+clean-machine packaging until the active M3 test subscription/payment source cleanup approach is acknowledged or
+completed.
 
 ## All milestones
 
@@ -16,7 +17,7 @@ packaging until M3 is either validated or explicitly stopped.
 | M0 | Reference | [Hypothesis](../validation-hypothesis.md) |
 | M1 | Complete | [M1-preview-e2e.md](./M1-preview-e2e.md) |
 | M2 | Complete | [M2-agent-completes-m1.md](./M2-agent-completes-m1.md) |
-| M3 | Implemented locally; live blocked by Clerk Billing enablement | [M3-billing-webhook.md](./M3-billing-webhook.md) |
+| M3 | Live billing path passed; cleanup hardening pending | [M3-billing-webhook.md](./M3-billing-webhook.md) |
 | M4 | Locked | [M4-clean-machine-smoke.md](./M4-clean-machine-smoke.md) |
 
 ## New coding agent?

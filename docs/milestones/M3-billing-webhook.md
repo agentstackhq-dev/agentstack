@@ -1,6 +1,6 @@
 # M3: Billing Webhook + Entitlement Gate
 
-Status: **implemented locally; live blocked by Clerk Billing enablement**
+Status: **live billing path passed; cleanup hardening pending**
 
 M2 passed on 2026-06-28. M3 is now unlocked for the Clerk Billing approach specified in
 [../superpowers/specs/2026-06-28-agentstack-m3-clerk-billing-webhook-design.md](../superpowers/specs/2026-06-28-agentstack-m3-clerk-billing-webhook-design.md).
@@ -8,7 +8,9 @@ M2 passed on 2026-06-28. M3 is now unlocked for the Clerk Billing approach speci
 Implementation follows
 [../superpowers/plans/2026-06-28-agentstack-m3-clerk-billing-webhook.md](../superpowers/plans/2026-06-28-agentstack-m3-clerk-billing-webhook.md)
 and has live evidence in
-[evidence/M3-billing-webhook/m3-live-billing-blocker-2026-06-28.md](./evidence/M3-billing-webhook/m3-live-billing-blocker-2026-06-28.md).
+[evidence/M3-billing-webhook/m3-live-billing-blocker-2026-06-28.md](./evidence/M3-billing-webhook/m3-live-billing-blocker-2026-06-28.md)
+and
+[evidence/M3-billing-webhook/m3-live-billing-check-2026-06-29.md](./evidence/M3-billing-webhook/m3-live-billing-check-2026-06-29.md).
 
 ## Hypothesis under test
 
@@ -35,33 +37,35 @@ Provider decisions:
       with validation diagnostics pointing to stable schema paths.
 - [x] The generated app root remains lean: no copied `docs/`, copied `scripts/`, generated skills, root
       `convex/`, root `vercel.json`, generated provider ledger, or generated runbook.
-- [ ] Package-owned commands bootstrap or verify the Clerk Billing feature/plan and Clerk webhook endpoint
+- [x] Package-owned commands bootstrap or verify the Clerk Billing feature/plan and Clerk webhook endpoint
       for preview, ledger all real provider resources, and store the webhook signing secret only in hidden
-      local/provider env state. **Blocked live:** Clerk returned `billing_not_enabled` for the generated
-      preview application before a real plan, feature, webhook delivery, or endpoint secret could be validated.
+      local/provider env state.
 - [x] Convex exposes a public HTTP action for Clerk Billing webhook delivery, verifies Clerk webhook
       signatures, and stores idempotent webhook event records keyed by provider message identity.
-- [ ] A real Clerk Billing event grants or refreshes `feature.auditLog` in Convex entitlement state.
-- [ ] Replaying the same provider event is idempotent and does not duplicate entitlement effects.
-- [ ] The authenticated Vercel preview UI shows `feature.auditLog` denied before grant and allowed after
-      the real webhook updates Convex. Denied state passed live; allowed state is blocked by Clerk Billing
-      enablement.
+- [x] A real Clerk Billing event grants or refreshes `feature.auditLog` in Convex entitlement state.
+- [x] Replaying the same provider event is idempotent and does not duplicate entitlement effects.
+- [x] The authenticated Vercel preview UI shows `feature.auditLog` denied before grant and allowed after
+      the real webhook updates Convex.
 - [x] Package-owned smoke/evidence commands verify the entitlement DOM markers and Convex evidence for the
-      denied/default state. Final allowed/replay evidence remains blocked by Clerk Billing enablement.
+      denied/default state and the allowed/post-grant state.
 - [x] Redacted evidence is recorded in `docs/milestones/evidence/M3-billing-webhook/`.
 - [ ] Cleanup/revert command deletes or revokes M3 smoke users, organizations, subscription fixtures, and
       local secret/evidence state that should not persist.
 
-## Current live blocker
+## Live validation result
 
-On 2026-06-28, a fresh generated app passed validate, provider bootstrap/link, preview deploy, auth user
-creation, signed-in protected Convex data smoke, and denied `feature.auditLog` smoke. `billing:bootstrap`
-then blocked because Clerk returned `billing_not_enabled` for `m3-live-audit-preview`.
+On 2026-06-29, Clerk Billing was enabled for `m3-live-audit-preview`, Feature slug `audit_log` and Plan slug
+`agentstack_m3_audit_log` were present, the Svix endpoint was configured for the Convex HTTP action, and
+`billing:bootstrap -- --env preview --confirm-live-mutation` passed.
 
-Before M3 can pass, enable Clerk Billing for that preview Clerk application, create/verify Feature slug
-`audit_log` and Plan slug `agentstack_m3_audit_log`, configure the Svix endpoint for the Convex HTTP action,
-store the endpoint signing secret only in hidden local state, then rerun the grant, allowed smoke, replay, and
-evidence commands from the live generated app.
+After a Clerk test payment method was added for the smoke user, the smoke principal was transitioned from the
+default `free_user` plan to `agentstack_m3_audit_log`. Clerk emitted real Billing webhook deliveries, Convex
+processed `subscriptionItem.active` into an allowed `feature.auditLog` entitlement, the authenticated preview UI
+rendered the allowed state, and replaying the same Svix delivery produced a duplicate record. The generated app's
+`evidence:check -- --env preview --milestone M3` passed.
+
+Remaining cleanup work is no longer a validation blocker, but it is concrete: cancel or remove the active Clerk test
+subscription/payment source and delete the M3 smoke user after post-M3 review.
 
 ## Not this milestone
 
