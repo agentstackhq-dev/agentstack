@@ -1,6 +1,8 @@
+import { execFile } from "node:child_process";
 import { mkdtemp, readFile, readdir, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
+import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, test } from "vitest";
@@ -13,6 +15,7 @@ const repoRoot = resolve(packageRoot, "../..");
 const rootTemplateDir = join(repoRoot, "templates/b2b-saas");
 const packageTemplateDir = join(packageRoot, "templates/b2b-saas");
 const templateTokens = ["__APP_SLUG__", "__APP_NAME__"];
+const execFileAsync = promisify(execFile);
 
 describe("generateProject", () => {
   test("generates the M2 lean package-driven app surface", async () => {
@@ -109,6 +112,27 @@ describe("generateProject", () => {
       expect(packageManifest.dependencies.agentstack).toBe(
         "link:<agentstack-repo>/packages/agentstack"
       );
+    } finally {
+      await rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  test("direct create-agent-stack bin accepts a local Agentstack package spec", async () => {
+    const tempRoot = await mkdtemp(join(tmpdir(), "agentstack-create-bin-"));
+    const packageSpec = "link:<agentstack-repo>/packages/agentstack";
+
+    try {
+      await execFileAsync(resolve(repoRoot, "node_modules/.bin/tsx"), [
+        join(packageRoot, "src/bin.ts"),
+        "acme-crm",
+        "--package-spec",
+        packageSpec
+      ], {
+        cwd: tempRoot
+      });
+
+      const packageManifest = JSON.parse(await readFile(join(tempRoot, "acme-crm", "package.json"), "utf8"));
+      expect(packageManifest.dependencies.agentstack).toBe(packageSpec);
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }

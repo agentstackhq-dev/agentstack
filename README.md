@@ -84,6 +84,19 @@ corepack pnpm install
 corepack pnpm run validate
 ```
 
+If you call the lower-level `create-agent-stack` bin directly during local framework development, pass the same package
+spec so the generated app does not try to install a registry version:
+
+```sh
+create-agent-stack smoke-app --package-spec link:<agentstack-repo>/packages/agentstack
+```
+
+For repeated local runs, `AGENTSTACK_PACKAGE_SPEC` is also honored:
+
+```sh
+AGENTSTACK_PACKAGE_SPEC=link:<agentstack-repo>/packages/agentstack create-agent-stack smoke-app
+```
+
 Live preview and billing flows require authenticated provider CLIs plus explicit live-mutation confirmations. Use the
 milestone docs rather than older readiness-progress logs for those commands.
 
