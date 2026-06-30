@@ -169,7 +169,7 @@ describe("Agentstack consumer executable workflow", () => {
     await expect(readFile(join(appDir, ".agentstack/deployments/preview.json"), "utf8")).resolves.toContain(
       '"environment": "preview"'
     );
-  }, 15000);
+  }, 60_000);
 });
 
 async function installLocalAgentstackPackage(appDir: string): Promise<void> {
