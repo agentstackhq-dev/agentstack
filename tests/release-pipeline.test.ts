@@ -34,6 +34,8 @@ describe("release pipeline contract", () => {
     expect(workflow).toContain("on:");
     expect(workflow).toContain("pull_request:");
     expect(workflow).toContain("push:");
+    expect(workflow).toContain("pnpm/action-setup@v4");
+    expect(workflow).toContain("version: 9.15.4");
     expect(workflow).toContain("node-version: 24");
     expect(workflow).toContain("corepack pnpm install --frozen-lockfile");
     expect(workflow).toContain("corepack pnpm run release:check -- --skip-npm-dry-run");
@@ -45,6 +47,8 @@ describe("release pipeline contract", () => {
     expect(workflow).toContain("workflow_dispatch:");
     expect(workflow).toContain("id-token: write");
     expect(workflow).toContain("environment: npm-production");
+    expect(workflow).toContain("pnpm/action-setup@v4");
+    expect(workflow).toContain("version: 9.15.4");
     expect(workflow).toContain("corepack pnpm run release:check -- --skip-npm-dry-run");
     expect(workflow).toContain("corepack pnpm run release:publish");
     expect(workflow).toContain("corepack pnpm run release:registry:smoke");

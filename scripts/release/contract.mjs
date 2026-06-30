@@ -163,6 +163,8 @@ function assertCurrentSurfaceHasNoLegacyScope(root) {
 function assertWorkflowFiles(root) {
   const ci = readText(join(root, ".github/workflows/ci.yml"));
   assertDoesNotContain(ci, "NPM_TOKEN", ".github/workflows/ci.yml");
+  assertFileContains(root, ".github/workflows/ci.yml", "pnpm/action-setup@v4");
+  assertFileContains(root, ".github/workflows/ci.yml", "version: 9.15.4");
   assertFileContains(
     root,
     ".github/workflows/ci.yml",
@@ -173,6 +175,8 @@ function assertWorkflowFiles(root) {
   assertFileContains(root, ".github/workflows/release.yml", "workflow_dispatch:");
   assertFileContains(root, ".github/workflows/release.yml", "id-token: write");
   assertFileContains(root, ".github/workflows/release.yml", "environment: npm-production");
+  assertFileContains(root, ".github/workflows/release.yml", "pnpm/action-setup@v4");
+  assertFileContains(root, ".github/workflows/release.yml", "version: 9.15.4");
   assertFileContains(
     root,
     ".github/workflows/release.yml",

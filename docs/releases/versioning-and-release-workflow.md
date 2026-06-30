@@ -63,6 +63,8 @@ corepack pnpm run release:registry:smoke -- --version 0.1.0-beta.4
 `.github/workflows/ci.yml` runs `corepack pnpm run release:check -- --skip-npm-dry-run` on pull requests and pushes.
 That keeps CI fully unauthenticated while still enforcing the build, type, test, smoke, mirror, and release-contract
 checks. The npm publish dry-run remains part of the local release gate and the manual release workflow.
+Both workflows install pnpm `9.15.4` before `actions/setup-node` restores the pnpm cache, so cache restore does not
+depend on Corepack side effects.
 
 `.github/workflows/release.yml` is manual-only through `workflow_dispatch`. It requires:
 
