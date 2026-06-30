@@ -74,25 +74,25 @@ describe("release pipeline contract", () => {
       attempts.push(specifier);
       if (attempts.length === 1) {
         return {
-          version: "0.1.0-beta.4",
-          "dist-tags": { beta: "0.1.0-beta.4" }
+          version: "0.1.0-beta.5",
+          "dist-tags": { beta: "0.1.0-beta.5" }
         };
       }
       return {
-        version: "0.1.0-beta.5",
-        "dist-tags": { beta: "0.1.0-beta.5" }
+        version: "0.1.0-beta.6",
+        "dist-tags": { beta: "0.1.0-beta.6" }
       };
     };
 
     await expect(
-      verifyPublishedPackage("@agentstackhq/cli", "0.1.0-beta.5", "beta", {
+      verifyPublishedPackage("@agentstackhq/cli", "0.1.0-beta.6", "beta", {
         attempts: 2,
         delayMs: 0,
         viewPackage
       })
     ).resolves.toMatchObject({
-      version: "0.1.0-beta.5",
-      "dist-tags": { beta: "0.1.0-beta.5" }
+      version: "0.1.0-beta.6",
+      "dist-tags": { beta: "0.1.0-beta.6" }
     });
     expect(attempts).toEqual(["@agentstackhq/cli@beta", "@agentstackhq/cli@beta"]);
   });

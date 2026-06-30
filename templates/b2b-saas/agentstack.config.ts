@@ -1,7 +1,7 @@
 import { defineAgentstackConfig } from "@agentstackhq/agentstack/config";
 
 export default defineAgentstackConfig({
-  frameworkVersion: "0.1.0-beta.5",
+  frameworkVersion: "0.1.0-beta.6",
   app: {
     name: "__APP_NAME__",
     slug: "__APP_SLUG__"

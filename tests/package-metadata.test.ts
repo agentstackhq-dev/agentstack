@@ -4,7 +4,7 @@ import { join, resolve } from "node:path";
 import { describe, expect, test } from "vitest";
 
 const repoRoot = resolve(dirnameFromUrl(import.meta.url), "..");
-const previewVersion = "0.1.0-beta.5";
+const previewVersion = "0.1.0-beta.6";
 
 const publishedPackages = [
   {
@@ -65,7 +65,7 @@ describe("npm preview package metadata", () => {
       expect(manifest.files).toEqual(pkg.files);
       expect(manifest.repository).toEqual({
         type: "git",
-        url: "https://github.com/agentstackhq-dev/agentstack",
+        url: "git+https://github.com/agentstackhq-dev/agentstack.git",
         directory: pkg.dir
       });
       expect(manifest.publishConfig).toMatchObject({ access: "public", tag: "beta" });

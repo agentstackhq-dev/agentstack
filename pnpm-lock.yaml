@@ -33,16 +33,16 @@ importers:
   packages/adapters:
     dependencies:
       '@agentstackhq/core':
-        specifier: 0.1.0-beta.5
+        specifier: 0.1.0-beta.6
         version: link:../core
 
   packages/agentstack:
     dependencies:
       '@agentstackhq/cli':
-        specifier: 0.1.0-beta.5
+        specifier: 0.1.0-beta.6
         version: link:../cli
       '@agentstackhq/core':
-        specifier: 0.1.0-beta.5
+        specifier: 0.1.0-beta.6
         version: link:../core
       fs-extra:
         specifier: ^11.2.0
@@ -55,13 +55,13 @@ importers:
   packages/cli:
     dependencies:
       '@agentstackhq/adapters':
-        specifier: 0.1.0-beta.5
+        specifier: 0.1.0-beta.6
         version: link:../adapters
       '@agentstackhq/core':
-        specifier: 0.1.0-beta.5
+        specifier: 0.1.0-beta.6
         version: link:../core
       '@agentstackhq/telemetry':
-        specifier: 0.1.0-beta.5
+        specifier: 0.1.0-beta.6
         version: link:../telemetry
       commander:
         specifier: ^12.1.0

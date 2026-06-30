@@ -23,14 +23,14 @@ Supported release tags:
 - Stable: `vX.Y.Z`, package version `X.Y.Z`, npm dist-tag `latest`
 
 Do not publish a beta version with `latest` from the automated workflow. The current registry-smoked beta target is
-`0.1.0-beta.5`.
+`0.1.0-beta.6`.
 
 ## Local Release Commands
 
 Prepare a new version:
 
 ```sh
-corepack pnpm run release:bump -- --version 0.1.0-beta.5
+corepack pnpm run release:bump -- --version 0.1.0-beta.6
 corepack pnpm install --lockfile-only
 corepack pnpm run release:check
 ```
@@ -44,7 +44,7 @@ corepack pnpm run release:publish -- --tag beta --dry-run
 Smoke a published version from the public registry:
 
 ```sh
-corepack pnpm run release:registry:smoke -- --version 0.1.0-beta.5
+corepack pnpm run release:registry:smoke -- --version 0.1.0-beta.6
 ```
 
 `release:check` runs the local gate:
@@ -91,7 +91,7 @@ The release workflow grants `id-token: write`, runs on a GitHub-hosted runner, u
 before publishing. That satisfies the npm Trusted publishing requirements and lets npm issue short-lived credentials
 through GitHub OIDC. Trusted publishing automatically generates npm provenance, so the package-owned publish script does
 not pass `--provenance`; every package manifest must keep `repository.url` exactly aligned with the GitHub repository
-reported by OIDC.
+reported by OIDC, using npm's canonical `git+https://github.com/agentstackhq-dev/agentstack.git` form.
 After a real publish, the publish script verifies that each configured npm dist-tag resolves to the released version and
 retries briefly to tolerate npm registry propagation lag before failing the workflow.
 

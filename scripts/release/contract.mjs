@@ -13,7 +13,7 @@ export const releasePackages = [
   { dir: "packages/cli", name: "@agentstackhq/cli", files: ["dist", "skills"] },
   { dir: "packages/agentstack", name: publicPackageName, files: ["dist", "templates"] }
 ];
-const repositoryUrl = "https://github.com/agentstackhq-dev/agentstack";
+const repositoryUrl = "git+https://github.com/agentstackhq-dev/agentstack.git";
 const localUserPathMarker = ["/", "Users", "/"].join("");
 
 const currentSurfaceScanRoots = [
