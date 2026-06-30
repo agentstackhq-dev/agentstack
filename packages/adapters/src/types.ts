@@ -8,7 +8,7 @@ import type {
   ProviderEnvSource,
   ServiceName,
   SurfaceName
-} from "@agentstack/core";
+} from "@agentstackhq/core";
 
 export type SyncOptions = {
   apply: boolean;

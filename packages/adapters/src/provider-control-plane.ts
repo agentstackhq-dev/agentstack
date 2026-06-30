@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { AgentstackManifest } from "@agentstack/core";
+import type { AgentstackManifest } from "@agentstackhq/core";
 import type {
   ProviderExecutionResult,
   ProviderLiveFactLabel,

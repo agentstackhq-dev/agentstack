@@ -1,10 +1,25 @@
 {
-  "name": "@agentstack/core",
-  "version": "0.0.0",
+  "name": "@agentstackhq/core",
+  "version": "0.1.0-beta.3",
+  "description": "Core schemas, validation, and generated-boundary contracts for Agentstack.",
   "type": "module",
-  "main": "src/index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "beta"
   },
   "dependencies": {
     "zod": "^3.24.1"

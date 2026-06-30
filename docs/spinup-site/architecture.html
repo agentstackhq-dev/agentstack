@@ -72,19 +72,19 @@
             <h2>Package ownership</h2>
             <div class="grid three">
               <div class="card">
-                <h3><code>@agentstack/core</code></h3>
+                <h3><code>@agentstackhq/core</code></h3>
                 <p>Defines the manifest schema, diagnostics, env graph, env-value parsing, theme contract, local validation, and generated-anchor policy.</p>
               </div>
               <div class="card">
-                <h3><code>@agentstack/adapters</code></h3>
+                <h3><code>@agentstackhq/adapters</code></h3>
                 <p>Defines provider adapter interfaces and the filesystem-backed local-cloud adapter used by this slice.</p>
               </div>
               <div class="card">
-                <h3><code>@agentstack/telemetry</code></h3>
+                <h3><code>@agentstackhq/telemetry</code></h3>
                 <p>Creates wide events, redacts sensitive state, stores JSONL, and runs local queries.</p>
               </div>
               <div class="card">
-                <h3><code>@agentstack/cli</code></h3>
+                <h3><code>@agentstackhq/cli</code></h3>
                 <p>Loads project context, composes validation, runs local-cloud commands, and queries telemetry.</p>
               </div>
               <div class="card">
@@ -196,9 +196,9 @@
               <thead><tr><th>Question</th><th>Owned by</th><th>Current answer</th></tr></thead>
               <tbody>
                 <tr><td>What should the app contain?</td><td><code>agentstack.config.ts</code> and the installed <code>agentstack</code> package</td><td>Surfaces, services, env declarations, telemetry policy, billing entitlements, generated app code, and package-owned workflow commands.</td></tr>
-                <tr><td>How does an agent run the workflow?</td><td><code>@agentstack/cli</code> and generated scripts</td><td>Inspect, doctor, dev preflight, validate, env inspect/set, sync, provider plan/inspect/apply, deploy, build mobile, observe.</td></tr>
-                <tr><td>Where is provider state?</td><td><code>@agentstack/adapters</code></td><td><code>.agentstack/local-cloud.json</code>, redacted command-plan operations, explicit Clerk/Convex/Vercel/EAS read diagnostics, and ledger-gated Convex/Vercel apply results.</td></tr>
-                <tr><td>Where is incident evidence?</td><td><code>@agentstack/telemetry</code></td><td><code>.agentstack/events.jsonl</code> and local <code>OTLP-shaped JSON</code> exports.</td></tr>
+                <tr><td>How does an agent run the workflow?</td><td><code>@agentstackhq/cli</code> and generated scripts</td><td>Inspect, doctor, dev preflight, validate, env inspect/set, sync, provider plan/inspect/apply, deploy, build mobile, observe.</td></tr>
+                <tr><td>Where is provider state?</td><td><code>@agentstackhq/adapters</code></td><td><code>.agentstack/local-cloud.json</code>, redacted command-plan operations, explicit Clerk/Convex/Vercel/EAS read diagnostics, and ledger-gated Convex/Vercel apply results.</td></tr>
+                <tr><td>Where is incident evidence?</td><td><code>@agentstackhq/telemetry</code></td><td><code>.agentstack/events.jsonl</code> and local <code>OTLP-shaped JSON</code> exports.</td></tr>
                 <tr><td>What is still a gap?</td><td>Outside the current boundary</td><td>Vercel production apply, Vercel env mutation execution, EAS apply/build/project:init/env mutation, hosted telemetry ingestion, Stripe provider execution, broader workflows, and app-store submission.</td></tr>
               </tbody>
             </table>

@@ -1,4 +1,4 @@
-import type { EnvironmentName, ServiceName } from "@agentstack/core";
+import type { EnvironmentName, ServiceName } from "@agentstackhq/core";
 
 export type ProviderCommandExecutorOptions = {
   cwd?: string;

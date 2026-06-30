@@ -76,8 +76,9 @@ describe("generateProject", () => {
       expect(files.some((file) => file.startsWith("convex/"))).toBe(false);
 
       expect(packageManifest.dependencies).toMatchObject({
-        agentstack: expect.any(String)
+        "@agentstackhq/agentstack": expect.any(String)
       });
+      expect(packageManifest.dependencies).not.toHaveProperty("agentstack");
       expect(packageManifest.devDependencies).toMatchObject({
         "@types/node": "^26.0.1",
         typescript: "^5.7.3"
@@ -133,7 +134,7 @@ describe("generateProject", () => {
         convexApiFreshness.oldestGeneratedMtime
       );
 
-      expect(config).toContain('import { defineAgentstackConfig } from "agentstack/config";');
+      expect(config).toContain('import { defineAgentstackConfig } from "@agentstackhq/agentstack/config";');
       expect(config).toContain("export default defineAgentstackConfig");
       expect(config).toContain('slug: "acme-crm"');
       expect(config).toContain("billing:");
@@ -166,9 +167,10 @@ describe("generateProject", () => {
       });
 
       const packageManifest = JSON.parse(await readFile(join(targetDir, "package.json"), "utf8"));
-      expect(packageManifest.dependencies.agentstack).toBe(
+      expect(packageManifest.dependencies["@agentstackhq/agentstack"]).toBe(
         "link:<agentstack-repo>/packages/agentstack"
       );
+      expect(packageManifest.dependencies).not.toHaveProperty("agentstack");
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }
@@ -182,10 +184,10 @@ describe("generateProject", () => {
       const input = {
         name: "acme-crm",
         targetDir,
-        packageSpec: "file:/tmp/agentstack-m4-pack/agentstack-0.0.0.tgz",
+        packageSpec: "file:/tmp/agentstack-m4-pack/agentstackhq-agentstack-0.1.0-beta.3.tgz",
         packageOverrides: {
-          "@agentstack/cli": "file:/tmp/agentstack-m4-pack/agentstack-cli-0.0.0.tgz",
-          "@agentstack/core": "file:/tmp/agentstack-m4-pack/agentstack-core-0.0.0.tgz"
+          "@agentstackhq/cli": "file:/tmp/agentstack-m4-pack/agentstackhq-cli-0.1.0-beta.3.tgz",
+          "@agentstackhq/core": "file:/tmp/agentstack-m4-pack/agentstackhq-core-0.1.0-beta.3.tgz"
         }
       } as Parameters<typeof generateProject>[0] & { packageOverrides: Record<string, string> };
 
@@ -193,12 +195,12 @@ describe("generateProject", () => {
 
       const packageManifest = JSON.parse(await readFile(join(targetDir, "package.json"), "utf8"));
       expect(packageManifest.dependencies).toEqual({
-        agentstack: "file:/tmp/agentstack-m4-pack/agentstack-0.0.0.tgz"
+        "@agentstackhq/agentstack": "file:/tmp/agentstack-m4-pack/agentstackhq-agentstack-0.1.0-beta.3.tgz"
       });
       expect(packageManifest.pnpm).toEqual({
         overrides: {
-          "@agentstack/cli": "file:/tmp/agentstack-m4-pack/agentstack-cli-0.0.0.tgz",
-          "@agentstack/core": "file:/tmp/agentstack-m4-pack/agentstack-core-0.0.0.tgz"
+          "@agentstackhq/cli": "file:/tmp/agentstack-m4-pack/agentstackhq-cli-0.1.0-beta.3.tgz",
+          "@agentstackhq/core": "file:/tmp/agentstack-m4-pack/agentstackhq-core-0.1.0-beta.3.tgz"
         }
       });
     } finally {

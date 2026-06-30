@@ -1,4 +1,4 @@
-import type { AgentstackManifest, EnvironmentName } from "@agentstack/core";
+import type { AgentstackManifest, EnvironmentName } from "@agentstackhq/core";
 
 import {
   createProviderExecutionResult,

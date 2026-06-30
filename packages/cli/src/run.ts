@@ -55,7 +55,7 @@ import {
   type EasExactProofContext,
   type VercelExactProofContext,
   type ProviderOperation
-} from "@agentstack/adapters";
+} from "@agentstackhq/adapters";
 import {
   buildEnvGraph,
   createLifecycleSummary,
@@ -83,7 +83,7 @@ import {
   type LifecycleSummary,
   type ReleaseEnvironment,
   type SurfaceName
-} from "@agentstack/core";
+} from "@agentstackhq/core";
 import {
   buildTelemetryCompareInspection,
   buildTelemetryErrorInspection,
@@ -101,7 +101,7 @@ import {
   type TelemetryQuery,
   type TelemetrySurface,
   type WideEvent
-} from "@agentstack/telemetry";
+} from "@agentstackhq/telemetry";
 import { loadLocalEnvValues, loadProjectContext } from "./context.js";
 import {
   m2AuthUserCommand,

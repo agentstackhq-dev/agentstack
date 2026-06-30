@@ -1,7 +1,7 @@
-#!/usr/bin/env tsx
+#!/usr/bin/env node
 import { resolve } from "node:path";
 
-import { runAgentstack } from "@agentstack/cli";
+import { runAgentstack } from "@agentstackhq/cli";
 import { generateProject } from "./create/generate.js";
 
 const argv = process.argv.slice(2);
@@ -49,7 +49,7 @@ function writeTopLevelUsage(): number {
       "Examples:",
       "  agentstack create <app-name>",
       "  agentstack create <app-name> --package-spec link:/path/to/agentstack",
-      "  agentstack create <app-name> --package-spec file:/tmp/agentstack.tgz --package-override @agentstack/cli=file:/tmp/agentstack-cli.tgz",
+      "  agentstack create <app-name> --package-spec file:/tmp/agentstackhq-agentstack.tgz --package-override @agentstackhq/cli=file:/tmp/agentstackhq-cli.tgz",
       "  agentstack skills install codex",
       "  agentstack validate",
       "  agentstack deploy --env preview"

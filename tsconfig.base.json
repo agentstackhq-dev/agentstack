@@ -8,6 +8,13 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@agentstackhq/adapters": ["packages/adapters/src/index.ts"],
+      "@agentstackhq/cli": ["packages/cli/src/index.ts"],
+      "@agentstackhq/core": ["packages/core/src/index.ts"],
+      "@agentstackhq/telemetry": ["packages/telemetry/src/index.ts"]
+    },
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,

@@ -1,4 +1,4 @@
-import type { AgentstackManifest, EnvironmentName, ServiceName } from "@agentstack/core";
+import type { AgentstackManifest, EnvironmentName, ServiceName } from "@agentstackhq/core";
 
 import type { InspectEnvResource, InspectReport, InspectServiceResource } from "./types.js";
 

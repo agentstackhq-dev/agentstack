@@ -45,7 +45,7 @@ const scenarios = {
     title: "Stale binary repair",
     command: "which agentstack && agentstack --help",
     result: "Help must show create",
-    detail: "If help does not show create, the visible binary is stale or points at @agentstack/cli instead of the agentstack facade package. The local quickstart documents symlink cleanup.",
+    detail: "If help does not show create, the visible binary is stale or points at @agentstackhq/cli instead of the agentstack facade package. The local quickstart documents symlink cleanup.",
     files: ["docs/references/local-quickstart.md", "packages/agentstack/src/bin.ts", "tests/e2e/prototype.test.ts"]
   },
   previewDeploy: {

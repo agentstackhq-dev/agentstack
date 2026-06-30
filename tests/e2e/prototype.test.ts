@@ -46,8 +46,10 @@ describe("Agentstack consumer executable workflow", () => {
     const packageManifest = JSON.parse(await readFile(join(appDir, "package.json"), "utf8"));
     const generatedConfig = await readFile(join(appDir, "agentstack.config.ts"), "utf8");
 
-    expect(packageManifest.dependencies).toMatchObject({ agentstack: `link:${agentstackPackageDir}` });
-    expect(packageManifest.dependencies.agentstack).toBe(`link:${agentstackPackageDir}`);
+    expect(packageManifest.dependencies).toMatchObject({
+      "@agentstackhq/agentstack": `link:${agentstackPackageDir}`
+    });
+    expect(packageManifest.dependencies).not.toHaveProperty("agentstack");
     expect(packageManifest.scripts).not.toHaveProperty("create-agent-stack");
     expect(packageManifest.scripts).toMatchObject({
       validate: "agentstack validate",
@@ -67,7 +69,7 @@ describe("Agentstack consumer executable workflow", () => {
       "preview:smoke": "agentstack preview smoke --env preview --capture",
       "evidence:check": "agentstack evidence check"
     });
-    expect(generatedConfig).toContain('import { defineAgentstackConfig } from "agentstack/config";');
+    expect(generatedConfig).toContain('import { defineAgentstackConfig } from "@agentstackhq/agentstack/config";');
     expect(generatedConfig).toContain('slug: "acme-crm"');
     expect(generatedConfig).toContain("billing:");
     expect(generatedConfig).toContain('"feature.auditLog"');
@@ -171,9 +173,13 @@ describe("Agentstack consumer executable workflow", () => {
 });
 
 async function installLocalAgentstackPackage(appDir: string): Promise<void> {
+  const build = await runCommand("corepack", ["pnpm", "build"], repoRoot);
+  expect(build.exitCode).toBe(0);
+
   await mkdir(join(appDir, "node_modules", ".bin"), { recursive: true });
-  await symlink(agentstackPackageDir, join(appDir, "node_modules", "agentstack"), "dir");
-  await symlink(join(agentstackPackageDir, "src/bin.js"), join(appDir, "node_modules", ".bin", "agentstack"));
+  await mkdir(join(appDir, "node_modules", "@agentstackhq"), { recursive: true });
+  await symlink(agentstackPackageDir, join(appDir, "node_modules", "@agentstackhq", "agentstack"), "dir");
+  await symlink(join(agentstackPackageDir, "dist/bin.js"), join(appDir, "node_modules", ".bin", "agentstack"));
   await access(join(appDir, "node_modules", ".bin", "agentstack"), constants.X_OK);
 }
 

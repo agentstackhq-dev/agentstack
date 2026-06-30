@@ -1,4 +1,4 @@
-import { createDefaultManifest } from "@agentstack/core";
+import { createDefaultManifest } from "@agentstackhq/core";
 import { describe, expect, it } from "vitest";
 
 import {

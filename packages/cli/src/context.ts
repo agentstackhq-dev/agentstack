@@ -8,7 +8,7 @@ import {
   parseManifest,
   type AgentstackManifest,
   type EnvValueState
-} from "@agentstack/core";
+} from "@agentstackhq/core";
 
 export type ProjectContext = {
   cwd: string;

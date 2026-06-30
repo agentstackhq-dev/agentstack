@@ -5,7 +5,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
-const binTs = join(dirname(fileURLToPath(import.meta.url)), "bin.ts");
+const sourceDir = dirname(fileURLToPath(import.meta.url));
+const binTs = join(sourceDir, "bin.ts");
+const tsconfigPath = join(dirname(dirname(dirname(sourceDir))), "tsconfig.base.json");
 
 let tsxCli;
 
@@ -19,7 +21,7 @@ try {
 
 const result = spawnSync(
   process.execPath,
-  [tsxCli, binTs, ...process.argv.slice(2)],
+  [tsxCli, "--tsconfig", tsconfigPath, binTs, ...process.argv.slice(2)],
   { stdio: "inherit" }
 );
 

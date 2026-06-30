@@ -1,10 +1,13 @@
 # Local Agentstack Quickstart
 
-Last reviewed: 2026-06-29
+Last reviewed: 2026-06-30
 
-Use this when Agentstack is being tested from the local source checkout. For the completed M4 clean-machine smoke, use
+Use this when Agentstack is being tested from the local source checkout. For the completed M4 clean-machine smoke and
+active M5 release check, use
 [M4-clean-machine-smoke.md](../milestones/M4-clean-machine-smoke.md), which validates local `pnpm pack` artifacts from a
-clean consumer workspace instead of source `link:` specs.
+clean consumer workspace instead of source `link:` specs, and
+[M5-preview-beta-publishability.md](../milestones/M5-preview-beta-publishability.md), which validates the scoped beta
+package shape.
 
 ## 1. Verify PATH Binary
 
@@ -23,7 +26,7 @@ Expected on this machine:
 ```
 
 `agentstack --help` must show `create`. If it does not, the visible binary is stale or points directly at
-`@agentstack/cli` instead of the `agentstack` facade package.
+`@agentstackhq/cli` instead of the `@agentstackhq/agentstack` facade package.
 
 If `which agentstack` points at an old symlink, remove that symlink and reinstall from this checkout:
 
@@ -49,8 +52,8 @@ corepack pnpm run dev:check
 ```
 
 The `--package-spec` value is required for local source testing. Without it, the generated app may try to install
-`agentstack` from the public npm registry. This source-link path is not the M4 clean-machine proof; M4 uses local packed
-tarballs and records evidence separately.
+`@agentstackhq/agentstack` from the public npm registry. This source-link path is not the M4/M5 package proof; M4/M5 use
+local packed tarballs and record evidence separately.
 
 ## 3. Repeated Local Runs
 
@@ -69,14 +72,14 @@ agentstack create ags02
 If `pnpm install` fails with:
 
 ```text
-ERR_PNPM_NO_MATCHING_VERSION No matching version found for agentstack@0.0.0
+ERR_PNPM_NO_MATCHING_VERSION No matching version found for @agentstackhq/agentstack@0.1.0-beta.3
 ```
 
 change the generated app dependency:
 
 ```json
 "dependencies": {
-  "agentstack": "link:<agentstack-repo>/packages/agentstack"
+  "@agentstackhq/agentstack": "link:<agentstack-repo>/packages/agentstack"
 }
 ```
 

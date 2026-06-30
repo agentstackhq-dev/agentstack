@@ -4,7 +4,7 @@
   "type": "module",
   "packageManager": "pnpm@9.15.4",
   "dependencies": {
-    "agentstack": "__AGENTSTACK_PACKAGE_SPEC__"
+    "@agentstackhq/agentstack": "__AGENTSTACK_PACKAGE_SPEC__"
   },
   "devDependencies": {
     "@types/node": "^26.0.1",

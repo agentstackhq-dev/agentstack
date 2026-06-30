@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { EnvironmentName } from "@agentstack/core";
+import type { EnvironmentName } from "@agentstackhq/core";
 
 import {
   createProviderExecutionResult,

@@ -15,16 +15,17 @@ const consumerDir = resolve(
 const appName = process.env.AGENTSTACK_M4_APP_NAME ?? "m4-smoke";
 
 const packages = [
-  { dir: "packages/core", name: "@agentstack/core" },
-  { dir: "packages/adapters", name: "@agentstack/adapters" },
-  { dir: "packages/telemetry", name: "@agentstack/telemetry" },
-  { dir: "packages/cli", name: "@agentstack/cli" },
-  { dir: "packages/agentstack", name: "agentstack" }
+  { dir: "packages/core", name: "@agentstackhq/core" },
+  { dir: "packages/adapters", name: "@agentstackhq/adapters" },
+  { dir: "packages/telemetry", name: "@agentstackhq/telemetry" },
+  { dir: "packages/cli", name: "@agentstackhq/cli" },
+  { dir: "packages/agentstack", name: "@agentstackhq/agentstack" }
 ];
+const publicPackageName = "@agentstackhq/agentstack";
 
 const internalPackageNames = packages
   .map((pkg) => pkg.name)
-  .filter((name) => name !== "agentstack");
+  .filter((name) => name !== publicPackageName);
 
 main();
 
@@ -32,6 +33,7 @@ function main() {
   resetDirectory(packDir);
   resetDirectory(consumerDir);
 
+  run("corepack", ["pnpm", "build"], repoRoot);
   const tarballs = packWorkspacePackages();
   const packageSpecs = Object.fromEntries(
     Object.entries(tarballs).map(([name, path]) => [name, `file:${path}`])
@@ -53,7 +55,7 @@ function main() {
       "create",
       appName,
       "--package-spec",
-      packageSpecs.agentstack,
+      packageSpecs[publicPackageName],
       ...internalPackageNames.flatMap((name) => ["--package-override", `${name}=${packageSpecs[name]}`])
     ],
     consumerDir
@@ -123,7 +125,7 @@ function writeLauncherPackage(packageSpecs) {
     type: "module",
     packageManager: "pnpm@9.15.4",
     dependencies: {
-      agentstack: packageSpecs.agentstack
+      [publicPackageName]: packageSpecs[publicPackageName]
     },
     pnpm: {
       overrides: Object.fromEntries(internalPackageNames.map((name) => [name, packageSpecs[name]]))
@@ -138,8 +140,8 @@ function assertGeneratedPackage(appDir, packageSpecs) {
   const packageManifest = JSON.parse(readFileSync(packagePath, "utf8"));
   const serialized = JSON.stringify(packageManifest, null, 2);
 
-  if (packageManifest.dependencies?.agentstack !== packageSpecs.agentstack) {
-    throw new Error("Generated app does not depend on the packed agentstack tarball.");
+  if (packageManifest.dependencies?.[publicPackageName] !== packageSpecs[publicPackageName]) {
+    throw new Error(`Generated app does not depend on the packed ${publicPackageName} tarball.`);
   }
   if (serialized.includes("link:")) {
     throw new Error("Generated app package.json contains a source link dependency.");

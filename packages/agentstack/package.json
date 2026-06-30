@@ -1,19 +1,40 @@
 {
-  "name": "agentstack",
-  "version": "0.0.0",
+  "name": "@agentstackhq/agentstack",
+  "version": "0.1.0-beta.3",
+  "description": "Agent-first meta-framework for lean B2B SaaS preview apps.",
   "type": "module",
-  "main": "src/index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./config": "./src/config.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./config": {
+      "types": "./dist/config.d.ts",
+      "default": "./dist/config.js"
+    }
   },
   "bin": {
-    "agentstack": "src/bin.js"
+    "agentstack": "dist/bin.js"
+  },
+  "files": [
+    "dist",
+    "templates"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && chmod +x dist/bin.js"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "beta"
   },
   "dependencies": {
-    "@agentstack/cli": "workspace:*",
-    "@agentstack/core": "workspace:*",
-    "fs-extra": "^11.2.0",
+    "@agentstackhq/cli": "0.1.0-beta.3",
+    "@agentstackhq/core": "0.1.0-beta.3",
+    "fs-extra": "^11.2.0"
+  },
+  "devDependencies": {
     "tsx": "^4.19.2"
   }
 }

@@ -1,6 +1,6 @@
 # Agentstack Docs
 
-Last reviewed: 2026-06-29
+Last reviewed: 2026-06-30
 
 Use this index to avoid stale-context drift. Active execution follows milestones; long readiness docs and early
 superpowers plans are historical or backlog references unless a milestone points to them.
@@ -24,6 +24,7 @@ superpowers plans are historical or backlog references unless a milestone points
 | [milestones/M2-agent-completes-m1.md](./milestones/M2-agent-completes-m1.md) | Complete | Lean generated app and package-owned CLI contract |
 | [milestones/M3-billing-webhook.md](./milestones/M3-billing-webhook.md) | Live pass, cleanup pending | Clerk Billing webhook and `feature.auditLog` entitlement proof |
 | [milestones/M4-clean-machine-smoke.md](./milestones/M4-clean-machine-smoke.md) | Complete | Local-pack clean-consumer installability proof |
+| [milestones/M5-preview-beta-publishability.md](./milestones/M5-preview-beta-publishability.md) | Complete | Scoped npm beta packaging, release checks, and registry smoke |
 | [milestones/evidence/](./milestones/evidence/) | Redacted evidence | Evidence files are append-only historical proof, not active runbooks unless referenced by a milestone |
 
 ## Operational References
@@ -31,7 +32,8 @@ superpowers plans are historical or backlog references unless a milestone points
 | Document | Status | Notes |
 | --- | --- | --- |
 | [provider-resource-ledger.md](./provider-resource-ledger.md) | Current | Required before/after any real provider resource create/link/mutate/cleanup |
-| [references/local-quickstart.md](./references/local-quickstart.md) | Current | Local source checkout generation, local-pack M4 pointer, `agentstack` PATH checks, stale symlink cleanup, and package-spec repair |
+| [releases/versioning-and-release-workflow.md](./releases/versioning-and-release-workflow.md) | Current | Lockstep package versioning, release gates, GitHub Actions, and npm Trusted publishing |
+| [references/local-quickstart.md](./references/local-quickstart.md) | Current | Local source checkout generation, M4/M5 package checks, `agentstack` PATH checks, stale symlink cleanup, and package-spec repair |
 | [references/m3-clerk-billing-fixture.md](./references/m3-clerk-billing-fixture.md) | Current | Repeatable M3 Clerk Billing setup, payment-method handoff, subscription, replay, cleanup |
 
 ## Backlog And Historical Rationale
@@ -70,3 +72,5 @@ corepack pnpm run evidence:check
 diff -rq templates/b2b-saas packages/agentstack/templates/b2b-saas
 git diff --check
 ```
+
+- Before publishing packages, run `corepack pnpm run release:check` and use the manual GitHub release workflow.

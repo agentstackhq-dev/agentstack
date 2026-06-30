@@ -37,7 +37,7 @@ export async function generateProject(input: GenerateProjectInput): Promise<void
   await replaceTokens(input.targetDir, {
     __APP_SLUG__: appSlug,
     __APP_NAME__: appName,
-    __AGENTSTACK_PACKAGE_SPEC__: input.packageSpec ?? "0.0.0"
+    __AGENTSTACK_PACKAGE_SPEC__: input.packageSpec ?? (await readPackageVersion())
   });
   await writePackageOverrides(input.targetDir, input.packageOverrides);
   await touchConvexGeneratedApiFiles(input.targetDir);
@@ -114,6 +114,16 @@ async function ensureGeneratedGitignore(targetDir: string): Promise<void> {
   if (!hasGitignore && hasFallback) {
     await rename(fallbackPath, gitignorePath);
   }
+}
+
+async function readPackageVersion(): Promise<string> {
+  const packageManifest = JSON.parse(
+    await readFile(join(findPackageRoot(), "package.json"), "utf8")
+  ) as { version?: unknown };
+  if (typeof packageManifest.version !== "string" || packageManifest.version.length === 0) {
+    throw new Error("Agentstack package.json is missing a publishable version.");
+  }
+  return packageManifest.version;
 }
 
 async function writePackageOverrides(

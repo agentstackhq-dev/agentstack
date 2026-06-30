@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join, parse, resolve } from "node:path";
 
-import type { ProviderCommandExecutor } from "@agentstack/adapters";
+import type { ProviderCommandExecutor } from "@agentstackhq/adapters";
 import { loadProjectContext } from "./context.js";
 import type { RunIo } from "./run.js";
 

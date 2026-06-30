@@ -1,0 +1,76 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version already committed in package manifests, for example 0.1.0-beta.4
+        required: true
+        type: string
+      dist_tag:
+        description: npm dist-tag. Beta versions must use beta; stable versions must use latest.
+        required: true
+        default: beta
+        type: choice
+        options:
+          - beta
+          - latest
+      dry_run:
+        description: Run npm publish dry-runs only
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: npm-release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish npm packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: npm-production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+
+      - name: Use npm with trusted publishing support
+        run: npm install -g npm@^11.5.1
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: corepack pnpm install --frozen-lockfile
+
+      - name: Verify checked-in release version
+        run: |
+          actual="$(node -e 'console.log(JSON.parse(require("fs").readFileSync("packages/core/package.json", "utf8")).version)')"
+          test "$actual" = "${{ inputs.version }}"
+
+      - name: Run release gate
+        run: corepack pnpm run release:check -- --skip-npm-dry-run
+
+      - name: Publish dry-run
+        if: ${{ inputs.dry_run }}
+        run: corepack pnpm run release:publish -- --tag "${{ inputs.dist_tag }}" --dry-run
+
+      - name: Publish to npm
+        if: ${{ !inputs.dry_run }}
+        run: corepack pnpm run release:publish -- --tag "${{ inputs.dist_tag }}" --publish
+
+      - name: Registry smoke
+        if: ${{ !inputs.dry_run }}
+        run: corepack pnpm run release:registry:smoke -- --version "${{ inputs.version }}"

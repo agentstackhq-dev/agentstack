@@ -1,7 +1,7 @@
 # Agentstack Validation Hypothesis
 
 Date: 2026-06-22
-Updated: 2026-06-29
+Updated: 2026-06-30
 
 This document is the north star for Agentstack work. Active execution lives in `docs/milestones/`. The consumer production readiness roadmap is backlog reference only.
 
@@ -15,7 +15,8 @@ generated app exposes app code, `AGENTS.md`, `package.json`, `.gitignore`, and a
 framework knowledge must come from package-owned CLI/docs so guidance does not go stale. `pnpm-workspace.yaml` is part
 of the lean root because pnpm and TypeScript language servers require workspace metadata for app package resolution. M3
 has also proved one Clerk Billing webhook and entitlement path without violating that lean boundary. M4 then proved the
-local package-installability path with packed Agentstack artifacts in a clean temp consumer workspace.
+local package-installability path with packed Agentstack artifacts in a clean temp consumer workspace. M5 is proving the
+public preview beta package path for `@agentstackhq/agentstack` while preserving the `agentstack` CLI binary.
 
 ## What would validate the bet (v0)
 
@@ -45,11 +46,11 @@ Success means the framework makes contact with real provider state and orchestra
 
 ## Current boundary
 
-M1 and M2 are complete. M3 has a live pass with cleanup pending. M4 is complete as a local-pack clean-machine smoke.
+M1 and M2 are complete. M3 has a live pass with cleanup pending. M4 is complete as a local-pack clean-machine smoke. M5
+is active for preview beta npm publishability.
 
-Out of scope until explicitly started after M4:
+Out of scope for M5:
 
-- Public npm publish and release automation
 - Production release gates and production payment setup
 - Hosted control plane
 - EAS mobile builds and mobile billing surfaces
@@ -75,6 +76,7 @@ Record the decision in the active milestone card.
 | M2 | Agent completes lean preview | Agent-first claim with lean app surface, typed config schema, and package-owned CLI guidance |
 | M3 | Billing webhook + entitlement | SaaS spine beyond auth |
 | M4 | Clean-machine smoke | Consumer packaging |
+| M5 | Preview beta publishability | Public npm beta package and post-publish registry smoke |
 
 See `docs/milestones/` for active cards and acceptance criteria.
 
@@ -87,6 +89,10 @@ See `docs/milestones/` for active cards and acceptance criteria.
 - Remaining M3 work is cleanup/revert of retained smoke billing resources, not new product scope.
 - M4 local-pack clean-machine smoke passed on 2026-06-29 with packed `agentstack` artifacts, generated app install,
   `validate`, `dev:check`, and the live-preview confirmation gate.
+- M5 preview beta publishability passed on 2026-06-30 for `@agentstackhq/agentstack@0.1.0-beta.3`: local tarball release
+  check passed, public npm packages were published under `@agentstackhq/*`, both `beta` and `latest` dist-tags point to
+  `0.1.0-beta.3`, and a fresh registry-generated app passed install/typecheck/validate/dev-check/web build plus the
+  preview live-mutation confirmation gate.
 
 ## Infra litmus test
 

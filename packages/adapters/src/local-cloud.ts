@@ -11,7 +11,7 @@ import {
   type EnvironmentName,
   type ProviderEnvResource,
   type ServiceName
-} from "@agentstack/core";
+} from "@agentstackhq/core";
 import type {
   AppliedPlan,
   ApplyOptions,

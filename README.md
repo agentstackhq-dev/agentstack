@@ -3,13 +3,14 @@
 Agentstack is an agent-first meta-framework for generating and operating lean B2B SaaS apps on Convex, Clerk,
 React/Vercel, React Native/Expo/EAS, and local provider-neutral telemetry.
 
-The product boundary is deliberate: a generated consumer app is an app that depends on `agentstack`. It does not carry
-copied framework docs, copied scripts, provider ledgers, or runbooks. Agentstack owns that glue through package commands,
-typed config, diagnostics, hidden `.agentstack/` runtime state, and framework-repo evidence.
+The product boundary is deliberate: a generated consumer app is an app that depends on `@agentstackhq/agentstack` and uses
+the installed `agentstack` binary. It does not carry copied framework docs, copied scripts, provider ledgers, or runbooks.
+Agentstack owns that glue through package commands, typed config, diagnostics, hidden `.agentstack/` runtime state, and
+framework-repo evidence.
 
 ## Current State
 
-Last reviewed: 2026-06-29
+Last reviewed: 2026-06-30
 
 | Milestone | State | Evidence |
 | --- | --- | --- |
@@ -17,11 +18,12 @@ Last reviewed: 2026-06-29
 | M2 Lean preview | Complete live package-owned path | [M2](./docs/milestones/M2-agent-completes-m1.md) |
 | M3 Billing webhook | Live billing path passed; cleanup pending | [M3](./docs/milestones/M3-billing-webhook.md) |
 | M4 Clean-machine smoke | Complete local-pack clean-consumer proof | [M4](./docs/milestones/M4-clean-machine-smoke.md) |
+| M5 Preview beta publishability | Complete public npm beta and registry smoke | [M5](./docs/milestones/M5-preview-beta-publishability.md) |
 
 M3 has passed the live Clerk Billing webhook and `feature.auditLog` entitlement proof. M4 has passed a local-pack
-clean-consumer smoke: packed Agentstack artifacts install in a clean temp workspace, generate an app, and run local
-validation without monorepo source `link:` dependencies. M4 is not M5, public npm publishing, hosted control-plane work,
-or live provider mutation.
+clean-consumer smoke. M5 has passed early preview beta publishing for `@agentstackhq/agentstack` while preserving the
+`agentstack` CLI binary and lean generated app boundary. New package releases use the automated release workflow in
+[docs/releases/versioning-and-release-workflow.md](./docs/releases/versioning-and-release-workflow.md).
 
 ## Repository Map
 
@@ -30,6 +32,7 @@ or live provider mutation.
 - [docs/README.md](./docs/README.md) - documentation index and status map.
 - [docs/validation-hypothesis.md](./docs/validation-hypothesis.md) - north-star hypothesis and milestone ladder.
 - [docs/milestones/README.md](./docs/milestones/README.md) - active milestone state and evidence locations.
+- [docs/releases/versioning-and-release-workflow.md](./docs/releases/versioning-and-release-workflow.md) - lockstep versioning, release gates, GitHub Actions, and npm Trusted publishing setup.
 - [docs/provider-resource-ledger.md](./docs/provider-resource-ledger.md) - required ledger for real provider resources.
 - [docs/references/local-quickstart.md](./docs/references/local-quickstart.md) - local source checkout quickstart and M4 local-pack pointer.
 - [docs/references/m3-clerk-billing-fixture.md](./docs/references/m3-clerk-billing-fixture.md) - repeatable Clerk Billing fixture workflow.
@@ -37,7 +40,7 @@ or live provider mutation.
 ## Package Layout
 
 ```text
-packages/agentstack          Public package facade and `agentstack` bin
+packages/agentstack          Public `@agentstackhq/agentstack` facade and `agentstack` bin
 packages/cli                 Agentstack command implementation
 packages/core                Manifest schema, validation, guidance, release, theme, billing contracts
 packages/adapters            Provider command plans, proof contracts, ledger, and provider executors
@@ -67,6 +70,7 @@ Install and verify from the framework repo root:
 
 ```sh
 corepack pnpm install
+corepack pnpm build
 corepack pnpm typecheck
 corepack pnpm test
 ```
@@ -94,7 +98,7 @@ See [docs/references/local-quickstart.md](./docs/references/local-quickstart.md)
 existing-app repair.
 
 For local framework development, pass the package spec through `agentstack create` so the generated app does not try to
-install a registry version:
+install the npm beta package:
 
 ```sh
 agentstack create smoke-app --package-spec link:<agentstack-repo>/packages/agentstack
@@ -139,6 +143,21 @@ preview:deploy
 preview:smoke
 evidence:check
 ```
+
+M5 local release check:
+
+```sh
+corepack pnpm run m5:release:check
+```
+
+Full release gate for package publication:
+
+```sh
+corepack pnpm run release:check
+```
+
+Use `.github/workflows/release.yml` for real npm publishes. It relies on npm Trusted publishing through GitHub OIDC; do
+not add long-lived npm tokens to GitHub secrets.
 
 M3 billing subscription is repeatable with:
 

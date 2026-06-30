@@ -1,4 +1,4 @@
-import type { EnvironmentName } from "@agentstack/core";
+import type { EnvironmentName } from "@agentstackhq/core";
 
 import {
   createProviderExecutionResult,

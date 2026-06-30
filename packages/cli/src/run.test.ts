@@ -3,9 +3,9 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createDefaultManifest, defaultThemeTokens } from "@agentstack/core";
-import type { ProviderCommandExecutor } from "@agentstack/adapters";
-import { createWideEvent, JsonlTelemetryStore } from "@agentstack/telemetry";
+import { createDefaultManifest, defaultThemeTokens } from "@agentstackhq/core";
+import type { ProviderCommandExecutor } from "@agentstackhq/adapters";
+import { createWideEvent, JsonlTelemetryStore } from "@agentstackhq/telemetry";
 import { runAgentstack } from "./index.js";
 import {
   formatProviderExactIdentityReportFields,
@@ -883,7 +883,7 @@ describe("runAgentstack", () => {
     await writeFile(
       join(dir, "agentstack.config.ts"),
       [
-        'import { defineAgentstackConfig } from "agentstack/config";',
+        'import { defineAgentstackConfig } from "@agentstackhq/agentstack/config";',
         "",
         "export default defineAgentstackConfig({",
         '  app: { name: "Acme CRM", slug: "acme-crm" }',
@@ -10071,13 +10071,13 @@ describe("runAgentstack", () => {
 });
 
 describe("package metadata", () => {
-  it("exposes a self-contained Node shim for the installed agentstack bin", async () => {
+  it("keeps the internal CLI package free of the public agentstack bin", async () => {
     const packageManifest = JSON.parse(
       await readFile(packageManifestPath, "utf8")
     );
 
-    expect(packageManifest.bin.agentstack).toBe("src/bin.js");
-    expect(packageManifest.dependencies).toHaveProperty("tsx");
+    expect(packageManifest.bin).toBeUndefined();
+    expect(packageManifest.dependencies).not.toHaveProperty("tsx");
     await expect(stat(packageShimPath)).resolves.toMatchObject({
       isFile: expect.any(Function)
     });

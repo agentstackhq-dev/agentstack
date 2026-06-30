@@ -1,17 +1,29 @@
 {
-  "name": "@agentstack/cli",
-  "version": "0.0.0",
+  "name": "@agentstackhq/cli",
+  "version": "0.1.0-beta.3",
+  "description": "Command implementation for Agentstack preview app workflows.",
   "type": "module",
-  "main": "src/index.ts",
-  "bin": {
-    "agentstack": "src/bin.js"
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "skills"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "beta"
   },
   "dependencies": {
-    "@agentstack/adapters": "workspace:*",
-    "@agentstack/core": "workspace:*",
-    "@agentstack/telemetry": "workspace:*",
+    "@agentstackhq/adapters": "0.1.0-beta.3",
+    "@agentstackhq/core": "0.1.0-beta.3",
+    "@agentstackhq/telemetry": "0.1.0-beta.3",
     "commander": "^12.1.0",
-    "playwright": "^1.61.1",
+    "playwright": "^1.61.1"
+  },
+  "devDependencies": {
     "tsx": "^4.19.2"
   }
 }

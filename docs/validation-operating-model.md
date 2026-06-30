@@ -1,15 +1,16 @@
 # Agentstack Validation Operating Model
 
 Date: 2026-06-22
-Updated: 2026-06-29
+Updated: 2026-06-30
 
 This is how Agentstack milestone sessions run after M1 proved the provider path, M2 corrected the generated consumer
-shape, M3 proved the Clerk Billing webhook entitlement path, and M4 proved a local packed-package consumer smoke.
+shape, M3 proved the Clerk Billing webhook entitlement path, M4 proved a local packed-package consumer smoke, and M5
+proved the public preview beta packaging path.
 
 ## Principles
 
-1. **One validation milestone at a time.** M1, M2, and M4 are complete. M3 has a live pass with cleanup pending. M5
-   public release or hosted-control-plane work is locked until the approach is discussed.
+1. **One validation milestone at a time.** M1, M2, M4, and M5 are complete. M3 has a live pass with cleanup pending.
+   Follow `docs/releases/versioning-and-release-workflow.md` for package publication work.
 2. **Generated apps stay lean.** Do not add copied framework docs, copied scripts, generated skills, generated provider
    ledgers, root `convex/`, root `vercel.json`, or copied runbooks to consumer apps.
 3. **Agentstack owns framework glue.** Provider orchestration, validation, diagnostics, docs/help, evidence, hidden
@@ -40,7 +41,7 @@ M4 passed through a local pack/install smoke, not a public npm release. The vali
 
 - pack the Agentstack workspace packages into local tarballs
 - install only the public `agentstack` facade package in a launcher and generated app
-- resolve internal `@agentstack/*` tarballs through `pnpm.overrides`
+- resolve internal `@agentstackhq/*` tarballs through `pnpm.overrides`
 - generate a lean consumer through the public `agentstack create` bin
 - run generated `validate`, `dev:check`, and the preview live-mutation confirmation gate
 
@@ -50,8 +51,35 @@ Run it with:
 corepack pnpm run m4:pack:smoke
 ```
 
-Public npm publication, versioning policy, release automation, and any hosted control plane are deliberately outside
-M4. Discuss that approach before starting the next milestone.
+Public npm publication, versioning policy, release automation, and any hosted control plane were deliberately outside
+M4. M5 covered the early public npm beta package only; hosted control-plane work still needs an explicit approach
+discussion.
+
+### M5 Preview Beta Publishability
+
+M5 targets public npm beta packaging for `@agentstackhq/agentstack` while preserving the `agentstack` CLI binary and lean
+generated app boundary. Use:
+
+```sh
+corepack pnpm run m5:release:check
+```
+
+This local check is the pre-publish gate. M5 passed on 2026-06-30 with `@agentstackhq/*@0.1.0-beta.3` published to npm;
+both `beta` and `latest` dist-tags point to `0.1.0-beta.3`, and a fresh registry install passed without local tarball
+overrides.
+
+### Release Pipeline
+
+Package publication is automated and enforced by repo-owned scripts:
+
+```sh
+corepack pnpm run release:check
+corepack pnpm run release:publish -- --tag beta --dry-run
+corepack pnpm run release:registry:smoke -- --version 0.1.0-beta.3
+```
+
+Real publishes go through `.github/workflows/release.yml` with the `npm-production` environment and npm Trusted
+publishing. Do not use local long-lived npm tokens for normal releases.
 
 ## Completed Milestone Lessons
 
@@ -75,7 +103,7 @@ AGENTS.md
 package.json
 ```
 
-The generated `package.json` depends on `agentstack`, and package scripts call the installed `agentstack` CLI. Local
+The generated `package.json` now depends on `@agentstackhq/agentstack`, and package scripts call the installed `agentstack` CLI. Local
 and live success paths must invoke the public bin or generated package scripts, not internal helpers such as
 `generateProject` or `runAgentstack`.
 
@@ -94,7 +122,7 @@ Clerk browser SDK test-payment-method setup in `docs/references/m3-clerk-billing
 ### M4 Clean-Machine Local Pack
 
 M4 proved that a consumer can install and use Agentstack from packed artifacts without linking the source workspace. The
-generated app still has one direct framework dependency, `agentstack`; internal workspace packages are hidden in
+generated app still has one direct framework dependency, now `@agentstackhq/agentstack`; internal workspace packages are hidden in
 `pnpm.overrides` for the local tarball smoke only.
 
 ## Thread Types

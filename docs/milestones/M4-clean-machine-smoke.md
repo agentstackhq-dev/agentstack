@@ -39,7 +39,7 @@ corepack pnpm run m4:pack:smoke
 
 The script:
 
-- packs `@agentstack/core`, `@agentstack/adapters`, `@agentstack/telemetry`, `@agentstack/cli`, and `agentstack`
+- packs `@agentstackhq/core`, `@agentstackhq/adapters`, `@agentstackhq/telemetry`, `@agentstackhq/cli`, and `agentstack`
 - installs the packed public `agentstack` tarball into a clean temp launcher workspace
 - runs the tarball-provided `agentstack --help`
 - runs the tarball-provided `agentstack create`

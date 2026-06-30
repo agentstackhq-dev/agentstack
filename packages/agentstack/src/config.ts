@@ -7,4 +7,4 @@ export {
   type ProviderEnvSource,
   type ServiceName,
   type SurfaceName
-} from "@agentstack/core";
+} from "@agentstackhq/core";
