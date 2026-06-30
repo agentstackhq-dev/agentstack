@@ -92,6 +92,8 @@ before publishing. That satisfies the npm Trusted publishing requirements and le
 through GitHub OIDC. Trusted publishing automatically generates npm provenance, so the package-owned publish script does
 not pass `--provenance`; every package manifest must keep `repository.url` exactly aligned with the GitHub repository
 reported by OIDC.
+After a real publish, the publish script verifies that each configured npm dist-tag resolves to the released version and
+retries briefly to tolerate npm registry propagation lag before failing the workflow.
 
 ## Failure Policy
 

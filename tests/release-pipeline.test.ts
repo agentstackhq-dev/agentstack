@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
 import { describe, expect, test } from "vitest";
@@ -62,6 +63,38 @@ describe("release pipeline contract", () => {
     expect(workflow).toContain("corepack pnpm run release:registry:smoke");
     expect(workflow).not.toContain("NPM_TOKEN");
     expect(publishScript).not.toContain("--provenance");
+  });
+
+  test("release publish verification retries stale npm dist-tags", async () => {
+    const { verifyPublishedPackage } = await import(
+      pathToFileURL(join(repoRoot, "scripts/release/publish.mjs")).href
+    );
+    const attempts: string[] = [];
+    const viewPackage = (specifier: string) => {
+      attempts.push(specifier);
+      if (attempts.length === 1) {
+        return {
+          version: "0.1.0-beta.4",
+          "dist-tags": { beta: "0.1.0-beta.4" }
+        };
+      }
+      return {
+        version: "0.1.0-beta.5",
+        "dist-tags": { beta: "0.1.0-beta.5" }
+      };
+    };
+
+    await expect(
+      verifyPublishedPackage("@agentstackhq/cli", "0.1.0-beta.5", "beta", {
+        attempts: 2,
+        delayMs: 0,
+        viewPackage
+      })
+    ).resolves.toMatchObject({
+      version: "0.1.0-beta.5",
+      "dist-tags": { beta: "0.1.0-beta.5" }
+    });
+    expect(attempts).toEqual(["@agentstackhq/cli@beta", "@agentstackhq/cli@beta"]);
   });
 
   test("release workflow documentation records versioning and trusted publishing rules", async () => {
