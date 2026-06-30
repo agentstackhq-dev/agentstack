@@ -1,4 +1,4 @@
-import { readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { readFile, readdir, rename, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,6 +7,14 @@ const require = createRequire(import.meta.url);
 const fsExtra = require("fs-extra") as {
   copy(source: string, destination: string): Promise<void>;
 };
+
+const convexGeneratedApiFiles = [
+  "apps/convex/convex/_generated/api.d.ts",
+  "apps/convex/convex/_generated/api.js",
+  "apps/convex/convex/_generated/dataModel.d.ts",
+  "apps/convex/convex/_generated/server.d.ts",
+  "apps/convex/convex/_generated/server.js"
+] as const;
 
 export type GenerateProjectInput = {
   name: string;
@@ -32,6 +40,7 @@ export async function generateProject(input: GenerateProjectInput): Promise<void
     __AGENTSTACK_PACKAGE_SPEC__: input.packageSpec ?? "0.0.0"
   });
   await writePackageOverrides(input.targetDir, input.packageOverrides);
+  await touchConvexGeneratedApiFiles(input.targetDir);
 }
 
 function findTemplateDir(): string {
@@ -127,6 +136,39 @@ async function writePackageOverrides(
     }
   };
   await writeFile(packageJsonPath, `${JSON.stringify(packageManifest, null, 2)}\n`);
+}
+
+async function touchConvexGeneratedApiFiles(targetDir: string): Promise<void> {
+  const generatedMtime = new Date(Math.max(Date.now(), (await findNewestConvexSourceMtime(targetDir)) + 1));
+  await Promise.all(
+    convexGeneratedApiFiles.map((file) => utimes(join(targetDir, file), generatedMtime, generatedMtime))
+  );
+}
+
+async function findNewestConvexSourceMtime(targetDir: string): Promise<number> {
+  const convexDir = join(targetDir, "apps/convex/convex");
+  const sourceMtimes: number[] = [];
+
+  async function visit(directory: string): Promise<void> {
+    const entries = await readdir(directory, { withFileTypes: true });
+    await Promise.all(
+      entries.map(async (entry) => {
+        const path = join(directory, entry.name);
+        if (entry.isDirectory()) {
+          if (entry.name !== "_generated") {
+            await visit(path);
+          }
+          return;
+        }
+        if (entry.isFile() && (entry.name.endsWith(".ts") || entry.name.endsWith(".js"))) {
+          sourceMtimes.push((await stat(path)).mtimeMs);
+        }
+      })
+    );
+  }
+
+  await visit(convexDir);
+  return Math.max(0, ...sourceMtimes);
 }
 
 async function fileExists(path: string): Promise<boolean> {

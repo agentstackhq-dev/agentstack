@@ -111,6 +111,10 @@ describe("generateProject", () => {
           default: "./convex/_generated/api.js"
         }
       });
+      const convexApiFreshness = await readConvexGeneratedApiFreshness(targetDir);
+      expect(convexApiFreshness.newestSourceMtime).toBeLessThanOrEqual(
+        convexApiFreshness.oldestGeneratedMtime
+      );
 
       expect(config).toContain('import { defineAgentstackConfig } from "agentstack/config";');
       expect(config).toContain("export default defineAgentstackConfig");
@@ -286,6 +290,26 @@ async function expectNoTemplateTokens(targetDir: string): Promise<void> {
 async function listFiles(directory: string): Promise<string[]> {
   const files = await readFiles(directory);
   return Object.keys(files).sort();
+}
+
+async function readConvexGeneratedApiFreshness(
+  root: string
+): Promise<{ newestSourceMtime: number; oldestGeneratedMtime: number }> {
+  const generatedFiles = [
+    "apps/convex/convex/_generated/api.d.ts",
+    "apps/convex/convex/_generated/api.js",
+    "apps/convex/convex/_generated/dataModel.d.ts",
+    "apps/convex/convex/_generated/server.d.ts",
+    "apps/convex/convex/_generated/server.js"
+  ];
+  const sourceFiles = (await listFiles(join(root, "apps/convex/convex")))
+    .filter((file) => (file.endsWith(".ts") || file.endsWith(".js")) && !file.startsWith("_generated/"))
+    .map((file) => join("apps/convex/convex", file));
+  const generatedStats = await Promise.all(generatedFiles.map((file) => stat(join(root, file))));
+  const sourceStats = await Promise.all(sourceFiles.map((file) => stat(join(root, file))));
+  const oldestGeneratedMtime = Math.min(...generatedStats.map((fileStat) => fileStat.mtimeMs));
+  const newestSourceMtime = Math.max(...sourceStats.map((fileStat) => fileStat.mtimeMs));
+  return { newestSourceMtime, oldestGeneratedMtime };
 }
 
 async function readFiles(directory: string): Promise<Record<string, string>> {
