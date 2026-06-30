@@ -142,10 +142,10 @@ function parseSvixSignatures(header: string): string[] {
     .filter((signature): signature is string => typeof signature === "string" && signature.length > 0);
 }
 
-function decodeSecret(secret: string): Uint8Array {
+function decodeSecret(secret: string): Uint8Array<ArrayBuffer> {
   const prefixed = `${"whsec"}_`;
   const encoded = secret.startsWith(prefixed) ? secret.slice(prefixed.length) : secret;
-  return Uint8Array.from(atob(encoded), (char) => char.charCodeAt(0));
+  return new Uint8Array(Array.from(atob(encoded), (char) => char.charCodeAt(0)));
 }
 
 function encodeBase64(bytes: Uint8Array): string {

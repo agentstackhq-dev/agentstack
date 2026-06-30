@@ -39,6 +39,7 @@ describe("generateProject", () => {
           "apps/web/package.json",
           "apps/mobile/package.json",
           "apps/convex/package.json",
+          "apps/convex/tsconfig.json",
           "apps/convex/convex/billing.ts",
           "apps/convex/convex/http.ts"
         ])
@@ -67,6 +68,10 @@ describe("generateProject", () => {
 
       expect(packageManifest.dependencies).toMatchObject({
         agentstack: expect.any(String)
+      });
+      expect(packageManifest.devDependencies).toMatchObject({
+        "@types/node": "^26.0.1",
+        typescript: "^5.7.3"
       });
       expect(packageManifest.scripts).toMatchObject({
         validate: "agentstack validate",
@@ -203,6 +208,12 @@ describe("generateProject", () => {
       expect(schema).toContain("billingWebhookEvents");
       expect(schema).toContain("billingEntitlements");
       expect(schema).toContain("billingPrincipals");
+      const convexTsconfig = JSON.parse(await readFile(join(targetDir, "apps/convex/tsconfig.json"), "utf8"));
+      expect(convexTsconfig.compilerOptions.types).toEqual(["node"]);
+      expect(convexTsconfig.include).toEqual(["convex/**/*.ts"]);
+      const convexHttp = await readFile(join(targetDir, "apps/convex/convex/http.ts"), "utf8");
+      expect(convexHttp).toContain("function decodeSecret(secret: string): Uint8Array<ArrayBuffer>");
+      expect(convexHttp).toContain("return new Uint8Array(Array.from(atob(encoded), (char) => char.charCodeAt(0)));");
       await expect(readFile(join(targetDir, "apps/mobile/app.config.ts"), "utf8")).resolves.toContain(
         "agentstackConfig.app.slug"
       );
