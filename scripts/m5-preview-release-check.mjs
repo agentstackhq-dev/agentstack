@@ -1,8 +1,16 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -233,23 +241,21 @@ function assertGeneratedPackage(appDir, packageSpecs) {
 function assertNoForbiddenGeneratedSurface(appDir) {
   const checks = [
     {
-      command: "rg",
-      args: ["-n", "from \"convex/server\"|anyApi|makeFunctionReference| as ProtectedWorkspaceStatus| as EntitlementGate", "apps/web", "apps/mobile"],
-      allowedExitCodes: [1],
+      pattern: /from "convex\/server"|anyApi|makeFunctionReference| as ProtectedWorkspaceStatus| as EntitlementGate/,
+      roots: ["apps/web", "apps/mobile"],
       label: "legacy untyped Convex access"
     },
     {
-      command: "rg",
-      args: ["-n", "from \"agentstack/config|\"agentstack\"\\s*:", "package.json", "agentstack.config.ts", "apps/web", "apps/mobile"],
-      allowedExitCodes: [1],
+      pattern: /from "agentstack\/config|"agentstack"\s*:/,
+      roots: ["package.json", "agentstack.config.ts", "apps/web", "apps/mobile"],
       label: "legacy unscoped package references"
     }
   ];
 
   for (const check of checks) {
-    const result = run(check.command, check.args, appDir, { allowedExitCodes: check.allowedExitCodes });
-    if (result.status === 0 && `${result.stdout}${result.stderr}`.trim().length > 0) {
-      throw new Error(`Generated app contains ${check.label}:\n${result.stdout}${result.stderr}`);
+    const matches = findMatches(appDir, check.roots, check.pattern);
+    if (matches.length > 0) {
+      throw new Error(`Generated app contains ${check.label}:\n${matches.join("\n")}`);
     }
   }
 
@@ -258,6 +264,40 @@ function assertNoForbiddenGeneratedSurface(appDir) {
   if (presentForbiddenRoots.length > 0) {
     throw new Error(`Generated app contains forbidden framework roots: ${presentForbiddenRoots.join(", ")}`);
   }
+}
+
+function findMatches(appDir, roots, pattern) {
+  const matches = [];
+  for (const root of roots) {
+    for (const file of collectFiles(join(appDir, root))) {
+      const text = readFileSync(file, "utf8");
+      const lines = text.split(/\r?\n/);
+      lines.forEach((line, index) => {
+        if (pattern.test(line)) {
+          matches.push(`${relative(appDir, file)}:${index + 1}:${line.trim()}`);
+        }
+      });
+    }
+  }
+  return matches;
+}
+
+function collectFiles(path) {
+  if (!existsSync(path)) {
+    return [];
+  }
+  const stat = statSync(path);
+  if (stat.isFile()) {
+    return [path];
+  }
+  if (!stat.isDirectory()) {
+    return [];
+  }
+  return readdirSync(path, { withFileTypes: true }).flatMap((entry) =>
+    entry.isDirectory() && (entry.name === "node_modules" || entry.name === ".git")
+      ? []
+      : collectFiles(join(path, entry.name))
+  );
 }
 
 function run(command, args, cwd, options = {}) {

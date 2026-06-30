@@ -67,6 +67,13 @@ describe("release pipeline contract", () => {
     expect(doc).toContain("npm-production");
     expect(doc).toContain("@agentstackhq/agentstack");
   });
+
+  test("m5 smoke does not require ripgrep on clean runners", async () => {
+    const script = await readFile(join(repoRoot, "scripts/m5-preview-release-check.mjs"), "utf8");
+
+    expect(script).not.toContain('"rg"');
+    expect(script).toContain("function findMatches");
+  });
 });
 
 function dirnameFromUrl(url: string): string {
