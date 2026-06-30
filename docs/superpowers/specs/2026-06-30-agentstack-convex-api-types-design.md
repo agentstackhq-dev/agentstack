@@ -14,6 +14,7 @@ preflight commands, leaving `_generated/api` stale if `convex dev` is not runnin
 
 The target is:
 
+- generated Convex code typechecks cleanly in IDEs and with `tsc -p apps/convex/tsconfig.json`
 - new apps start with Convex generated API files present
 - web and future mobile code import the typed generated API instead of `anyApi`
 - package-owned Agentstack commands regenerate Convex API types before relying on them
@@ -26,6 +27,29 @@ The target is:
 - The correct primitive is Convex's existing `convex codegen` command.
 - The preferred approach is Agentstack-owned automatic codegen in the normal validation and dev path, with an explicit
   repair command available.
+- The Convex TypeScript and Node type fixes should land first as a quick pass, before the generated API sync work.
+
+## Generated App Feedback Incorporated
+
+A generated app at `<generated-app-root>` proved the local fixes in commit
+`5dba9b1 Use generated Convex API and type Convex surface`. The upstream implementation should move the useful
+template fixes into Agentstack instead of treating `ags01` as a one-off patch.
+
+The `ags01` commit used a direct relative import:
+
+```ts
+import { api } from "../../convex/convex/_generated/api";
+```
+
+That proves typed generated API consumption works. The upstream template should still prefer the package export
+described below:
+
+```ts
+import { api } from "@app/convex/api";
+```
+
+The package export is the durable cross-surface boundary for web and mobile. The direct relative import should not be
+used as the final upstream API shape.
 
 ## Product Boundary
 
@@ -91,6 +115,52 @@ const protectedEntitlementGateQuery = api.billing.protectedEntitlementGate;
 
 Generated app code must not import `anyApi` directly. Convex's generated `api.js` may still use `anyApi` internally;
 the public application contract is the generated `api.d.ts` type surface.
+
+## Convex TypeScript Baseline
+
+Before adding automatic codegen, the template should gain the Convex TypeScript baseline proven in the generated app
+patch.
+
+Root generated `package.json` should include Node types:
+
+```json
+{
+  "devDependencies": {
+    "@types/node": "^26.0.1"
+  }
+}
+```
+
+`apps/convex/tsconfig.json` should exist:
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": ["convex/**/*.ts"]
+}
+```
+
+This fixes IDE and CLI type complaints for Convex files that use Node globals such as `process.env`, including
+`apps/convex/convex/auth.config.ts` and `apps/convex/convex/http.ts`.
+
+The Clerk webhook secret decoder should return `Uint8Array<ArrayBuffer>` so `crypto.subtle.importKey` receives a
+compatible `BufferSource`:
+
+```ts
+function decodeSecret(secret: string): Uint8Array<ArrayBuffer> {
+  const prefixed = `${"whsec"}_`;
+  const encoded = secret.startsWith(prefixed) ? secret.slice(prefixed.length) : secret;
+  return new Uint8Array(Array.from(atob(encoded), (char) => char.charCodeAt(0)));
+}
+```
 
 ## Convex API Sync Command
 
@@ -190,10 +260,15 @@ Local mutation: none
 `agentstack validate` should enforce the typed generated API boundary after sync:
 
 - `apps/convex/package.json` exists when Convex is enabled
+- `apps/convex/tsconfig.json` exists when Convex is enabled
+- root generated `package.json` includes `@types/node` when Convex is enabled
 - `@app/convex` exposes `./api`
 - `apps/web/package.json` depends on `@app/convex` when web and Convex are enabled
 - required `_generated` API files exist after sync
 - generated app source does not import `anyApi` outside `apps/convex/convex/_generated/*`
+- web/mobile source does not import `convex/server`
+- web/mobile source does not call `makeFunctionReference`
+- generated web `useQuery` calls for template Convex functions do not use manual response casts
 
 The `anyApi` scan should cover generated application source and avoid false positives in historical docs, package
 manager files, and Convex generated output.
@@ -226,7 +301,7 @@ Convex codegen type or syntax failure:
 ```text
 FAIL convex.codegen.failed
 Command: corepack pnpm --filter @app/convex exec convex codegen --typecheck try
-Reason: Convex codegen exited with code <code>.
+Reason: Convex codegen exited with a non-zero status.
 Provider mutation: none
 Local mutation: none or partial generated-file mutation
 Fix: Fix the first Convex TypeScript or schema error above, then rerun agentstack convex codegen.
@@ -253,10 +328,14 @@ packages/agentstack/templates/b2b-saas
 
 Template updates:
 
+- add generated root `@types/node` dev dependency
+- add `apps/convex/tsconfig.json`
+- update `apps/convex/convex/http.ts` so `decodeSecret` returns `Uint8Array<ArrayBuffer>`
 - add `apps/convex/convex/_generated/*`
 - add `@app/convex` package exports for `./api`
 - add `@app/convex` workspace dependency to `@app/web`
 - replace `anyApi` imports in web with `api` from `@app/convex/api`
+- remove manual response aliases/casts for the template `useQuery` calls
 - add `convex:codegen` script to the generated root package
 - update generated `AGENTS.md` command guidance to mention typed Convex API sync
 
@@ -264,7 +343,11 @@ Template updates:
 
 Focused tests should prove:
 
+- `corepack pnpm exec tsc -p apps/convex/tsconfig.json` passes in a freshly generated app
+- `corepack pnpm --filter @app/web build` passes in a freshly generated app
 - generated app templates do not contain direct `anyApi` imports outside `_generated`
+- generated app web/mobile source does not contain `convex/server`, `makeFunctionReference`, or manual template query
+  response casts
 - generated web code imports `api` from `@app/convex/api`
 - `@app/web` depends on `@app/convex` through `workspace:*`
 - `@app/convex` exports `./api` to the generated API files
@@ -274,6 +357,13 @@ Focused tests should prove:
 - missing generated API files after codegen fail validation
 - template mirrors remain byte-for-byte aligned
 - M4 local-pack smoke still passes, including generated app `validate` and `dev:check`
+
+Implementation should be ordered in two passes:
+
+1. Convex TypeScript quick pass: `@types/node`, `apps/convex/tsconfig.json`, webhook `Uint8Array<ArrayBuffer>`, focused
+   fresh-app typecheck/build.
+2. Typed generated API/codegen pass: `@app/convex/api`, generated `_generated` files, `agentstack convex codegen`,
+   automatic preflight integration, no-`anyApi` validation, M4 smoke.
 
 Framework verification after implementation:
 
