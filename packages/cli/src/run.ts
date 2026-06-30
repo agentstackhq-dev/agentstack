@@ -118,6 +118,7 @@ import {
   m3BillingSmokeCommand,
   m3EvidenceCheckCommand
 } from "./m3-billing.js";
+import { installSkillPack, supportedSkillHarnesses } from "./skills.js";
 
 export type RunIo = {
   cwd: string;
@@ -355,6 +356,15 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
       return await generatedValidateCommand(io);
     }
 
+    if (command === "skills" && (isHelpArg(subcommand) || subcommand === undefined)) {
+      writeSkillsUsage(io);
+      return 0;
+    }
+
+    if (command === "skills" && subcommand === "install") {
+      return await skillsInstallCommand(rest, io);
+    }
+
     if (command === "skills" && subcommand === "inspect") {
       return await skillsInspectCommand(io);
     }
@@ -420,6 +430,7 @@ function writeTopLevelUsage(io: RunIo): void {
   io.write("  smoke          Validate preview auth/data smoke evidence");
   io.write("  evidence       Check package-owned validation evidence");
   io.write("  observe        Inspect telemetry and journey evidence");
+  io.write("  skills         Install or inspect repo-local agent skills");
   io.write("  theme          Validate generated theme tokens");
 }
 
@@ -689,6 +700,126 @@ async function skillsInspectCommand(io: RunIo): Promise<number> {
   });
 
   return missingGuidanceAnchors.length > 0 ? 1 : 0;
+}
+
+function writeSkillsUsage(io: RunIo): void {
+  io.write("Usage: agentstack skills <command> [options]");
+  io.write("");
+  io.write("Commands:");
+  io.write("  install codex   Install Codex repo skills under .agents/skills/agentstack");
+  io.write("  inspect         Inspect package-owned Agentstack guidance state");
+  io.write("");
+  io.write("Options:");
+  io.write("  --force         Overwrite existing skill scaffold files when they differ");
+}
+
+async function skillsInstallCommand(argv: string[], io: RunIo): Promise<number> {
+  const [harness, ...rest] = argv;
+  const fix = "Run agentstack skills install codex.";
+  if (isHelpArg(harness)) {
+    writeSkillsUsage(io);
+    return 0;
+  }
+  if (!harness || harness.startsWith("--")) {
+    io.write("FAIL skills.install.harness-missing");
+    io.write("A skill harness is required.");
+    io.write(`Fix: ${fix}`);
+    return 1;
+  }
+
+  const options = parseOptions(rest);
+  if (options.help === true || options.h === true) {
+    writeSkillsUsage(io);
+    return 0;
+  }
+
+  if (!(await requireAgentstackAppRoot(io))) {
+    return 1;
+  }
+
+  const result = await installSkillPack({
+    cwd: io.cwd,
+    harness,
+    force: options.force === true
+  });
+
+  if (!result.ok && result.reason === "unsupported-harness") {
+    io.write("FAIL skills.install.unsupported-harness");
+    io.write(`Harness: ${result.harness}`);
+    io.write(`Supported harnesses: ${result.supported.join(", ")}`);
+    io.write(`Fix: ${fix}`);
+    return 1;
+  }
+
+  if (!result.ok && result.reason === "conflict") {
+    io.write("FAIL skills.install.conflict");
+    io.write(`Destination: ${result.destinationRoot}`);
+    for (const conflict of result.conflicts) {
+      io.write(`- ${conflict.path}`);
+    }
+    io.write("Fix: Re-run agentstack skills install codex --force after reviewing the local edits.");
+    await recordCommandEvent(io, {
+      name: "agentstack.skills.install.completed",
+      environment: "development",
+      journey: "agent-guidance",
+      command: ["skills", "install", harness, ...rest].join(" "),
+      status: "fail",
+      state: {
+        harness,
+        conflicts: result.conflicts.length
+      }
+    });
+    return 1;
+  }
+
+  const created = result.files.filter((file) => file.status === "created").length;
+  const unchanged = result.files.filter((file) => file.status === "unchanged").length;
+  const overwritten = result.files.filter((file) => file.status === "overwritten").length;
+
+  io.write(`PASS skills install ${result.harness}`);
+  io.write(`Destination: ${result.destinationRoot}`);
+  io.write(`Created: ${created}`);
+  io.write(`Unchanged: ${unchanged}`);
+  io.write(`Overwritten: ${overwritten}`);
+  io.write("Files:");
+  for (const file of result.files) {
+    io.write(`- ${file.status} ${file.path}`);
+  }
+  io.write("Next: Start or restart Codex from this repo if the skill selector does not show agentstack.");
+
+  await recordCommandEvent(io, {
+    name: "agentstack.skills.install.completed",
+    environment: "development",
+    journey: "agent-guidance",
+    command: ["skills", "install", result.harness, ...rest].join(" "),
+    status: "ok",
+    state: {
+      harness: result.harness,
+      supportedHarnesses: supportedSkillHarnesses,
+      created,
+      unchanged,
+      overwritten
+    }
+  });
+  return 0;
+}
+
+async function requireAgentstackAppRoot(io: RunIo): Promise<boolean> {
+  try {
+    const configStat = await stat(join(io.cwd, "agentstack.config.ts"));
+    if (configStat.isFile()) {
+      return true;
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw error;
+    }
+  }
+
+  io.write("FAIL skills.install.app-root-missing");
+  io.write("agentstack.config.ts is required in the current working directory.");
+  io.write("Fix: Run agentstack skills install codex from the generated Agentstack app root.");
+  return false;
 }
 
 async function doctorCommand(argv: string[], io: RunIo): Promise<number> {

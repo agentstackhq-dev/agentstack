@@ -51,6 +51,8 @@ describe("generateProject", () => {
           "scripts/agentstack.mjs",
           "scripts/m1-providers-bootstrap.mjs",
           "skills/agentstack/SKILL.md",
+          ".agents/skills/agentstack/SKILL.md",
+          ".claude/skills/agentstack/SKILL.md",
           "convex/schema.ts",
           "vercel.json"
         ])
@@ -58,6 +60,8 @@ describe("generateProject", () => {
       expect(files.some((file) => file.startsWith("docs/"))).toBe(false);
       expect(files.some((file) => file.startsWith("scripts/"))).toBe(false);
       expect(files.some((file) => file.startsWith("skills/"))).toBe(false);
+      expect(files.some((file) => file.startsWith(".agents/"))).toBe(false);
+      expect(files.some((file) => file.startsWith(".claude/"))).toBe(false);
       expect(files.some((file) => file.startsWith("packages/"))).toBe(false);
       expect(files.some((file) => file.startsWith("convex/"))).toBe(false);
 

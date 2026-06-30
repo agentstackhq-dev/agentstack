@@ -29,11 +29,16 @@ for the live provider-backed preview path.
 
 ## Commands
 
+Optional repo-local Codex skills can be installed after creation with
+`agentstack skills install codex`. The command writes normal scaffold files
+under `.agents/skills/`; decide in your repo whether to track or ignore them.
+
 - `corepack pnpm run validate`
 - `corepack pnpm run dev`
 - `corepack pnpm run dev:check`
 - `corepack pnpm run doctor`
 - `corepack pnpm run env:inspect`
+- `agentstack skills install codex` (optional Codex repo-skill scaffold)
 - `corepack pnpm run preview:sync` (local rehearsal only)
 - `corepack pnpm run preview:up -- --confirm-live-mutation` (live provider-backed)
 - `corepack pnpm run provider:bootstrap`

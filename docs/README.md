@@ -62,6 +62,8 @@ corepack pnpm run preview:smoke
 corepack pnpm run evidence:check
 ```
 
+- Optional Codex repo skills are installed explicitly with `agentstack skills install codex`; they are not emitted by
+  `agentstack create`.
 - When code or templates change, update template mirror docs and run:
 
 ```sh

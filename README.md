@@ -106,6 +106,15 @@ For repeated local runs, `AGENTSTACK_PACKAGE_SPEC` is also honored:
 AGENTSTACK_PACKAGE_SPEC=link:<agentstack-repo>/packages/agentstack agentstack create smoke-app
 ```
 
+Optional Codex repo skills can be scaffolded after app creation:
+
+```sh
+agentstack skills install codex
+```
+
+The command writes `.agents/skills/agentstack/` in the generated app. `agentstack create` remains lean and does not
+install skills automatically.
+
 Live preview and billing flows require authenticated provider CLIs plus explicit live-mutation confirmations.
 `preview:up` owns preview Clerk/Convex/Vercel bootstrap, provider env hydration, Vercel Deployment Protection repair,
 auth fixture creation, and deploy. `preview:smoke` owns signed-in DOM capture and marker validation. Use the milestone

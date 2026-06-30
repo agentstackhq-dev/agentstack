@@ -119,6 +119,7 @@ describe("runAgentstack", () => {
       "smoke",
       "evidence",
       "observe",
+      "skills",
       "theme"
     ]) {
       expect(output.join("\n")).toContain(command);
@@ -146,6 +147,18 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("Usage: agentstack env <command> [options]");
     expect(output.join("\n")).toContain("inspect");
     expect(output.join("\n")).toContain("set");
+  });
+
+  it("prints skills usage without requiring a subcommand", async () => {
+    const code = await runAgentstack(["skills", "--help"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output.join("\n")).toContain("Usage: agentstack skills <command>");
+    expect(output.join("\n")).toContain("install codex");
+    expect(output.join("\n")).toContain(".agents/skills/agentstack");
   });
 
   it("prints billing usage for billing help", async () => {
@@ -737,6 +750,174 @@ describe("runAgentstack", () => {
       )
     ).toBe(0);
     expect(output.join("\n")).toContain("agentstack.skills.inspect.completed");
+    expect(output.join("\n")).toContain("status=ok");
+  });
+
+  it("installs the Codex Agentstack skill scaffold without mutating gitignore", async () => {
+    const beforeGitignore = await readFile(join(dir, ".gitignore"), "utf8");
+
+    const code = await runAgentstack(["skills", "install", "codex"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS skills install codex");
+    expect(output.join("\n")).toContain("Destination: .agents/skills/agentstack");
+    expect(output.join("\n")).toContain(".agents/skills/agentstack/SKILL.md");
+
+    const skill = await readFile(join(dir, ".agents/skills/agentstack/SKILL.md"), "utf8");
+    const workflows = await readFile(
+      join(dir, ".agents/skills/agentstack/references/workflows.md"),
+      "utf8"
+    );
+    const guardrails = await readFile(
+      join(dir, ".agents/skills/agentstack/references/guardrails.md"),
+      "utf8"
+    );
+    const validation = await readFile(
+      join(dir, ".agents/skills/agentstack/references/validation.md"),
+      "utf8"
+    );
+
+    expect(skill).toContain("name: agentstack");
+    expect(skill).toContain("agentstack skills install codex");
+    expect(workflows).toContain("preview:up");
+    expect(guardrails).toContain("Do not add generated docs, scripts, or framework internals");
+    expect(validation).toContain("corepack pnpm run validate");
+    expect(await readFile(join(dir, ".gitignore"), "utf8")).toBe(beforeGitignore);
+  });
+
+  it("installs the Codex skill scaffold before generated app dependencies are installed", async () => {
+    await writeFile(
+      join(dir, "agentstack.config.ts"),
+      [
+        'import { defineAgentstackConfig } from "agentstack/config";',
+        "",
+        "export default defineAgentstackConfig({",
+        '  app: { name: "Acme CRM", slug: "acme-crm" }',
+        "});",
+        ""
+      ].join("\n"),
+      "utf8"
+    );
+
+    const code = await runAgentstack(["skills", "install", "codex"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS skills install codex");
+    await expect(readFile(join(dir, ".agents/skills/agentstack/SKILL.md"), "utf8")).resolves.toContain(
+      "name: agentstack"
+    );
+  });
+
+  it("treats an already installed matching Codex skill scaffold as unchanged", async () => {
+    expect(
+      await runAgentstack(["skills", "install", "codex"], {
+        cwd: dir,
+        write: (line) => output.push(line)
+      })
+    ).toBe(0);
+
+    output = [];
+    expect(
+      await runAgentstack(["skills", "install", "codex"], {
+        cwd: dir,
+        write: (line) => output.push(line)
+      })
+    ).toBe(0);
+
+    expect(output).toContain("PASS skills install codex");
+    expect(output.join("\n")).toContain("Unchanged: 4");
+    expect(output.join("\n")).toContain("Created: 0");
+  });
+
+  it("refuses to overwrite user-edited Codex skill files without force", async () => {
+    expect(
+      await runAgentstack(["skills", "install", "codex"], {
+        cwd: dir,
+        write: (line) => output.push(line)
+      })
+    ).toBe(0);
+    await writeFile(
+      join(dir, ".agents/skills/agentstack/SKILL.md"),
+      "---\nname: agentstack\ndescription: user edit\n---\n\nUser edited content.\n",
+      "utf8"
+    );
+
+    output = [];
+    const code = await runAgentstack(["skills", "install", "codex"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL skills.install.conflict");
+    expect(output.join("\n")).toContain(".agents/skills/agentstack/SKILL.md");
+    expect(output.join("\n")).toContain("Fix: Re-run agentstack skills install codex --force");
+  });
+
+  it("overwrites user-edited Codex skill files with force", async () => {
+    expect(
+      await runAgentstack(["skills", "install", "codex"], {
+        cwd: dir,
+        write: (line) => output.push(line)
+      })
+    ).toBe(0);
+    await writeFile(
+      join(dir, ".agents/skills/agentstack/SKILL.md"),
+      "---\nname: agentstack\ndescription: user edit\n---\n\nUser edited content.\n",
+      "utf8"
+    );
+
+    output = [];
+    const code = await runAgentstack(["skills", "install", "codex", "--force"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output).toContain("PASS skills install codex");
+    expect(output.join("\n")).toContain("Overwritten: 1");
+    expect(await readFile(join(dir, ".agents/skills/agentstack/SKILL.md"), "utf8")).toContain(
+      "agentstack skills install codex"
+    );
+  });
+
+  it("fails unsupported skill harness installs with a supported command", async () => {
+    const code = await runAgentstack(["skills", "install", "claude"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output).toContain("FAIL skills.install.unsupported-harness");
+    expect(output.join("\n")).toContain("Supported harnesses: codex");
+  });
+
+  it("records skills install telemetry", async () => {
+    expect(
+      await runAgentstack(["skills", "install", "codex"], {
+        cwd: dir,
+        write: (line) => output.push(line)
+      })
+    ).toBe(0);
+
+    output = [];
+    expect(
+      await runAgentstack(
+        ["observe", "timeline", "--env", "development", "--journey", "agent-guidance"],
+        {
+          cwd: dir,
+          write: (line) => output.push(line)
+        }
+      )
+    ).toBe(0);
+
+    expect(output.join("\n")).toContain("agentstack.skills.install.completed");
     expect(output.join("\n")).toContain("status=ok");
   });
 

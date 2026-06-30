@@ -39,6 +39,7 @@ function writeTopLevelUsage(): number {
       "  smoke         Validate preview auth/data smoke evidence",
       "  evidence      Check package-owned validation evidence",
       "  observe       Inspect telemetry and journey evidence",
+      "  skills        Install or inspect repo-local agent skills",
       "  theme         Validate generated theme tokens",
       "",
       "Create options:",
@@ -49,6 +50,7 @@ function writeTopLevelUsage(): number {
       "  agentstack create <app-name>",
       "  agentstack create <app-name> --package-spec link:/path/to/agentstack",
       "  agentstack create <app-name> --package-spec file:/tmp/agentstack.tgz --package-override @agentstack/cli=file:/tmp/agentstack-cli.tgz",
+      "  agentstack skills install codex",
       "  agentstack validate",
       "  agentstack deploy --env preview"
     ].join("\n")
