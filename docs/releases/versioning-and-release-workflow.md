@@ -22,8 +22,8 @@ Supported release tags:
 - Beta: `vX.Y.Z-beta.N`, package version `X.Y.Z-beta.N`, npm dist-tag `beta`
 - Stable: `vX.Y.Z`, package version `X.Y.Z`, npm dist-tag `latest`
 
-Do not publish a beta version with `latest` from the automated workflow. The current registry-smoked beta target is
-`0.1.0-beta.6`.
+During the pre-stable preview line, `latest` must also point at the same version as `beta` so unqualified npm installs
+do not resolve to an older preview. The current registry-smoked beta target is `0.1.0-beta.6`.
 
 ## Local Release Commands
 
@@ -45,6 +45,16 @@ Smoke a published version from the public registry:
 
 ```sh
 corepack pnpm run release:registry:smoke -- --version 0.1.0-beta.6
+```
+
+Promote and verify the preview `latest` dist-tag after a successful beta publish:
+
+```sh
+read -s NPM_CONFIG_OTP
+export NPM_CONFIG_OTP
+corepack pnpm run release:dist-tags -- --version 0.1.0-beta.6 --tag latest --apply
+unset NPM_CONFIG_OTP
+corepack pnpm run release:dist-tags -- --version 0.1.0-beta.6 --tag latest --check
 ```
 
 `release:check` runs the local gate:
@@ -94,6 +104,9 @@ not pass `--provenance`; every package manifest must keep `repository.url` exact
 reported by OIDC, using npm's canonical `git+https://github.com/agentstackhq-dev/agentstack.git` form.
 After a real publish, the publish script verifies that each configured npm dist-tag resolves to the released version and
 retries briefly to tolerate npm registry propagation lag before failing the workflow.
+`npm dist-tag add` is a separate npm mutation and may require OTP or a suitably scoped npm token even when package
+publication itself uses Trusted Publishing. Use `release:dist-tags` for this post-publish tag promotion instead of raw
+one-off commands.
 
 ## Failure Policy
 
@@ -101,4 +114,5 @@ retries briefly to tolerate npm registry propagation lag before failing the work
 - If a publish partially succeeds, do not republish the same version. Bump to the next beta and publish the full lockstep
   set again.
 - If `release:registry:smoke` fails, leave the failed version in npm history, fix forward, and publish the next beta.
-- Do not hand-edit dist-tags in CI. Use the version/tag pairing enforced by `scripts/release/contract.mjs`.
+- Do not hand-edit dist-tags. Use `corepack pnpm run release:dist-tags -- --version <version> --tag <tag> --apply` and
+  verify with `--check`.

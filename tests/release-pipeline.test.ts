@@ -16,6 +16,7 @@ describe("release pipeline contract", () => {
     expect(manifest.scripts).toMatchObject({
       "release:check": "node scripts/release/check.mjs",
       "release:bump": "node scripts/release/bump-version.mjs",
+      "release:dist-tags": "node scripts/release/dist-tags.mjs",
       "release:publish": "node scripts/release/publish.mjs",
       "release:registry:smoke": "node scripts/release/registry-smoke.mjs",
       "public:safety:check": "node scripts/public-safety-check.mjs"
@@ -95,6 +96,19 @@ describe("release pipeline contract", () => {
       "dist-tags": { beta: "0.1.0-beta.6" }
     });
     expect(attempts).toEqual(["@agentstackhq/cli@beta", "@agentstackhq/cli@beta"]);
+  });
+
+  test("release dist-tag script can promote current preview latest without leaking OTP", async () => {
+    const { buildDistTagAddArgs, redactDistTagAddArgs } = await import(
+      pathToFileURL(join(repoRoot, "scripts/release/dist-tags.mjs")).href
+    );
+
+    const args = buildDistTagAddArgs("@agentstackhq/agentstack", "0.1.0-beta.6", "latest");
+
+    expect(args).toEqual(["dist-tag", "add", "@agentstackhq/agentstack@0.1.0-beta.6", "latest"]);
+    expect(redactDistTagAddArgs([...args, "--otp=123456"])).toBe(
+      "npm dist-tag add @agentstackhq/agentstack@0.1.0-beta.6 latest --otp=***"
+    );
   });
 
   test("release workflow documentation records versioning and trusted publishing rules", async () => {

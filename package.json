@@ -11,6 +11,7 @@
     "public:safety:check": "node scripts/public-safety-check.mjs",
     "release:bump": "node scripts/release/bump-version.mjs",
     "release:check": "node scripts/release/check.mjs",
+    "release:dist-tags": "node scripts/release/dist-tags.mjs",
     "release:publish": "node scripts/release/publish.mjs",
     "release:registry:smoke": "node scripts/release/registry-smoke.mjs",
     "typecheck": "tsc -p tsconfig.base.json --noEmit",

@@ -18,7 +18,8 @@ run local validation without depending on the Agentstack source workspace.
       builds web, and verifies the preview live-mutation confirmation gate
 - [x] The generated app has no copied framework docs/scripts/skills/packages, no legacy unscoped package references, and no
       untyped Convex API usage in web/mobile surfaces
-- [x] npm `@agentstackhq/*@0.1.0-beta.6` packages are published with signed provenance and the `beta` dist-tag
+- [x] npm `@agentstackhq/*@0.1.0-beta.6` packages are published with signed provenance, and both `beta` and
+      pre-stable `latest` dist-tags point to `0.1.0-beta.6`
 - [x] A fresh temp consumer installs `@agentstackhq/agentstack@beta` from the public npm registry with no local tarball
       overrides, runs `agentstack create`, and passes generated app `install`, `typecheck`, `validate`, `dev:check`, and
       web build
