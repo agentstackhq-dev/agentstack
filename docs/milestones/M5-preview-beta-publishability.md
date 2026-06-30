@@ -1,6 +1,6 @@
 # M5: Preview Beta Publishability
 
-Status: **passed** (local preview release check and public npm registry smoke passed on 2026-06-30)
+Status: **passed** (GitHub Actions beta publish and public npm registry smoke passed on 2026-06-30)
 
 ## Hypothesis under test
 
@@ -18,7 +18,7 @@ run local validation without depending on the Agentstack source workspace.
       builds web, and verifies the preview live-mutation confirmation gate
 - [x] The generated app has no copied framework docs/scripts/skills/packages, no legacy unscoped package references, and no
       untyped Convex API usage in web/mobile surfaces
-- [x] npm `@agentstackhq/*@0.1.0-beta.3` packages are published with the `beta` dist-tag
+- [x] npm `@agentstackhq/*@0.1.0-beta.6` packages are published with signed provenance and the `beta` dist-tag
 - [x] A fresh temp consumer installs `@agentstackhq/agentstack@beta` from the public npm registry with no local tarball
       overrides, runs `agentstack create`, and passes generated app `install`, `typecheck`, `validate`, `dev:check`, and
       web build
@@ -51,6 +51,7 @@ corepack pnpm --filter @app/web build
 
 - [m5-local-preview-release-check-2026-06-30.md](./evidence/M5-preview-beta-publishability/m5-local-preview-release-check-2026-06-30.md)
 - [m5-npm-beta-registry-smoke-2026-06-30.md](./evidence/M5-preview-beta-publishability/m5-npm-beta-registry-smoke-2026-06-30.md)
+- [m5-npm-beta6-release-2026-06-30.md](./evidence/M5-preview-beta-publishability/m5-npm-beta6-release-2026-06-30.md)
 
 ## Not this milestone
 
