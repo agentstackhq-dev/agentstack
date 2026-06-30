@@ -65,7 +65,16 @@ describe("local validation", () => {
         "agentstack.config.ts",
         "apps/web/package.json",
         "apps/mobile/package.json",
-        "apps/convex/package.json"
+        "apps/convex/package.json",
+        "apps/convex/tsconfig.json",
+        "apps/convex/convex/schema.ts",
+        "apps/convex/convex/auth.config.ts",
+        "apps/convex/convex/workspaceStatus.ts",
+        "apps/convex/convex/_generated/api.d.ts",
+        "apps/convex/convex/_generated/api.js",
+        "apps/convex/convex/_generated/dataModel.d.ts",
+        "apps/convex/convex/_generated/server.d.ts",
+        "apps/convex/convex/_generated/server.js"
       ])
     );
 

@@ -4430,6 +4430,7 @@ async function findSourcePolicyDiagnostics(cwd: string): Promise<Diagnostic[]> {
 
   for (const file of files) {
     const content = await readFile(join(cwd, file), "utf8");
+    diagnostics.push(...findConvexTypedApiDiagnostics(file, content));
     if (containsSecretLikeValue(content)) {
       diagnostics.push({
         severity: "fail",
@@ -4442,6 +4443,66 @@ async function findSourcePolicyDiagnostics(cwd: string): Promise<Diagnostic[]> {
     }
   }
 
+  return diagnostics;
+}
+
+function isConvexGeneratedFile(file: string): boolean {
+  return file.startsWith("apps/convex/convex/_generated/");
+}
+
+function isWebOrMobileSourceFile(file: string): boolean {
+  return (
+    (file.startsWith("apps/web/src/") || file.startsWith("apps/mobile/")) &&
+    (file.endsWith(".ts") || file.endsWith(".tsx"))
+  );
+}
+
+function findConvexTypedApiDiagnostics(file: string, content: string): Diagnostic[] {
+  if (!isWebOrMobileSourceFile(file) || isConvexGeneratedFile(file)) {
+    return [];
+  }
+
+  const diagnostics: Diagnostic[] = [];
+  if (content.includes("anyApi")) {
+    diagnostics.push({
+      severity: "fail",
+      code: "convex.typed-api.any-api",
+      path: file,
+      message: "Generated app source imports or uses anyApi directly instead of the typed Convex API.",
+      fix: "Import api from @app/convex/api.",
+      blocks: ["validate", "validate --cloud", "deploy"]
+    });
+  }
+  if (content.includes('"convex/server"') || content.includes("'convex/server'")) {
+    diagnostics.push({
+      severity: "fail",
+      code: "convex.typed-api.server-import",
+      path: file,
+      message: "Web/mobile source must not import server-only Convex APIs.",
+      fix: "Import api from @app/convex/api and client hooks from convex/react.",
+      blocks: ["validate", "validate --cloud", "deploy"]
+    });
+  }
+  if (content.includes("makeFunctionReference")) {
+    diagnostics.push({
+      severity: "fail",
+      code: "convex.typed-api.make-function-reference",
+      path: file,
+      message: "Generated app source must use generated Convex API references instead of makeFunctionReference.",
+      fix: "Import api from @app/convex/api.",
+      blocks: ["validate", "validate --cloud", "deploy"]
+    });
+  }
+  if (/useQuery\([^;\n]+ as [A-Z][A-Za-z0-9_]+ \| undefined/.test(content)) {
+    diagnostics.push({
+      severity: "fail",
+      code: "convex.typed-api.manual-query-cast",
+      path: file,
+      message: "Template Convex queries should infer response types from @app/convex/api instead of manual casts.",
+      fix: "Remove the manual response alias and cast from the useQuery call.",
+      blocks: ["validate", "validate --cloud", "deploy"]
+    });
+  }
   return diagnostics;
 }
 

@@ -1469,6 +1469,59 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).not.toContain("source.secret.detected");
   });
 
+  it("fails validate when generated app web source imports untyped Convex server APIs", async () => {
+    await writeFile(
+      join(dir, "apps/web/src/App.tsx"),
+      'import { anyApi } from "convex/server";\nconst q = anyApi.workspaceStatus.protectedStatus;\n',
+      "utf8"
+    );
+
+    const code = await runAgentstack(["validate"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    const rendered = output.join("\n");
+    expect(code).toBe(1);
+    expect(rendered).toContain("FAIL convex.typed-api.any-api");
+    expect(rendered).toContain("FAIL convex.typed-api.server-import");
+    expect(rendered).toContain("Path: apps/web/src/App.tsx");
+    expect(rendered).toContain("Fix: Import api from @app/convex/api.");
+  });
+
+  it("allows Convex generated api.js to contain anyApi", async () => {
+    await mkdir(join(dir, "apps/convex/convex/_generated"), { recursive: true });
+    await writeFile(
+      join(dir, "apps/convex/convex/_generated/api.js"),
+      'import { anyApi } from "convex/server";\nexport const api = anyApi;\n',
+      "utf8"
+    );
+
+    const code = await runAgentstack(["validate"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(output.join("\n")).not.toContain("convex.typed-api.any-api");
+    expect(code).toBe(0);
+  });
+
+  it("fails validate when web source uses manual Convex query casts", async () => {
+    await writeFile(
+      join(dir, "apps/web/src/App.tsx"),
+      'const result = useQuery(api.workspaceStatus.protectedStatus, {}) as ProtectedWorkspaceStatus | undefined;\n',
+      "utf8"
+    );
+
+    const code = await runAgentstack(["validate"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL convex.typed-api.manual-query-cast");
+  });
+
   it("fails validation on a raw secret-like value in .env without printing the value", async () => {
     await writeFile(
       join(dir, ".env"),
@@ -9964,9 +10017,15 @@ async function writeGeneratedAnchors(): Promise<void> {
     "convex/agentstack.ts",
     "convex/saasSpine.ts",
     "apps/convex/package.json",
+    "apps/convex/tsconfig.json",
     "apps/convex/convex/auth.config.ts",
     "apps/convex/convex/schema.ts",
     "apps/convex/convex/workspaceStatus.ts",
+    "apps/convex/convex/_generated/api.d.ts",
+    "apps/convex/convex/_generated/api.js",
+    "apps/convex/convex/_generated/dataModel.d.ts",
+    "apps/convex/convex/_generated/server.d.ts",
+    "apps/convex/convex/_generated/server.js",
     "packages/domain/src/index.ts",
     "packages/domain/src/saas-spine.ts",
     "packages/theme/package.json",

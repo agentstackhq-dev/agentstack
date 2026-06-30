@@ -57,9 +57,15 @@ export function getRequiredGeneratedAnchors(manifest: AgentstackManifest): strin
 
   if (manifest.surfaces.includes("convex")) {
     anchors.push("apps/convex/package.json");
+    anchors.push("apps/convex/tsconfig.json");
     anchors.push("apps/convex/convex/schema.ts");
     anchors.push("apps/convex/convex/auth.config.ts");
     anchors.push("apps/convex/convex/workspaceStatus.ts");
+    anchors.push("apps/convex/convex/_generated/api.d.ts");
+    anchors.push("apps/convex/convex/_generated/api.js");
+    anchors.push("apps/convex/convex/_generated/dataModel.d.ts");
+    anchors.push("apps/convex/convex/_generated/server.d.ts");
+    anchors.push("apps/convex/convex/_generated/server.js");
   }
 
   return Array.from(new Set(anchors));
