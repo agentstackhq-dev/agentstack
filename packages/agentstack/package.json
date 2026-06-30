@@ -1,6 +1,6 @@
 {
   "name": "@agentstackhq/agentstack",
-  "version": "0.1.0-beta.4",
+  "version": "0.1.0-beta.5",
   "description": "Agent-first meta-framework for lean B2B SaaS preview apps.",
   "repository": {
     "type": "git",
@@ -35,8 +35,8 @@
     "tag": "beta"
   },
   "dependencies": {
-    "@agentstackhq/cli": "0.1.0-beta.4",
-    "@agentstackhq/core": "0.1.0-beta.4",
+    "@agentstackhq/cli": "0.1.0-beta.5",
+    "@agentstackhq/core": "0.1.0-beta.5",
     "fs-extra": "^11.2.0"
   },
   "devDependencies": {

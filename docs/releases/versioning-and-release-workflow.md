@@ -23,14 +23,14 @@ Supported release tags:
 - Stable: `vX.Y.Z`, package version `X.Y.Z`, npm dist-tag `latest`
 
 Do not publish a beta version with `latest` from the automated workflow. The current registry-smoked beta target is
-`0.1.0-beta.4`.
+`0.1.0-beta.5`.
 
 ## Local Release Commands
 
 Prepare a new version:
 
 ```sh
-corepack pnpm run release:bump -- --version 0.1.0-beta.4
+corepack pnpm run release:bump -- --version 0.1.0-beta.5
 corepack pnpm install --lockfile-only
 corepack pnpm run release:check
 ```
@@ -44,7 +44,7 @@ corepack pnpm run release:publish -- --tag beta --dry-run
 Smoke a published version from the public registry:
 
 ```sh
-corepack pnpm run release:registry:smoke -- --version 0.1.0-beta.4
+corepack pnpm run release:registry:smoke -- --version 0.1.0-beta.5
 ```
 
 `release:check` runs the local gate:

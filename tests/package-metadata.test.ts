@@ -4,7 +4,7 @@ import { join, resolve } from "node:path";
 import { describe, expect, test } from "vitest";
 
 const repoRoot = resolve(dirnameFromUrl(import.meta.url), "..");
-const previewVersion = "0.1.0-beta.4";
+const previewVersion = "0.1.0-beta.5";
 
 const publishedPackages = [
   {

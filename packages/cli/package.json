@@ -1,6 +1,6 @@
 {
   "name": "@agentstackhq/cli",
-  "version": "0.1.0-beta.4",
+  "version": "0.1.0-beta.5",
   "description": "Command implementation for Agentstack preview app workflows.",
   "repository": {
     "type": "git",
@@ -22,9 +22,9 @@
     "tag": "beta"
   },
   "dependencies": {
-    "@agentstackhq/adapters": "0.1.0-beta.4",
-    "@agentstackhq/core": "0.1.0-beta.4",
-    "@agentstackhq/telemetry": "0.1.0-beta.4",
+    "@agentstackhq/adapters": "0.1.0-beta.5",
+    "@agentstackhq/core": "0.1.0-beta.5",
+    "@agentstackhq/telemetry": "0.1.0-beta.5",
     "commander": "^12.1.0",
     "playwright": "^1.61.1"
   },

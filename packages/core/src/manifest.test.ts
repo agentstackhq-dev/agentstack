@@ -5,7 +5,7 @@ describe("manifest parsing", () => {
   it("accepts the default B2B SaaS manifest", () => {
     const manifest = createDefaultManifest("acme-crm");
 
-    expect(manifest.frameworkVersion).toBe("0.1.0-beta.4");
+    expect(manifest.frameworkVersion).toBe("0.1.0-beta.5");
     expect(manifest.guidanceVersion).toBe("2026-06-20");
     expect(manifest.app.slug).toBe("acme-crm");
     expect(manifest.environments).toEqual(["development", "preview", "production"]);
