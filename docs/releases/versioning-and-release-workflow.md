@@ -22,8 +22,8 @@ Supported release tags:
 - Beta: `vX.Y.Z-beta.N`, package version `X.Y.Z-beta.N`, npm dist-tag `beta`
 - Stable: `vX.Y.Z`, package version `X.Y.Z`, npm dist-tag `latest`
 
-Do not publish a beta version with `latest` from the automated workflow. The first registry-smoked beta is
-`0.1.0-beta.3`; earlier beta attempts are not the usable public line.
+Do not publish a beta version with `latest` from the automated workflow. The current registry-smoked beta target is
+`0.1.0-beta.4`.
 
 ## Local Release Commands
 

@@ -1,6 +1,6 @@
 {
   "name": "@agentstackhq/adapters",
-  "version": "0.1.0-beta.3",
+  "version": "0.1.0-beta.4",
   "description": "Provider command plans, executors, and ledger helpers for Agentstack.",
   "type": "module",
   "main": "dist/index.js",
@@ -22,6 +22,6 @@
     "tag": "beta"
   },
   "dependencies": {
-    "@agentstackhq/core": "0.1.0-beta.3"
+    "@agentstackhq/core": "0.1.0-beta.4"
   }
 }

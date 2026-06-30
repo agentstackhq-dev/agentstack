@@ -1,6 +1,6 @@
 {
   "name": "@agentstackhq/cli",
-  "version": "0.1.0-beta.3",
+  "version": "0.1.0-beta.4",
   "description": "Command implementation for Agentstack preview app workflows.",
   "type": "module",
   "main": "dist/index.js",
@@ -17,9 +17,9 @@
     "tag": "beta"
   },
   "dependencies": {
-    "@agentstackhq/adapters": "0.1.0-beta.3",
-    "@agentstackhq/core": "0.1.0-beta.3",
-    "@agentstackhq/telemetry": "0.1.0-beta.3",
+    "@agentstackhq/adapters": "0.1.0-beta.4",
+    "@agentstackhq/core": "0.1.0-beta.4",
+    "@agentstackhq/telemetry": "0.1.0-beta.4",
     "commander": "^12.1.0",
     "playwright": "^1.61.1"
   },

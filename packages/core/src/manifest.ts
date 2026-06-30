@@ -123,7 +123,7 @@ export const customEnvSchema = z
 
 export const manifestSchema = z
   .object({
-    frameworkVersion: z.string().min(1).default("0.1.0-beta.3"),
+    frameworkVersion: z.string().min(1).default("0.1.0-beta.4"),
     guidanceVersion: z.string().min(1).default(expectedAgentstackGuidanceVersion),
     app: z
       .object({
@@ -256,7 +256,7 @@ export function createDefaultManifest(slug: string): AgentstackManifest {
     .join(" ");
 
   const candidate = {
-    frameworkVersion: "0.1.0-beta.3",
+    frameworkVersion: "0.1.0-beta.4",
     guidanceVersion: expectedAgentstackGuidanceVersion,
     app: { name, slug },
     environments: ["development", "preview", "production"],

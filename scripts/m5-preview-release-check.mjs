@@ -21,7 +21,7 @@ const consumerDir = resolve(
   process.env.AGENTSTACK_M5_CONSUMER_DIR ?? join(tmpdir(), "agentstack-m5-consumer")
 );
 const appName = process.env.AGENTSTACK_M5_APP_NAME ?? "m5-beta-smoke";
-const previewVersion = "0.1.0-beta.3";
+const previewVersion = "0.1.0-beta.4";
 const publicPackageName = "@agentstackhq/agentstack";
 const localUserPathMarker = ["/", "Users", "/"].join("");
 const packages = [
