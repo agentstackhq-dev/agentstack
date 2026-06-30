@@ -63,6 +63,8 @@ function main() {
   assertGeneratedPackage(appDir, packageSpecs);
 
   run("corepack", ["pnpm", "install"], appDir);
+  const typecheck = run("corepack", ["pnpm", "run", "typecheck"], appDir);
+  assertIncludes(typecheck.stdout, "tsc -p apps/convex/tsconfig.json", "generated app typecheck runs");
   const validate = run("corepack", ["pnpm", "run", "validate"], appDir);
   assertIncludes(validate.stdout, "PASS validate", "generated app validates");
 
@@ -91,6 +93,7 @@ function main() {
   console.log("- agentstack --help from tarball install");
   console.log("- agentstack create from tarball install");
   console.log("- generated app pnpm install");
+  console.log("- generated app pnpm run typecheck");
   console.log("- generated app pnpm run validate");
   console.log("- generated app pnpm run dev:check");
   console.log("- generated app preview:up confirmation gate");

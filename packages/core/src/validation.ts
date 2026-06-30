@@ -43,12 +43,15 @@ export function getRequiredGeneratedAnchors(manifest: AgentstackManifest): strin
 
   if (manifest.surfaces.includes("web")) {
     anchors.push("apps/web/package.json");
+    anchors.push("apps/web/tsconfig.json");
+    anchors.push("apps/web/src/vite-env.d.ts");
     anchors.push("apps/web/src/index.ts");
     anchors.push("apps/web/src/App.tsx");
   }
 
   if (manifest.surfaces.includes("mobile")) {
     anchors.push("apps/mobile/package.json");
+    anchors.push("apps/mobile/tsconfig.json");
     anchors.push("apps/mobile/App.tsx");
     anchors.push("apps/mobile/src/index.ts");
     anchors.push("apps/mobile/app.config.ts");

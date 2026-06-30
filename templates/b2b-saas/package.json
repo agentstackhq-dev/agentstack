@@ -16,6 +16,7 @@
   },
   "scripts": {
     "validate": "agentstack validate",
+    "typecheck": "tsc -p apps/convex/tsconfig.json && tsc -p apps/web/tsconfig.json && tsc -p apps/mobile/tsconfig.json",
     "dev": "agentstack dev --surface web",
     "dev:check": "agentstack dev --surface web --check",
     "convex:codegen": "agentstack convex codegen",

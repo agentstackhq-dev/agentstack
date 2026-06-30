@@ -64,7 +64,10 @@ describe("local validation", () => {
         "package.json",
         "agentstack.config.ts",
         "apps/web/package.json",
+        "apps/web/tsconfig.json",
+        "apps/web/src/vite-env.d.ts",
         "apps/mobile/package.json",
+        "apps/mobile/tsconfig.json",
         "apps/convex/package.json",
         "apps/convex/tsconfig.json",
         "apps/convex/convex/schema.ts",
@@ -141,7 +144,9 @@ describe("local validation", () => {
       manifest,
       missingPaths: [
         "agentstack.config.ts",
+        "apps/web/tsconfig.json",
         "apps/web/src/index.ts",
+        "apps/mobile/tsconfig.json",
         "apps/mobile/App.tsx",
         "apps/mobile/src/index.ts",
         "apps/convex/convex/schema.ts"
@@ -156,7 +161,15 @@ describe("local validation", () => {
       }),
       expect.objectContaining({
         code: "template.anchor.missing",
+        path: "apps/web/tsconfig.json"
+      }),
+      expect.objectContaining({
+        code: "template.anchor.missing",
         path: "apps/web/src/index.ts"
+      }),
+      expect.objectContaining({
+        code: "template.anchor.missing",
+        path: "apps/mobile/tsconfig.json"
       }),
       expect.objectContaining({
         code: "template.anchor.missing",

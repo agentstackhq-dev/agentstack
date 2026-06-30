@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 
-import { internalMutation, mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query, type DatabaseReader } from "./_generated/server";
 
 const entitlementKey = "feature.auditLog" as const;
 const providerFeature = "audit_log";
@@ -197,16 +197,7 @@ export const readM3BillingEvidence = query({
 });
 
 async function findPrincipal(
-  ctx: {
-    db: {
-      query: (table: "billingPrincipals") => {
-        withIndex: (
-          indexName: "by_user" | "by_organization",
-          indexRange: (q: { eq: (field: string, value: string) => unknown }) => unknown
-        ) => { first: () => Promise<{ workspaceId: string } | null> };
-      };
-    };
-  },
+  ctx: { db: DatabaseReader },
   providerPayerType: "user" | "organization" | undefined,
   providerPayerId: string | undefined
 ) {

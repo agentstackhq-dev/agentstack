@@ -38,7 +38,10 @@ describe("generateProject", () => {
           "pnpm-workspace.yaml",
           "agentstack.config.ts",
           "apps/web/package.json",
+          "apps/web/tsconfig.json",
+          "apps/web/src/vite-env.d.ts",
           "apps/mobile/package.json",
+          "apps/mobile/tsconfig.json",
           "apps/convex/package.json",
           "apps/convex/tsconfig.json",
           "apps/convex/convex/billing.ts",
@@ -81,6 +84,8 @@ describe("generateProject", () => {
       });
       expect(packageManifest.scripts).toMatchObject({
         validate: "agentstack validate",
+        typecheck:
+          "tsc -p apps/convex/tsconfig.json && tsc -p apps/web/tsconfig.json && tsc -p apps/mobile/tsconfig.json",
         dev: "agentstack dev --surface web",
         "dev:check": "agentstack dev --surface web --check",
         "convex:codegen": "agentstack convex codegen",
@@ -104,7 +109,19 @@ describe("generateProject", () => {
       expect(webPackageManifest.dependencies["@app/convex"]).toBe("workspace:*");
       expect(webPackageManifest.dependencies.react).toBe("^18.3.1");
       expect(webPackageManifest.dependencies["react-dom"]).toBe("^18.3.1");
+      expect(webPackageManifest.devDependencies).toMatchObject({
+        "@types/react": expect.any(String),
+        "@types/react-dom": expect.any(String),
+        typescript: "^5.7.2"
+      });
+      expect(webPackageManifest.scripts.typecheck).toBe("tsc -p tsconfig.json");
       expect(mobilePackageManifest.dependencies.react).toBe("^18.3.1");
+      expect(mobilePackageManifest.devDependencies).toMatchObject({
+        "@types/react": expect.any(String),
+        typescript: "^5.7.2"
+      });
+      expect(mobilePackageManifest.scripts.typecheck).toBe("tsc -p tsconfig.json");
+      expect(convexPackageManifest.scripts.typecheck).toBe("tsc -p tsconfig.json");
       expect(convexPackageManifest.exports).toEqual({
         "./api": {
           types: "./convex/_generated/api.d.ts",
@@ -229,8 +246,20 @@ describe("generateProject", () => {
       expect(schema).toContain("billingEntitlements");
       expect(schema).toContain("billingPrincipals");
       const convexTsconfig = JSON.parse(await readFile(join(targetDir, "apps/convex/tsconfig.json"), "utf8"));
+      const webTsconfig = JSON.parse(await readFile(join(targetDir, "apps/web/tsconfig.json"), "utf8"));
+      const mobileTsconfig = JSON.parse(await readFile(join(targetDir, "apps/mobile/tsconfig.json"), "utf8"));
       expect(convexTsconfig.compilerOptions.types).toEqual(["node"]);
       expect(convexTsconfig.include).toEqual(["convex/**/*.ts"]);
+      expect(webTsconfig.compilerOptions.types).toEqual(["vite/client"]);
+      expect(webTsconfig.include).toEqual(["src", "vite.config.ts"]);
+      expect(mobileTsconfig.extends).toBe("expo/tsconfig.base");
+      expect(mobileTsconfig.compilerOptions.lib).toEqual(["ES2021"]);
+      expect(mobileTsconfig.compilerOptions.module).toBe("ESNext");
+      expect(mobileTsconfig.compilerOptions.moduleResolution).toBe("Bundler");
+      expect(mobileTsconfig.include).toEqual(["App.tsx", "app.config.ts", "src/**/*.ts", "src/**/*.tsx"]);
+      await expect(readFile(join(targetDir, "apps/web/src/vite-env.d.ts"), "utf8")).resolves.toContain(
+        "vite/client"
+      );
       const convexHttp = await readFile(join(targetDir, "apps/convex/convex/http.ts"), "utf8");
       expect(convexHttp).toContain("function decodeSecret(secret: string): Uint8Array<ArrayBuffer>");
       expect(convexHttp).toContain("return new Uint8Array(Array.from(atob(encoded), (char) => char.charCodeAt(0)));");
