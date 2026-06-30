@@ -26,6 +26,7 @@ describe("generateProject", () => {
       const packageManifest = JSON.parse(await readFile(join(targetDir, "package.json"), "utf8"));
       const webPackageManifest = JSON.parse(await readFile(join(targetDir, "apps/web/package.json"), "utf8"));
       const mobilePackageManifest = JSON.parse(await readFile(join(targetDir, "apps/mobile/package.json"), "utf8"));
+      const convexPackageManifest = JSON.parse(await readFile(join(targetDir, "apps/convex/package.json"), "utf8"));
       const config = await readFile(join(targetDir, "agentstack.config.ts"), "utf8");
       const agents = await readFile(join(targetDir, "AGENTS.md"), "utf8");
 
@@ -41,7 +42,12 @@ describe("generateProject", () => {
           "apps/convex/package.json",
           "apps/convex/tsconfig.json",
           "apps/convex/convex/billing.ts",
-          "apps/convex/convex/http.ts"
+          "apps/convex/convex/http.ts",
+          "apps/convex/convex/_generated/api.d.ts",
+          "apps/convex/convex/_generated/api.js",
+          "apps/convex/convex/_generated/dataModel.d.ts",
+          "apps/convex/convex/_generated/server.d.ts",
+          "apps/convex/convex/_generated/server.js"
         ])
       );
       expect(files).not.toEqual(
@@ -94,9 +100,16 @@ describe("generateProject", () => {
       expect(packageManifest.scripts).not.toHaveProperty("preview:apply");
       expect(Object.values(packageManifest.scripts).join("\n")).not.toContain("scripts/");
       expect(Object.keys(packageManifest.scripts).some((script) => script.startsWith("m1:"))).toBe(false);
+      expect(webPackageManifest.dependencies["@app/convex"]).toBe("workspace:*");
       expect(webPackageManifest.dependencies.react).toBe("^18.3.1");
       expect(webPackageManifest.dependencies["react-dom"]).toBe("^18.3.1");
       expect(mobilePackageManifest.dependencies.react).toBe("^18.3.1");
+      expect(convexPackageManifest.exports).toEqual({
+        "./api": {
+          types: "./convex/_generated/api.d.ts",
+          default: "./convex/_generated/api.js"
+        }
+      });
 
       expect(config).toContain('import { defineAgentstackConfig } from "agentstack/config";');
       expect(config).toContain("export default defineAgentstackConfig");
@@ -221,14 +234,19 @@ describe("generateProject", () => {
       const webApp = await readFile(join(targetDir, "apps/web/src/App.tsx"), "utf8");
       expect(webApp).toContain("@clerk/react");
       expect(webApp).toContain("useConvexAuth");
-      expect(webApp).toContain("anyApi.workspaceStatus.protectedStatus");
+      expect(webApp).toContain('import { api } from "@app/convex/api";');
+      expect(webApp).toContain("api.workspaceStatus.protectedStatus");
       expect(webApp).toContain('data-agentstack-auth-state');
       expect(webApp).toContain('data-agentstack-protected-data-state');
       expect(webApp).toContain('data-agentstack-protected-workspace-id');
-      expect(webApp).toContain("anyApi.billing.protectedEntitlementGate");
+      expect(webApp).toContain("api.billing.protectedEntitlementGate");
       expect(webApp).toContain('data-agentstack-entitlement-key');
       expect(webApp).toContain('data-agentstack-entitlement-state');
-      expect(webApp).toContain("feature.auditLog");
+      expect(webApp).not.toContain("anyApi");
+      expect(webApp).not.toContain("convex/server");
+      expect(webApp).not.toContain("makeFunctionReference");
+      expect(webApp).not.toContain(" as ProtectedWorkspaceStatus");
+      expect(webApp).not.toContain(" as EntitlementGate");
 
       await expectNoTemplateTokens(targetDir);
     } finally {

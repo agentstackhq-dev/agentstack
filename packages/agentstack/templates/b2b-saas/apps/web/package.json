@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@app/convex": "workspace:*",
     "@clerk/react": "^6.10.4",
     "@vitejs/plugin-react": "^4.3.4",
     "convex": "^1.41.0",

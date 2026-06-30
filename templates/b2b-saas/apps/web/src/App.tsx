@@ -1,7 +1,7 @@
 import React from "react";
 import { SignInButton, SignUpButton, UserButton, useUser } from "@clerk/react";
+import { api } from "@app/convex/api";
 import { useConvexAuth, useQuery } from "convex/react";
-import { anyApi } from "convex/server";
 
 import { themeTokens } from "./theme";
 import {
@@ -14,31 +14,8 @@ type AppProps = {
   runtimeReady?: boolean;
 };
 
-type ProtectedWorkspaceStatus = {
-  workspaceId: string;
-  workspaceName: string;
-  phase: string;
-  checklistProgress: {
-    completed: number;
-    total: number;
-    requiredRemaining: number;
-  };
-  viewer: {
-    subject: string;
-    issuer: string;
-    name: string;
-  };
-};
-
-type EntitlementGate = {
-  entitlementKey: "feature.auditLog";
-  state: "allowed" | "denied";
-  workspaceId: string;
-  source: "clerk-billing-webhook" | "default-deny";
-};
-
-const protectedWorkspaceStatusQuery = anyApi.workspaceStatus.protectedStatus;
-const protectedEntitlementGateQuery = anyApi.billing.protectedEntitlementGate;
+const protectedWorkspaceStatusQuery = api.workspaceStatus.protectedStatus;
+const protectedEntitlementGateQuery = api.billing.protectedEntitlementGate;
 
 export function App({ runtimeReady = true }: AppProps) {
   const status = getWorkspaceStatusSeed();
@@ -180,8 +157,8 @@ function AuthRuntimePlaceholder() {
 }
 
 function ProtectedConvexStatus() {
-  const protectedStatus = useQuery(protectedWorkspaceStatusQuery, {}) as ProtectedWorkspaceStatus | undefined;
-  const entitlementGate = useQuery(protectedEntitlementGateQuery, {}) as EntitlementGate | undefined;
+  const protectedStatus = useQuery(protectedWorkspaceStatusQuery, {});
+  const entitlementGate = useQuery(protectedEntitlementGateQuery, {});
 
   if (protectedStatus === undefined || entitlementGate === undefined) {
     return (

@@ -2,6 +2,12 @@
   "name": "@app/convex",
   "private": true,
   "type": "module",
+  "exports": {
+    "./api": {
+      "types": "./convex/_generated/api.d.ts",
+      "default": "./convex/_generated/api.js"
+    }
+  },
   "dependencies": {
     "convex": "^1.41.0"
   },
