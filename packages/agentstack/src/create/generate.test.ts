@@ -83,6 +83,7 @@ describe("generateProject", () => {
         validate: "agentstack validate",
         dev: "agentstack dev --surface web",
         "dev:check": "agentstack dev --surface web --check",
+        "convex:codegen": "agentstack convex codegen",
         doctor: "agentstack doctor --env preview",
         "env:inspect": "agentstack env inspect --env preview",
         "preview:sync": "agentstack sync --env preview --apply",
@@ -121,6 +122,8 @@ describe("generateProject", () => {
       expect(agents).toContain("Use package-owned Agentstack CLI help instead of generated runbooks.");
       expect(agents).toContain("## Happy Path");
       expect(agents).toContain("corepack pnpm run dev:check` is diagnostics-only");
+      expect(agents).toContain("corepack pnpm run convex:codegen");
+      expect(agents).toContain("apps/convex/convex/_generated");
       expect(agents).toContain("corepack pnpm run preview:up -- --confirm-live-mutation");
       expect(agents).toContain("corepack pnpm run billing:bootstrap");
       expect(agents).toContain("corepack pnpm run billing:fixture");

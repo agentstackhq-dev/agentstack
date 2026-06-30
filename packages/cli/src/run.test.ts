@@ -116,6 +116,7 @@ describe("runAgentstack", () => {
       "provider",
       "auth",
       "billing",
+      "convex",
       "smoke",
       "evidence",
       "observe",
@@ -171,6 +172,57 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain("Usage: agentstack billing <command>");
     expect(output.join("\n")).toContain("fixture subscribe");
     expect(output.join("\n")).toContain("Move the smoke user to the configured Clerk Billing plan");
+  });
+
+  it("prints convex usage for convex help", async () => {
+    const code = await runAgentstack(["convex", "--help"], {
+      cwd: dir,
+      write: (line) => output.push(line)
+    });
+
+    expect(code).toBe(0);
+    expect(output.join("\n")).toContain("Usage: agentstack convex codegen");
+    expect(output.join("\n")).toContain("Regenerate generated Convex API types");
+  });
+
+  it("runs convex codegen with explicit local and provider mutation output", async () => {
+    const commands: LocalCommandSpec[] = [];
+
+    const code = await runAgentstack(["convex", "codegen"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      commandRunner: async (command) => {
+        commands.push(command);
+        await writeConvexGeneratedFiles();
+        return { exitCode: 0, stdout: "", stderr: "" };
+      }
+    });
+
+    expect(code).toBe(0);
+    expect(commands).toEqual([
+      {
+        id: "convex:codegen",
+        command: "corepack",
+        args: ["pnpm", "--filter", "@app/convex", "exec", "convex", "codegen", "--typecheck", "try"]
+      }
+    ]);
+    expect(output.join("\n")).toContain("Convex API types: sync started");
+    expect(output.join("\n")).toContain("Provider mutation: none");
+    expect(output.join("\n")).toContain("Local mutation: apps/convex/convex/_generated/api.d.ts");
+    expect(output.join("\n")).toContain("Result: generated");
+  });
+
+  it("fails convex codegen when generated files are still missing", async () => {
+    await rm(join(dir, "apps/convex/convex/_generated"), { recursive: true, force: true });
+
+    const code = await runAgentstack(["convex", "codegen"], {
+      cwd: dir,
+      write: (line) => output.push(line),
+      commandRunner: async () => ({ exitCode: 0, stdout: "", stderr: "" })
+    });
+
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("FAIL convex.codegen.generated-files-missing");
   });
 
   it("validates the generated theme token contract", async () => {
@@ -591,7 +643,11 @@ describe("runAgentstack", () => {
 
     const code = await runAgentstack(["dev", "--env", "preview", "--check"], {
       cwd: dir,
-      write: (line) => output.push(line)
+      write: (line) => output.push(line),
+      commandRunner: async () => {
+        await writeConvexGeneratedFiles();
+        return { exitCode: 0, stdout: "", stderr: "" };
+      }
     });
 
     expect(code).toBe(0);
@@ -605,7 +661,11 @@ describe("runAgentstack", () => {
 
     const code = await runAgentstack(["dev", "--env", "preview", "--surface", "web", "--check"], {
       cwd: dir,
-      write: (line) => output.push(line)
+      write: (line) => output.push(line),
+      commandRunner: async () => {
+        await writeConvexGeneratedFiles();
+        return { exitCode: 0, stdout: "", stderr: "" };
+      }
     });
 
     expect(code).toBe(0);
@@ -622,7 +682,11 @@ describe("runAgentstack", () => {
 
     const code = await runAgentstack(["dev", "--env", "development", "--check"], {
       cwd: dir,
-      write: (line) => output.push(line)
+      write: (line) => output.push(line),
+      commandRunner: async () => {
+        await writeConvexGeneratedFiles();
+        return { exitCode: 0, stdout: "", stderr: "" };
+      }
     });
 
     expect(code).toBe(0);
@@ -633,6 +697,7 @@ describe("runAgentstack", () => {
 
   it("starts the web dev surface after passing preflight", async () => {
     await runAgentstack(["sync", "--env", "development", "--apply"], { cwd: dir, write: () => undefined });
+    await writeStaleConvexSource();
     const commands: LocalCommandSpec[] = [];
 
     const code = await runAgentstack(["dev", "--surface", "web"], {
@@ -640,6 +705,10 @@ describe("runAgentstack", () => {
       write: (line) => output.push(line),
       commandRunner: async (command) => {
         commands.push(command);
+        if (command.id === "convex:codegen") {
+          await writeConvexGeneratedFiles();
+          return { exitCode: 0, stdout: "", stderr: "" };
+        }
         return { exitCode: 0, stdout: "VITE ready", stderr: "" };
       }
     });
@@ -647,12 +716,18 @@ describe("runAgentstack", () => {
     expect(code).toBe(0);
     expect(output).toContain("PASS dev preflight development web");
     expect(commands).toEqual([
+      {
+        id: "convex:codegen",
+        command: "corepack",
+        args: ["pnpm", "--filter", "@app/convex", "exec", "convex", "codegen", "--typecheck", "try"]
+      },
       { id: "dev:web", command: "corepack", args: ["pnpm", "--filter", "@app/web", "dev"] }
     ]);
   });
 
   it("keeps dev check as diagnostics-only", async () => {
     await runAgentstack(["sync", "--env", "development", "--apply"], { cwd: dir, write: () => undefined });
+    await writeStaleConvexSource();
     const commands: LocalCommandSpec[] = [];
 
     const code = await runAgentstack(["dev", "--surface", "web", "--check"], {
@@ -660,6 +735,7 @@ describe("runAgentstack", () => {
       write: (line) => output.push(line),
       commandRunner: async (command) => {
         commands.push(command);
+        await writeConvexGeneratedFiles();
         return { exitCode: 0, stdout: "", stderr: "" };
       }
     });
@@ -667,7 +743,13 @@ describe("runAgentstack", () => {
     expect(code).toBe(0);
     expect(output).toContain("PASS dev preflight development web");
     expect(output.join("\n")).toContain("pnpm run dev");
-    expect(commands).toEqual([]);
+    expect(commands).toEqual([
+      {
+        id: "convex:codegen",
+        command: "corepack",
+        args: ["pnpm", "--filter", "@app/convex", "exec", "convex", "codegen", "--typecheck", "try"]
+      }
+    ]);
   });
 
   it("records lifecycle command telemetry", async () => {
@@ -675,7 +757,16 @@ describe("runAgentstack", () => {
 
     expect(await runAgentstack(["inspect", "--env", "preview"], { cwd: dir, write: () => undefined })).toBe(0);
     expect(await runAgentstack(["doctor", "--env", "preview"], { cwd: dir, write: () => undefined })).toBe(0);
-    expect(await runAgentstack(["dev", "--env", "preview", "--check"], { cwd: dir, write: () => undefined })).toBe(0);
+    expect(
+      await runAgentstack(["dev", "--env", "preview", "--check"], {
+        cwd: dir,
+        write: () => undefined,
+        commandRunner: async () => {
+          await writeConvexGeneratedFiles();
+          return { exitCode: 0, stdout: "", stderr: "" };
+        }
+      })
+    ).toBe(0);
 
     const code = await runAgentstack(
       ["observe", "timeline", "--env", "preview", "--journey", "agent-command"],
@@ -7848,7 +7939,9 @@ describe("runAgentstack", () => {
     expect(output.join("\n")).toContain(
       "Usage: agentstack preview up --env preview --confirm-live-mutation"
     );
-    expect(output.join("\n")).toContain("Runs provider bootstrap, provider link, auth user, and deploy.");
+    expect(output.join("\n")).toContain(
+      "Runs provider bootstrap, provider link, Convex API type sync, auth user, and deploy."
+    );
     expect(providerExecutions).toHaveLength(0);
   });
 
@@ -7884,9 +7977,14 @@ describe("runAgentstack", () => {
   it("orchestrates preview up through package-owned M2 live steps", async () => {
     const publishableKey = `pk_test_${Buffer.from("https://clerk-from-key.acme.test$").toString("base64url")}`;
     let convexCreateAttempts = 0;
+    await writeStaleConvexSource();
     const code = await runAgentstack(["preview", "up", "--env", "preview", "--confirm-live-mutation"], {
       cwd: dir,
       write: (line) => output.push(line),
+      commandRunner: async () => {
+        await writeConvexGeneratedFiles();
+        return { exitCode: 0, stdout: "", stderr: "" };
+      },
       providerExecutor: {
         async execute(command, args, options) {
           providerExecutions.push({ command, args, stdin: options.stdin });
@@ -8001,9 +8099,11 @@ describe("runAgentstack", () => {
     });
 
     expect(code).toBe(0);
+    expect(output.join("\n")).toContain("Convex API types: sync started");
     expect(output.filter((line) => line.startsWith("STEP preview.up "))).toEqual([
       "STEP preview.up provider bootstrap",
       "STEP preview.up provider link",
+      "STEP preview.up convex codegen",
       "STEP preview.up auth user",
       "STEP preview.up deploy"
     ]);
@@ -9985,6 +10085,13 @@ describe("package metadata", () => {
 });
 
 async function writeGeneratedAnchors(): Promise<void> {
+  const convexGeneratedAnchors = [
+    "apps/convex/convex/_generated/api.d.ts",
+    "apps/convex/convex/_generated/api.js",
+    "apps/convex/convex/_generated/dataModel.d.ts",
+    "apps/convex/convex/_generated/server.d.ts",
+    "apps/convex/convex/_generated/server.js"
+  ];
   const anchors = [
     "AGENTS.md",
     ".gitignore",
@@ -10043,6 +10150,30 @@ async function writeGeneratedAnchors(): Promise<void> {
         "utf8"
       );
     })
+  );
+
+  await Promise.all(
+    convexGeneratedAnchors.map(async (anchor) => {
+      await writeFile(join(dir, anchor), readGeneratedAnchorFixture(anchor), "utf8");
+    })
+  );
+}
+
+async function writeConvexGeneratedFiles(): Promise<void> {
+  await mkdir(join(dir, "apps/convex/convex/_generated"), { recursive: true });
+  await writeFile(join(dir, "apps/convex/convex/_generated/api.d.ts"), "export declare const api: {};\n", "utf8");
+  await writeFile(join(dir, "apps/convex/convex/_generated/api.js"), "export const api = {};\n", "utf8");
+  await writeFile(join(dir, "apps/convex/convex/_generated/dataModel.d.ts"), "export type DataModel = {};\n", "utf8");
+  await writeFile(join(dir, "apps/convex/convex/_generated/server.d.ts"), "export {};\n", "utf8");
+  await writeFile(join(dir, "apps/convex/convex/_generated/server.js"), "export {};\n", "utf8");
+}
+
+async function writeStaleConvexSource(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  await writeFile(
+    join(dir, "apps/convex/convex/workspaceStatus.ts"),
+    `${readGeneratedAnchorFixture("apps/convex/convex/workspaceStatus.ts")}\n// stale ${Date.now()}\n`,
+    "utf8"
   );
 }
 

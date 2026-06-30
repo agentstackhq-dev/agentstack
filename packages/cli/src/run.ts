@@ -328,6 +328,15 @@ export async function runAgentstack(argv: string[], io: RunIo): Promise<number> 
       return await m3BillingSmokeCommand(rest, io);
     }
 
+    if (command === "convex" && (isHelpArg(subcommand) || subcommand === undefined)) {
+      writeConvexUsage(io);
+      return 0;
+    }
+
+    if (command === "convex" && subcommand === "codegen") {
+      return await convexCodegenCommand(rest, io);
+    }
+
     if (command === "smoke") {
       return await m2SmokeCommand([subcommand, ...rest].filter(Boolean), io);
     }
@@ -427,6 +436,7 @@ function writeTopLevelUsage(io: RunIo): void {
   io.write("  provider       Bootstrap, link, inspect, adopt, or ledger provider resources");
   io.write("  auth           Manage package-owned auth fixtures");
   io.write("  billing        Bootstrap and verify Clerk Billing entitlement fixtures");
+  io.write("  convex         Regenerate generated Convex API types");
   io.write("  smoke          Validate preview auth/data smoke evidence");
   io.write("  evidence       Check package-owned validation evidence");
   io.write("  observe        Inspect telemetry and journey evidence");
@@ -459,7 +469,7 @@ function writePreviewUsage(io: RunIo): void {
 function writePreviewUpUsage(io: RunIo): void {
   io.write("Usage: agentstack preview up --env preview --confirm-live-mutation");
   io.write("");
-  io.write("Runs provider bootstrap, provider link, auth user, and deploy.");
+  io.write("Runs provider bootstrap, provider link, Convex API type sync, auth user, and deploy.");
   io.write("");
   io.write("Examples:");
   io.write("  agentstack preview up --env preview --confirm-live-mutation");
@@ -486,6 +496,13 @@ function writeBillingUsage(io: RunIo): void {
   io.write("                 Verify replay idempotency for the last Billing webhook");
   io.write("  fixture delete Remove local/Convex billing fixture state");
   io.write("  smoke          Validate entitlement DOM markers from a signed-in preview page");
+}
+
+function writeConvexUsage(io: RunIo): void {
+  io.write("Usage: agentstack convex codegen");
+  io.write("");
+  io.write("Commands:");
+  io.write("  codegen      Regenerate generated Convex API types for app surfaces");
 }
 
 async function validateCommand(argv: string[], io: RunIo): Promise<number> {
@@ -525,6 +542,13 @@ async function validateCommand(argv: string[], io: RunIo): Promise<number> {
     options.live === undefined
       ? undefined
       : readValidateLiveOptions(options.live, options.env, "Run agentstack validate --live --env preview.");
+
+  if (!options.cloud) {
+    const convexSyncCode = await syncConvexApiTypes(io, { force: false });
+    if (convexSyncCode !== 0) {
+      return convexSyncCode;
+    }
+  }
 
   const { context, diagnostics, envValues } = await runLocalValidationGate(io.cwd);
   diagnostics.forEach((diagnostic) => io.write(formatDiagnostic(diagnostic)));
@@ -858,6 +882,12 @@ async function devCommand(argv: string[], io: RunIo): Promise<number> {
     defaultValue: "web"
   });
   const checkOnly = Boolean(options.check);
+  if (surface === "web") {
+    const convexSyncCode = await syncConvexApiTypes(io, { force: false });
+    if (convexSyncCode !== 0) {
+      return convexSyncCode;
+    }
+  }
   const { summary, localDiagnostics, cloudDiagnostics } = await loadLifecycleSummary(io.cwd, environment, {
     includeCloudDiagnostics: true
   });
@@ -1072,6 +1102,7 @@ async function previewUpCommand(argv: string[], io: RunIo): Promise<number> {
   const steps: Array<{ label: string; run: () => Promise<number> }> = [
     { label: "provider bootstrap", run: () => m2ProviderBootstrapCommand(liveArgs, io) },
     { label: "provider link", run: () => m2ProviderLinkCommand(["--env", "preview"], io).then((code) => code ?? 1) },
+    { label: "convex codegen", run: () => syncConvexApiTypes(io, { force: false }) },
     { label: "auth user", run: () => m2AuthUserCommand(["ensure", ...liveArgs], io) },
     { label: "deploy", run: () => m2DeployPreviewLiveCommand(liveArgs, io).then((code) => code ?? 1) }
   ];
@@ -4048,6 +4079,168 @@ function createChildProcessCommandRunner(cwd: string): LocalCommandRunner {
         resolve({ exitCode: code ?? 1, stdout, stderr });
       });
     });
+}
+
+const convexGeneratedApiFiles = [
+  "apps/convex/convex/_generated/api.d.ts",
+  "apps/convex/convex/_generated/api.js",
+  "apps/convex/convex/_generated/dataModel.d.ts",
+  "apps/convex/convex/_generated/server.d.ts",
+  "apps/convex/convex/_generated/server.js"
+] as const;
+
+type ConvexApiSyncOptions = {
+  force: boolean;
+};
+
+async function convexCodegenCommand(_argv: string[], io: RunIo): Promise<number> {
+  return await syncConvexApiTypes(io, { force: true });
+}
+
+async function syncConvexApiTypes(io: RunIo, options: ConvexApiSyncOptions): Promise<number> {
+  const context = await loadProjectContext(io.cwd);
+  if (!context.manifest.surfaces.includes("convex") || !context.manifest.services.convex.enabled) {
+    io.write("Convex API types: skipped");
+    io.write("Reason: convex surface is not enabled");
+    io.write("Provider mutation: none");
+    io.write("Local mutation: none");
+    return 0;
+  }
+
+  try {
+    await stat(join(io.cwd, "apps/convex/package.json"));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      io.write("FAIL convex.codegen.package-missing");
+      io.write("Path: apps/convex/package.json");
+      io.write("Reason: Convex surface is enabled but @app/convex is missing.");
+      io.write("Fix: Restore the generated Convex app package or regenerate the app.");
+      io.write("Provider mutation: none");
+      io.write("Local mutation: none");
+      return 1;
+    }
+    throw error;
+  }
+
+  const spec: LocalCommandSpec = {
+    id: "convex:codegen",
+    command: "corepack",
+    args: ["pnpm", "--filter", "@app/convex", "exec", "convex", "codegen", "--typecheck", "try"]
+  };
+  const before = await snapshotConvexGeneratedFiles(io.cwd);
+
+  if (!options.force && !(await needsConvexApiCodegen(io.cwd, before))) {
+    io.write("Convex API types: already current");
+    io.write(`Command: ${formatCommandSpec(spec)}`);
+    io.write("Provider mutation: none");
+    io.write("Local mutation: none");
+    return 0;
+  }
+
+  io.write("Convex API types: sync started");
+  io.write(`Command: ${formatCommandSpec(spec)}`);
+  io.write("Reason: typed Convex API required by @app/web and future cross-surface consumers");
+  io.write("Provider mutation: none");
+
+  const runner = io.commandRunner ?? createChildProcessCommandRunner(io.cwd);
+  const result = await runner(spec);
+  if (result.exitCode !== 0) {
+    io.write("FAIL convex.codegen.failed");
+    io.write(`Reason: Convex codegen exited with status ${result.exitCode}.`);
+    const stdout = redactAndTrimCommandOutput(result.stdout);
+    const stderr = redactAndTrimCommandOutput(result.stderr);
+    if (stdout.length > 0) {
+      io.write(`Stdout tail: ${stdout}`);
+    }
+    if (stderr.length > 0) {
+      io.write(`Stderr tail: ${stderr}`);
+    }
+    io.write("Provider mutation: none");
+    io.write("Local mutation: none or partial generated-file mutation");
+    io.write("Fix: Fix the first Convex TypeScript or schema error above, then rerun agentstack convex codegen.");
+    return 1;
+  }
+
+  const after = await snapshotConvexGeneratedFiles(io.cwd);
+  const missing = convexGeneratedApiFiles.filter((file) => after[file] === undefined);
+  if (missing.length > 0) {
+    io.write("FAIL convex.codegen.generated-files-missing");
+    missing.forEach((file) => io.write(`Path: ${file}`));
+    io.write("Provider mutation: none");
+    io.write("Fix: Rerun agentstack convex codegen after checking the Convex CLI output.");
+    return 1;
+  }
+
+  const changed = convexGeneratedApiFiles.filter((file) => before[file] !== after[file]);
+  if (changed.length === 0) {
+    io.write("Local mutation: none");
+    io.write("Result: already current");
+    return 0;
+  }
+
+  changed.forEach((file) => io.write(`Local mutation: ${file}`));
+  io.write("Result: generated");
+  return 0;
+}
+
+async function needsConvexApiCodegen(
+  cwd: string,
+  snapshot: Record<string, string | undefined>
+): Promise<boolean> {
+  if (convexGeneratedApiFiles.some((file) => snapshot[file] === undefined)) {
+    return true;
+  }
+
+  const generatedStats = await Promise.all(convexGeneratedApiFiles.map((file) => stat(join(cwd, file))));
+  const oldestGeneratedMtime = Math.min(...generatedStats.map((fileStat) => fileStat.mtimeMs));
+  const sourceFiles = await listConvexSourceFiles(cwd);
+  const sourceStats = await Promise.all(sourceFiles.map((file) => stat(join(cwd, file))));
+  return sourceStats.some((fileStat) => fileStat.mtimeMs > oldestGeneratedMtime);
+}
+
+async function listConvexSourceFiles(cwd: string): Promise<string[]> {
+  const root = "apps/convex/convex";
+  const files: string[] = [];
+
+  async function visit(relativeDir: string): Promise<void> {
+    const entries = await readdir(join(cwd, relativeDir), { withFileTypes: true });
+    for (const entry of entries) {
+      const relativePath = `${relativeDir}/${entry.name}`;
+      if (entry.isDirectory()) {
+        if (relativePath !== `${root}/_generated`) {
+          await visit(relativePath);
+        }
+        continue;
+      }
+      if (entry.isFile() && (entry.name.endsWith(".ts") || entry.name.endsWith(".js"))) {
+        files.push(relativePath);
+      }
+    }
+  }
+
+  try {
+    await visit(root);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw error;
+    }
+  }
+  return files;
+}
+
+async function snapshotConvexGeneratedFiles(cwd: string): Promise<Record<string, string | undefined>> {
+  const snapshot: Record<string, string | undefined> = {};
+  for (const file of convexGeneratedApiFiles) {
+    try {
+      snapshot[file] = await readFile(join(cwd, file), "utf8");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+        throw error;
+      }
+      snapshot[file] = undefined;
+    }
+  }
+  return snapshot;
 }
 
 function redactAndTrimCommandOutput(value: string): string {

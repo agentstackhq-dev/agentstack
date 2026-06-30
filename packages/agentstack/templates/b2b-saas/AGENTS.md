@@ -11,6 +11,11 @@ runbooks.
 - Use package-owned Agentstack CLI help instead of generated runbooks.
 - Store mutable provider state, auth fixtures, smoke artifacts, ledgers, and
   evidence under ignored `.agentstack/` files.
+- Convex API types are generated app artifacts under
+  `apps/convex/convex/_generated/`. Run
+  `corepack pnpm run convex:codegen` after Convex function changes when you
+  need an explicit repair; `validate`, `dev`, and `preview:up` also run
+  package-owned sync before relying on those types.
 - Do not add generated `docs/`, `scripts/`, `skills/`, root `convex/`, root
   `vercel.json`, or root `packages/` framework internals to this app.
 
@@ -36,6 +41,7 @@ under `.agents/skills/`; decide in your repo whether to track or ignore them.
 - `corepack pnpm run validate`
 - `corepack pnpm run dev`
 - `corepack pnpm run dev:check`
+- `corepack pnpm run convex:codegen`
 - `corepack pnpm run doctor`
 - `corepack pnpm run env:inspect`
 - `agentstack skills install codex` (optional Codex repo-skill scaffold)
