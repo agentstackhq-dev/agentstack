@@ -8031,7 +8031,7 @@ describe("runAgentstack", () => {
           if (joined.includes("convex project create acme-crm-preview")) {
             return {
               exitCode: 0,
-              stdout: "Created project: https://dashboard.convex.dev/redacted/team-one/acme-crm-preview",
+              stdout: "Created project: team: team-one, project: acme-crm-preview",
               stderr: "",
               durationMs: 1
             };

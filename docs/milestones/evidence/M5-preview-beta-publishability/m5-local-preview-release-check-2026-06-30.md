@@ -13,7 +13,7 @@ What passed:
 - Built all publishable Agentstack packages to `dist`
 - Packed `@agentstackhq/core`, `@agentstackhq/adapters`, `@agentstackhq/telemetry`, `@agentstackhq/cli`, and `@agentstackhq/agentstack`
 - Inspected packed manifests for scoped names, `0.1.0-beta.3`, allowlisted files, no `workspace:`, no `link:`, and no local
-  `<user-home>/` paths
+  user-home paths
 - Installed the packed `@agentstackhq/agentstack` facade into a clean temp launcher with local tarball overrides for internal
   packages
 - Ran `agentstack --help` and `agentstack create` from the packed facade package

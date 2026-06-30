@@ -13,6 +13,7 @@ export const releasePackages = [
   { dir: "packages/cli", name: "@agentstackhq/cli", files: ["dist", "skills"] },
   { dir: "packages/agentstack", name: publicPackageName, files: ["dist", "templates"] }
 ];
+const localUserPathMarker = ["/", "Users", "/"].join("");
 
 const currentSurfaceScanRoots = [
   "AGENTS.md",
@@ -102,7 +103,7 @@ function assertPackageManifests(root, version) {
       }
       assertDoesNotContain(spec, "workspace:", `${pkg.name} dependency ${name}`);
       assertDoesNotContain(spec, "link:", `${pkg.name} dependency ${name}`);
-      assertDoesNotContain(spec, "<user-home>/", `${pkg.name} dependency ${name}`);
+      assertDoesNotContain(spec, localUserPathMarker, `${pkg.name} dependency ${name}`);
     }
 
     if (pkg.name === publicPackageName) {

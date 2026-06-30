@@ -163,12 +163,12 @@ describe("generateProject", () => {
       await generateProject({
         name: "acme-crm",
         targetDir,
-        packageSpec: "link:<agentstack-repo>/packages/agentstack"
+        packageSpec: "link:/workspace/agentstack/packages/agentstack"
       });
 
       const packageManifest = JSON.parse(await readFile(join(targetDir, "package.json"), "utf8"));
       expect(packageManifest.dependencies["@agentstackhq/agentstack"]).toBe(
-        "link:<agentstack-repo>/packages/agentstack"
+        "link:/workspace/agentstack/packages/agentstack"
       );
       expect(packageManifest.dependencies).not.toHaveProperty("agentstack");
     } finally {

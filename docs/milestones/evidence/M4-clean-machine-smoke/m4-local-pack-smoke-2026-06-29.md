@@ -30,7 +30,7 @@ Verified commands:
 Pack directory:
 
 ```text
-<temp-dir>/.../T/agentstack-m4-pack
+<temp-dir>/agentstack-m4-pack
 ```
 
 Artifacts:
@@ -55,20 +55,20 @@ package/package.json
 Consumer workspace:
 
 ```text
-<temp-dir>/.../T/agentstack-m4-consumer
+<temp-dir>/agentstack-m4-consumer
 ```
 
 Generated app:
 
 ```text
-<temp-dir>/.../T/agentstack-m4-consumer/m4-smoke
+<temp-dir>/agentstack-m4-consumer/m4-smoke
 ```
 
 The generated app direct framework dependency was only `agentstack`:
 
 ```json
 "dependencies": {
-  "agentstack": "file:<temp-dir>/.../T/agentstack-m4-pack/agentstack-0.0.0.tgz"
+  "agentstack": "file:<temp-dir>/agentstack-m4-pack/agentstack-0.0.0.tgz"
 }
 ```
 
@@ -77,10 +77,10 @@ Internal workspace packages were install plumbing under `pnpm.overrides`, not di
 ```json
 "pnpm": {
   "overrides": {
-    "@agentstack/core": "file:<temp-dir>/.../T/agentstack-m4-pack/agentstack-core-0.0.0.tgz",
-    "@agentstack/adapters": "file:<temp-dir>/.../T/agentstack-m4-pack/agentstack-adapters-0.0.0.tgz",
-    "@agentstack/telemetry": "file:<temp-dir>/.../T/agentstack-m4-pack/agentstack-telemetry-0.0.0.tgz",
-    "@agentstack/cli": "file:<temp-dir>/.../T/agentstack-m4-pack/agentstack-cli-0.0.0.tgz"
+    "@agentstack/core": "file:<temp-dir>/agentstack-m4-pack/agentstack-core-0.0.0.tgz",
+    "@agentstack/adapters": "file:<temp-dir>/agentstack-m4-pack/agentstack-adapters-0.0.0.tgz",
+    "@agentstack/telemetry": "file:<temp-dir>/agentstack-m4-pack/agentstack-telemetry-0.0.0.tgz",
+    "@agentstack/cli": "file:<temp-dir>/agentstack-m4-pack/agentstack-cli-0.0.0.tgz"
   }
 }
 ```

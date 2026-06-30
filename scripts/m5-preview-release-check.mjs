@@ -23,6 +23,7 @@ const consumerDir = resolve(
 const appName = process.env.AGENTSTACK_M5_APP_NAME ?? "m5-beta-smoke";
 const previewVersion = "0.1.0-beta.3";
 const publicPackageName = "@agentstackhq/agentstack";
+const localUserPathMarker = ["/", "Users", "/"].join("");
 const packages = [
   { dir: "packages/core", name: "@agentstackhq/core", files: ["dist"] },
   { dir: "packages/adapters", name: "@agentstackhq/adapters", files: ["dist"] },
@@ -140,7 +141,11 @@ function assertSourceManifest(pkg, manifest) {
   if (manifest.version !== previewVersion) {
     throw new Error(`Expected ${pkg.name} version ${previewVersion}, received ${manifest.version}.`);
   }
-  assertJsonDoesNotInclude(manifest, ["workspace:", "link:", "<user-home>/"], `${pkg.name} source manifest`);
+  assertJsonDoesNotInclude(
+    manifest,
+    ["workspace:", "link:", localUserPathMarker],
+    `${pkg.name} source manifest`
+  );
   for (const [name, spec] of Object.entries(manifest.dependencies ?? {})) {
     if (name.startsWith("@agentstackhq/") && spec !== previewVersion) {
       throw new Error(`Source dependency ${name} in ${pkg.name} must resolve to ${previewVersion}.`);
@@ -172,7 +177,11 @@ function assertPackedManifest(pkg, manifest) {
       throw new Error(`Packed dependency ${name} in ${pkg.name} must resolve to ${previewVersion}.`);
     }
   }
-  assertJsonDoesNotInclude(manifest, ["workspace:", "link:", "<user-home>/"], `${pkg.name} packed manifest`);
+  assertJsonDoesNotInclude(
+    manifest,
+    ["workspace:", "link:", localUserPathMarker],
+    `${pkg.name} packed manifest`
+  );
 }
 
 function assertPackedExecutable(pkg, tarballPath) {

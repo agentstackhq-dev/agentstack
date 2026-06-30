@@ -12,6 +12,7 @@ const args = process.argv.slice(2);
 const skipNpmDryRun = args.includes("--skip-npm-dry-run");
 
 const commands = [
+  ["corepack", ["pnpm", "run", "public:safety:check"]],
   ["corepack", ["pnpm", "build"]],
   ["node", ["scripts/release/contract.mjs", "--check"]],
   ["corepack", ["pnpm", "typecheck"]],

@@ -16,7 +16,8 @@ describe("release pipeline contract", () => {
       "release:check": "node scripts/release/check.mjs",
       "release:bump": "node scripts/release/bump-version.mjs",
       "release:publish": "node scripts/release/publish.mjs",
-      "release:registry:smoke": "node scripts/release/registry-smoke.mjs"
+      "release:registry:smoke": "node scripts/release/registry-smoke.mjs",
+      "public:safety:check": "node scripts/public-safety-check.mjs"
     });
   });
 
@@ -26,6 +27,12 @@ describe("release pipeline contract", () => {
     });
 
     expect(result.stdout).toContain("PASS release contract");
+  });
+
+  test("release check includes the public safety gate", async () => {
+    const script = await readFile(join(repoRoot, "scripts/release/check.mjs"), "utf8");
+
+    expect(script).toContain("public:safety:check");
   });
 
   test("ci workflow runs the full non-publishing release gate", async () => {

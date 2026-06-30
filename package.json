@@ -8,6 +8,7 @@
     "format:check": "tsx packages/cli/src/bin.ts format --check",
     "m4:pack:smoke": "node scripts/m4-local-pack-smoke.mjs",
     "m5:release:check": "node scripts/m5-preview-release-check.mjs",
+    "public:safety:check": "node scripts/public-safety-check.mjs",
     "release:bump": "node scripts/release/bump-version.mjs",
     "release:check": "node scripts/release/check.mjs",
     "release:publish": "node scripts/release/publish.mjs",
