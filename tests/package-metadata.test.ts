@@ -63,6 +63,11 @@ describe("npm preview package metadata", () => {
       expect(manifest.name).toBe(pkg.name);
       expect(manifest.version).toBe(previewVersion);
       expect(manifest.files).toEqual(pkg.files);
+      expect(manifest.repository).toEqual({
+        type: "git",
+        url: "https://github.com/agentstackhq-dev/agentstack",
+        directory: pkg.dir
+      });
       expect(manifest.publishConfig).toMatchObject({ access: "public", tag: "beta" });
 
       for (const [name, spec] of Object.entries(manifest.dependencies ?? {})) {
@@ -85,6 +90,7 @@ async function readManifest(packageDir: string): Promise<{
   bin?: unknown;
   dependencies?: Record<string, string>;
   files?: string[];
+  repository?: Record<string, string>;
   publishConfig?: Record<string, string>;
 }> {
   return JSON.parse(await readFile(join(repoRoot, packageDir, "package.json"), "utf8"));

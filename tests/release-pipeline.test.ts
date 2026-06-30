@@ -50,6 +50,7 @@ describe("release pipeline contract", () => {
 
   test("release workflow uses manual dispatch, trusted publishing, and registry smoke", async () => {
     const workflow = await readFile(join(repoRoot, ".github/workflows/release.yml"), "utf8");
+    const publishScript = await readFile(join(repoRoot, "scripts/release/publish.mjs"), "utf8");
 
     expect(workflow).toContain("workflow_dispatch:");
     expect(workflow).toContain("id-token: write");
@@ -60,6 +61,7 @@ describe("release pipeline contract", () => {
     expect(workflow).toContain("corepack pnpm run release:publish");
     expect(workflow).toContain("corepack pnpm run release:registry:smoke");
     expect(workflow).not.toContain("NPM_TOKEN");
+    expect(publishScript).not.toContain("--provenance");
   });
 
   test("release workflow documentation records versioning and trusted publishing rules", async () => {

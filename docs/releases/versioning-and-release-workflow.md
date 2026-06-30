@@ -89,7 +89,9 @@ For each package in npm, configure a trusted publisher with:
 
 The release workflow grants `id-token: write`, runs on a GitHub-hosted runner, uses Node 24, and installs npm `^11.5.1`
 before publishing. That satisfies the npm Trusted publishing requirements and lets npm issue short-lived credentials
-through GitHub OIDC. Public packages published through this path are eligible for npm provenance.
+through GitHub OIDC. Trusted publishing automatically generates npm provenance, so the package-owned publish script does
+not pass `--provenance`; every package manifest must keep `repository.url` exactly aligned with the GitHub repository
+reported by OIDC.
 
 ## Failure Policy
 

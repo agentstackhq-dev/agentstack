@@ -13,6 +13,7 @@ export const releasePackages = [
   { dir: "packages/cli", name: "@agentstackhq/cli", files: ["dist", "skills"] },
   { dir: "packages/agentstack", name: publicPackageName, files: ["dist", "templates"] }
 ];
+const repositoryUrl = "https://github.com/agentstackhq-dev/agentstack";
 const localUserPathMarker = ["/", "Users", "/"].join("");
 
 const currentSurfaceScanRoots = [
@@ -95,6 +96,9 @@ function assertPackageManifests(root, version) {
     assertEqual(manifest.type, "module", `${pkg.name} module type`);
     assertEqual(manifest.main, "dist/index.js", `${pkg.name} main`);
     assertEqual(manifest.types, "dist/index.d.ts", `${pkg.name} types`);
+    assertEqual(manifest.repository?.type, "git", `${pkg.name} repository type`);
+    assertEqual(manifest.repository?.url, repositoryUrl, `${pkg.name} repository url`);
+    assertEqual(manifest.repository?.directory, pkg.dir, `${pkg.name} repository directory`);
     assertEqual(manifest.publishConfig?.access, "public", `${pkg.name} publish access`);
 
     for (const [name, spec] of Object.entries(manifest.dependencies ?? {})) {

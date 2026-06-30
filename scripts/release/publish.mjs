@@ -26,8 +26,6 @@ for (const pkg of releasePackages) {
   const publishArgs = ["publish", "--access", "public", "--tag", tag];
   if (dryRun) {
     publishArgs.push("--dry-run");
-  } else {
-    publishArgs.push("--provenance");
   }
   console.log(`$ npm ${publishArgs.join(" ")} (${pkg.dir})`);
   runCommand("npm", publishArgs, { cwd: `${repoRoot}/${pkg.dir}`, stdio: "inherit" });
